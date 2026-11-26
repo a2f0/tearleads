@@ -45,7 +45,7 @@ past it rolls the request back with 409
 the same way. A peer another user owns outranks it, so a request refused for
 both carries `document_sync_peer_owned`. A dependency vector that does not
 decode, and a rotation baseline that declares any dependency, are refused with
-400 ([dependencies](#dependencies)).
+400 ([dependencies](./peer-ownership.md#dependencies)).
 
 ## Void Updates
 
@@ -194,138 +194,12 @@ rotation can leave out, and when a device leaves rotations to other members.
 
 ## Peer Ownership
 
-Earliest-wins voids the later of two updates that carry the same operation ids
-(peer and counter) with different operations. A writer that committed
-operations under another device's peer id at that device's next counters,
-before the device's own update landed, would make every reader void the
-device's update. The server now refuses that: past a peer's committed
-frontier, only its [peer owner](./glossary/sync.md#peer-owner) may write
-([what the server checks](#what-the-server-checks)).
-
-A writer derives a separate peer id for each document or container it writes,
-from a seed that never leaves its device, the signed-in user, and the record
-(`recordPeerSeed`). Another member therefore cannot read a device's peer id on
-a document from that device's updates to other documents: it first sees the
-peer id in the device's first commit on the document, and by then the device's
-user owns it. Two identities on one device also never write one history under
-one peer id. The first update of a new container's metadata, organization
-profile, or roster profile goes under a fresh peer id that is never reused.
-
-### Dependencies
-
-A Loro update depends on the operations outside it that its changes were made
-on, and a reader that lacks one cannot import it. Before the server checked
-dependencies, a member who had read a device's peer could commit an update on
-its own peer that depends on the device's next counter. Its spans name only
-its own peer, so ownership passed it. Every reader that lacked that operation
-voided it, but the device held it unsent and accepted it. Its later updates
-then built on the forged one, and every other reader voided each of them: the
-device was silenced on the document without notice.
-
-Now the server refuses an update whose declared dependencies are not
-committed ([what the server checks](#what-the-server-checks)), and every
-reader voids at stage `loro_metadata` an update whose payload depends on other
-operations than it declares. Loro reads the dependencies it reports for a blob
-from the same encoded data its import applies, so the comparison needs no
-trust in the blob's checksum, which anyone can recompute. Every reader then
-judges a dependency against operations committed before the update, so the
-device voids the forged update too.
-
-An honest update depends on operations its writer holds: foreign ones it
-pulled, which are committed, and its own, which are committed or carried by
-an earlier update of the same request. Its dependencies are refused only when
-a billing purge and a stale recreation lost an operation it depends on. The
-device then rebases as for a peer another user owns, cutting the named peers
-at the frontiers the refusal gives.
-
-### Rebasing onto a fresh peer
-
-A device whose sync is refused with `document_sync_peer_owned` or
-`document_sync_dependency_uncommitted` recovers by its own steps. For each
-refused peer it keeps the operations below the frontier the server named and
-cuts the rest, then cuts every operation that depends on a cut
-one. It writes the cut operations' net effect again under a fresh peer, on a
-fork of what it kept, and replaces the record's queued updates with one update
-holding every fork operation from where its unsent operations start: on each
-peer, the lowest of its pending base and every queued update's start on that
-peer. That update re-asserts the refused peer's committed counters, which any
-writer may do, and extends only the fresh peer, so the retry lands. Operations
-committed on a refused peer stay under their ids in the fork whoever committed
-them, so no reader sees them twice.
-
-The server refuses an update that depends on an uncommitted operation, so no
-committed operation depends on a cut one. The rebase still never cuts what the
-device knows is committed (on a refused peer, below the named frontier; on any
-other peer, below where its unsent operations start): writing it again under the
-fresh peer would duplicate it for every reader, so the rebase fails loudly
-instead. Honest histories never get there. A refusal that names no frontiers,
-such as an unlink's, fails that operation; the document's next sync draws the
-refusal with its frontiers and rebases, so a retry builds on the fork.
-
-A document's fresh peer comes from a new random salt its record keeps
-(`peer_salt`), so a reload writes on that peer and not the refused one. One
-transaction replaces the record's history with the fork's full history, its
-queue with the one update, and its void rows and preemption notices with none,
-and moves the record to the next recovery generation, which fences out every
-writer that read the old history. It writes nothing if the record or its
-history moved past what the rebase read: another tab's queued edit is merged
-into the fork before the cut, and one queued after that read makes the device
-rebase again on its next refusal. Container metadata rebases the same way, with
-its stored content as the fence, onto a random peer it keeps in memory only. A
-reload derives the writer's own metadata peer again, which the server still
-refuses, so the next write after a reload rebases again, once per written
-container and session.
-
-### Residuals
-
-- **Recreation preemption.** Only an organization's billing purge frees a
-  document's id, and only for that organization's owner ([reserved
-  ids](./developer/billing-purge-recovery.md#reserved-ids)); a purge of one
-  document is permanent (409 "Document was permanently purged"). The owner's
-  devices recreate it from local history (`recoverPurgedOrganization`). The
-  recreator owns the peers its copy carries, so a malicious owner can commit
-  their next counters before the devices' offline edits land. Those devices
-  rebase keeping their operations below its frontier as committed, and readers,
-  holding its operations there first, void the re-assertion.
-- **Dependencies on void spans.** The server judges a dependency against the
-  committed frontier, which also counts the spans of updates every reader
-  voided, since it cannot read a payload. Only a peer's owner raises that
-  frontier, so a member can cover operations nobody committed only on its own
-  peer, where no honest device holds any, or on a peer a purge left unowned.
-  The owner's recovery from a stale copy lacking a device's peer entirely
-  leaves it unowned, and a re-invited member who knows it can claim it before
-  a device holding its operations relays them: with a void span over them and
-  a dependent update, which the device accepts and other readers void, or
-  with forged operations, which other readers accept and the device voids.
-  Accepted (#3230): kept owner rows would turn honest relays into duplicates.
-- **Overclaims on one's own peer.** The server cannot read a payload, so an
-  owner may declare a span past the operations it carries. The counters below
-  that frontier are committed, so any writer may then fill them first, and
-  readers void the owner's later operations there. Only a dishonest or broken
-  client overclaims, and the cost falls on its own peer.
-- **Same-user devices share ownership.** A peer belongs to a user, not a
-  device. A modified client signed in as the same user can extend the peer of
-  that user's other device, which honest devices never share, and readers void
-  the later operations.
-- **Operation references outside dependencies.** The rebase cuts by Loro
-  dependencies. An operation that names another (a move or delete target)
-  without depending on it is left to another track.
-
-### Preemption notices
-
-A device that is served a colliding update holds its own operations first, so
-it voids the other writer's update instead. When that void reuses ids under
-the peer id the device writes with, it records a notice in
-`document_peer_preemptions` and reports once which writer (user and key
-fingerprint) signed the update. For a rotation baseline that is the writer
-that relayed the operations, not necessarily the one that forged them. A
-forger that declares exactly the counters the device already holds is not
-served to that device, because the device's frontier covers the declared
-span, so the notice catches only a forgery the device is served. Under an
-honest server a notice comes only from a non-owner re-asserting committed
-counters with other operations, or from a residual above; under a dishonest
-server it is the only signal. A rebase clears the document's notices and void
-rows along with the history they were judged against.
+Past a peer's committed frontier only its
+[peer owner](./glossary/sync.md#peer-owner) may write, and an update may depend
+only on committed operations ([what the server checks](#what-the-server-checks)).
+[Peer ownership](./peer-ownership.md) covers why, how a refused device
+recovers (a rebase onto a fresh peer, or after a stale recreation a relay or a
+park), the residuals, and preemption notices.
 
 ## The Processed Cursor
 

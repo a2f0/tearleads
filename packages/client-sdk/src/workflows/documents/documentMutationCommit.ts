@@ -61,6 +61,7 @@ export interface PersistDocumentStateInput
   canStartDurableMutation?: (() => boolean) | undefined;
   clearSyncFailure?: boolean | undefined;
   commitSideEffect?: (transactionExecSql: ExecSql) => Promise<void>;
+  committedVersions?: readonly string[] | undefined;
   containerId?: string | null | undefined;
   deleteDocumentPlacements: DocumentPlacementCleanup;
   documentProjectors: DocumentProjectorRegistryInput;
@@ -260,6 +261,7 @@ async function settleSupersededDocumentMutation(input: {
     ? await persistInput.persistence.settleAcceptedPendingUpdates(
         input.lockedExecSql,
         {
+          committedVersions: persistInput.committedVersions,
           expectedRecord: persistInput.expectedSyncState.record,
           pendingUpdateIds: input.acceptedPendingUpdateIds,
         },
@@ -413,6 +415,7 @@ async function commitOnePreparedDocumentMutation(input: {
         persistInput.currentDoc,
       ),
       clearSyncFailure: persistInput.clearSyncFailure,
+      committedVersions: persistInput.committedVersions,
       ...(persistInput.attachmentRemoval
         ? { attachmentRemoval: persistInput.attachmentRemoval }
         : {}),

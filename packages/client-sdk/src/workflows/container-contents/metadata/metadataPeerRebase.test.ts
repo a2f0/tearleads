@@ -99,9 +99,10 @@ test("moves refused metadata edits onto a fresh memory-only peer", async () => {
   });
   if (!rebase) throw new Error("expected the SQL adapter to install rebases");
 
-  const outcome = await rebase([
-    { committedEndCounter: committed, peerId: WRITER_PEER },
-  ]);
+  const outcome = await rebase({
+    kind: "peer_owned",
+    peerFrontiers: [{ committedEndCounter: committed, peerId: WRITER_PEER }],
+  });
 
   expect(outcome).toBe("rebased");
   expect(rebasedSignals).toBe(1);
@@ -151,12 +152,15 @@ test("leaves the metadata alone when the server committed every edit", async () 
     persistence: sqlContainerContentsPersistence,
   });
 
-  const outcome = await rebase?.([
-    {
-      committedEndCounter: live.version().get(WRITER_PEER) ?? 0,
-      peerId: WRITER_PEER,
-    },
-  ]);
+  const outcome = await rebase?.({
+    kind: "peer_owned",
+    peerFrontiers: [
+      {
+        committedEndCounter: live.version().get(WRITER_PEER) ?? 0,
+        peerId: WRITER_PEER,
+      },
+    ],
+  });
 
   expect(outcome).toBe("nothing_to_cut");
   expect(metadataState.doc).toBe(live);
@@ -181,9 +185,10 @@ test("carries a metadata edit another runtime queued that the live state lacks",
     },
   );
 
-  const outcome = await rebaserFor(metadataState)([
-    { committedEndCounter: committed, peerId: WRITER_PEER },
-  ]);
+  const outcome = await rebaserFor(metadataState)({
+    kind: "peer_owned",
+    peerFrontiers: [{ committedEndCounter: committed, peerId: WRITER_PEER }],
+  });
 
   expect(outcome).toBe("rebased");
   const fork = metadataState.doc;

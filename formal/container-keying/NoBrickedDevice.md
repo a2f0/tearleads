@@ -201,3 +201,11 @@ model serves are unchanged, and nothing a device reads depends on another
 device's table. Losing the table only removes citations; the next read arrives
 complete. The cite-held and omit-cited rules that make this hold for every
 eviction are checked in [`ManifestHistory`](./ManifestHistory.md).
+
+This model covers the keying refusal rules. The accepted exceptions to the
+invariant are listed with the
+[limits that trade write liveness](../../docs/limits.md#limits-that-trade-write-liveness).
+One is in document sync, not keying: after an owner's recovery from a stale
+copy, a device refused on a peer another user owns, at a frontier below what
+it saw committed, keeps its edits queued until that user's device republishes
+the peer ([`PeerOwnership`](../document-sync/PeerOwnership.md)).
