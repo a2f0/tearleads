@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CONTAINER_UNAVAILABLE_ERROR_CODE } from "./containerUnavailableError";
+import { DocumentBaselineStageErrorCodeSchema } from "./documentBaselineStage";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DocumentSyncErrorCodeSchema,
@@ -43,6 +44,7 @@ export type DocumentMutationErrorCode = z.infer<
  * every behavior-bearing code to the shared registry above.
  */
 export const DocumentMutationFailureResponseSchema = z.looseObject({
+  baselineStageCode: DocumentBaselineStageErrorCodeSchema.optional(),
   code: DocumentMutationErrorCodeSchema.optional(),
   error: z.string().min(1),
 });

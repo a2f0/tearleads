@@ -94,6 +94,14 @@ export {
   isDocumentSyncRequest,
 } from "./document";
 export {
+  type DocumentBaselineStageOpenRequest,
+  DocumentBaselineStageOpenRequestSchema,
+  type DocumentBaselineStageWriteHeaderRequest,
+  DocumentBaselineStageWriteHeaderRequestSchema,
+  isDocumentBaselineStageOpenRequest,
+  isDocumentBaselineStageWriteHeaderRequest,
+} from "./documentBaselineStage";
+export {
   type DocumentCreateSeedRequest,
   DocumentCreateSeedRequestSchema,
   documentCreateSeedSyncRequest,

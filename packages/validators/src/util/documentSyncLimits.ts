@@ -23,6 +23,24 @@ export const MAX_DOCUMENT_SYNC_OUTGOING_UPDATES = 64;
 // carries updates (`MAX_DOCUMENT_SYNC_OUTGOING_UPDATES`, which a test holds
 // it to), and one request's bytes bound it sooner.
 export const MAX_DOCUMENT_BASELINE_SEGMENTS = 64;
+// A baseline too large for one request is staged first: its writer uploads
+// every segment but the final one ahead of time, one request each, and the
+// rotating request carries the final segment and names the stage. A staged
+// baseline holds at most this many segments, the final one included, so a
+// group's metadata rows, which commit under the document head lock, stay
+// bounded whatever the history's size.
+export const MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS = 4_096;
+// One staged segment is one ordinary update: its request is held to the sync
+// request ceiling (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`, which a test holds it
+// to), so every committed segment fits a response page exactly as an update
+// a sync committed does.
+export const MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES = 16 * 1024 * 1024;
+// A stage expires this long after its last staged segment or re-signed
+// header, and never later than the maximum after it was opened: a writer that
+// stops uploading leaves nothing behind for longer, and one that keeps
+// uploading cannot hold staged bytes open indefinitely.
+export const DOCUMENT_BASELINE_STAGE_IDLE_SECONDS = 60 * 60;
+export const DOCUMENT_BASELINE_STAGE_MAX_SECONDS = 24 * 60 * 60;
 // Individual updates may use the request's remaining budget. The SDK applies
 // the exact serialized-byte ceiling after encryption and trims the batch; a
 // smaller estimate here would permanently strand an otherwise valid update.

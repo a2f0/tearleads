@@ -1,0 +1,264 @@
+import { expect, test } from "bun:test";
+import {
+  DocumentBaselineStageOpenRequestSchema,
+  DocumentBaselineStageWriteHeaderRequestSchema,
+} from "../request";
+import { DocumentSyncOutgoingUpdateSchema } from "../request/documentSyncSchema";
+import {
+  DOCUMENT_BASELINE_STAGE_ERROR_CODES,
+  DocumentBaselineStageAbandonResponseSchema,
+  DocumentBaselineStageConflictErrorResponseSchema,
+  DocumentBaselineStageNotFoundErrorResponseSchema,
+  DocumentBaselineStageStatusResponseSchema,
+  DocumentMutationFailureResponseSchema,
+  DocumentSyncErrorResponseSchema,
+  isDocumentBaselineStageErrorCode,
+} from "../response";
+import {
+  DOCUMENT_BASELINE_STAGE_IDLE_SECONDS,
+  DOCUMENT_BASELINE_STAGE_MAX_SECONDS,
+  MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
+  MAX_DOCUMENT_BASELINE_SEGMENTS,
+  MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+} from "../util";
+import { operationRequestPath, operationRoutePath } from "./definition";
+import {
+  abandonDocumentBaselineStageOperation,
+  DocumentBaselineStageSegmentPathParamsSchema,
+  getDocumentBaselineStageOperation,
+  openDocumentBaselineStageOperation,
+  resignDocumentBaselineSegmentHeaderOperation,
+  stageDocumentBaselineSegmentOperation,
+} from "./documentBaselineStages";
+import type { operations, paths } from "./generatedOpenApi";
+import { openApiDocument } from "./openApi";
+import { protocolOperations } from "./registry";
+
+const documentId = "11111111-1111-4111-8111-111111111111";
+const baselineId = "22222222-2222-4222-8222-222222222222";
+
+test("the staged baseline bounds are the published ones", () => {
+  expect(MAX_DOCUMENT_BASELINE_SEGMENTS).toBe(64);
+  expect(MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS).toBe(4096);
+  expect(MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES).toBe(
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  );
+  expect(DOCUMENT_BASELINE_STAGE_IDLE_SECONDS).toBe(3600);
+  expect(DOCUMENT_BASELINE_STAGE_MAX_SECONDS).toBe(86_400);
+});
+
+test("the stage operations own their HTTP contracts", () => {
+  const stage = `/documents/${documentId}/baseline-stages/${baselineId}`;
+  const contracts = [
+    [
+      openDocumentBaselineStageOperation,
+      "POST",
+      `/documents/${documentId}/baseline-stages`,
+      DocumentBaselineStageOpenRequestSchema,
+      DocumentBaselineStageStatusResponseSchema,
+      { documentId },
+    ],
+    [
+      getDocumentBaselineStageOperation,
+      "GET",
+      stage,
+      undefined,
+      DocumentBaselineStageStatusResponseSchema,
+      { baselineId, documentId },
+    ],
+    [
+      abandonDocumentBaselineStageOperation,
+      "DELETE",
+      stage,
+      undefined,
+      DocumentBaselineStageAbandonResponseSchema,
+      { baselineId, documentId },
+    ],
+    [
+      stageDocumentBaselineSegmentOperation,
+      "PUT",
+      `${stage}/segments/7`,
+      DocumentSyncOutgoingUpdateSchema,
+      DocumentBaselineStageStatusResponseSchema,
+      { baselineId, documentId, segmentIndex: 7 },
+    ],
+    [
+      resignDocumentBaselineSegmentHeaderOperation,
+      "PUT",
+      `${stage}/segments/7/write-header`,
+      DocumentBaselineStageWriteHeaderRequestSchema,
+      DocumentBaselineStageStatusResponseSchema,
+      { baselineId, documentId, segmentIndex: 7 },
+    ],
+  ] as const;
+  for (const [operation, method, path, body, response, params] of contracts) {
+    expect(operation).toMatchObject({ auth: "session", method });
+    expect(Reflect.get(operation, "body")).toBe(body);
+    expect(operation.responses[200]).toBe(response);
+    // Only the coded 404 and the stage's own conflict body are sent.
+    expect(operation.failureResponses[404]).toBe(
+      DocumentBaselineStageNotFoundErrorResponseSchema,
+    );
+    expect(operation.failureResponses[409]).toBe(
+      DocumentBaselineStageConflictErrorResponseSchema,
+    );
+    expect(operationRequestPath(operation, params)).toBe(path);
+    expect(protocolOperations).toContain(operation);
+    expect(
+      openApiDocument.paths[operation.path]?.[
+        method === "POST"
+          ? "post"
+          : method === "GET"
+            ? "get"
+            : method === "PUT"
+              ? "put"
+              : "delete"
+      ]?.operationId,
+    ).toBe(operation.id);
+  }
+  expect(operationRoutePath(stageDocumentBaselineSegmentOperation)).toBe(
+    "/documents/:documentId/baseline-stages/:baselineId/segments/:segmentIndex",
+  );
+  expect(stageDocumentBaselineSegmentOperation.failureStatuses).toContain(413);
+});
+
+test("a staged segment's index is every index but the final one's", () => {
+  const params = (segmentIndex: unknown) =>
+    DocumentBaselineStageSegmentPathParamsSchema.safeParse({
+      baselineId,
+      documentId,
+      segmentIndex,
+    }).success;
+  const last = MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS - 2;
+  for (const index of [0, "0", "7", last, String(last)]) {
+    expect([index, params(index)]).toEqual([index, true]);
+  }
+  for (const index of [
+    -1,
+    "-1",
+    "07",
+    "1.5",
+    1.5,
+    "",
+    "seven",
+    last + 1,
+    String(last + 1),
+    "99999",
+  ]) {
+    expect([index, params(index)]).toEqual([index, false]);
+  }
+});
+
+test("a stage's refusals are exact codes, and a commit carries them beside its own", () => {
+  const codes = Object.values(DOCUMENT_BASELINE_STAGE_ERROR_CODES);
+  expect(codes).toHaveLength(8);
+  for (const code of codes) {
+    expect(code.startsWith("document_baseline_stage_")).toBe(true);
+    expect(isDocumentBaselineStageErrorCode(code)).toBe(true);
+    // On the routes that commit a stage the code rides beside the route's
+    // own, whose set of values does not change.
+    expect(
+      DocumentSyncErrorResponseSchema.safeParse({
+        baselineStageCode: code,
+        code: "document_sync_baseline_group_invalid",
+        error: "refused",
+      }).success,
+    ).toBe(true);
+    expect(
+      DocumentSyncErrorResponseSchema.safeParse({ code, error: "refused" })
+        .success,
+    ).toBe(false);
+    expect(
+      DocumentMutationFailureResponseSchema.safeParse({
+        code,
+        error: "refused",
+      }).success,
+    ).toBe(false);
+  }
+  expect(isDocumentBaselineStageErrorCode("multipart_blob_stage_expired")).toBe(
+    false,
+  );
+  expect(
+    DocumentSyncErrorResponseSchema.safeParse({
+      baselineStageCode: "multipart_blob_stage_expired",
+      code: "document_sync_baseline_group_invalid",
+      error: "refused",
+    }).success,
+  ).toBe(false);
+
+  const notFound = DOCUMENT_BASELINE_STAGE_ERROR_CODES.notFound;
+  expect(
+    DocumentBaselineStageNotFoundErrorResponseSchema.safeParse({
+      code: notFound,
+      error: "gone",
+    }).success,
+  ).toBe(true);
+  // A 404 without the code proves nothing about the stage.
+  expect(
+    DocumentBaselineStageNotFoundErrorResponseSchema.safeParse({
+      error: "gone",
+    }).success,
+  ).toBe(false);
+  // A conflict is uncoded or carries a stage code; "not found" is the 404's
+  // and "headers stale" only a commit's.
+  const conflict = (body: object) =>
+    DocumentBaselineStageConflictErrorResponseSchema.safeParse(body).success;
+  expect(conflict({ error: "raced" })).toBe(true);
+  expect(
+    conflict({
+      code: DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentOutOfOrder,
+      error: "next",
+      nextSegmentIndex: 3,
+    }),
+  ).toBe(true);
+  for (const code of [
+    notFound,
+    DOCUMENT_BASELINE_STAGE_ERROR_CODES.headersStale,
+    "document_sync_conflict",
+  ]) {
+    expect([code, conflict({ code, error: "refused" })]).toEqual([code, false]);
+  }
+});
+
+type IsEqual<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <
+    Value,
+  >() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+
+function assertType<Condition extends true>(_condition?: Condition): void {}
+
+test("generated OpenAPI types carry the stage routes", () => {
+  assertType<
+    IsEqual<
+      paths["/documents/{documentId}/baseline-stages"]["post"],
+      operations["documents.baselineStages.open"]
+    >
+  >();
+  assertType<
+    IsEqual<
+      paths["/documents/{documentId}/baseline-stages/{baselineId}"]["get"],
+      operations["documents.baselineStages.get"]
+    >
+  >();
+  assertType<
+    IsEqual<
+      paths["/documents/{documentId}/baseline-stages/{baselineId}"]["delete"],
+      operations["documents.baselineStages.abandon"]
+    >
+  >();
+  assertType<
+    IsEqual<
+      paths["/documents/{documentId}/baseline-stages/{baselineId}/segments/{segmentIndex}"]["put"],
+      operations["documents.baselineStages.segments.stage"]
+    >
+  >();
+  assertType<
+    IsEqual<
+      paths["/documents/{documentId}/baseline-stages/{baselineId}/segments/{segmentIndex}/write-header"]["put"],
+      operations["documents.baselineStages.segments.resign"]
+    >
+  >();
+});

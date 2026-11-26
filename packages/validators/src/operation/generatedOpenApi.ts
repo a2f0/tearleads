@@ -821,6 +821,90 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/documents/{documentId}/baseline-stages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a rotation baseline stage
+         * @description Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document and replaces the caller's earlier stage for it. The stage expires 60 minutes after its last upload and at most 24 hours after it opened; nothing staged is served until a rotating request commits it.
+         */
+        post: operations["documents.baselineStages.open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{documentId}/baseline-stages/{baselineId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get rotation baseline stage status
+         * @description Returns the caller's stage: the next segment index it expects, the digest of the segments staged so far, and when it expires, so a writer can resume an interrupted upload. Only the exact 404 `document_baseline_stage_not_found` or 409 `document_baseline_stage_expired` responses prove the stage is gone; any other failure means the writer keeps it.
+         */
+        get: operations["documents.baselineStages.get"];
+        put?: never;
+        post?: never;
+        /**
+         * Abandon a rotation baseline stage
+         * @description Deletes the caller's stage and every segment staged under it. A baseline a request already committed is not a stage and is not touched; a stage that is already gone returns 404 `document_baseline_stage_not_found`.
+         */
+        delete: operations["documents.baselineStages.abandon"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{documentId}/baseline-stages/{baselineId}/segments/{segmentIndex}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Stage one rotation baseline segment
+         * @description Stages one segment of the baseline, in index order: the server verifies its signed write header and envelope and that it starts every peer where the staged segments left it. The final segment is never staged; it travels in the rotating request. Sending the same index with the same ciphertext again is acknowledged without a write, and an index that is not the stage's next returns 409 `document_baseline_stage_segment_out_of_order` naming the next one.
+         */
+        put: operations["documents.baselineStages.segments.stage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{documentId}/baseline-stages/{baselineId}/segments/{segmentIndex}/write-header": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Re-sign a staged segment's write header
+         * @description Replaces a staged segment's signed write header without uploading its ciphertext again, for a writer whose staged headers name a manifest, key-target set or signing key that has since changed. The new header must sign the same content record, metadata and ciphertext hashes at the stage's epoch.
+         */
+        put: operations["documents.baselineStages.segments.resign"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{documentId}/link": {
         parameters: {
             query?: never;
@@ -2700,6 +2784,70 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Acknowledges that a stage and its staged segments were deleted. */
+        DocumentBaselineStageAbandonResponse: {
+            /** @description The abandoned baseline's id. */
+            baselineId: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A refused stage request. A `document_baseline_stage_*` code says what the stage is worth now; an uncoded conflict is a failed access check or a write that raced another, and leaves the stage as it was. */
+        DocumentBaselineStageConflictErrorResponse: {
+            /** @enum {string} */
+            code?: "document_baseline_stage_epoch_stale" | "document_baseline_stage_expired" | "document_baseline_stage_id_conflict" | "document_baseline_stage_segment_conflict" | "document_baseline_stage_segment_invalid" | "document_baseline_stage_segment_out_of_order";
+            error: string;
+            /** @description With `document_baseline_stage_segment_out_of_order`, the index the stage expects next. */
+            nextSegmentIndex?: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description The stage does not exist for this caller and document; only this coded 404 proves it is gone. */
+        DocumentBaselineStageNotFoundErrorResponse: {
+            /** @constant */
+            code: "document_baseline_stage_not_found";
+            error: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Opens the stage of one rotation baseline: the segments a writer uploads ahead of the request that rotates. */
+        DocumentBaselineStageOpenRequest: {
+            /** @description The id every segment of the baseline signs as `baselineId`. Client-chosen; it names the stage in later requests. */
+            baselineId: string;
+            /** @description Commitment of the content key the segments are encrypted under. For the document's current epoch it must be the stored one; for the next epoch it must be the one the rotating request's bundle declares. */
+            contentKeyCommitment: string;
+            /** @description Content-key epoch the segments are written at: the document's current epoch, or the one the rotating request opens. */
+            contentKeyEpoch: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A rotation baseline stage as the server holds it. */
+        DocumentBaselineStageStatusResponse: {
+            /** @description The staged baseline's id. */
+            baselineId: string;
+            /** @description Commitment of the content key the stage is for. */
+            contentKeyCommitment: string;
+            /** @description Content-key epoch the stage is for. */
+            contentKeyEpoch: number;
+            /** @description When the stage expires unless another segment or header arrives first, as an ISO 8601 instant. */
+            expiresAt: string;
+            /** @description Index the next staged segment must carry, and the index of the final segment a rotating request sends to commit the stage now. */
+            nextSegmentIndex: number;
+            /** @description The baseline digest over the segments staged so far: what a final segment sent now must sign as `baselineSegmentsDigest`. */
+            segmentsDigest: string;
+            /** @description Ciphertext bytes staged so far. */
+            stagedBytes: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A staged segment's write header signed again, for the same ciphertext. */
+        DocumentBaselineStageWriteHeaderRequest: {
+            /** @description The new signed write header. It must name the staged segment's content record, metadata hash, ciphertext hash and nonce domain at the stage's epoch. */
+            writeHeader: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
         /** @description A content-key bundle: one document content-key epoch wrapped to every linked container's KEK. */
         DocumentContentKeyBundleRequest: {
             /** @description The epoch's content-key commitment: an HKDF output of the wrapped key. It opens an epoch and must repeat the stored one when a link adds targets. */
@@ -2893,6 +3041,8 @@ export type components = {
         DocumentLinkSetMutationRequest: {
             /** @description Paths through which the caller may write the document now. */
             authorizingContainerPathRefs: components["schemas"]["ContainerManifestRefArrayArray"];
+            /** @description For an unlink, the staged rotation baseline it commits; `rotationBaseline` is its final segment alone. */
+            baselineStageId?: string;
             body: unknown;
             /** @description Container rekeys to commit first in the same transaction. */
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
@@ -2928,6 +3078,11 @@ export type components = {
         DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_baseline_group_invalid" | "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_dependency_uncommitted" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
         /** @description A refused document create, link, unlink, or purge. */
         DocumentMutationFailureResponse: {
+            /**
+             * @description With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code.
+             * @enum {string}
+             */
+            baselineStageCode?: "document_baseline_stage_epoch_stale" | "document_baseline_stage_expired" | "document_baseline_stage_headers_stale" | "document_baseline_stage_id_conflict" | "document_baseline_stage_not_found" | "document_baseline_stage_segment_conflict" | "document_baseline_stage_segment_invalid" | "document_baseline_stage_segment_out_of_order";
             code?: components["schemas"]["DocumentMutationErrorCode"];
             error: string;
         } & {
@@ -3028,6 +3183,11 @@ export type components = {
         };
         /** @description A refused sync. The code tells the client what to do: rebuild a malformed rotation baseline or one that no longer covers the committed updates, commit rekeys first, replan, recover update ids, move ops off another user's peer or off uncommitted dependencies, or stop. */
         DocumentSyncErrorResponse: {
+            /**
+             * @description With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code.
+             * @enum {string}
+             */
+            baselineStageCode?: "document_baseline_stage_epoch_stale" | "document_baseline_stage_expired" | "document_baseline_stage_headers_stale" | "document_baseline_stage_id_conflict" | "document_baseline_stage_not_found" | "document_baseline_stage_segment_conflict" | "document_baseline_stage_segment_invalid" | "document_baseline_stage_segment_out_of_order";
             /** @enum {string} */
             code: "document_sync_baseline_group_invalid" | "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_dependency_uncommitted" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict";
             error: string;
@@ -3055,6 +3215,8 @@ export type components = {
         DocumentSyncRequest: {
             /** @description Container paths that authorize a write; reads may omit them. */
             authorizingContainerPathRefs?: components["schemas"]["ContainerManifestRefArrayArray"];
+            /** @description The staged rotation baseline this sync commits; its final segment comes first in `outgoingUpdates`. */
+            baselineStageId?: string;
             /** @description Container rekeys to commit first in the same transaction. */
             containerRekeys?: ({
                 body: unknown;
@@ -8687,6 +8849,520 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "documents.baselineStages.open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentBaselineStageOpenRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRequiredErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageNotFoundErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageConflictErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "documents.baselineStages.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                baselineId: string;
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRequiredErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageNotFoundErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageConflictErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "documents.baselineStages.abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                baselineId: string;
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageAbandonResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRequiredErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageNotFoundErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageConflictErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "documents.baselineStages.segments.stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                baselineId: string;
+                documentId: string;
+                segmentIndex: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baselineId?: string;
+                    baselineSegmentCount?: number;
+                    baselineSegmentIndex?: number;
+                    baselineSegmentsDigest?: string;
+                    coversThroughUpdateId?: string;
+                    dependencyVersionVector: string;
+                    encryptedData: string;
+                    id: string;
+                    partialEndVersionVector: string;
+                    partialStartVersionVector: string;
+                    plaintextHash: string;
+                    writeHeader: {
+                        [key: string]: unknown;
+                    };
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRequiredErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageNotFoundErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageConflictErrorResponse"];
+                };
+            };
+            /** @description A serialized staged segment is limited to 16777216 bytes */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "documents.baselineStages.segments.resign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                baselineId: string;
+                documentId: string;
+                segmentIndex: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentBaselineStageWriteHeaderRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRequiredErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageNotFoundErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBaselineStageConflictErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

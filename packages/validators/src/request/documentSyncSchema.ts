@@ -31,7 +31,7 @@ import {
 } from "../schema";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
 import {
-  MAX_DOCUMENT_BASELINE_SEGMENTS,
+  MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
@@ -105,11 +105,15 @@ function createDocumentOutgoingUpdateSchema(
   return registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       baselineId: uuidV4StringSchema.optional(),
+      // A staged baseline's final segment is sent inline with an index and
+      // count past what one request's group holds, so the field bounds are
+      // the staged ones; how many segments a request carries is bounded
+      // where its array is declared.
       baselineSegmentCount: boundedPositiveIntegerSchema(
-        MAX_DOCUMENT_BASELINE_SEGMENTS,
+        MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS,
       ).optional(),
       baselineSegmentIndex: boundedNonNegativeIntegerSchema(
-        MAX_DOCUMENT_BASELINE_SEGMENTS - 1,
+        MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS - 1,
       ).optional(),
       baselineSegmentsDigest: sha256HexStringSchema.optional(),
       coversThroughUpdateId: registerJsonSchemaFragment(
@@ -237,6 +241,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
   loosePlainObject({
     authorizingContainerPathRefs:
       ContainerManifestRefArrayArraySchema.optional(),
+    baselineStageId: uuidV4StringSchema.optional(),
     // Each rotation carries a keyring sized by its epoch, so the batch is
     // bounded here as well as in the runtime guard.
     containerRekeys: arraySchema(
