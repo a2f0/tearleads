@@ -2,6 +2,27 @@
   "$schema": "https://turborepo.com/schema.json",
   "extends": ["//"],
   "tasks": {
+    "native-ios-sources": {
+      "description": "Hash-only: the files the iOS compile check reads from this package. It syncs a placeholder page instead of the web build, so web sources, workspace dependencies, and this manifest stay out; Capacitor plugin versions reach the hash through this package's locked external dependencies. A workspace package that becomes a Capacitor plugin must be added to the check's dependsOn.",
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!.rubocop.yml",
+        "!Gemfile",
+        "!Gemfile.lock",
+        "!README.md",
+        "!android/**",
+        "!fastlane/**",
+        "!index.html",
+        "!maestro/**",
+        "!package.json",
+        "!scripts/**",
+        "!src/**",
+        "!tests/**",
+        "!tsconfig.json",
+        "!vite.config.ts"
+      ],
+      "outputs": []
+    },
     "build": {
       "inputs": [
         "$TURBO_EXTENDS$",

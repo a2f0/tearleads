@@ -8,6 +8,7 @@ const negative = "//#check:protocol-negative-controls";
 const postgres = "//#test:postgres-concurrency";
 const windows = "//#test:windows-ci";
 const native = ["//#test:native-android-ci", "//#test:native-ios-ci"] as const;
+const [android, ios] = native;
 
 test("website source and its version bump preserve unrelated task hashes", () => {
   const repo = cacheFixture();
@@ -31,11 +32,44 @@ test("website source and its version bump preserve unrelated task hashes", () =>
   }
 });
 
+// The iOS compile leaves app-capacitor's manifest out of its hash: Capacitor
+// finds plugins through the package's locked dependencies, which Turbo hashes.
+test("an app-capacitor version bump keeps the iOS pass; a plugin upgrade misses it", () => {
+  const repo = cacheFixture();
+  try {
+    const read = (path: string) => readFileSync(join(repo.cwd, path), "utf8");
+    const path = "packages/app-capacitor/package.json";
+    const manifest = JSON.parse(read(path));
+    const lock = read("bun.lock");
+    const bumped = lock.replace(
+      `"name": "app-capacitor",\n      "version": "${manifest.version}"`,
+      '"name": "app-capacitor",\n      "version": "0.0.999"',
+    );
+    expect(bumped).not.toBe(lock);
+    repo.write(path, JSON.stringify({ ...manifest, version: "0.0.999" }));
+    repo.write("bun.lock", bumped);
+    expect(repo.changed()).toContain(android);
+    expect(repo.changed()).not.toContain(ios);
+
+    const plugin = manifest.dependencies["@capacitor/app"];
+    const upgraded = bumped
+      .replaceAll(`"@capacitor/app": "${plugin}"`, '"@capacitor/app": "99.0.0"')
+      .replaceAll(`"@capacitor/app@${plugin}"`, '"@capacitor/app@99.0.0"');
+    expect(upgraded).not.toBe(bumped);
+    repo.write("bun.lock", upgraded);
+    expect(repo.changed()).toContain(ios);
+  } finally {
+    repo.close();
+  }
+});
+
 test.each([
+  // Only the Android check builds and syncs the web bundle; the iOS compile
+  // syncs a placeholder page, so web sources stay out of its hash.
   [
     "packages/ui/src/frame.tsx",
-    ["app#test", "website#test", windows, ...native],
-    [postgres, models],
+    ["app#test", "website#test", windows, android],
+    [postgres, models, ios],
   ],
   [
     "packages/api/src/route.ts",
@@ -44,8 +78,8 @@ test.each([
   ],
   [
     "packages/client-sdk/src/client.ts",
-    ["@tearleads/client-sdk#test", postgres, windows, ...native],
-    [models],
+    ["@tearleads/client-sdk#test", postgres, windows, android],
+    [models, ios],
   ],
   // The CLI runs the KeePass reader from source. Keepass has no build script,
   // but its no-op build still hashes its sources into the CLI's ^build.
@@ -84,8 +118,8 @@ test.each([
   ],
   [
     "scripts/lib/withBuildInfoEnv.sh",
-    [windows, "app-web#test"],
-    [postgres, models, negative],
+    [windows, "app-web#test", android],
+    [postgres, models, negative, ios],
   ],
   [
     "scripts/lib/packageVersions.ts",
@@ -94,11 +128,18 @@ test.each([
   ],
   ["bunfig.toml", [windows], [models, negative]],
   ["test/preload.ts", [windows], [models, negative]],
-  ["mise.lock", [models, negative, native[0]], [postgres, windows]],
+  ["mise.lock", [models, negative, android], [postgres, windows, ios]],
   [
     "packages/app-capacitor/ios/App/App.swift",
     native,
     [postgres, windows, models],
+  ],
+  ["packages/app-capacitor/capacitor.config.ts", native, [postgres, windows]],
+  ["scripts/checks/testNativePurchaseBridge.sh", native, [postgres, windows]],
+  [
+    "packages/app-capacitor/src/index.tsx",
+    ["app-capacitor#test", android],
+    [postgres, windows, ios],
   ],
   [
     "packages/website/scripts/deployWebsite.sh",

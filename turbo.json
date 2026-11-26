@@ -75,13 +75,13 @@
       "outputs": []
     },
     "//#test:native-ios-ci": {
-      "dependsOn": ["app-capacitor#sources"],
+      "dependsOn": ["app-capacitor#native-ios-sources"],
       "inputs": [
-        "scripts/**",
-        "!scripts/localstack/data/**",
+        "scripts/checks/testNativePurchaseBridge.sh",
         ".github/workflows/native-purchase-bridges.yml"
       ],
       "env": ["ImageOS", "ImageVersion", "DEVELOPER_DIR"],
+      "passThroughEnv": ["NATIVE_IOS_BUILD_ROOT"],
       "outputs": []
     },
     "//#test:postgres-concurrency": {
