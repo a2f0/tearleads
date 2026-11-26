@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { ciDiffRange, ciScopes } from "../ciPolicy";
 
 const repoRoot = resolve(import.meta.dir, "../../..");
@@ -223,6 +223,58 @@ test("each long suite runs in exactly one CI job and every shard runs", async ()
         (_, index) => `--shard=${index + 1}/${total}`,
       ).toSorted(),
     );
+  }
+});
+
+// Bun cuts the path-sorted files by the timings table, so shards that read
+// different tables or arguments could skip a file or run one twice. The table
+// comes from the package's test script, so it sits in the package and Turbo
+// hashes it with the shard's other inputs.
+test("a lane's shards share their arguments and timings table", async () => {
+  const ci = Bun.YAML.parse(
+    await Bun.file(`${repoRoot}/.github/workflows/ci.yml`).text(),
+  ) as {
+    jobs: Record<
+      string,
+      {
+        strategy?: {
+          matrix?: { include?: { filter?: string; args?: string }[] };
+        };
+      }
+    >;
+  };
+  const { test: matrix } = ci.jobs;
+  const entries = matrix?.strategy?.matrix?.include ?? [];
+  const lanes = new Map<string, Set<string>>();
+  for (const { filter = "", args = "" } of entries) {
+    const rest = args
+      .split(" ")
+      .filter((word) => word && !word.startsWith("--shard="))
+      .join(" ");
+    lanes.set(filter, (lanes.get(filter) ?? new Set()).add(rest));
+  }
+  const manifests = new Map<string, { dir: string; test: string }>();
+  for (const path of new Bun.Glob("packages/*/package.json").scanSync(
+    repoRoot,
+  )) {
+    const { name, scripts } = JSON.parse(
+      await Bun.file(`${repoRoot}/${path}`).text(),
+    );
+    manifests.set(name, { dir: dirname(path), test: scripts?.test ?? "" });
+  }
+  for (const [lane, rests] of lanes) {
+    expect(rests.size, lane).toBe(1);
+    expect([...rests][0], lane).not.toContain("--timings");
+    const manifest = manifests.get(lane);
+    expect(manifest, lane).toBeDefined();
+    const table = /--timings=(\S+)/.exec(manifest?.test ?? "")?.[1];
+    if (!table) continue;
+    // A missing table would silently fall back to splitting by file count.
+    const timings = await Bun.file(
+      `${repoRoot}/${manifest?.dir}/${table}`,
+    ).json();
+    expect(timings.version, lane).toBe(1);
+    expect(Object.keys(timings.files).length, lane).toBeGreaterThan(0);
   }
 });
 

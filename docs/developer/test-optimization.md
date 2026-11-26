@@ -9,13 +9,13 @@ off. Re-measure before acting on any of it.
 
 ## Where the time goes
 
-CI runs the API, app, and client SDK suites in their own `Test (...)` jobs; see
-[CI and merge requirements](ci-merge-gate.md). The app and API suites are the
-longest, so SDK savings alone rarely shorten CI. The app suite runs its files
-in two workers, each running one test at a time (`--max-concurrency=1`), so its
-case sums approximate twice its elapsed time. The API suite runs on PGlite
-(`API_DATABASE=memory`) in two workers; adding its durations does not predict
-CI time saved.
+CI runs the API, app, client SDK, bob-and-alice, and CLI suites in their own
+`Test (...)` jobs; see [CI and merge requirements](ci-merge-gate.md). The app
+and API suites are the longest, so SDK savings alone rarely shorten CI. The app
+suite runs its files in two workers, each running one test at a time
+(`--max-concurrency=1`), so its case sums approximate twice its elapsed time.
+The API suite runs on PGlite (`API_DATABASE=memory`) in two workers; adding its
+durations does not predict CI time saved.
 
 Bun's case sums omit hooks and any case without a parsed duration, so they
 identify leads, not elapsed time. The known expensive files are:
@@ -143,14 +143,19 @@ Some of that cost is deliberate:
   implies `--isolate` and cost about 2.4 times the CPU for the SDK, 1.5 times
   for the app, and 2 times for the API (880 s wall).
 - **Split the long suites across CI runners.** On CI, the API runs in three Bun
-  shards, and the app, client SDK, and bob-and-alice suites in two each, so no
-  job carries a whole suite. API shards keep two workers: with `--parallel=4`,
-  four PGlite workers on one 4-vCPU runner pushed a test that takes 3.3 s of its
-  5 s budget on main past the limit. The bob-and-alice scenarios run in four
-  isolated workers (each boots its own in-process API): 35 tests took 167 s
-  locally, where the serial CI run of 34 took 850 s. A new shard layout regroups
-  files inside `--no-isolate` workers, so it can expose a test that leaks module
-  state (see the mouse-release fix in
+  shards, the app, client SDK, and bob-and-alice suites in two each, and the
+  CLI in five, so no job carries a whole suite. The CLI suite (33 files, about
+  15-19 minutes serially on CI) used to run inside `Build and test` and was the
+  whole critical path of that job. Its shards still run one file at a time: each
+  seed e2e file runs the whole Continuity seed against an in-process API, and
+  their timeouts allow about three times a file's usual CI time
+  ([#3174](https://github.com/a2f0/tearleads/pull/3174)). API shards keep two
+  workers: with `--parallel=4`, four PGlite workers on one 4-vCPU runner pushed
+  a test that takes 3.3 s of its 5 s budget on main past the limit. The
+  bob-and-alice scenarios run in four isolated workers (each boots its own
+  in-process API): 35 tests took 167 s locally, where the serial CI run of 34
+  took 850 s. A new shard layout regroups files inside `--no-isolate` workers,
+  so it can expose a test that leaks module state (see the mouse-release fix in
   [`MiniAppControls.test.tsx`](../../packages/app/src/components/mini-app/controls/MiniAppControls.test.tsx)).
 - **Keep worker-safe preload hooks.** In a `--parallel` run Bun calls a
   preload's `afterAll` after every file, not once per run, while
@@ -169,6 +174,48 @@ Some of that cost is deliberate:
   could be the first, and alone it failed 17 of 30 runs. The lock now sends only
   the loader's `file:` asset to `Bun.fetch` and every other request to the fetch
   it replaced.
+
+## Balance shards by measured time
+
+Without a table, Bun's `--shard=<i>/<n>` deals the path-sorted files
+round-robin, so one shard can draw several of a suite's slowest files. A
+package whose `test` script passes `--timings=test-timings.json` splits by that
+committed table of per-file milliseconds instead: Bun 1.4.3 cuts the
+path-sorted files into contiguous runs of about equal total time and costs a
+file the table lacks, such as a new test, at the table's median. Every shard
+computes the same cut from the same files and table, so each file still runs in
+exactly one shard.
+[`testTimings.test.ts`](../../scripts/checks/staticAnalysis/testTimings.test.ts)
+runs the real `bun test` over a fixture with an unlisted and a stale entry to
+prove it, and
+[`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
+requires a suite's shards to share their other arguments and the table to
+exist (a missing table silently falls back to round-robin). Under `--parallel`
+the table also starts the slowest files first.
+
+The table is one of its package's files, so it is an input of that package's
+Turbo tasks: refreshing it reruns the suite once. Refresh it from CI runs that
+executed the suites, such as the nightly `Uncached tests` run:
+
+```sh
+bun run generate:test-timings <ci-run-id>...
+```
+
+[`refreshTestTimings.ts`](../../scripts/testing/refreshTestTimings.ts) reads the
+`Build and test` and `Test (...)` job logs, sums the case durations Bun printed
+for each file, counts each Turbo task hash once (a replay repeats the run that
+produced it), and writes each file's median over the runs. It then prints each
+lane's predicted shard sums. Case sums leave out imports and hooks, which are
+small beside the CLI's e2e cases. Refresh after adding or removing slow files,
+when the shards' times drift apart, or before changing a lane's shard count.
+
+Because the cut is contiguous, the slowest shard cannot drop below the slowest
+file and often sits above it. The CLI table from six CI runs (931 s in all)
+predicts shards of 161, 231, 140, 154, and 245 s against the 231 s of
+[`seedAttachmentRace.e2e.test.ts`](../../packages/cli/src/seedAttachmentRace.e2e.test.ts);
+four shards would reach 267 s and six 231 s. Splitting that file in two would
+lower the floor to `seedFolders.e2e.test.ts` (138 s), but the contiguous cut
+first gains from it at seven shards (161 s), so the file stays whole.
 
 ## Explaining flakes
 
