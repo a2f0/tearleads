@@ -102,6 +102,43 @@ test("step 15 drops the queued baseline vector and keeps a version-14 queue", as
   }
 });
 
+// A queued row with the vector is a snapshot baseline. Dropping the column
+// would leave it reading as an ordinary queued update, so the step refuses
+// the database and changes nothing.
+test("step 15 refuses a database that holds a queued baseline", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-queued-baseline-held",
+  );
+  try {
+    await migrateLocalSchema(execSql, { migrations: VERSION_14_STEPS });
+    await execSql(VERSION_14_HISTORY_UPDATES);
+    await execSql(
+      `INSERT INTO document_history_updates (id, app_kind, local_id,
+         update_data, origin, created_at, update_id,
+         partial_start_version_vector, partial_end_version_vector,
+         source_version_vector, rekey_count)
+       VALUES ('row-1', 'documents', 'local-1', 'snapshot', 'local', ?,
+         'update-1', 'start', 'end', 'end', 0)`,
+      [CREATED_AT],
+    );
+
+    await expect(migrateLocalSchema(execSql)).rejects.toThrow(
+      "holds a queued rotation baseline, which is obsolete; reset the local database",
+    );
+
+    expect(await historyUpdateColumns(execSql)).toContain(
+      "source_version_vector",
+    );
+    expect(
+      await execSql(
+        "SELECT id, source_version_vector FROM document_history_updates",
+      ),
+    ).toEqual([{ id: "row-1", source_version_vector: "end" }]);
+  } finally {
+    close();
+  }
+});
+
 test("step 15 skips a database that never created the history table", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-queued-baseline-absent",
