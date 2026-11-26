@@ -101,7 +101,25 @@ crawl that the same acknowledgement starts already says which folders moved.
   lists the lanes that are [owed](./developer/device-first.md#owed-document-lanes):
   those with a request, those never settled, and those holding staged
   candidates. A lane the crawl was not served and nothing owes did not move;
-  it counts as reconciled for the session without a listing.
+  it counts as reconciled for the session without a listing. The known
+  containers are read once, before the owed record: a container that becomes
+  known while that record is read was not tested, so it is neither listed
+  nor counted as reconciled, and the next listing of it finds it owed.
+- While it waits. Nothing says yet whether a lane that was known at the
+  acknowledgement moved, so unforced work on those lanes is deferred, not
+  sent: one queued for an idle listing stays queued for the catch-up's sweep,
+  and a root refresh (Explorer opening, a share hint) lists the root lane and
+  leaves them to the catch-up. Listed at once all the same: a hint's lane, a
+  folder the user opens during the wait, a lane that was already owed a
+  listing when the acknowledgement arrived, and a lane found since, which no
+  crawl can vouch for (a new device's folders become known while it boots,
+  after its connection was acknowledged). The wait takes no turn among the
+  sweeps, so a root or full refresh runs beside it and does not end it. The
+  deferral lasts until the catch-up's sweep takes its turn, so a root sweep
+  ahead of it in line lists none of its lanes either. An acknowledgement that
+  arrives during the wait shares it. One that arrives after the crawl settled
+  supersedes the catch-up and waits on a crawl of its own: the earlier sweep
+  then lists nothing and counts nothing as reconciled.
 - Settling. A listing reads its lane's request before it is sent and settles
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been
@@ -111,9 +129,10 @@ crawl that the same acknowledgement starts already says which folders moved.
   settling fails stays owed, and the listing still counts as applied.
 - Fallback. When the crawl did not list every lane it queued, did not settle
   within 15 seconds (it cannot start while the store is not ready or after
-  the socket dropped again), or the host reports no crawl, nothing vouches
-  for the lanes it was not served, and the catch-up lists every known lane,
-  as it did before lanes were owed listings.
+  the socket dropped again), the host reports no crawl, or the crawl's
+  outcome or the owed record cannot be read, nothing vouches for the lanes
+  it was not served, and the catch-up lists every known lane, as it did
+  before lanes were owed listings.
 - Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's
   owes lanes the same way and lists nothing for them at once. The request is
   durable, so the next catch-up lists the lane, as does the owed-lane resume

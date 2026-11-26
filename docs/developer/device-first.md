@@ -329,10 +329,10 @@ single-container `discoverContainerDocuments` keeps reporting an unavailable
 listing as `null`.
 
 A full sweep takes over the reconcile queue so each container is fetched once,
-then hands back every queued container it did not settle, after the sweep's
-retry backoff. A container it failed to reconcile keeps the sweep's force like
-a hint's force, so it gets the one automatic retry and stays forced until a
-later reconciliation succeeds.
+then hands back each one it did not settle, after its retry backoff. One it
+failed keeps the sweep's force like a hint's: one automatic retry, and forced
+until a reconciliation succeeds. The connection catch-up takes the queue too,
+but fetches only owed or forced lanes; its tree crawl settles the rest.
 
 An additional organization starts with local-only billing. Provisioning commits
 its initial roster and organization-profile bodies atomically with their
