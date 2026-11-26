@@ -4,7 +4,6 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
-  containerDocumentSyncTombstones,
   containerMetadataDocuments,
   documents,
 } from "@tearleads/api-shared/schema";
@@ -33,6 +32,7 @@ import { loadDocumentPurgeProofMaterial } from "../writerProjectionPurgeProof";
 import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { deleteDocumentRows } from "./purgeDocumentRows";
+import { publishDocumentPurge } from "./purgePublication";
 import { verifyDocumentPurgeRequest } from "./shared/purgeVerification";
 import type { PurgeDocumentInput, PurgeDocumentWorkflowResult } from "./types";
 
@@ -238,28 +238,6 @@ async function resolveOrphanedBlobIds(input: {
   return candidateBlobIds.filter((blobId) => !referencedElsewhere.has(blobId));
 }
 
-async function writePurgeTombstone(input: {
-  readonly containerId: string;
-  readonly documentId: string;
-  readonly executor: DatabaseTransaction;
-  readonly updatedAt: Date;
-}): Promise<void> {
-  await input.executor
-    .insert(containerDocumentSyncTombstones)
-    .values({
-      containerId: input.containerId,
-      documentId: input.documentId,
-      updatedAt: input.updatedAt,
-    })
-    .onConflictDoUpdate({
-      target: [
-        containerDocumentSyncTombstones.containerId,
-        containerDocumentSyncTombstones.documentId,
-      ],
-      set: { updatedAt: input.updatedAt },
-    });
-}
-
 async function resolveLockedPurgeAuthorization(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
@@ -373,7 +351,7 @@ async function purgeDocumentWithExecutor(input: {
     orphanedBlobIds,
     retainAccessHistory: true,
   });
-  await writePurgeTombstone({
+  await publishDocumentPurge({
     containerId,
     documentId: input.documentId,
     executor: input.executor,

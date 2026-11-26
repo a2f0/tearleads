@@ -268,6 +268,8 @@ becomes one service class. The tiers run facade
 [`BlobAttachmentService`](../../packages/client-sdk/src/workflows/blobs/blobAttachmentService.ts)
 is the first.
 
+![A facade calls one service class, which calls repositories over the SQLite database. The composition root, a scoped singleton, or a test builds the service.](../diagrams/client-sdk-service-tiers.svg)
+
 - **Lifetime.** Construct the service where its collaborators are fixed: in the
   composition root, in a runtime factory, or through a
   `getOrCreate<Name>Service(domainScope)` scoped singleton. The service lives

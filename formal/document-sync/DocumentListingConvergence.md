@@ -12,7 +12,9 @@ server holds for it. Updates are deleted only with their document, so the count
 only grows. A write to the document, or any other write that touches it
 (`OtherTouch`, such as an attachment bind), leaves its row past the lane's
 watermark, so the next delta listing returns it. Each acknowledged connection
-owes a re-list of the client's lanes from their watermarks.
+owes a re-list of the client's lanes from their watermarks; which lanes that
+catch-up lists, and why the others did not move, is
+[DocumentLanePolling](./DocumentLanePolling.md)'s subject.
 
 The row also reports the document's access head. A peer's link change or
 rotation (`HeadMove`) moves it without adding an update. The device holds the
@@ -41,7 +43,7 @@ key bundle survive.
 | `OtherTouch` | `finalizeAttachmentMutation` for a bind or detach |
 | `HeadMove` | `recordDocumentLinkSetChange` for a peer's link change, or a rotation, either of which gives the listed row a new `currentAccessStateHash` |
 | `Acknowledge` | `flushPendingReconcileSignals` after the interest acknowledgement advances the connection generation, or on a projection opened after it |
-| `BeginListing` | `reconcileAcknowledgedConnection` listing every known lane from its watermark |
+| `BeginListing` | `reconcileAcknowledgedConnection` listing each owed lane from its watermark |
 | `OweListedRead` | `oweListedDocumentReadsBehindListing` in `applyListedContainerDocuments`, which `listBehindListing` answers from the cursor and from the head of the record's stored key bundle, then `requestRegisteredDocumentRemoteSyncs` |
 | `ApplyListedRow` | `upsertDiscoveredDocuments` after the debt is durable; `resolvePersistedDocumentRuntimeState` drops the key bundle of a record whose access epoch the row moved |
 | `AdvanceWatermark` | `recordAppliedContainerDocumentListing` after the lane's rows are applied and owed |

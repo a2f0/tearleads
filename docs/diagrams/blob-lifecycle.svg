@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="664" viewBox="0 0 600 664" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Attachment blob lifecycle on the server</title>
+  <desc>A bind promotes a multipart stage into a live blob; an unbound stage expires instead. When the last active binding goes, the blob is dereferenced and a rebind can revive it. After the grace period, garbage collection prunes its rows while the registry keeps its organization and drives deletion of the stored bytes.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <style>
+      .canvas,.box { fill: #fff; }
+      .box,.edge { stroke: #4b5563; stroke-width: 1.25; }
+      .edge { fill: none; }
+      .arrowhead { fill: #4b5563; }
+      .colhead { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+      .name { font-size: 15px; font-weight: 600; }
+      .colhead,.name { fill: #111827; }
+      .meta { fill: #4b5563; font-size: 13px; }
+      @media (prefers-color-scheme: dark) {
+        .canvas,.box { fill: #18181b; }
+        .colhead,.name { fill: #fafafa; }
+        .meta,.arrowhead { fill: #d4d4d8; }
+        .box,.edge { stroke: #d4d4d8; }
+      }
+    </style>
+  </defs>
+  <rect width="600" height="664" class="canvas"/>
+  <text x="16" y="24" class="colhead">BLOB LIFECYCLE ON THE SERVER</text>
+
+  <rect x="16" y="40" width="248" height="70" rx="4" class="box"/>
+  <text x="28" y="61" class="name">Multipart stage</text>
+  <text x="28" y="80" class="meta">Temporary encrypted parts,</text>
+  <text x="28" y="98" class="meta">locked while a bind promotes it</text>
+  <path d="M264 82 H334" class="edge" marker-end="url(#arrow)"/>
+  <text x="299" y="72" text-anchor="middle" class="meta">expires</text>
+  <rect x="336" y="40" width="248" height="70" rx="4" class="box"/>
+  <text x="348" y="61" class="name">Expired stage</text>
+  <text x="348" y="80" class="meta">Marked expired first, then its</text>
+  <text x="348" y="98" class="meta">parts leave object storage</text>
+
+  <path d="M140 110 V166" class="edge" marker-end="url(#arrow)"/>
+  <text x="152" y="134" class="meta">bind promotes</text>
+  <text x="152" y="152" class="meta">the stage</text>
+  <rect x="16" y="168" width="248" height="70" rx="4" class="box"/>
+  <text x="28" y="189" class="name">Live blob</text>
+  <text x="28" y="208" class="meta">At least one active</text>
+  <text x="28" y="226" class="meta">attachment binding</text>
+
+  <path d="M140 238 V294" class="edge" marker-end="url(#arrow)"/>
+  <text x="152" y="262" class="meta">last active</text>
+  <text x="152" y="280" class="meta">binding removed</text>
+  <rect x="16" y="296" width="248" height="70" rx="4" class="box"/>
+  <text x="28" y="317" class="name">Dereferenced</text>
+  <text x="28" y="336" class="meta">dereferencedAt starts the</text>
+  <text x="28" y="354" class="meta">garbage-collection grace period</text>
+  <path d="M264 331 H300 V203 H266" class="edge" marker-end="url(#arrow)"/>
+  <text x="312" y="262" class="meta">a rebind before GC</text>
+  <text x="312" y="280" class="meta">makes it live again</text>
+
+  <path d="M140 366 V422" class="edge" marker-end="url(#arrow)"/>
+  <text x="152" y="390" class="meta">grace period over; GC</text>
+  <text x="152" y="408" class="meta">rechecks reachability</text>
+  <rect x="16" y="424" width="248" height="88" rx="4" class="box"/>
+  <text x="28" y="445" class="name">Pruned</text>
+  <text x="28" y="464" class="meta">One GC transaction removes</text>
+  <text x="28" y="482" class="meta">the blob row, its key material,</text>
+  <text x="28" y="500" class="meta">and detached bindings</text>
+  <path d="M264 468 H334" class="edge" marker-end="url(#arrow)"/>
+  <text x="299" y="460" text-anchor="middle" class="meta">retains</text>
+  <rect x="336" y="424" width="248" height="88" rx="4" class="box"/>
+  <text x="348" y="445" class="name">Registry row</text>
+  <text x="348" y="464" class="meta">blob_audit_objects keeps the</text>
+  <text x="348" y="482" class="meta">organization for good, so the</text>
+  <text x="348" y="500" class="meta">pruned id stays concealed</text>
+
+  <path d="M460 512 V550" class="edge" marker-end="url(#arrow)"/>
+  <rect x="336" y="552" width="248" height="70" rx="4" class="box"/>
+  <text x="348" y="573" class="name">Bytes deleted</text>
+  <text x="348" y="592" class="meta">liveStorageKey drives retries;</text>
+  <text x="348" y="610" class="meta">success sets objectDeletedAt</text>
+
+  <text x="16" y="648" class="meta">A bind reserves its blob id for good: new bytes under that id are refused, even after GC.</text>
+</svg>

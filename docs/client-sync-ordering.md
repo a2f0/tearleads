@@ -16,6 +16,8 @@ The structural lane is `container-contents`; each document store has a
 document work, and a structural follow-up requested during a structural pass
 runs before any queued document pass.
 
+![The container-contents lane replays creates, moves, metadata, and placements from local_intents; after the phase barrier, up to four document lanes run at once and share one pool of four byte-transfer permits.](./diagrams/client-sync-phases.svg)
+
 Diagnostics also expose `blob-upload:${blobId}` rows with a `blob` phase. These
 are observational upload telemetry, not a third pump phase: the owning document
 lane performs the work, and upload callbacks update progress and terminal state.
@@ -191,14 +193,13 @@ updates.
 
 ### Container metadata under lost hints
 
-A clean container metadata document skips its read. A pass reads it only when
-it has outgoing edits, a pull continuation, or a needs-sync signal, and
-[realtime hints](./developer/realtime-hints.md) are that signal. Hints are
-lossy. One sent while this client is offline or closed never arrives, and
-neither does one sent before it subscribes, such as another device of the same
-identity editing a folder this device has just created or registered. Without
-recovery such an edit would stay unread until a later hint or local edit named
-the same document.
+A clean container metadata document skips its read. A pass reads it only when it
+has outgoing edits, a pull continuation, or a needs-sync signal, and [realtime
+hints](./developer/realtime-hints.md) are that signal. Hints are lossy. One sent
+while this client is offline or closed never arrives, and neither does one sent
+before it subscribes, such as another device of the same identity editing a
+folder this device has just created or registered. Without recovery such an edit
+would stay unread until a later hint or local edit named the same document.
 
 Each container in a listing carries `metadataUpdateCount`: how many updates
 the server holds for its metadata document. Updates are deleted only with their
@@ -338,7 +339,7 @@ events as disconnected, and a cold `ready=false` tree is never declared.
 
 On every acknowledged reconnect, the client also clears cached writer
 projections. After every acknowledged connection the container store re-lists
-the tree and the reconciler lists every known document lane, owing a read to
+the tree and the reconciler lists the document lanes that moved, owing a read to
 each document whose count or access head moved, which closes the lossy interval
 for link changes and [rotations](./glossary/keys.md#rotate). Native app resume and
 network-path changes deliberately replace the socket first, because WKWebView
@@ -406,16 +407,15 @@ detached: the old blob id remains permanently reserved by server history.
 Identity and stage changes become visible in memory only after their local
 persistence succeeds.
 
-Remote blob encryption uses independently authenticated
-[5 MiB plaintext chunks](./limits.md#blobs), with one encrypted chunk per
-multipart part. Browser `File` input and encrypted OPFS storage remain
-range-readable, so attachment sync never needs a whole plaintext or ciphertext
-buffer. Before encryption, the client fingerprints the source and persists that
-fingerprint with a versioned upload identity. It then makes a bounded-memory
-encryption pass to compute the exact remote SHA-256 and reproduces only the
-missing parts. A changed source rotates the blob id, content key, nonce seed,
-and stage before encryption; per-chunk hashes also detect mutation between
-passes.
+Remote blob encryption uses independently authenticated [5 MiB plaintext
+chunks](./limits.md#blobs), with one encrypted chunk per multipart part. Browser
+`File` input and encrypted OPFS storage remain range-readable, so attachment
+sync never needs a whole plaintext or ciphertext buffer. Before encryption, the
+client fingerprints the source and persists that fingerprint with a versioned
+upload identity. It then makes a bounded-memory encryption pass to compute the
+exact remote SHA-256 and reproduces only the missing parts. A changed source
+rotates the blob id, content key, nonce seed, and stage before encryption;
+per-chunk hashes also detect mutation between passes.
 
 ## Blob Synchronization
 

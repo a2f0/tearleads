@@ -18,7 +18,7 @@ function lane(
   };
 }
 
-test("accepts one through four strict container parent lanes", () => {
+test("accepts one through 32 strict container parent lanes", () => {
   expect(
     isListContainerParentLanesRequest({
       lanes: [
@@ -32,16 +32,34 @@ test("accepts one through four strict container parent lanes", () => {
       ],
     }),
   ).toBe(true);
-  expect(
-    isListContainerParentLanesRequest({
-      lanes: Array.from({ length: 4 }, (_, index) => lane(`lane-${index}`)),
-    }),
-  ).toBe(true);
+  // 32 lanes fit only with page limits that keep the batch within one page.
+  const lanes = (count: number, limit: number) =>
+    Array.from({ length: count }, (_, index) =>
+      lane(`lane-${index}`, { limit }),
+    );
+  expect(isListContainerParentLanesRequest({ lanes: lanes(32, 15) })).toBe(
+    true,
+  );
 
   expect(isListContainerParentLanesRequest({ lanes: [] })).toBe(false);
+  expect(isListContainerParentLanesRequest({ lanes: lanes(33, 15) })).toBe(
+    false,
+  );
+});
+
+test("a batch of parent lanes may not ask for more than one page of rows", () => {
+  // Five lanes at the default limit of 100 fill the 500-row page exactly.
+  const defaulted = (count: number) =>
+    Array.from({ length: count }, (_, index) => lane(`lane-${index}`));
+  expect(isListContainerParentLanesRequest({ lanes: defaulted(5) })).toBe(true);
+  expect(isListContainerParentLanesRequest({ lanes: defaulted(6) })).toBe(
+    false,
+  );
   expect(
     isListContainerParentLanesRequest({
-      lanes: Array.from({ length: 5 }, (_, index) => lane(`lane-${index}`)),
+      lanes: Array.from({ length: 32 }, (_, index) =>
+        lane(`lane-${index}`, { limit: 16 }),
+      ),
     }),
   ).toBe(false);
 });
@@ -120,13 +138,18 @@ test("rejects malformed parent ids and watermarks", () => {
   ).toBe(false);
 });
 
-test("oversized malformed lane batches abort before composed refinements", () => {
-  const request = { lanes: Array.from({ length: 5 }, () => null) };
+test("malformed lane batches are rejected, not thrown, at any size", () => {
+  // Past the cap the array bound aborts first; within it the composed
+  // refinement still runs over entries the lane schema rejected.
+  for (const count of [1, 5, 32, 33]) {
+    const request = { lanes: Array.from({ length: count }, () => null) };
 
-  expect(() =>
-    ListContainerParentLanesRequestSchema.safeParse(request),
-  ).not.toThrow();
-  expect(isListContainerParentLanesRequest(request)).toBe(false);
+    expect(() =>
+      ListContainerParentLanesRequestSchema.safeParse(request),
+    ).not.toThrow();
+    expect(isListContainerParentLanesRequest(request)).toBe(false);
+  }
+  expect(isListContainerParentLanesRequest({ lanes: ["lane", 7] })).toBe(false);
 });
 
 test("bounds per-lane and aggregate requested pages", () => {

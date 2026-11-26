@@ -32,6 +32,7 @@ export const containerContentsTables = [
   "containers",
   "documentContainerProjection",
   "documentIntentLinkTargets",
+  "documentLaneRevalidations",
   "dormantContainerMetadata",
   "dormantMetadataSweepRequests",
   "localIntents",

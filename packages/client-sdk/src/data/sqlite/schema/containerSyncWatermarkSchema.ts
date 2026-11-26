@@ -52,9 +52,37 @@ export const containerSyncWatermarks = sqliteTable(
   (table) => [primaryKey({ columns: [table.laneKind, table.laneId] })],
 );
 
+/**
+ * Containers whose document lane a tree listing showed may have moved, and
+ * that still owe a listing. Every server write that changes what a
+ * container's document lane returns republishes the container's row, so a
+ * tree listing that is served the row owes the lane one listing. The catch-up
+ * after an acknowledged connection lists only the lanes owed here, and the
+ * lanes that never settled, instead of every lane it knows. The row is
+ * written before the serving lane's watermark advances past the container's
+ * row, so a restart before the listing still owes it.
+ *
+ * Columns:
+ * - `containerId`: The container whose document lane is owed a listing.
+ * - `revision`: Replaced on every request. A listing settles only the
+ *   request it read before it began: a listing already in flight when the
+ *   row was served may have been answered before the change behind it.
+ * - `requestedAt`: When this device last recorded the request.
+ */
+export const documentLaneRevalidations = sqliteTable(
+  "document_lane_revalidations",
+  {
+    containerId: text("container_id").notNull(),
+    revision: text("revision").notNull(),
+    requestedAt: text("requested_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.containerId] })],
+);
+
 export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   {
     ...defineSqlTableSchema(containerSyncWatermarks),
     requiredColumns: ["checked_at", "cursor_format"],
   },
+  defineSqlTableSchema(documentLaneRevalidations),
 ];

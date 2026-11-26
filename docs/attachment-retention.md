@@ -48,6 +48,8 @@ When a signed attachment mutation deactivates an
   and make the maintenance command fail after independent
   [stage](./glossary/content.md#blob-stage) cleanup finishes
 
+![A bind promotes a multipart stage into a live blob, and an unbound stage expires. Removing the last active binding dereferences the blob; a rebind revives it, and otherwise GC prunes it after the grace period while the registry keeps its organization and drives deletion of the stored bytes.](./diagrams/blob-lifecycle.svg)
+
 Detached attachment bindings are transient replacement metadata. They are not a
 historical attachment log, tombstone store, history manifest, or recovery index.
 
