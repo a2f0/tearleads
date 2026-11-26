@@ -186,6 +186,68 @@ persisted projection state. Any raw-page validation failure is terminal for that
 frozen cursor as well, including a plain importer error that does not carry a
 specialized isolation type.
 
+## Read-Only Consumers
+
+Two consumers read raw history without changing the document. The
+[founding view](./developer/client-sdk/document-history.md#founding-update)
+reads the first page and replays only its first update.
+[History verification](./developer/client-sdk/document-history.md#verifying-history)
+drains every page and follows items 1 to 4 of the client contract. Items 5
+and 6 apply to neither: they prove no pending delta, settle no row, and
+install nothing. So they need no open store, sync lane, or write chain, and a
+read that fails leaves the device as it was.
+
+History verification (`verifyDocumentHistory`) differs from the rotation
+preflight in these ways:
+
+- **It compares where the preflight requires.** The preflight fails unless
+  the rebuild covers the live history and equals it. Verification compares
+  the two on the operations both hold, the meet of their versions, and
+  reports a difference as `mismatch`. An edit the device has not sent and an
+  update it has not pulled are outside the comparison. The rebuild's identity
+  is taken from a document that holds exactly the meet's operations, so a
+  forged operation whose dependency lies outside the meet cannot drop out of
+  both replays unseen.
+- **It judges recorded import voids again.** The preflight keeps every void
+  this device recorded. A verifier asks whether the device's own history can
+  be trusted, and an import void was decided against that history: a device
+  started from a forged baseline voids the genuine updates for reusing ids it
+  holds. Kept, those voids would leave the genuine updates out of the rebuild
+  and let the forged baseline in. Only a void the payload alone decides, and
+  one this device's runtime failed for good, stay void unread.
+- **It records nothing.** It writes no void row, runtime attempt, cursor,
+  sync failure, or rotation proof, and passes no deletion, abandon, or
+  isolation handler.
+- **Its read windows charge nothing.** Each page reads in a `history`
+  [read window](./glossary/sync.md#loro-read-window). A death there counts
+  toward no update and no rotation and isolates nothing, and a window the
+  process outlives clears no attempt.
+- **It keeps the rebuild budget.** The preflight lifts the judge's rebuild
+  budget so that it defers nothing. Verification keeps the budget and reports
+  a deferred or held update as `unsettled`.
+- **It bounds the history.** A document with more than 20,000 updates is
+  `too_large`, decided from the first page's count
+  ([limits](./limits.md#loro-runtime)).
+
+Availability and poison keep their order. An unreachable epoch is
+`epoch_key_unreachable`, carrying the `DocumentRawHistoryUnavailableError`;
+a malformed bundle on the same page is `rejected` first.
+
+Like the preflight, verification relies on a raw pull serving every retained
+update, which
+[`BaselineDominance`](../formal/document-sync/BaselineDominance.md) checks as
+`RawModeServesCompleteFrontier`. That holds for an honest server. A server
+that leaves updates out is not detected: see the
+[trust limits](./developer/client-sdk/document-history.md#trust-limits).
+
+Its tests cover a device started from a forged baseline, with and without
+recorded import voids of the genuine updates; an honest multi-page history
+with direct and baseline-only ranges; an unsent edit; a history the device is
+behind; an unreachable epoch, a malformed bundle, a repeated cursor, an
+oversized history, an abort between pages, and an isolating scope, each
+without durable change; and a store that edits and syncs while a raw page is
+held open.
+
 ## Verification
 
 Store-level tests cover honest recovery, forged remote and queued baselines,

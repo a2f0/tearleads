@@ -4,6 +4,7 @@ import {
   type LoroIsolation,
   type LoroWindow,
   type LoroWindowKind,
+  loroWindowTakesScopeRow,
 } from "../../../documents/shared/sync/loroWindowMachine";
 import {
   documentLoroIsolation,
@@ -16,10 +17,18 @@ import type { DocumentScope } from "./documentPersistenceTypes";
 
 // One bind names the app kind; the rest carry local ids.
 const LOCAL_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 1);
-const LORO_WINDOW_KINDS: ReadonlySet<string> = new Set<string>([
-  "read",
-  "rotation",
-] satisfies LoroWindowKind[]);
+const LORO_WINDOW_KINDS: Readonly<Record<LoroWindowKind, LoroWindowKind>> = {
+  history: "history",
+  read: "read",
+  rotation: "rotation",
+};
+
+/** The stored kind, when this build knows it. */
+function storedWindowKind(kind: string): LoroWindowKind | null {
+  return (
+    Object.values(LORO_WINDOW_KINDS).find((known) => known === kind) ?? null
+  );
+}
 
 function windowScope(scope: DocumentScope) {
   return and(
@@ -59,21 +68,26 @@ export async function readForeignLoroWindows(
       and(windowScope(scope), ne(documentLoroWindows.lifetimeId, lifetimeId)),
     )
     .all();
-  return rows.map((row) => ({
-    // A kind this build does not know counts toward nothing, update or
-    // rotation: its death only isolates the window's updates.
-    counts: row.counts === 1 && LORO_WINDOW_KINDS.has(row.kind),
-    documentId: row.documentId,
-    judge: row.judge,
-    kind: row.kind === "rotation" ? "rotation" : "read",
-    lifetimeId: row.lifetimeId,
-    updateIds: stringArray(row.updateIds),
-  }));
+  return rows.map((row) => {
+    const kind = storedWindowKind(row.kind);
+    return {
+      // A kind this build does not know counts toward nothing, update or
+      // rotation: its death only isolates the window's updates.
+      counts: row.counts === 1 && kind !== null,
+      documentId: row.documentId,
+      judge: row.judge,
+      kind: kind ?? "read",
+      lifetimeId: row.lifetimeId,
+      updateIds: stringArray(row.updateIds),
+    };
+  });
 }
 
 /**
  * Opens window `windowId` of this lifetime on the scope, replacing the row
- * another of its windows wrote there.
+ * another of its windows wrote there. A window whose kind takes no such row
+ * (`loroWindowTakesScopeRow`) replaces only its own, and writes none while
+ * another window's stands.
  */
 export async function writeLoroWindowInTransaction(
   tx: Pick<ClientSQLiteTransactionScope, "insert">,
@@ -100,6 +114,9 @@ export async function writeLoroWindowInTransaction(
     })
     .onConflictDoUpdate({
       set: values,
+      ...(loroWindowTakesScopeRow(window.kind)
+        ? {}
+        : { setWhere: eq(documentLoroWindows.windowId, window.windowId) }),
       target: [
         documentLoroWindows.appKind,
         documentLoroWindows.localId,

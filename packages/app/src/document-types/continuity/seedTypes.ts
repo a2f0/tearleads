@@ -34,6 +34,11 @@ export interface SeedAttachment {
    * "back"). Omit for single-attachment kinds like `image`, which append.
    */
   readonly slot?: string;
+  /**
+   * The document's avatar: a photo in its kind's photo gallery slot, which
+   * the seeder selects through the kind's avatar field. At most one.
+   */
+  readonly avatar?: true;
 }
 
 export interface SeedFile {
@@ -43,7 +48,10 @@ export interface SeedFile {
   /** Structured fields for the kind (e.g. fileName, licenseId, expirationDate). */
   readonly fields?: Readonly<Record<string, string>>;
   readonly attachments: readonly SeedAttachment[];
-  /** First-class document rows, written through DocumentStore.addRow. */
+  /**
+   * First-class document rows: tracker readings, or a passcode's extra
+   * attributes (`name`, `value`, and `protected: "true"` when masked).
+   */
   readonly rows?: readonly Readonly<Record<string, string>>[];
 }
 
@@ -53,8 +61,33 @@ export interface SeedGroup {
   readonly members: readonly string[];
 }
 
+/** A line a group member appends to a folder note, signed in as themselves. */
+export interface SeedNoteAddition {
+  /** The member's contact `id`; a group that can write must include them. */
+  readonly author: string;
+  readonly text: string;
+}
+
+/** A folder note: the owner writes `text`, then each addition follows it. */
+export interface SeedFolderNote extends SeedNote {
+  readonly additions?: readonly SeedNoteAddition[];
+}
+
+export type SeedFolderAccess = "read" | "write";
+
+/** A folder under the account root, opened to the dataset's groups. */
+export interface SeedFolder {
+  readonly name: string;
+  /** Seeded with the groups (`tearleads seed --roster`). */
+  readonly grants?: readonly {
+    readonly group: string;
+    readonly access: SeedFolderAccess;
+  }[];
+  readonly notes?: readonly SeedFolderNote[];
+}
+
 export interface SeedSpec {
-  readonly schemaVersion: 3;
+  readonly schemaVersion: 4;
   /**
    * Fixed BIP39 seed phrase of the account the screenshot run seeds and signs
    * in as. Its deterministic signing key makes the Contacts system slot,
@@ -68,4 +101,6 @@ export interface SeedSpec {
   readonly files?: readonly SeedFile[];
   /** Seeded only on request (`tearleads seed --roster`). */
   readonly groups?: readonly SeedGroup[];
+  /** Created under the root; grants and additions need the groups. */
+  readonly folders?: readonly SeedFolder[];
 }

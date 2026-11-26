@@ -235,8 +235,8 @@ credit card (front and back), and birth certificate.
 Family photos, tools and appliances with multiple photos and purchase receipts,
 and populated weight and blood pressure charts are captured as well.
 Capture assertions use Continuity's expected names, note text, document titles,
-and image counts. The separate two-peer authorship captures still exercise the
-collaboration demo.
+and image counts. The Family folder's shared note supplies the authorship and
+History captures, with lines from four family members.
 
 The capture writes `.screenshots/<layout>/<theme>/<screen>.png`, with layouts
 `web`, `ipad`, and `mobile` and themes `light` and `dark`; it replaces files

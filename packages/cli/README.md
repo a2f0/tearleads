@@ -94,7 +94,15 @@ same identity.
 
 The command writes the pinned screenshot dataset into your personal
 organization. Contacts and avatars appear in Contacts. Notes, photos, ID
-documents, equipment, and health trackers sync under your root folder.
+documents, equipment with its avatar photo, passcodes, and health trackers
+sync under your root folder, and each dataset folder (today Family) is made
+under it with its notes inside. The seed knows its folder by an id only your
+key derives, not by its name: if you already have a folder of your own by
+that name, the seed leaves it alone and makes Family (2) instead, so it never
+writes to or shares your folder. If you move the seed's folder out of the root
+or to Trash, a rerun leaves it, its notes, and its grants as they are, and says
+so. Once you empty it from Trash, its id stays taken on the server, and the
+command stops at the folder step.
 The import commits each document with an encrypted fingerprint of its fixture.
 If it stops partway, run the
 same command again. For the same dataset version it reuses the documents,
@@ -123,6 +131,19 @@ A rerun finds the same members and changes nothing. Like the document import,
 the roster step fails when one of your session's requests fails or the SDK
 logs an error, because a read it waited on may then be partial.
 
+With the roster in place, the command then shares each dataset folder with
+the groups the dataset names (the Family folder gets a write grant to the
+Family group), skipping a grant your organization already holds. A grant you
+removed from the seed's folder is given back on the next `--roster` run, along
+with anything you have put in that folder since. Each member
+then signs in again to add their own line to the folder's note, so the note
+has several authors for Get Info's attribution and for History. A line already
+in the note is not added twice, and a rerun signs no member in for a line you
+can already see. Only the seed's own folder is shared: if you move its note
+elsewhere, the note keeps its place, nothing is shared, and the note gets no
+member lines; the command says so. Without `--roster` the folders and their
+notes are made, but no grant or member line is.
+
 Each member takes a seat in your organization, so on a billed organization
 this raises the seat count. The screenshot run passes `--roster`; leave it
 off for an account you only want documents in.
@@ -140,6 +161,8 @@ Verification honors the SDK retry delay for deferred documents and gives the
 verification session one hour, including discovery continuation requests.
 Each CLI process has a 65-minute limit and attempts logout on interruption.
 An edit, removal or missing download fails the check and identifies the fixture.
+It reads the root and Contacts fixtures only: a folder note is meant to change
+as members add to it, so its text is not an original to compare.
 Add `--trace` to `seed` for per-file staging, confirmation and skip messages.
 
 ## Restore a KeePass database
