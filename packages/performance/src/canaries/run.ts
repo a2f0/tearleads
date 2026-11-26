@@ -61,18 +61,30 @@ export async function runCanary(input: {
     closeSync(descriptor);
   }
   const wallMs = Math.round(performance.now() - started);
-  const output = parseCanaryOutput(await readFile(input.log, "utf8"));
+  const output = readCanaryOutput(await readFile(input.log, "utf8"));
   return {
     canary: input.canary.name,
     file: input.canary.file,
     sample: input.sample,
-    status: runStatus(exitCode, timedOut, output),
+    status: output ? runStatus(exitCode, timedOut, output) : "failed",
     exitCode,
     wallMs,
-    tests: output.tests,
+    tests: output?.tests ?? null,
     log: input.log,
-    phases: output.phases,
+    phases: output?.phases ?? [],
   };
+}
+
+/**
+ * The log's profile, or null when a metrics line is malformed: that run
+ * fails, keeping its log, and the remaining canaries still run.
+ */
+function readCanaryOutput(log: string): CanaryOutput | null {
+  try {
+    return parseCanaryOutput(log);
+  } catch {
+    return null;
+  }
 }
 
 /** The last lines of a failed run's log, for the terminal. */

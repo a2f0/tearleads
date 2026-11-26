@@ -190,18 +190,20 @@ Capture once per revision, in the background, and keep one log and one
 capture file per run. When the protocol audit runs at the same revision,
 run the canaries once for both: set `DUAL_PANE_REQUEST_PROFILE=1` and
 `DUAL_PANE_REQUEST_PROFILE_DETAIL=1` beside the capture preload, so one log
-holds the request profile and one file the statements (about two minutes
-for all eight on 2026-10-30). Set `SQL_CAPTURE_PARAM_HASH=1` on that shared
+holds the request profile and one file the statements. `perf:canaries`
+runs the same files but cannot load the capture preload, so this shared
+pass runs each one by hand. Set `SQL_CAPTURE_PARAM_HASH=1` on that shared
 pass: without the hashes neither audit can split a repeated statement into
 same-key and different-key reads afterwards.
 
-- The eight request-volume canaries listed in the `protocol-efficiency-audit`
+- The request-volume canaries listed in the `protocol-efficiency-audit`
   measurement reference (upload, organization bootstrap, folder and group
-  mutations, device-first offline, active peer, groups, sharing), under the
-  capture preload. They drive the real SDK against the in-process test API
-  on PGlite, so their statement mix approximates production. Statements
-  between two `phaseEnd` markers include any setup the canary ran before
-  the phase started; use a probe for exact per-operation numbers.
+  mutations, device-first offline, groups, sharing, reconnect, restart; the
+  active-peer canary prints no profile), under the capture preload. They
+  drive the real SDK against the in-process test API on PGlite, so their
+  statement mix approximates production. Statements between two `phaseEnd`
+  markers include any setup the canary ran before the phase started; use a
+  probe for exact per-operation numbers.
 - The API statement-budget tests from the inventory, under the preload, for
   registration, read-model, projection, and verification-marker counts.
 

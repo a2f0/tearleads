@@ -1,5 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { parseCanaryOutput } from "./output";
@@ -84,6 +91,25 @@ test("a failing file is failed and one without metrics is unprofiled", async () 
   expect(failed.status).toBe("failed");
   expect(failed.tests).toEqual({ pass: 0, fail: 1 });
   expect(unprofiled.status).toBe("unprofiled");
+});
+
+test("a malformed metrics line fails that run instead of the batch", async () => {
+  const root = await fakeApp(`
+test("prints a bad line", () => {
+  console.info('[dual-pane-request-metrics] {"label":"broken"}');
+  expect(1).toBe(1);
+});`);
+  const log = resolve(root, "bad.log");
+  const run = await runCanary({
+    canary: { name: "Fake", file: "src/Fake.test.ts" },
+    sample: 1,
+    log,
+    root,
+  });
+  expect(run.status).toBe("failed");
+  expect(run.exitCode).toBe(0);
+  expect(run.phases).toEqual([]);
+  expect(await readFile(log, "utf8")).toContain('{"label":"broken"}');
 });
 
 test("a timeout or a missing tally fails the run", () => {

@@ -36,7 +36,7 @@ as this README describes, and record a run that supports a shipped change in
 | Skill | Tasks |
 | --- | --- |
 | `protocol-efficiency-audit` | `perf:canaries` for its request and byte baseline; `perf:reload` for the requests a reload makes at sizes the canaries do not reach; `perf:realtime` and `perf:realtime-contention` for the hub; `perf:provision`, `perf:seed` and `perf:database` results for deployed costs |
-| `database-efficiency-audit` | `perf:canaries` beside its statement capture; `perf:realtime` for the hub's statements; `perf:database` and `perf:provision` results for deployed costs |
+| `database-efficiency-audit` | `perf:realtime` and `perf:realtime-contention` for the hub's statements and stalls; `perf:reload` for a reload's statements on the API and in the client's SQLite; `perf:database` and `perf:provision` results for deployed costs |
 
 The audits run local tasks themselves. A task that touches a deployed tier
 (`perf:provision`, `perf:seed`, `perf:database`) creates accounts or a
