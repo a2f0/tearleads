@@ -173,6 +173,15 @@ export interface RemoteContainerHydrationHost {
   ) => Promise<PersistContainerStateResult>;
   requestDocumentPriming?: (() => void) | undefined;
   /**
+   * Owe each container's document lane one listing, durably, before
+   * hydration advances a lane watermark past the container's row. Every
+   * server write that changes what a document lane returns republishes its
+   * container's row, so a served row is what says the lane may have moved.
+   */
+  requestDocumentLaneListings?:
+    | ((containerIds: ReadonlyArray<string>) => Promise<void>)
+    | undefined;
+  /**
    * Owe a metadata document one remote read, durably, before hydration
    * advances the timestamps and lane watermark that revealed it.
    */
@@ -189,6 +198,14 @@ export interface ContainerParentHydrationLane {
   /** An earlier page is incomplete. Continue discovery without persisting a cursor past it. */
   skipWatermarkWrite?: boolean;
   continuationCursors?: Set<string>;
+  /**
+   * A listing from no watermark that runs beside the lane's own listing from
+   * its watermark. It shows which containers the lane holds now, which a
+   * grant made through a principal policy changes without republishing a
+   * row. It says nothing about which rows moved, so it owes no document lane
+   * a listing and saves no cursor: the listing from the watermark does both.
+   */
+  membershipOnly?: true;
   parentId: string | null;
   watermark?: ListContainersResponse["nextWatermark"];
 }

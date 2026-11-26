@@ -7,6 +7,7 @@ import {
 import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordination";
 import { persistContainerState } from "./containerState/containerStatePersistence";
 import { createTreeRefreshMethods } from "./hydration/remoteHydrationRefresh";
+import { oweDocumentLaneListings } from "./hydration/treeCatchUp";
 import {
   createChildContainer,
   deleteContainer,
@@ -102,6 +103,8 @@ function createContainerContentsStoreSyncHost(
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
     },
+    requestDocumentLaneListings: (containerIds) =>
+      oweDocumentLaneListings(state, containerIds),
     requestMetadataRevalidation: (request) =>
       oweContainerMetadataRead(state, request),
     updateSnapshot: () => updateContainerContentsSnapshot(state),

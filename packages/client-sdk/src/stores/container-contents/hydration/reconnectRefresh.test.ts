@@ -74,3 +74,53 @@ test("a reconnect crawl is owed from the acknowledgement until it completes", as
   }
   expect(recovery.owesCrawl).toBe(false);
 });
+
+test("the crawl's observer is told when it is owed and how each attempt settles", async () => {
+  const reports: string[] = [];
+  const observer = {
+    crawlOwed: () => {
+      reports.push("owed");
+    },
+    crawlSettled: (complete: boolean) => {
+      reports.push(complete ? "complete" : "incomplete");
+    },
+  };
+  // A store opened after the acknowledgement owes the crawl at once.
+  const recovery = new ReconnectRefresh(true, observer);
+  try {
+    expect(reports).toEqual(["owed"]);
+
+    // An attempt that must be retried settles incomplete, then backs off.
+    recovery.runWhenReady(
+      () => true,
+      async ({ reconnect }) => {
+        reconnect.record("retry");
+        return true;
+      },
+    );
+    await Bun.sleep(1);
+    expect(reports).toEqual(["owed", "incomplete"]);
+
+    // The next acknowledged connection owes it again, and it completes.
+    recovery.reset("acknowledged");
+    recovery.runWhenReady(
+      () => true,
+      async ({ reconnect }) => {
+        reconnect.record("complete");
+        return true;
+      },
+    );
+    await Bun.sleep(1);
+    expect(reports).toEqual(["owed", "incomplete", "owed", "complete"]);
+
+    // A runtime change alone neither owes nor settles a crawl.
+    recovery.reset("runtimeChanged");
+    expect(reports).toHaveLength(4);
+  } finally {
+    recovery.reset("disposed");
+  }
+  // A disposed store's crawl will never vouch for anything.
+  expect(reports.at(-1)).toBe("incomplete");
+  expect(new ReconnectRefresh(false, observer).owesCrawl).toBe(false);
+  expect(reports).toHaveLength(5);
+});

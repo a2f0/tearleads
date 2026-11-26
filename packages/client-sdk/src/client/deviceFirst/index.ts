@@ -49,6 +49,7 @@ import {
 import {
   createListingCoverageHost,
   installDocumentListingAuthority,
+  listOwedLanesWhenOwed,
   listReconcilableContainerIds,
 } from "./listingCoverageHost";
 import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
@@ -96,6 +97,7 @@ interface DeviceFirstScopeEntry {
   contents: DeviceFirstContainerContents;
   disconnectReconciliationTriggers: () => void;
   removeListingAuthority: () => void;
+  stopListingOwedLanes: () => void;
   stopDocumentPrimer: () => void;
   unsubscribePersistedDocumentDeletions: () => void;
   unsubscribePersistedDocuments: () => void;
@@ -106,6 +108,7 @@ function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
   entry.contents.reconciler.stop();
   entry.disconnectReconciliationTriggers();
   entry.removeListingAuthority();
+  entry.stopListingOwedLanes();
   entry.stopDocumentPrimer();
   entry.unsubscribePersistedDocumentDeletions();
   entry.unsubscribePersistedDocuments();
@@ -319,6 +322,7 @@ class DeviceFirstService implements DeviceFirst {
         store,
       }),
       stopDocumentPrimer,
+      stopListingOwedLanes: listOwedLanesWhenOwed(domainScope, service),
       unsubscribePersistedDocumentDeletions,
       unsubscribePersistedDocuments,
     };

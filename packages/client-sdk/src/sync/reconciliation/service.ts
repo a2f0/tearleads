@@ -1,8 +1,9 @@
 import { clearOriginatedDocuments } from "../../data/sync/originatedDocuments";
 import {
-  listFullRefreshContainerIds,
   requestAcknowledgedConnectionSweep,
-  requestContainerRefresh,
+  requestFullRefresh,
+  requestOwedLanesSweep,
+  requestRootRefresh,
 } from "./containerRefresh";
 import {
   acknowledgeContainerForce,
@@ -276,27 +277,11 @@ export function createReconciliationService(
       state.initialDocumentProbe.resetSkippedListings();
     },
     reconcileRootContainersNow: (options) =>
-      requestContainerRefresh({
-        freshListing: options?.freshListing === true,
-        host,
-        state,
-        refreshTree: host.refreshRootTree,
-        listContainerIds: host.listAutomaticRootCatchupContainerIds,
-        scope: "root",
-        signal: options?.signal,
-      }),
-    reconcileNow: (options) =>
-      requestContainerRefresh({
-        freshListing: options?.freshListing === true,
-        host,
-        state,
-        refreshTree: host.refreshTree,
-        listContainerIds: () => listFullRefreshContainerIds(host, state),
-        scope: "full",
-        signal: options?.signal,
-      }),
+      requestRootRefresh(host, state, options),
+    reconcileNow: (options) => requestFullRefresh(host, state, options),
     reconcileAcknowledgedConnection: () =>
       requestAcknowledgedConnectionSweep(host, state),
+    reconcileOwedLanes: () => requestOwedLanesSweep(host, state),
     stop: () => stopReconciliationService(host, state),
   };
 }

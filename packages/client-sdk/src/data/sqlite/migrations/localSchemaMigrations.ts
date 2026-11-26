@@ -226,6 +226,26 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 12,
   },
+  {
+    // The catch-up after an acknowledged connection now lists only the
+    // document lanes that are owed a listing: those a tree listing showed
+    // moved, and those never settled (#3256). An earlier SDK listed every
+    // lane instead, and its tree listings advanced without owing anything.
+    // If it stopped between a tree listing and that sweep, no record says
+    // which lanes the sweep still owed. Mark every document lane unsettled,
+    // so each is listed once more from its cursor. No step creates
+    // `document_lane_revalidations`: its ensure does, after migrating.
+    name: "relist_document_lanes_once_for_owed_lanes",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("container_sync_watermarks"))) return;
+      await execSql(
+        `UPDATE container_sync_watermarks
+            SET checked_at = NULL
+          WHERE lane_kind = 'container_documents'`,
+      );
+    },
+    version: 13,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

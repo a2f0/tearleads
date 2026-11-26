@@ -107,6 +107,14 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
    * database listed the row) still reaches this process's open stores.
    */
   requestOwedDocumentReads?: (() => Promise<void>) | undefined;
+  /**
+   * Resolves once the tree crawl the last acknowledged connection owes has
+   * settled, with whether it completed. A complete crawl owed a listing to
+   * the document lane of every container whose row it was served, so the
+   * catch-up lists those lanes alone. Absent, or false, nothing vouches for
+   * the other lanes and the catch-up lists every known one.
+   */
+  whenTreeCrawlSettles?: (() => Promise<boolean>) | undefined;
   /** Refresh the container tree from the server (explicit refresh). */
   refreshTree: () => Promise<void>;
   /** Refresh only the top-level root lane from the server. */
@@ -179,15 +187,23 @@ export interface ReconciliationService {
    */
   reconcileNow: (options?: RefreshRequestOptions) => Promise<void>;
   /**
-   * Catch up after the server acknowledged this socket's interest: list every
-   * known container's document lane from its watermark, in a sweep that
-   * starts after this call. Hints sent before the acknowledgement are lost,
-   * and a document whose lane covers it is not probed on its own, so this
-   * listing is what finds an edit made meanwhile: a listed document the
-   * device's processed cursor does not cover is owed a read. Nothing else is
-   * revalidated. A lane that cannot be listed has its registered documents
-   * probed instead.
+   * Catch up after the server acknowledged this socket's interest, in a sweep
+   * that starts after this call. Hints sent before the acknowledgement are
+   * lost, and a document whose lane covers it is not probed on its own, so
+   * this is what finds an edit made meanwhile. The sweep waits for the tree
+   * crawl the acknowledgement owes, then lists each document lane that is
+   * owed a listing from its watermark: one whose container's row that crawl
+   * was served, or one that never settled. When the crawl did not complete
+   * it lists every known lane. A listed document the device's processed
+   * cursor does not cover is owed a read. Nothing else is revalidated. A lane
+   * that cannot be listed has its registered documents probed instead.
    */
   reconcileAcknowledgedConnection: () => Promise<void>;
+  /**
+   * List the document lanes that are owed a listing now. A tree listing
+   * outside an acknowledged connection's catch-up calls for it: it was served
+   * a container's row and owed that container's lane a listing.
+   */
+  reconcileOwedLanes: () => Promise<void>;
   stop: () => void;
 }

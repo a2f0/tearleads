@@ -9,11 +9,22 @@ import {
   transitionReconnectRefresh,
 } from "./reconnectRefreshMachine";
 
+/** Told what the crawl an acknowledged connection owes comes to. */
+export interface ReconnectCrawlObserver {
+  /** An acknowledged connection owes a crawl. */
+  readonly crawlOwed: () => void;
+  /** An attempt at it ended; `complete` when it listed every lane it queued. */
+  readonly crawlSettled: (complete: boolean) => void;
+}
+
 export class ReconnectRefresh {
   private state: ReconnectRefreshState = { status: "idle" };
   private timer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(acknowledged: boolean) {
+  constructor(
+    acknowledged: boolean,
+    private readonly observer?: ReconnectCrawlObserver | undefined,
+  ) {
     if (acknowledged) this.reset("acknowledged");
   }
 
@@ -32,6 +43,9 @@ export class ReconnectRefresh {
     clearTimeout(this.timer);
     this.timer = undefined;
     this.state = transitionReconnectRefresh(this.state, { type });
+    if (type === "acknowledged") this.observer?.crawlOwed();
+    // A crawl a disposed store owed will never vouch for anything.
+    if (type === "disposed") this.observer?.crawlSettled(false);
   }
 
   runWhenReady(
@@ -56,6 +70,7 @@ export class ReconnectRefresh {
       });
       if (next === this.state) return;
       this.state = next;
+      this.observer?.crawlSettled(next.status === "idle");
       if (next.status !== "backoff") return;
       this.timer = setTimeout(() => {
         this.timer = undefined;

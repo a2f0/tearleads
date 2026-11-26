@@ -5,7 +5,8 @@ import {
   transitionSharedRefresh,
 } from "./sharedRefreshMachine";
 
-const running = (waiters: number): SharedRefreshState => ({
+const running = (waiters: number, listed = false): SharedRefreshState => ({
+  listed,
   status: "running",
   waiters,
 });
@@ -48,4 +49,22 @@ test("a stopping or settled refresh neither starts nor takes callers", () => {
   expect(settled).toEqual({ status: "settled" });
   expect(transitionSharedRefresh(settled, { type: "joined" })).toBe(settled);
   expect(transitionSharedRefresh(settled, { type: "withdrew" })).toBe(settled);
+});
+
+test("a running refresh is listed once it has read what it will list", () => {
+  const listed = transitionSharedRefresh(running(1), { type: "listed" });
+  expect(listed).toEqual(running(1, true));
+  // Joining and withdrawing keep the mark.
+  expect(transitionSharedRefresh(listed, { type: "joined" })).toEqual(
+    running(2, true),
+  );
+  expect(
+    transitionSharedRefresh(running(2, true), { type: "withdrew" }),
+  ).toEqual(running(1, true));
+  // Only a running refresh lists.
+  expect(
+    transitionSharedRefresh(QUEUED_SHARED_REFRESH, { type: "listed" }),
+  ).toBe(QUEUED_SHARED_REFRESH);
+  const stopping: SharedRefreshState = { status: "stopping" };
+  expect(transitionSharedRefresh(stopping, { type: "listed" })).toBe(stopping);
 });
