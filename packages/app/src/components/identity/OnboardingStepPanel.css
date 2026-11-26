@@ -1,0 +1,71 @@
+/*
+ * An onboarding step laid out by the shape of whatever hosts it (a phone, a
+ * tablet pane, a desktop window, the empty desktop, or the demo's page), not
+ * the screen's. This file makes the box its layouts query fill the host; each
+ * step names its own layouts in `@container onboarding-step` rules.
+ *
+ * A step sets `--onboarding-step-floor` to its stacked panel's least height,
+ * on its outer box, and may lower it on its panel for a layout that needs
+ * less. Nothing here declares it, so neither side depends on which stylesheet
+ * loads first.
+ */
+.onboarding-step {
+  /* Size, not inline-size, so a step can ask for a landscape host. Every host
+     is a flex column of definite height that this box fills. */
+  container: onboarding-step / size;
+  /* Size containment sizes this box without its content. A host that gives
+     it no height (a block that scrolls) gets the panel's floor, not zero. */
+  contain-intrinsic-block-size: var(--onboarding-step-floor, 30rem);
+
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  /* For the same reason, a host that centers its items would shrink it to
+     nothing; stretch it instead. */
+  align-self: stretch;
+  /* Fill the host, never grow past it: a step's long parts scroll inside it.
+     A host too short for the panel's floor scrolls here. */
+  min-height: 0;
+  box-sizing: border-box;
+  /* Its distance from the host's sides: the empty desktop and the demo's page
+     have none of their own. */
+  padding-inline: var(--space-md);
+  overflow-y: auto;
+}
+
+/* A padded mini-app root already insets its content by that distance. */
+.mini-app-root:not(.mini-app-root--padding-none) .onboarding-step {
+  padding-inline: 0;
+}
+
+/* Scoped under the container so these outrank `.mini-app-state-panel` whatever
+   order the stylesheets load in: tied, they won only by source order, which
+   Bun's dev server and the production bundle have not always agreed on (see
+   MiniAppTabs.css). A step's own rules on its panel must not restate these. */
+.onboarding-step > .onboarding-step-panel {
+  /* A floor for short hosts (a small window), so a stacked step keeps its
+     parts readable; below it, the box above scrolls. */
+  min-height: max(100%, var(--onboarding-step-floor, 30rem));
+  /* The box above insets the panel, so the panel adds no inset of its own.
+     Inset twice, a phone's legal documents frame was too narrow for both
+     tabs. */
+  padding-inline: 0;
+  /* `safe`: centered content that overflows its box spills only downward (or
+     toward the end), where it can be scrolled to, never above the title. */
+  justify-content: safe center;
+  /* Fade in without the state panel's rise: the panel fills the scrolling box
+     above, so rising it overflowed that box and flashed a scrollbar. */
+  animation-name: onboarding-step-enter;
+}
+
+@keyframes onboarding-step-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-step > .onboarding-step-panel {
+    animation-name: none;
+  }
+}

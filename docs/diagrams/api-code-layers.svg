@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="676" viewBox="0 0 600 676" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>API code layers</title>
+  <desc>Six layers from the entry points down to infrastructure. Each layer calls the one below it. Tests build the same route app in process, and ApiServiceRuntime injects the infrastructure adapters into the application services.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <style>
+      .canvas,.box { fill: #fff; }
+      .band { fill: #f8fafc; }
+      .box,.edge { stroke: #4b5563; stroke-width: 1.25; }
+      .edge { fill: none; }
+      .arrowhead { fill: #4b5563; }
+      .colhead { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+      .name { font-size: 15px; font-weight: 600; }
+      .colhead,.name { fill: #111827; }
+      .meta { fill: #4b5563; font-size: 13px; }
+      @media (prefers-color-scheme: dark) {
+        .canvas,.box { fill: #18181b; }
+        .band { fill: #242427; }
+        .colhead,.name { fill: #fafafa; }
+        .meta,.arrowhead { fill: #d4d4d8; }
+        .box,.edge { stroke: #d4d4d8; }
+      }
+    </style>
+  </defs>
+  <rect width="600" height="676" class="canvas"/>
+  <text x="16" y="24" class="colhead">API CODE LAYERS</text>
+  <text x="400" y="24" class="colhead">BESIDE THE LAYERS</text>
+
+  <rect x="16" y="40" width="360" height="88" rx="4" class="box"/>
+  <text x="28" y="61" class="name">1 · Entry points</text>
+  <text x="28" y="80" class="meta">worker/index.ts: the Cloudflare Workers entry</text>
+  <text x="28" y="98" class="meta">index.ts: Bun dev server and WebSocket upgrades</text>
+  <text x="28" y="116" class="meta">routeApp.ts: the HTTP app both entries serve</text>
+  <path d="M196 128 V150" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="152" width="360" height="88" rx="4" class="box"/>
+  <text x="28" y="173" class="name">2 · Transport</text>
+  <text x="28" y="192" class="meta">routes/, request validators, session middleware</text>
+  <text x="28" y="210" class="meta">Validate, call a service, shape the response</text>
+  <text x="28" y="228" class="meta">Publish realtime hints after a committed write</text>
+  <path d="M196 240 V262" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="264" width="360" height="70" rx="4" class="box"/>
+  <text x="28" y="285" class="name">3 · Application services</text>
+  <text x="28" y="304" class="meta">services/&lt;area&gt;/: use cases on validated input</text>
+  <text x="28" y="322" class="meta">Hand transaction orchestration to workflows</text>
+  <path d="M196 334 V356" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="358" width="360" height="70" rx="4" class="box"/>
+  <text x="28" y="379" class="name">4 · Workflows</text>
+  <text x="28" y="398" class="meta">workflows/: open the transaction, share one executor</text>
+  <text x="28" y="416" class="meta">Sole production importer of access/read and write</text>
+  <path d="M196 428 V450" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="452" width="360" height="70" rx="4" class="box"/>
+  <text x="28" y="473" class="name">5 · Access and domain helpers</text>
+  <text x="28" y="492" class="meta">access/: manifests, KEK state, bundles, bindings</text>
+  <text x="28" y="510" class="meta">documents/: update storage and sync baselines</text>
+  <path d="M196 522 V544" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="546" width="568" height="70" rx="4" class="box"/>
+  <text x="28" y="567" class="name">6 · Infrastructure</text>
+  <text x="28" y="586" class="meta">Postgres adapter (api-shared), key-value store, pub/sub, blob object stores,</text>
+  <text x="28" y="604" class="meta">and session token creation: capabilities, not use-case policy</text>
+
+  <rect x="400" y="40" width="184" height="88" rx="4" class="box"/>
+  <text x="412" y="61" class="name">Test callers</text>
+  <text x="412" y="80" class="meta">MSW app tests and</text>
+  <text x="412" y="98" class="meta">bob-and-alice build</text>
+  <text x="412" y="116" class="meta">createRouteApp</text>
+  <path d="M400 111 H378" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="400" y="264" width="184" height="106" rx="4" class="box"/>
+  <text x="412" y="285" class="name">ApiServiceRuntime</text>
+  <text x="412" y="304" class="meta">Injects the database,</text>
+  <text x="412" y="322" class="meta">blob store, key-value,</text>
+  <text x="412" y="340" class="meta">events, session tokens,</text>
+  <text x="412" y="358" class="meta">and the cursor HMAC key</text>
+  <path d="M400 299 H378" class="edge" marker-end="url(#arrow)"/>
+  <path d="M492 370 V544" class="edge" marker-end="url(#arrow)"/>
+  <text x="504" y="453" class="meta">holds these</text>
+  <text x="504" y="471" class="meta">adapters</text>
+
+  <text x="16" y="642" class="meta">Calls point down; bun run lint:architecture enforces the layering.</text>
+  <text x="16" y="660" class="meta">Routes never import workflows or access modules.</text>
+</svg>

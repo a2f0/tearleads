@@ -179,15 +179,19 @@ in `container_sync_watermarks` does
 | --- | --- |
 | No row, or a row without `checked_at` | owed |
 | Staged candidates in `pending_document_discoveries` | owed |
-| `checked_at` set and no staged candidate | settled |
+| A request in `document_lane_revalidations` | owed |
+| `checked_at` set, no staged candidate and no request | settled |
 
 An applied listing that leaves no candidate pending settles its lane: it sets
 `checked_at` in the statement that stores the cursor, so a reload never leaves
 one without the other. An access change or a remote reset deletes the row, and
-staging a candidate owes the lane until the candidate is acknowledged.
+staging a candidate owes the lane until the candidate is acknowledged. A tree
+listing that is served the container's row requests a listing of its lane; the
+listing that read the request before it was sent settles it
+([which lanes a catch-up lists](../document-listing-coverage.md#which-lanes-a-catch-up-lists)).
 
-The catch-up after an acknowledged connection lists every known lane, owed
-ones included, but a start may never get one: the socket can open without
+The catch-up after an acknowledged connection lists every owed lane, but a
+start may never get one: the socket can open without
 declaring its interest, or realtime can be down while HTTP works. So the
 local projection decides at hydration
 ([`owedDiscoveryResumeMachine.ts`](../../packages/client-sdk/src/stores/local-projection/owedDiscoveryResumeMachine.ts)).
@@ -200,9 +204,10 @@ owed lane once, in its catch-up, and a device whose sign-in boot was cut
 short still lists the Contacts and organization lanes it never applied, at
 one listing per four owed lanes. Once the resume has run, a connection that
 starts or is acknowledged later, a replacing reconnect included, is a new
-catch-up and lists every lane again, the resumed ones included. A settled
-lane is not listed by the resume; later remote changes reach it through
-hints, a visit, or the next acknowledged connection.
+catch-up: it lists the lanes still owed and the lanes its tree crawl is
+served. A settled lane is not listed by the resume; later remote changes
+reach it through hints, a visit, or the next acknowledged connection, whose
+tree crawl is served the lane's container when the lane moved.
 [`owedDiscovery.test.ts`](../../packages/client-sdk/src/client/deviceFirst/owedDiscovery.test.ts)
 restarts a device whose earlier boot applied only some of its lanes, with no
 connect attempt, with one that never acknowledges, and with one that does.
@@ -215,8 +220,8 @@ reconciliation passes `force` and `documentId` to the content puller, and hints
 merge their targets into one trailing pass that revalidates only the named
 registered stores. A full force without a target, which is an explicit
 Refresh, revalidates every registered store. The catch-up after an
-acknowledged connection (`reconcileAcknowledgedConnection`) lists every known
-lane and forces nothing: a listed document the device's processed cursor does
+acknowledged connection (`reconcileAcknowledgedConnection`) lists the owed
+lanes and forces nothing: a listed document the device's processed cursor does
 not cover is owed a read
 ([document listing coverage](../document-listing-coverage.md)). Discovery
 itself does not open documents.

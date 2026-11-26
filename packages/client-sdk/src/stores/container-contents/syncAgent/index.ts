@@ -292,6 +292,21 @@ function logSyncLaneFailure(
   return logError ? logError(message, error) : log(message);
 }
 
+/**
+ * Whether the crawl an acknowledged connection owes will list the tree. An
+ * owed crawl starts only while its acknowledgement is current, so one left
+ * over from a connection that has since dropped vouches for nothing: the
+ * crawl that would yield to it must list.
+ */
+function owesAcknowledgedCrawl(
+  state: ContainerContentsStoreSyncState,
+): boolean {
+  return (
+    state.reconnectRefresh.owesCrawl &&
+    state.runtime.isAcknowledgementCurrent?.() !== false
+  );
+}
+
 function createHydrationRequester(input: {
   host: RemoteContainerHydrationHost;
   resumeRecoveryWork: () => Promise<void>;
@@ -301,6 +316,9 @@ function createHydrationRequester(input: {
   return (options = {}) =>
     requestContainerContentsRemoteHydration({
       ...input,
+      yieldsToReconnectCrawl: options.yieldToReconnectCrawl
+        ? () => owesAcknowledgedCrawl(input.state)
+        : undefined,
       followDiscoveredParentLanes: options.followDiscoveredParentLanes,
       parentIds: options.parentIds,
       resetAllLaneWatermarks: options.resetAllLaneWatermarks,
