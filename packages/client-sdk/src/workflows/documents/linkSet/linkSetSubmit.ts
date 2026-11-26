@@ -12,6 +12,7 @@ import type {
   MaterializedDocumentLinkSetMutationPlan,
 } from "../../../data/documents/shared/types";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { isDocumentRotationBaselineStageError } from "../baselineStage/rotationBaselineErrors";
 import { heldStagedBaselinePlan } from "../baselineStage/rotationBaselineWriter";
 import {
   completeLinkSetMutationRequest,
@@ -142,8 +143,16 @@ async function submitLinkSetLegOnce(
     rotationSnapshot: input.rotationSnapshot,
     signedAt: fixed.signedAt,
     stillCurrent: input.stillCurrent,
+  }).catch((error: unknown) => {
+    // A stage request the API refused for the caller, not for the stage
+    // (access, billing, an outage), is the leg's refusal: it keeps its
+    // status, so a denial parks the move as a refused unlink would.
+    if (!isDocumentRotationBaselineStageError(error)) throw error;
+    const { code, message, status } = error;
+    return { failure: { code, message, status }, kind: "refused" } as const;
   });
   if (!completed) return { kind: "ended" };
+  if ("kind" in completed) return { ...completed, resign: false };
   const { request, stagedCommit } = completed;
   const completedPlan = { ...materializedPlan.plan, request };
   if (input.beforeSubmit && !(await input.beforeSubmit())) {

@@ -248,3 +248,25 @@ test("an unlink that is no longer wanted stops uploading and reports nothing", (
     expect(harness.failures).toEqual([]);
     expect(harness.server.calls.at(-1)).toBe("stage:3");
   }));
+
+// A stage request refused for the caller keeps its status on the way to
+// the leg's caller, as a refused unlink does: nothing is retried, and the
+// stage is left for the next attempt or to expire.
+test("a stage request refused for access is the unlink's refusal", () =>
+  withDatabase("refused-stage-unlink", async (execSql) => {
+    const harness = await createStagedUnlinkHarness();
+    const document = await createLongHistoryDocument("refused-stage-unlink");
+    harness.server.refuseNext("stage:2", {
+      message: "PUT segment: 403 Forbidden",
+      status: 403,
+    });
+
+    expect(await harness.unlink(document, execSql)).toBeNull();
+
+    expect(harness.failures).toEqual([
+      { code: undefined, message: "PUT segment: 403 Forbidden", status: 403 },
+    ]);
+    expect(harness.requests).toEqual([]);
+    expect(harness.server.calls.at(-1)).toBe("stage:2");
+    expect(harness.server.stage(harness.documentId)?.segments).toHaveLength(2);
+  }));
