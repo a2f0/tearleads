@@ -5,6 +5,33 @@ audited revision with a fresh SDK dist, and saved under
 `<audit-directory>/measurements/`. A proposal whose saving is not reproduced
 by one of them is labelled Estimated.
 
+## Performance harness
+
+`packages/performance` holds the repository's repeatable performance
+experiments, run as root `perf:*` scripts. Its
+[README](../../../../packages/performance/README.md) explains each one, and
+its [results index](../../../../packages/performance/results/README.md) lists
+every recorded run, newest first. Read the index while building the
+baseline. A recorded result was measured at its own revision and tier: it
+gives deployed costs and ranks leads, but only a run at the audited revision
+makes a proposal Measured.
+
+| Task | Measures | Use in this audit |
+| --- | --- | --- |
+| `bun run perf:provision` | Requests, phase times, and server timing for one fresh account's registration and login on a deployed tier; with `--cloudflare`, statements per request | `bootstrap-and-session`: deployed request count and server cost of registration |
+| `bun run perf:seed` | One account seeded through the CLI, then recovered by a second process with empty stores, on a deployed tier | `bootstrap-and-session` and `discovery-and-hints`: how long a full recovery takes. It reports phase times, not request counts |
+| `bun run perf:realtime` | Statements, rows, bytes, CPU, and memory per `known_containers` declaration and revalidation pass, by tree size, against a local database | `discovery-and-hints`: what interest declaration costs the hub per declared container |
+| `bun run perf:realtime-contention` | How long other sockets' hints wait while those passes run | `discovery-and-hints`: whether a declaration or revalidation change shortens the hub's stalls |
+| `bun run perf:database` | One warm driver exchange through Hyperdrive, against the same statements batched | Turning statements per request into production latency |
+
+The realtime probes need only a scratch database the audit creates, which
+the audit request authorizes. Seeding a 10,000-folder tree takes over an
+hour; reuse a seeded scratch database with `--reuse` when one exists, and
+record which. `perf:provision` and `perf:seed` create persistent accounts and
+`perf:database` deploys a temporary Worker on a deployed tier, so run them
+only with the user's approval; otherwise cite the latest result and its
+date.
+
 ## Request and byte baselines
 
 The app's request-volume canaries drive the real application, SDK, and test
@@ -185,7 +212,8 @@ never change constants or ceilings in the checkout to measure.
   count beside the ceiling so a shipped proposal lowers both.
 - A request count is not a latency; `#2521` tracks timing instrumentation
   separately. Report counts and bytes and leave duration claims out unless
-  measured.
+  measured, as the deployed-tier tasks in the
+  [performance harness](#performance-harness) measure them.
 - A fixture size is not production size. State the fixture size beside
   every count and say how the count scales with organization, tree, or
   history size when the code makes that clear.
