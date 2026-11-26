@@ -2,14 +2,19 @@ import { runCli } from "./cli";
 import type { CliContext } from "./cliContext";
 import { readLine, readPassword, readSecret } from "./prompt";
 import { createKeychainRecoveryKeyStore } from "./recoveryKeyStore";
+import { createSecretServiceRecoveryKeyStore } from "./secretServiceRecoveryKeyStore";
 import { runSeedCommandWithDeadline } from "./seedCommandLifetime";
 import { targets } from "./targets";
 
+const { platform } = process;
 if (
-  process.platform !== "darwin" &&
+  platform !== "darwin" &&
+  platform !== "linux" &&
   !process.argv.slice(2).includes("--key-stdin")
 ) {
-  console.error("tearleads keeps recovery keys in the macOS Keychain only.");
+  console.error(
+    "tearleads keeps recovery keys in the macOS Keychain or a Linux desktop keyring only.",
+  );
   process.exit(1);
 }
 
@@ -17,7 +22,10 @@ const { TEARLEADS_TRACE } = process.env;
 const argv = process.argv.slice(2);
 const context: CliContext = {
   apiBaseUrl: (target) => targets[target],
-  keyStore: createKeychainRecoveryKeyStore(),
+  keyStore:
+    platform === "linux"
+      ? createSecretServiceRecoveryKeyStore()
+      : createKeychainRecoveryKeyStore(),
   readLine,
   readPassword,
   readRecoveryKey: readSecret,
