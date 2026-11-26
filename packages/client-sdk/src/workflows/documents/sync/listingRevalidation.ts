@@ -23,7 +23,10 @@ import {
 } from "../../../data/persistence/documents/documentListingRevalidationRepository";
 import { readPersistedDocumentFrontiers } from "../../../data/persistence/documents/records/persistedDocumentFrontiers";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { readProcessedUpdateCountForSync } from "./processedCursor";
+import {
+  isProcessedCursorWithheldForSync,
+  readProcessedUpdateCountForSync,
+} from "./processedCursor";
 
 export type {
   DocumentListingRevalidation,
@@ -113,6 +116,29 @@ export async function listLoadedRecordsSavedElsewhere(
     }
   }
   return behind;
+}
+
+/**
+ * Whether a record owes a pull no listing will ask for: it holds a processed
+ * cursor that its next pull withholds. A listing owes a read only to a row
+ * it is served, and a row behind its lane's watermark is not served again.
+ * So a record whose cursor stopped counting after its last pull (the device
+ * now runs another judge, or its content was restored to an older version)
+ * would wait for the document's next change to be judged again.
+ */
+export function isDocumentProcessedCursorWithheld(
+  execSql: ExecSql,
+  input: {
+    readonly documentId: string;
+    readonly frontier: string;
+    readonly localId: string;
+  },
+): Promise<boolean> {
+  return isProcessedCursorWithheldForSync(execSql, {
+    documentId: input.documentId,
+    frontier: input.frontier,
+    scope: { appKind: DOCUMENTS_APP_KIND, localId: input.localId },
+  });
 }
 
 /**
