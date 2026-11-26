@@ -103,10 +103,15 @@ with `document_sync_peer_owned` or `document_sync_dependency_uncommitted`
 records a terminal failure; with it the
 document store [rebases onto a fresh peer](../peer-ownership.md#rebasing-onto-a-fresh-peer),
 or [relays](../peer-ownership.md#after-a-stale-recreation) operations the
-server lost, and retries. Its input's `kind` says which. In one transaction, it
-confirms the record still has the expected `documentId` and
-`recoveryGeneration`, that no checkpoint or history row ends past
-`readVersion`, and that exactly the `queuedUpdateIds` are still queued. For
+server lost, and retries.
+
+Its input is a union keyed on `kind`, `"fork"` or `"relay"`, and only a fork
+carries `checkpoint` and `record`. An adapter written for the earlier
+fork-only input must branch on `kind` and handle `"relay"`; it must not read
+`checkpoint` on a relay. In one transaction, it confirms the record still has
+the expected `documentId` and `recoveryGeneration`, that no checkpoint or
+history row ends past `readVersion`, and that exactly the `queuedUpdateIds`
+are still queued. For
 `"fork"` it then replaces every history row with the supplied checkpoint and
 one queued outgoing update, deletes the scope's void rows and preemption
 notices, and, for a `document` record, stores `peerSalt`, sets the pending base
