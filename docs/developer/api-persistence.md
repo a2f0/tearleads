@@ -48,11 +48,16 @@ has the commands. Three checks hold the history:
 - `migrate` checks the applied history, as above.
 
 Deploys run `migrate` before publishing the Worker, and the previous Worker
-keeps serving until then, so each migration must work with both builds
-(expand, then contract): add a column nullable or with a default, backfill it,
-and drop or tighten an old column only in a later release, once no running
-Worker reads it. Postgres runs DDL inside the migration transaction, so
-`CREATE INDEX CONCURRENTLY` cannot appear in a migration.
+keeps serving until then, so a migration must not break the build still
+running: add a column nullable or with a default, and drop or tighten an old
+column only in a later release, once no running Worker reads it. A migration
+that breaks this on purpose says so in its header comment.
+
+The project is greenfield: a migration need not preserve existing data. One
+that cannot run on a database holding data says in its header comment that it
+needs a [reset](greenfield-reset.md), as `0008` and `0010` do. Postgres runs
+DDL inside the migration transaction, so `CREATE INDEX CONCURRENTLY` cannot
+appear in a migration.
 
 The local client database has its own
 [migration ledger](../../packages/client-sdk/src/data/sqlite/migrations/README.md).

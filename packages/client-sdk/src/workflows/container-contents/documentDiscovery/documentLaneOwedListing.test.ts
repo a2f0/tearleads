@@ -159,3 +159,30 @@ test("a lane with nothing owed settles nothing", async () => {
 
   expect(await owedContainerIds()).toEqual(["other"]);
 });
+
+test("a settle failure leaves the listing applied and the request owed", async () => {
+  await requestDocumentLaneListings(execSql, ["moved"]);
+  const failure = new Error("settle failed");
+  const reported: unknown[] = [];
+
+  const outcomes = await discoverContainerDocumentLanes({
+    generation: 1,
+    lanes: [lane("moved")],
+    listContainerDocumentLanes: laneLister(async () => EMPTY_PAGE),
+    loadContainerDocumentWatermark: async () => null,
+    loadOwedLaneListings: (containerIds) =>
+      findOwedDocumentLaneListings(execSql, containerIds),
+    reportSettleFailure: (error) => reported.push(error),
+    settleOwedLaneListing: async () => {
+      throw failure;
+    },
+  });
+
+  // The listing applied: rejecting it would retry it with a force and drop
+  // its documents from the outcome.
+  expect(outcomes).toEqual([
+    { containerId: "moved", status: "fulfilled", value: [] },
+  ]);
+  expect(reported).toEqual([failure]);
+  expect(await owedContainerIds()).toEqual(["moved"]);
+});

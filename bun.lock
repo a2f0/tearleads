@@ -83,7 +83,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.51",
+      "version": "0.1.52",
       "dependencies": {
         "@electric-sql/pglite": "0.5.15",
         "@tearleads/crypto": "workspace:*",
@@ -99,7 +99,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.361",
+      "version": "0.1.362",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -242,7 +242,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.331",
+      "version": "0.1.333",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -315,7 +315,7 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.12",
+      "version": "0.1.14",
       "dependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/api-shared": "workspace:*",
