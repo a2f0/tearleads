@@ -56,8 +56,9 @@ adding an update. The mechanism is the one
   is linked into, and that is what tells the catch-up after an acknowledged
   connection [which lanes to list](#which-lanes-a-catch-up-lists). Its
   listings start after the acknowledgement and revalidate nothing else: only
-  an explicit Refresh, or resuming a paused organization, still forces every
-  registered document.
+  an explicit Refresh, or resuming a paused organization (`resumeSync` in
+  `organizationMemberships.ts` runs the same full refresh), still forces
+  every registered document.
 - Hints. A store reads hints only once its record has loaded and while a view
   hands it runtimes. The scope remembers which documents the hints it saw
   named, and a store whose document was named before its record loaded probes

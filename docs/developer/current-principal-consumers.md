@@ -175,8 +175,8 @@ below, together with per-route limits and mutation-count assertions. They are
 local fixed-cardinality measurements, not production benchmarks.
 
 [`OrganizationBootstrapRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx)
-caps personal bootstrap at 21 requests, and caps
-creating and activating another organization at 6. Provisioning seeds discovery
+caps personal bootstrap at 21 requests and creating and activating another
+organization at 6. Provisioning seeds discovery
 evidence for the profile documents it signed, the destination roles of the
 containers it created, and recovery of the founding policy heads, so neither
 flow fetches those documents' writer projections, verifies the provisioned
@@ -195,8 +195,8 @@ no read
 [`PaneRestartRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx)
 caps the first persisted-database pane restart after local creates at 19
 requests, including two organization-policy reads and one public history
-read, and a later restart at 11 (one organization-policy read, no history
-read).
+read, a settled restart at 11 (one organization-policy read, no history
+read), and the first restart after a local edit at 13.
 [`PaneReconnectRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx)
 caps an unchanged reconnect at 12 requests (two organization-policy reads)
 and discovery of one peer-created folder at 18 (three organization-policy
