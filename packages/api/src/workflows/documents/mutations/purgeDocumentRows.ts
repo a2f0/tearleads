@@ -6,6 +6,9 @@ import {
   accessManifests,
   attachmentBindings,
   blobs,
+  documentBaselineSegmentSpans,
+  documentBaselineSegments,
+  documentBaselineStages,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
@@ -23,11 +26,23 @@ import { DocumentMutationError } from "./errors";
 
 // Content-key targets reference documentContentKeyEpochs(id); the loro update
 // payloads, their spans and peer owners, write headers, and baseline markers
-// are independent.
+// are independent. Baseline stages go first: deleting a stage row waits for a
+// request that is staging to it, whose rows the deletes after it then see, so
+// a purge leaves no staged segment behind. The segment rows hold committed
+// baselines' payloads too, and go with the document.
 async function deleteDocumentContentRows(
   documentIds: readonly string[],
   executor: DatabaseTransaction,
 ): Promise<void> {
+  await executor
+    .delete(documentBaselineStages)
+    .where(inArray(documentBaselineStages.documentId, [...documentIds]));
+  await executor
+    .delete(documentBaselineSegmentSpans)
+    .where(inArray(documentBaselineSegmentSpans.documentId, [...documentIds]));
+  await executor
+    .delete(documentBaselineSegments)
+    .where(inArray(documentBaselineSegments.documentId, [...documentIds]));
   await executor.delete(documentContentKeyTargets).where(
     inArray(
       documentContentKeyTargets.documentContentKeyEpochId,

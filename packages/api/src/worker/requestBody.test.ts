@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
 } from "@tearleads/validators/util";
@@ -77,6 +78,27 @@ test("document sync keeps its own contract at ingress", () => {
   );
   expect(requestBodyCeiling("/documents/doc-1/sync", 8)).toBe(8);
   expect(requestBodyCeiling("/documents/doc-1/sync/x", route)).toBe(route);
+});
+
+// A staged baseline segment is one update, held to what a sync request may
+// carry; the routes beside it keep the route ceiling.
+test("a staged baseline segment keeps an update's contract at ingress", () => {
+  const route = 64 * 1024 * 1024;
+  const stage = "/documents/doc-1/baseline-stages/stage-1";
+  expect(requestBodyCeiling(`${stage}/segments/7`, route)).toBe(
+    MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
+  );
+  expect(requestBodyCeiling(`${stage}/segments/7`, 8)).toBe(8);
+  expect(requestBodyCeiling(`${stage}/%73egments/7`, route)).toBe(
+    MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
+  );
+  for (const other of [
+    "/documents/doc-1/baseline-stages",
+    stage,
+    `${stage}/segments/7/write-header`,
+  ]) {
+    expect(requestBodyCeiling(other, route)).toBe(route);
+  }
 });
 
 test("an encoded spelling never earns more than the route it reaches", () => {

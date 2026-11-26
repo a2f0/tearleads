@@ -271,10 +271,11 @@ export async function commitSyncDocumentWrites(
   });
   // Must run before the bundle store below advances the latest epoch and
   // before the append inserts any baseline row.
-  await assertSyncRotationBaselinesSound({
+  const stagedBaseline = await assertSyncRotationBaselinesSound({
     documentId: input.documentId,
     executor: input.tx,
     request: input.request,
+    userId: input.userId,
   });
   const { contentKeyBundle, servedStaleBundle } =
     await resolveSyncContentKeyBundle({
@@ -299,6 +300,7 @@ export async function commitSyncDocumentWrites(
     organizationId: currentTargets.organizationId,
     request: input.request,
     signingPublicKey: input.signingPublicKey,
+    stagedBaseline,
     userId: input.userId,
     writeAuthorization,
   });

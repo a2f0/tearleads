@@ -5,6 +5,7 @@ import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEve
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createDocumentAttachmentsRoute } from "./attachments";
 import { createDocumentAttributionRoute } from "./attribution";
+import { createDocumentBaselineStagesRoute } from "./baselineStages";
 import { createDocumentMutationsRoute } from "./mutations";
 import { createDocumentWriterProjectionRoute } from "./writerProjection";
 
@@ -28,6 +29,10 @@ export function createDocumentsRouter({
   documentsRouter.route(
     "/",
     createDocumentAttributionRoute({ requireAuth, runtime }),
+  );
+  documentsRouter.route(
+    "/",
+    createDocumentBaselineStagesRoute({ requireAuth, runtime }),
   );
   documentsRouter.route(
     "/",

@@ -1,12 +1,16 @@
 import { Buffer } from "node:buffer";
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
+import {
+  documentBaselineSegments,
+  documentUpdates,
+} from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
-import { type AnyColumn, inArray, sql } from "drizzle-orm";
+import { type AnyColumn, eq, inArray, sql } from "drizzle-orm";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import { storeDocumentContentWriteHeader } from "../../../access/write/documentContentKeyStore";
 import { claimDocumentPeers } from "../../../documents/documentPeerOwners";
+import { storedDocumentUpdatePayload } from "../../../documents/documentUpdatePageRows";
 import { insertDocumentUpdateSpans } from "../../../documents/documentUpdateSpans";
 import { uniqueSortedStrings } from "../../../utils/array";
 import {
@@ -14,6 +18,7 @@ import {
   documentDependencyUncommitted,
   documentPeerOwned,
   documentUpdateIdConflict,
+  documentUpdatesStoredOutOfOrder,
 } from "./errors";
 import {
   assertRetryUpdateMatchesAcceptedContent,
@@ -21,6 +26,7 @@ import {
   uniqueOutgoingUpdates,
   verifyOutgoingWriteHeader,
 } from "./outgoingUpdateVerification";
+import { promoteStagedBaselineSegments } from "./stagedBaselinePromotion";
 import type { AppendDocumentUpdatesInput } from "./types";
 
 /**
@@ -66,7 +72,8 @@ function acceptedOutgoingUpdateIds(
  * and a redirect starts at the group's first. One multi-row insert assigns
  * the identity column in row order in practice, which Postgres does not
  * promise, so the order is checked from the rows it returned. A request
- * whose rows came back out of order fails, and its transaction rolls back.
+ * whose rows came back out of order is refused as a coded conflict
+ * (`documentUpdatesStoredOutOfOrder`), and its transaction rolls back.
  */
 export function assertStoredInRequestOrder(
   updates: readonly Pick<DocumentOutgoingUpdate, "id">[],
@@ -80,7 +87,7 @@ export function assertStoredInRequestOrder(
     const sequence = sequenceById.get(id);
     if (sequence === undefined) continue;
     if (previous !== null && sequence <= previous) {
-      throw new Error("Document updates were not stored in request order");
+      throw documentUpdatesStoredOutOfOrder();
     }
     previous = sequence;
   }
@@ -152,7 +159,7 @@ async function loadExistingDocumentUpdateRows(input: {
         documentUpdates.dependencyVersionVector,
       ),
       documentId: documentUpdates.documentId,
-      encryptedDataSha256: contentSha256(documentUpdates.encryptedData),
+      encryptedDataSha256: sql<string>`encode(sha256(convert_to(${storedDocumentUpdatePayload}, 'UTF8')), 'hex')`,
       id: documentUpdates.id,
       partialEndVersionVectorSha256: contentSha256(
         documentUpdates.partialEndVersionVector,
@@ -163,6 +170,10 @@ async function loadExistingDocumentUpdateRows(input: {
       plaintextHashSha256: contentSha256(documentUpdates.plaintextHash),
     })
     .from(documentUpdates)
+    .leftJoin(
+      documentBaselineSegments,
+      eq(documentBaselineSegments.updateId, documentUpdates.id),
+    )
     .where(inArray(documentUpdates.id, input.updateIds));
 
   for (const row of existingRows) {
@@ -284,6 +295,50 @@ async function verifyAndCollectNewOutgoingUpdates(input: {
   return newUpdates;
 }
 
+/**
+ * A request that commits a staged baseline carries the group's final
+ * segment, which the loop above has just verified in full. The staged
+ * segments are committed here, before the request's own updates are walked
+ * and inserted: the final segment starts every peer where they end and
+ * depends on them, and their rows must take the lower sequences, so a
+ * reader pages the group in index order with nothing between.
+ */
+async function commitStagedBaselineAhead(input: {
+  readonly acceptedHeaderHashes: ReadonlyMap<
+    string,
+    { readonly header: WriteHeader }
+  >;
+  readonly appendInput: AppendDocumentUpdatesInput;
+  readonly newUpdates: readonly DocumentOutgoingUpdate[];
+}): Promise<void> {
+  const { appendInput } = input;
+  const commit = appendInput.stagedBaseline;
+  if (!commit) return;
+  const finalHeader = input.acceptedHeaderHashes.get(commit.final.id)?.header;
+  if (
+    !finalHeader ||
+    !appendInput.writeAuthorization ||
+    !input.newUpdates.some((update) => update.id === commit.final.id)
+  ) {
+    throw new DocumentMutationError(
+      "Document rotation baseline was not inserted",
+      409,
+    );
+  }
+  await promoteStagedBaselineSegments({
+    accessEpoch: appendInput.accessEpoch,
+    authorizationTargets:
+      appendInput.writeAuthorization.documentKekTargets.targets,
+    commit,
+    contentKeyCommitment: appendInput.contentKeyCommitment,
+    documentId: appendInput.documentId,
+    executor: appendInput.executor,
+    finalHeader,
+    fingerprint: appendInput.fingerprint,
+    userId: appendInput.userId,
+  });
+}
+
 export async function appendDocumentUpdates(
   input: AppendDocumentUpdatesInput,
 ): Promise<AppendDocumentUpdatesResult> {
@@ -315,6 +370,11 @@ export async function appendDocumentUpdates(
     appendInput: input,
     existingRowsById,
     outgoingUpdates,
+  });
+  await commitStagedBaselineAhead({
+    acceptedHeaderHashes,
+    appendInput: input,
+    newUpdates,
   });
   // Retried ids already committed skip the ownership and dependency checks
   // as they skip the insert; the caller's document head lock spans the checks

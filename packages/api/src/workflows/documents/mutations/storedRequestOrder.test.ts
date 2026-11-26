@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { assertStoredInRequestOrder } from "./appendOutgoingUpdates";
+import { DocumentMutationError } from "./errors";
 
 // A pull serves by `sequence`, a baseline's segments are read back as a
 // group in it, and a redirect starts at the group's first. The insert is
@@ -34,8 +36,19 @@ test("a request whose rows were not stored in its order fails", () => {
     [10, 12, 11],
     [10, 10, 11],
   ]) {
-    expect(() =>
-      assertStoredInRequestOrder(updates, stored(...sequences)),
-    ).toThrow("Document updates were not stored in request order");
+    // A server fault, refused as a coded conflict a client can retry, not
+    // an uncoded error that surfaces as a 500.
+    let refusal: unknown;
+    try {
+      assertStoredInRequestOrder(updates, stored(...sequences));
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(DocumentMutationError);
+    expect(refusal).toMatchObject({
+      code: DOCUMENT_SYNC_ERROR_CODES.conflict,
+      message: "Document updates were not stored in request order",
+      status: 409,
+    });
   }
 });

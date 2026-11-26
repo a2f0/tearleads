@@ -2,7 +2,11 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { mergeVersionVectors } from "@tearleads/loro";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { readProcessedThroughSequence } from "./documentProcessedCursor";
-import { loadLatestStoredDocumentBaselineGroup } from "./documentStoredBaselineGroup";
+import {
+  findLatestWholeStoredBaselineGroup,
+  loadLatestStoredDocumentBaselineGroup,
+  readStoredBaselineGroupCoverage,
+} from "./documentStoredBaselineGroup";
 import { hasMissingDocumentUpdatesThroughSequence } from "./documentUpdateStore";
 
 /**
@@ -124,10 +128,13 @@ export async function resolveBaselineRedirectAfterSequence(input: {
   readonly upperBoundSequence: number;
 }): Promise<number> {
   if (!input.firstPage) return input.afterSequence;
-  const baseline = await loadLatestStoredDocumentBaselineGroup(input.executor, {
+  // A group whose first segment is not past where the pull begins cannot
+  // redirect this reader, and neither can an older one. That, and whether
+  // the reader lacks anything before the group, are settled before the
+  // group's spans are read for what it covers.
+  const baseline = await findLatestWholeStoredBaselineGroup(input.executor, {
     contentKeyEpoch: input.contentKeyEpoch,
     documentId: input.documentId,
-    startsAfterSequence: input.afterSequence,
     upperBoundSequence: input.upperBoundSequence,
   });
   if (!baseline) return input.afterSequence;
@@ -153,6 +160,11 @@ export async function resolveBaselineRedirectAfterSequence(input: {
     return input.afterSequence;
   }
 
+  const coverage = await readStoredBaselineGroupCoverage(input.executor, {
+    baselineId: baseline.baselineId,
+    documentId: input.documentId,
+  });
+  if (coverage === null) return input.afterSequence;
   // The baseline's author imported or voided every update up to its signed
   // cursor, so the segments stand for those; later ones must be covered.
   const coveredThrough = await readProcessedThroughSequence(input.executor, {
@@ -161,7 +173,7 @@ export async function resolveBaselineRedirectAfterSequence(input: {
   });
   const coveredFrontier = mergeVersionVectors([
     ...(input.localVersionVector === null ? [] : [input.localVersionVector]),
-    baseline.coverage,
+    coverage,
   ]);
   return (await missingBeforeBaseline(
     Math.max(input.afterSequence, coveredThrough),

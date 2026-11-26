@@ -46,6 +46,7 @@ import {
   verifyDocumentEvent,
   verifyDocumentLinkSetMutationAuthorizationFromRequest,
 } from "./shared/verification";
+import type { StagedBaselineCommit } from "./stagedBaselineCommit";
 import { ensureCurrentDocumentAccess } from "./syncAccess";
 import type { MutateDocumentLinkSetInput } from "./types";
 
@@ -70,6 +71,12 @@ function requireMutationRotationBaseline(input: {
   readonly request: DocumentLinkSetMutationRequest;
 }) {
   const baseline = input.request.rotationBaseline;
+  if (input.request.baselineStageId !== undefined && !baseline) {
+    throw new DocumentMutationError(
+      "A staged rotation baseline is committed with its final segment",
+      400,
+    );
+  }
   if (input.eventType === "document.link") {
     if (baseline) {
       throw new DocumentMutationError(
@@ -108,6 +115,21 @@ async function toDocumentLinkSetMutationResult(input: {
   };
 }
 
+/** What an unlink that names a stage commits it with. */
+function stagedBaselineRequest(input: {
+  readonly request: DocumentLinkSetMutationRequest;
+  readonly userId: string;
+}) {
+  const { baselineStageId } = input.request;
+  return baselineStageId === undefined
+    ? undefined
+    : {
+        baselineStageId,
+        requestContentKeyEpoch: input.request.contentKeyBundle.contentKeyEpoch,
+        userId: input.userId,
+      };
+}
+
 async function advanceDocumentLinkSet(input: {
   readonly baseline: DocumentLinkSetMutationRequest["rotationBaseline"];
   readonly documentId: string;
@@ -119,7 +141,9 @@ async function advanceDocumentLinkSet(input: {
     typeof documentMutationAcknowledgement
   >[0];
   readonly request: DocumentLinkSetMutationRequest;
+  readonly userId: string;
 }) {
+  let stagedBaseline: StagedBaselineCommit | null = null;
   await assertDocumentLinkSetCanAdvance(input);
   await storeVerifiedAccessManifestInTransaction(
     { verifiedManifest: input.manifest },
@@ -127,10 +151,14 @@ async function advanceDocumentLinkSet(input: {
   );
   await markStoredDocumentManifest(input.executor, input.manifest.manifestHash);
   if (input.baseline) {
-    await assertAtomicRotationBaselineCoversCommittedFrontier(input.executor, {
-      baseline: input.baseline,
-      documentId: input.documentId,
-    });
+    stagedBaseline = await assertAtomicRotationBaselineCoversCommittedFrontier(
+      input.executor,
+      {
+        baseline: input.baseline,
+        documentId: input.documentId,
+        stage: stagedBaselineRequest(input),
+      },
+    );
   } else if (input.eventType === "document.unlink") {
     await assertBaselinelessUnlinkHasEmptyCommittedFrontier(input.executor, {
       documentId: input.documentId,
@@ -149,13 +177,14 @@ async function advanceDocumentLinkSet(input: {
     linkedContainerIds: input.manifest.state.linkedContainerIds,
     previousLinkedContainerIds: input.previousManifest.state.linkedContainerIds,
   });
-  return storeDocumentContentKeyBundleInTransaction(
+  const contentKeyBundle = await storeDocumentContentKeyBundleInTransaction(
     toStoredContentKeyBundleInput(
       input.documentId,
       input.request.contentKeyBundle,
     ),
     input.executor,
   );
+  return { contentKeyBundle, stagedBaseline };
 }
 
 async function lockDocumentLinkSetMutationFrontier(input: {
@@ -220,7 +249,10 @@ async function appendMutationRotationBaseline(
   authorization: Awaited<
     ReturnType<typeof verifyDocumentLinkSetMutationAuthorizationFromRequest>
   >,
-  contentKeyBundle: Awaited<ReturnType<typeof advanceDocumentLinkSet>>,
+  {
+    contentKeyBundle,
+    stagedBaseline,
+  }: Awaited<ReturnType<typeof advanceDocumentLinkSet>>,
   rotationBaseline: NonNullable<
     DocumentLinkSetMutationRequest["rotationBaseline"]
   > | null,
@@ -236,6 +268,7 @@ async function appendMutationRotationBaseline(
     fingerprint: input.fingerprint,
     manifest: authorization.manifest,
     request: input.request,
+    stagedBaseline,
     userId: input.userId,
     writeAuthorization: {
       authorizingContainerPaths: authorization.authorizingContainerPaths,
@@ -320,16 +353,14 @@ async function mutateDocumentLinkSetWithExecutor(
     });
     const blobRewraps = await prepareDocumentBlobRewraps(input, event.body);
     const rotationBaseline = requireMutationRotationBaseline(input);
-    const contentKeyBundle = await advanceDocumentLinkSet({
+    const advanced = await advanceDocumentLinkSet({
+      ...input,
       baseline: rotationBaseline ?? undefined,
-      documentId: input.documentId,
-      eventType: input.eventType,
-      executor: input.executor,
       lockedHead: lockedHeads.documentHead,
       manifest,
       previousManifest,
-      request: input.request,
     });
+    const { contentKeyBundle } = advanced;
     await recordDocumentManifestObservationInTransaction(input.executor, {
       documentId: input.documentId,
       manifestHash: manifest.manifestHash,
@@ -339,7 +370,7 @@ async function mutateDocumentLinkSetWithExecutor(
     const insertedUpdateIds = await appendMutationRotationBaseline(
       input,
       authorization,
-      contentKeyBundle,
+      advanced,
       rotationBaseline,
     );
     await applyDocumentLinkBlobRewraps({ ...input, rewraps: blobRewraps });

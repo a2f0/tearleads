@@ -27,19 +27,16 @@ export interface StoredBaselineGroupFixture {
 /**
  * Store a rotation baseline as the API commits one: its segments as update
  * rows in index order from one insert, each with the group fields its
- * metadata hash signs, and their write headers. The headers carry only what
- * the read path reads from them; nothing here verifies a signature.
+ * metadata hash signs, their write headers, and their spans, which are what
+ * a stored group's coverage is read from. The headers carry only what the
+ * read path reads from them; nothing here verifies a signature.
  */
 export async function insertStoredBaselineGroup(input: {
   readonly baselineId?: string | undefined;
   readonly contentKeyEpoch: number;
-  /** Stores this segment's header with a metadata hash it never signed. */
-  readonly corruptMetadataHashAt?: number | undefined;
   readonly coversThroughUpdateId?: string | undefined;
   readonly documentId: string;
   readonly ranges: readonly BaselineSegmentRange[];
-  /** Also stores the segments' spans, as an append does. */
-  readonly withSpans?: boolean | undefined;
 }): Promise<StoredBaselineGroupFixture> {
   const baselineId = input.baselineId ?? randomUUID();
   const entries: DocumentBaselineSegmentDigestEntry[] = [];
@@ -105,7 +102,7 @@ export async function insertStoredBaselineGroup(input: {
     .values(rows)
     .returning({ id: documentUpdates.id, sequence: documentUpdates.sequence });
   await db.insert(documentContentWriteHeaders).values(
-    entries.map((entry, index) => ({
+    entries.map((entry) => ({
       // This fixture stores baseline metadata, not write authorization.
       authorizationTargets: [],
       contentKeyEpoch: input.contentKeyEpoch,
@@ -114,10 +111,7 @@ export async function insertStoredBaselineGroup(input: {
       header: {
         ciphertextHash: entry.ciphertextHash,
         contentKeyEpoch: input.contentKeyEpoch,
-        metadataHash:
-          index === input.corruptMetadataHashAt
-            ? `tampered-${entry.updateId}`
-            : entry.metadataHash,
+        metadataHash: entry.metadataHash,
       } as unknown as WriteHeader,
       headerHash: `header-${entry.updateId}`,
       nonceDomainHash: `nonce-${entry.updateId}`,
@@ -125,12 +119,10 @@ export async function insertStoredBaselineGroup(input: {
       updateId: entry.updateId,
     })),
   );
-  if (input.withSpans) {
-    await insertDocumentUpdateSpans(db, {
-      documentId: input.documentId,
-      updates: rows,
-    });
-  }
+  await insertDocumentUpdateSpans(db, {
+    documentId: input.documentId,
+    updates: rows,
+  });
   const sequenceById = new Map(inserted.map((row) => [row.id, row.sequence]));
   const sequences = rows.map((row) => sequenceById.get(row.id) ?? Number.NaN);
   return {

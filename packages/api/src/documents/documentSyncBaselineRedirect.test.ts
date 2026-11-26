@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { db } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
+import {
+  documentUpdateSpans,
+  documentUpdates,
+} from "@tearleads/api-shared/schema";
 import {
   createDocument,
   encodeVersionVector,
@@ -13,7 +16,7 @@ import {
   importUpdates,
   mergeVersionVectors,
 } from "@tearleads/loro";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { baselineSegmentRanges } from "../../test/helpers/documentBaselineGroups";
 import {
   insertStoredBaselineGroup,
@@ -141,18 +144,14 @@ test("a rotation baseline's segments converge a fresh reader", async () => {
 /** A stored baseline whose segments reach `coverage` together. */
 function insertBaselineCheckpoint(input: {
   contentKeyEpoch: number;
-  corruptMetadataHash?: boolean;
   coverage: string;
   documentId: string;
   segments?: number;
-  withSpans?: boolean;
 }): Promise<StoredBaselineGroupFixture> {
   return insertStoredBaselineGroup({
     contentKeyEpoch: input.contentKeyEpoch,
-    corruptMetadataHashAt: input.corruptMetadataHash ? 0 : undefined,
     documentId: input.documentId,
     ranges: baselineSegmentRanges(input.coverage, input.segments),
-    withSpans: input.withSpans,
   });
 }
 
@@ -226,7 +225,6 @@ test("pagination redirects past a long covered history to its readable baseline"
     coverage: encodeVersionVector(author),
     documentId,
     segments: 5,
-    withSpans: true,
   });
   expect(baseline.updateIds).toHaveLength(5);
   const baselineSequence = baseline.lastSequence;
@@ -313,11 +311,10 @@ test("a baseline that is not whole cannot enable the redirect", async () => {
     expect(await coverageOf(documentId)).toBeNull();
   }
 
-  // A row whose signed group fields were changed after it was committed.
+  // A row whose place in its group was changed after it was committed.
   for (const tampered of [
     { baselineSegmentIndex: 7 },
     { baselineId: randomUUID() },
-    { partialEndVersionVector: vv1 },
   ]) {
     const { documentId, group } = await wholeGroup();
     await db
@@ -329,6 +326,64 @@ test("a baseline that is not whole cannot enable the redirect", async () => {
           eq(documentUpdates.id, segmentId(group, 1)),
         ),
       );
+    expect(await coverageOf(documentId)).toBeNull();
+  }
+
+  // A final segment whose count is not its index plus one seals no group:
+  // the rows before it are then not all the group claims.
+  for (const baselineSegmentCount of [2, 5]) {
+    const { documentId, group } = await wholeGroup();
+    await db
+      .update(documentUpdates)
+      .set({ baselineSegmentCount })
+      .where(eq(documentUpdates.id, segmentId(group, 2)));
+    expect(await coverageOf(documentId)).toBeNull();
+  }
+
+  // A group whose stored spans no longer run gapless from zero: what it
+  // covers is read by walking them, so it covers nothing to redirect by.
+  for (const gap of [{ startCounter: 1 }, { endCounter: 0 }]) {
+    const { documentId, group } = await wholeGroup();
+    await db
+      .update(documentUpdateSpans)
+      .set(gap)
+      .where(eq(documentUpdateSpans.updateId, segmentId(group, 0)));
+    expect(await coverageOf(documentId)).toBeNull();
+  }
+
+  // Another update of the document committed inside the group's run: a
+  // reader pages a group as one run, so one with a stranger in it is not
+  // whole. The group's later segments are stored again after the stranger.
+  {
+    const { documentId, group } = await wholeGroup();
+    const laterIds = [segmentId(group, 1), segmentId(group, 2)];
+    const later = await db
+      .select()
+      .from(documentUpdates)
+      .where(inArray(documentUpdates.id, laterIds))
+      .orderBy(asc(documentUpdates.sequence));
+    await db
+      .delete(documentUpdates)
+      .where(inArray(documentUpdates.id, laterIds));
+    const ordinary = {
+      accessEpoch: 1,
+      authorFingerprint: "between-segments",
+      byteLength: 8,
+      dependencyVersionVector: vv1,
+      documentId,
+      encryptedData: "ordinary",
+      partialEndVersionVector: vv1,
+      partialStartVersionVector: vv1,
+      plaintextHash: "ordinary",
+    };
+    const restore = later.map(({ sequence: _, ...row }) => row);
+    await db.insert(documentUpdates).values(restore);
+    expect(await coverageOf(documentId)).toBe(vv3);
+    await db
+      .delete(documentUpdates)
+      .where(inArray(documentUpdates.id, laterIds));
+    await db.insert(documentUpdates).values({ ...ordinary, id: randomUUID() });
+    await db.insert(documentUpdates).values(restore);
     expect(await coverageOf(documentId)).toBeNull();
   }
 
@@ -371,69 +426,6 @@ test("an epoch advance with no current-epoch baseline serves everything", async 
     executor: db,
   });
   expect(served).toEqual(entries);
-});
-
-// The redirect gate is the signed baseline group, not row presence: a
-// current-epoch baseline whose metadata hash does not verify is skipped,
-// falling back to an earlier authenticated one, or to serving everything when
-// none survives.
-test("an unauthenticated current-epoch baseline cannot enable the redirect", async () => {
-  const documentId = randomUUID();
-  const { vv1, vv2, vv3 } = await versionVectorTimeline();
-  await insertBaselineCheckpoint({
-    contentKeyEpoch: 2,
-    corruptMetadataHash: true,
-    documentId,
-    coverage: vv3,
-  });
-
-  expect(
-    await loadLatestReadableBaselineCoverage(db, {
-      documentId,
-      contentKeyEpoch: 2,
-    }),
-  ).toBeNull();
-  const entries = [entry(1, vv1), entry(2, vv3)];
-  await expect(
-    selectServedSyncUpdateEntries({
-      currentContentKeyEpoch: 2,
-      documentId,
-      entries,
-      executor: db,
-    }),
-  ).resolves.toEqual(entries);
-
-  // A valid same-epoch baseline is found by scanning past tampered rows: the
-  // newest checkpoint below stays tampered, so returning vv2 requires the
-  // loop to skip a failed authentication and keep going rather than stop at
-  // the first row.
-  await insertBaselineCheckpoint({
-    contentKeyEpoch: 2,
-    documentId,
-    coverage: vv2,
-  });
-  await insertBaselineCheckpoint({
-    contentKeyEpoch: 2,
-    corruptMetadataHash: true,
-    documentId,
-    coverage: vv3,
-  });
-  expect(
-    await loadLatestReadableBaselineCoverage(db, {
-      documentId,
-      contentKeyEpoch: 2,
-    }),
-  ).toBe(vv2);
-  // With an authenticated baseline available the redirect now fires
-  // end-to-end within the same scenario: vv2 dominates the older entry.
-  await expect(
-    selectServedSyncUpdateEntries({
-      currentContentKeyEpoch: 2,
-      documentId,
-      entries,
-      executor: db,
-    }),
-  ).resolves.toEqual([entry(2, vv3)]);
 });
 
 // Two baselines at one epoch with identical coverage, such as a heal whose

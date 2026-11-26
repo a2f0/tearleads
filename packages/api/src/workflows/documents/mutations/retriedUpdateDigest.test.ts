@@ -61,11 +61,17 @@ async function writtenUpdate() {
  */
 function existingRowLookups(queries: readonly { readonly sql: string }[]) {
   return queries.filter(({ sql }) => {
-    const from = sql.indexOf(' from "document_updates" where ');
+    // The pull that follows reads update rows by id too, with their write
+    // headers; the match reads none, and joins only the staged rows that
+    // hold a by-reference payload.
+    const from = sql.indexOf(
+      ' from "document_updates" left join "document_baseline_segments" ',
+    );
     return (
       sql.startsWith("select ") &&
       from > 0 &&
       sql.slice(0, from).includes('"document_id"') &&
+      sql.slice(0, from).includes("sha256(") &&
       sql.includes('"document_updates"."id" in')
     );
   });
@@ -85,11 +91,21 @@ test("a retried update is matched by digest without loading stored content", asy
   const lookups = existingRowLookups(retry.queries);
   expect(lookups.length).toBeGreaterThan(0);
   for (const { sql } of lookups) {
+    // Each content column is read inside a digest and nowhere else. The
+    // payload's digest reads it wherever it is stored: the update row, or
+    // the staged row of a baseline segment committed by reference.
+    const digests = sql.match(/sha256\(convert_to\(.*?, 'UTF8'\)\)/g) ?? [];
+    expect(digests).toHaveLength(CONTENT_COLUMNS.length);
+    const outsideDigests = digests.reduce(
+      (rest, digest) => rest.replace(digest, ""),
+      sql,
+    );
     for (const column of CONTENT_COLUMNS) {
       const reference = `"${column}"`;
-      // Each content column appears once, inside its digest, never bare.
-      expect(sql).toContain(`sha256(convert_to(${reference}, 'UTF8'))`);
-      expect(sql.split(reference)).toHaveLength(2);
+      expect(
+        digests.filter((digest) => digest.includes(reference)),
+      ).toHaveLength(1);
+      expect(outsideDigests).not.toContain(reference);
     }
   }
 }, 30_000);

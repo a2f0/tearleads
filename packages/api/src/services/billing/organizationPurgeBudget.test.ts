@@ -107,8 +107,10 @@ test("organization purge statements do not grow with its documents", async () =>
   // lookups locked in key order, adds two statements: 62 on PGlite, 64 on
   // PostgreSQL. Measured before the next step: 63 on PGlite, 65 on a local
   // PostgreSQL. Reserving the freed ids for the personal organization's owner
-  // reads that owner and inserts one batch per 500 ids: 65 / 67.
-  expect(one).toBeLessThanOrEqual(67);
+  // reads that owner and inserts one batch per 500 ids: 65 / 67. Deleting
+  // the documents' rotation baseline stages, staged segments and their spans
+  // adds three: 68 / 70.
+  expect(one).toBeLessThanOrEqual(70);
 });
 
 test("organization purge statements do not grow with its blobs", async () => {
@@ -126,8 +128,9 @@ test("organization purge statements do not grow with its blobs", async () => {
   // update cannot deadlock with a reclaim chunk, adds one lock: 62 / 64.
   // Deleting the purged principals' history progress adds two: 64 / 66.
   // Measured before the next step: 65 / 67. Reserving the freed ids for the
-  // owner adds two: 67 / 69.
-  expect(one).toBeLessThanOrEqual(69);
+  // owner adds two: 67 / 69. Deleting the documents' rotation baseline
+  // stages, staged segments and their spans adds three: 70 / 72.
+  expect(one).toBeLessThanOrEqual(72);
 });
 
 test("organization blob reclaim statements do not grow with its blobs", async () => {

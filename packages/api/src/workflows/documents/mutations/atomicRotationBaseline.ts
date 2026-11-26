@@ -17,6 +17,11 @@ import {
 } from "./committedDocumentUpdates";
 import { DocumentMutationError } from "./errors";
 import { requireOutgoingBaselineGroup } from "./outgoingBaselineGroup";
+import {
+  assertStagedBaselineCoversCommittedFrontier,
+  lockStagedBaselineForCommit,
+  type StagedBaselineCommit,
+} from "./stagedBaselineCommit";
 import type { DocumentWriteAuthorizationProof } from "./types";
 
 /**
@@ -34,8 +39,33 @@ export async function assertAtomicRotationBaselineCoversCommittedFrontier(
   input: {
     readonly baseline: readonly DocumentOutgoingUpdate[];
     readonly documentId: string;
+    /** Set when the unlink commits a staged baseline. */
+    readonly stage?:
+      | {
+          readonly baselineStageId: string;
+          /** The content-key epoch the unlink opens. */
+          readonly requestContentKeyEpoch: number;
+          readonly userId: string;
+        }
+      | undefined;
   },
-): Promise<void> {
+): Promise<StagedBaselineCommit | null> {
+  if (input.stage) {
+    // The baseline's earlier segments were staged: the stage and the final
+    // segment the unlink carries are held to the group rules together, and
+    // the coverage is read from the spans both were walked by.
+    const commit = await lockStagedBaselineForCommit(executor, {
+      ...input.stage,
+      documentId: input.documentId,
+      segments: input.baseline,
+    });
+    await assertStagedBaselineCoversCommittedFrontier(executor, {
+      commit,
+      documentId: input.documentId,
+      uncovered: unlinkRotationBaselineStale,
+    });
+    return commit;
+  }
   const group = await requireOutgoingBaselineGroup({
     documentId: input.documentId,
     segments: input.baseline,
@@ -48,12 +78,17 @@ export async function assertAtomicRotationBaselineCoversCommittedFrontier(
     },
   );
   if (!satisfiesVersionVector(group.coverage, committedFrontier)) {
-    throw new DocumentMutationError(
-      "Document unlink rotation baseline is stale",
-      409,
-      DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
-    );
+    throw unlinkRotationBaselineStale();
   }
+  return null;
+}
+
+function unlinkRotationBaselineStale(): DocumentMutationError {
+  return new DocumentMutationError(
+    "Document unlink rotation baseline is stale",
+    409,
+    DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
+  );
 }
 
 /**
@@ -96,6 +131,8 @@ export async function appendAtomicRotationBaseline(input: {
   readonly fingerprint: string;
   readonly manifest: VerifiedDocumentLinkSetManifest;
   readonly request: DocumentLinkSetMutationRequest;
+  /** The staged baseline the unlink commits ahead of `baseline`, if any. */
+  readonly stagedBaseline: StagedBaselineCommit | null;
   readonly userId: string;
   readonly writeAuthorization: DocumentWriteAuthorizationProof;
 }): Promise<readonly string[]> {
@@ -121,6 +158,7 @@ export async function appendAtomicRotationBaseline(input: {
       ...input,
       error: (message, status) => new DocumentMutationError(message, status),
     }),
+    stagedBaseline: input.stagedBaseline,
     userId: input.userId,
     writeAuthorization: input.writeAuthorization,
   });

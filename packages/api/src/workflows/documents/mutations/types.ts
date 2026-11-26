@@ -12,6 +12,7 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type { DocumentPurgeResponse } from "@tearleads/validators/response";
+import type { StagedBaselineCommit } from "./stagedBaselineCommit";
 
 export interface CreateDocumentInput {
   readonly fingerprint: string;
@@ -61,6 +62,12 @@ export interface AppendDocumentUpdatesInput {
   readonly organizationId: string;
   readonly request: DocumentSyncRequest;
   readonly signingPublicKey: Uint8Array;
+  /**
+   * The staged baseline the request commits, locked and held to the
+   * request's final segment: its segments are committed ahead of the
+   * request's own updates.
+   */
+  readonly stagedBaseline?: StagedBaselineCommit | null | undefined;
   readonly userId: string;
   readonly writeAuthorization: DocumentWriteAuthorizationProof | null;
 }

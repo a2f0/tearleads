@@ -2,6 +2,7 @@ import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure"
 import { flushApiDiagnostics } from "../diagnostics/sentry";
 import { billingMaintenancePhases } from "../services/billing/billingMaintenance";
 import { runBlobMaintenance } from "../services/blobs/blobMaintenance";
+import { runDocumentBaselineStageMaintenance } from "../services/documents/documentBaselineStages";
 import { getDefaultApiServiceRuntime } from "../services/runtime";
 import { withHealthcheck } from "./healthchecks";
 import {
@@ -15,11 +16,18 @@ const BLOB_MAINTENANCE_CRON = "0 * * * *";
 const blobGcHealthcheckUrlEnvKey = "BLOB_GC_HEALTHCHECK_URL";
 
 /**
- * Blob garbage collection, run hourly, with its Healthchecks start, success,
- * and failure pings.
+ * The hourly phases. Blob garbage collection runs with its Healthchecks
+ * start, success, and failure pings; the sweep of expired rotation baseline
+ * stages is its own phase, so a failure of one never skips the other.
  */
-function blobPhases(): readonly MaintenancePhase[] {
+function hourlyPhases(): readonly MaintenancePhase[] {
   return [
+    {
+      name: "documentBaselineStageCleanup",
+      operation: "document.maintenance",
+      run: () =>
+        runDocumentBaselineStageMaintenance(getDefaultApiServiceRuntime()),
+    },
     {
       name: "blobGarbageCollection",
       operation: "blob.maintenance",
@@ -38,7 +46,7 @@ function blobPhases(): readonly MaintenancePhase[] {
 export async function runScheduledMaintenance(cron: string): Promise<void> {
   try {
     if (cron === BLOB_MAINTENANCE_CRON) {
-      await runMaintenancePhases(blobPhases(), reportBackgroundFailure);
+      await runMaintenancePhases(hourlyPhases(), reportBackgroundFailure);
     } else if (cron === BILLING_MAINTENANCE_CRON) {
       // Billing maintenance, run every minute.
       await runMaintenancePhases(

@@ -1,6 +1,7 @@
 import { type InferSelectModel, sql } from "drizzle-orm";
 import {
   bigint,
+  check,
   index,
   integer,
   pgTable,
@@ -43,7 +44,11 @@ export const documentUpdates = pgTable(
     documentId: uuid("document_id").notNull(),
     accessEpoch: integer("access_epoch").notNull(),
     authorFingerprint: text("author_fingerprint").notNull(),
-    encryptedData: text("encrypted_data").notNull(),
+    // Null only on a baseline segment that was staged before the request
+    // that committed it: its ciphertext stays in the row it was staged to
+    // (`document_baseline_segments`, keyed by this id), so committing a
+    // large baseline copies no payload under the document head lock.
+    encryptedData: text("encrypted_data"),
     byteLength: integer("byte_length").notNull(),
     partialStartVersionVector: text("partial_start_version_vector").notNull(),
     partialEndVersionVector: text("partial_end_version_vector").notNull(),
@@ -79,10 +84,15 @@ export const documentUpdates = pgTable(
     index("document_updates_baseline_idx")
       .on(table.documentId, table.sequence)
       .where(sql`${table.baselineId} is not null`),
-    // A group's segments by index; no two share a place.
+    // A group's segments by index; no two share a place. A baseline id is
+    // its writer's choice, so it names a group only within its document.
     uniqueIndex("document_updates_baseline_segment_idx")
-      .on(table.baselineId, table.baselineSegmentIndex)
+      .on(table.documentId, table.baselineId, table.baselineSegmentIndex)
       .where(sql`${table.baselineId} is not null`),
+    check(
+      "document_updates_payload_by_reference",
+      sql`${table.encryptedData} is not null or ${table.baselineId} is not null`,
+    ),
   ],
 );
 

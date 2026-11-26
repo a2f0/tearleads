@@ -102,12 +102,90 @@ function placementFault(
     : "segment_count_mismatch";
 }
 
+/** The vectors one segment signs. */
+export interface BaselineSegmentVectors {
+  readonly dependencyVersionVector: string;
+  readonly partialEndVersionVector: string;
+  readonly partialStartVersionVector: string;
+}
+
+/** One peer's operations a segment carries: `[startCounter, endCounter)`. */
+export interface BaselineSegmentSpan {
+  readonly endCounter: number;
+  readonly peerId: string;
+  readonly startCounter: number;
+}
+
+/** What a segment's vectors name: its spans, and the ops it depends on. */
+export interface BaselineSegmentHistory {
+  /** Each peer depended on, with one past the latest such operation. */
+  readonly dependencies: readonly (readonly [
+    peerId: string,
+    counter: number,
+  ])[];
+  readonly spans: readonly BaselineSegmentSpan[];
+}
+
 /** How many peers a segment's start and end vectors name between them. */
-function namedPeerCount(segment: DocumentBaselineSegment): number {
+function namedPeerCount(segment: BaselineSegmentVectors): number {
   return new Set([
     ...decodeVersionVector(segment.partialStartVersionVector).toJSON().keys(),
     ...decodeVersionVector(segment.partialEndVersionVector).toJSON().keys(),
   ]).size;
+}
+
+/**
+ * Read a segment's spans and dependencies from its vectors. A segment's
+ * vectors are otherwise only claims: one that names a peer at a counter the
+ * group has not reached would stand for operations no segment holds. So a
+ * segment's start and end name only the peers it carries operations of, as
+ * the vectors of an exported update do; entries without a span would also
+ * let a writer make every reader's first page weigh thousands of peers no
+ * segment carries. Returns null when a vector does not decode or names a
+ * peer the segment has no span for.
+ */
+export function readBaselineSegmentHistory(
+  segment: BaselineSegmentVectors,
+): BaselineSegmentHistory | null {
+  try {
+    const spans = listVersionVectorSpans(segment);
+    if (namedPeerCount(segment) !== spans.length) return null;
+    return {
+      dependencies: [
+        ...decodeVersionVector(segment.dependencyVersionVector).toJSON(),
+      ],
+      spans,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether a segment continues the history before it, as an import into a
+ * document holding exactly that history would: it starts every peer it
+ * carries where the earlier segments left it (`held`), from zero, and each
+ * dependency names an operation they carry.
+ *
+ * A dependency is one past the latest operation depended on, so an honest
+ * one is at least 1 and at most what the earlier segments reached on that
+ * peer. An entry at zero names no operation. It would pass a bound check
+ * against any peer, known or not, so a writer could pad every dependency
+ * vector with peers nothing carries, for the API and every reader to decode;
+ * it is refused. What remains is naming peers the group does carry, which an
+ * honest history of concurrent merges does too, and which the request's
+ * bytes bound.
+ */
+export function baselineSegmentContinues(
+  held: (peerId: string) => number,
+  history: BaselineSegmentHistory,
+): boolean {
+  return (
+    history.spans.every((span) => held(span.peerId) === span.startCounter) &&
+    history.dependencies.every(
+      ([peerId, counter]) => counter >= 1 && counter <= held(peerId),
+    )
+  );
 }
 
 interface GroupHistory {
@@ -118,17 +196,10 @@ interface GroupHistory {
 }
 
 /**
- * Walk the segments as an import into an empty document would: each must
- * start every peer it names exactly where the earlier segments left it, from
- * zero, and depend only on operations they carry. What the walk reaches is
- * what the group carries. A segment's vectors are otherwise only claims: one
- * that names a peer at a counter the group has not reached would stand for
- * operations no segment holds. So a segment's start and end name only the
- * peers it carries operations of, as the vectors of an exported update do;
- * entries without a span would also let a writer make every reader's first
- * page weigh thousands of peers no segment carries. Dependencies may name
- * any peer the group has reached. Returns null when a segment breaks the
- * walk or a vector does not decode.
+ * Walk the segments as an import into an empty document would
+ * (`baselineSegmentContinues`). What the walk reaches is what the group
+ * carries. Returns null when a segment breaks the walk or a vector does not
+ * decode.
  */
 function walkGroupHistory(
   segments: readonly DocumentBaselineSegment[],
@@ -136,24 +207,11 @@ function walkGroupHistory(
   const reached = new Map<string, number>();
   const held = (peerId: string) => reached.get(peerId) ?? 0;
   let hasEmptySegment = false;
-  try {
-    for (const segment of segments) {
-      const spans = listVersionVectorSpans(segment);
-      const dependencies = decodeVersionVector(segment.dependencyVersionVector);
-      if (
-        namedPeerCount(segment) !== spans.length ||
-        spans.some((span) => held(span.peerId) !== span.startCounter) ||
-        [...dependencies.toJSON()].some(
-          ([peerId, counter]) => held(peerId) < counter,
-        )
-      ) {
-        return null;
-      }
-      for (const span of spans) reached.set(span.peerId, span.endCounter);
-      hasEmptySegment ||= spans.length === 0;
-    }
-  } catch {
-    return null;
+  for (const segment of segments) {
+    const history = readBaselineSegmentHistory(segment);
+    if (!history || !baselineSegmentContinues(held, history)) return null;
+    for (const span of history.spans) reached.set(span.peerId, span.endCounter);
+    hasEmptySegment ||= history.spans.length === 0;
   }
   return { hasEmptySegment, reached };
 }
@@ -181,7 +239,8 @@ function emptySegmentFault(
  * - only the final segment carries the count, the digest and the cursor, and
  *   its count is the number of segments;
  * - each segment starts every peer it names where the earlier segments left
- *   it, from zero, and depends only on operations they carry;
+ *   it, from zero, and depends only on operations they carry, each
+ *   dependency naming one;
  * - the final segment's digest is the digest of the segments before it.
  *
  * It reads declared fields and signed hashes only. The caller has verified,
