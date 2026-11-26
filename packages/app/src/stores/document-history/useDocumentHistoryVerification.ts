@@ -86,22 +86,26 @@ export function useDocumentHistoryVerification(
 
   const verify = useCallback(() => {
     if (capture === null) return;
+    // Read before a run begins: a throw here must not leave one open.
+    const captureVersion = capture.versionAt(capture.stops.length - 1);
     const { run, signal } = beginRun();
-    send({
-      captureVersion: capture.versionAt(capture.stops.length - 1),
-      run,
-      type: "requested",
-    });
-    documents
-      .verifyHistory(localId, {
-        onProgress: (progress) => send({ progress, run, type: "progressed" }),
-        signal,
-      })
-      .then(
-        (result) => send({ result, run, type: "settled" }),
-        (error: unknown) =>
-          send({ message: unknownErrorMessage(error), run, type: "failed" }),
-      );
+    send({ captureVersion, run, type: "requested" });
+    // A call that throws at once ends in `failed`, as a rejection does.
+    const started = () => {
+      try {
+        return documents.verifyHistory(localId, {
+          onProgress: (progress) => send({ progress, run, type: "progressed" }),
+          signal,
+        });
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    };
+    started().then(
+      (result) => send({ result, run, type: "settled" }),
+      (error: unknown) =>
+        send({ message: unknownErrorMessage(error), run, type: "failed" }),
+    );
   }, [beginRun, capture, documents, localId, send]);
 
   return { state, verify };

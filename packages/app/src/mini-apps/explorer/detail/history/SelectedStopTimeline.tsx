@@ -150,7 +150,10 @@ export function SelectedStopTimeline(params: {
 }) {
   const { controls, settled, state, verification } = params;
   const selectedStop = state.history.stops[state.selectedIndex];
-  const verifiedRanges = verifiedDocumentHistoryRanges(verification.state);
+  const verifiedRanges = verifiedDocumentHistoryRanges(
+    verification.state,
+    state.source,
+  );
   const changeTime = useSelectedStopTime(
     selectedStop,
     verifiedRanges ?? params.uploads,

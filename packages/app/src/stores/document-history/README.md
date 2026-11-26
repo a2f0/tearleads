@@ -151,9 +151,13 @@ What a verdict does and does not prove is in the SDK's
 
 ### What a verdict changes on screen
 
-- **Who and when.** On `verified` and `mismatch` the check's ranges replace
-  the server's attribution in both resolvers above. They have the same shape,
-  but this device built them from write headers it authenticated.
+- **Who and when.** On `verified` the check's ranges replace the server's
+  attribution in both resolvers above. They have the same shape, but this
+  device built them from write headers it authenticated. On `mismatch` they
+  do so only while the signed replay is on screen: a range is matched by peer
+  and counter, and a mismatch says some operation both histories hold
+  differs, so this device's copy keeps the server's attribution and shows no
+  provenance.
 - **Where each change is held.** The caption says where the server's signed
   history holds the selected change
   ([`documentHistoryProvenance`](documentHistoryProvenance.ts)), looking at

@@ -407,21 +407,40 @@ test("an unchecked history takes who and when from the server's attribution", ()
 });
 
 test("a checked history takes who and when from the uploads verified here", () => {
-  for (const state of [
-    { report: report(), run: 1, status: "verified" },
-    MISMATCH,
-  ] satisfies DocumentHistoryVerificationState[]) {
-    const view = mount(state);
+  const view = mount({ report: report(), run: 1, status: "verified" });
 
-    // The verified upload, not the one the server's attribution named.
-    expect(view.shownTime()).toBe(
-      formatMiniAppDateTimeSeconds(Date.parse(VERIFIED_STORED)),
-    );
-    expect(view.caption()).toContain("Uploaded by grace");
-    expect(view.caption()).not.toContain("ada");
-    expect(view.caption()).toContain("This change is in a signed upload.");
-    view.unmount();
-  }
+  // The verified upload, not the one the server's attribution named.
+  expect(view.shownTime()).toBe(
+    formatMiniAppDateTimeSeconds(Date.parse(VERIFIED_STORED)),
+  );
+  expect(view.caption()).toContain("Uploaded by grace");
+  expect(view.caption()).not.toContain("ada");
+  expect(view.caption()).toContain("This change is in a signed upload.");
+  view.unmount();
+});
+
+test("a mismatch does not caption this device's copy from the signed uploads", () => {
+  const view = mount(MISMATCH);
+
+  // The device's copy differs from the uploads, so nothing says a signed
+  // upload carried its changes: who and when stay the server's attribution.
+  expect(view.shownTime()).toBe(
+    formatMiniAppDateTimeSeconds(Date.parse(SERVER_STORED)),
+  );
+  expect(view.caption()).toContain("Uploaded by ada");
+  expect(view.caption()).not.toContain("grace");
+  expect(view.caption()).not.toContain("signed upload");
+
+  // The signed replay is the uploads' own history: the ranges describe it.
+  const viewSigned = view.button("View signed history");
+  if (!viewSigned) throw new Error("expected the signed history action");
+  fireEvent.click(viewSigned);
+  expect(view.shownTime()).toBe(
+    formatMiniAppDateTimeSeconds(Date.parse(VERIFIED_STORED)),
+  );
+  expect(view.caption()).toContain("Uploaded by grace");
+  expect(view.caption()).toContain("This change is in a signed upload.");
+  view.unmount();
 });
 
 test("a change says where the server's signed history holds it", () => {

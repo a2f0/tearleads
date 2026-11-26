@@ -114,14 +114,19 @@ export const IDLE_DOCUMENT_HISTORY_VERIFICATION: DocumentHistoryVerificationStat
   { status: "idle" };
 
 /**
- * The uploads a check verified on this device, each crediting a run of
- * operations to the signed upload that first carried it; null when no check
- * of the capture has reached a verdict.
+ * The ranges a check verified, for the history on screen: each credits a run
+ * of operations to the signed upload that first carried it. Null when no
+ * check of the capture has reached a verdict, and on a mismatch while this
+ * device's copy is shown: a range is matched by peer and counter, and a
+ * mismatch says some operation both histories hold differs, so the device's
+ * copy of it is not the one the upload carried.
  */
 export function verifiedDocumentHistoryRanges(
   state: DocumentHistoryVerificationState,
+  shown: "local" | "signed",
 ): DocumentHistoryVerificationReport["ranges"] | null {
-  return state.status === "verified" || state.status === "mismatch"
+  if (state.status === "verified") return state.report.ranges;
+  return state.status === "mismatch" && shown === "signed"
     ? state.report.ranges
     : null;
 }

@@ -63,16 +63,20 @@ interface Check {
 }
 
 /** The SDK, with each check held open until the test settles it. */
-function setup() {
+function setup(thrownAtOnce?: Error) {
   const checks: Check[] = [];
   const documents = {
     verifyHistory: (
       localId: string,
       options?: DocumentHistoryVerificationOptions,
-    ) =>
-      new Promise<DocumentHistoryVerification | null>((resolve, reject) => {
-        checks.push({ localId, options, reject, resolve });
-      }),
+    ) => {
+      if (thrownAtOnce) throw thrownAtOnce;
+      return new Promise<DocumentHistoryVerification | null>(
+        (resolve, reject) => {
+          checks.push({ localId, options, reject, resolve });
+        },
+      );
+    },
   };
   const spy = spyOn(Runtime, "useTearleads").mockReturnValue({
     documents,
@@ -203,6 +207,16 @@ test("a check that throws is a failure, and can be tried again", async () => {
   hook.verify();
   await act(async () => hook.check(1).resolve(VERIFIED));
   expect(hook.state()).toMatchObject({ status: "verified" });
+});
+
+test("a check that throws before it returns is a failure too", async () => {
+  const hook = setup(new Error("database is not ready"));
+  hook.verify();
+  await act(async () => undefined);
+  expect(hook.state()).toMatchObject({
+    message: "database is not ready",
+    status: "failed",
+  });
 });
 
 test("a new capture forgets the verdict on the one before", async () => {
