@@ -85,4 +85,34 @@ for (let attempt = 0; attempt < 3; attempt += 1) {
     reader.free();
   }
 }
+
+// A reader that received a 4,200 character insert in two parts holds it as
+// two changes, cut where the writer has no cut. Both hold one history, and
+// each part matches both.
+const { updateMatchesDocumentHistory } = await import(
+  new URL("internal/loro/updateIdentity.js", sdkRoot)
+);
+const splitWriter = await createDocument("split-history-writer");
+const splitReader = await createDocument("split-history-reader");
+try {
+  splitWriter.getText("text").insert(0, "x".repeat(4200));
+  splitWriter.commit({ timestamp: 1700000000 });
+  const peer = splitWriter.peerIdStr;
+  const parts = [[0, 2000], [2000, 4200]].map(([start, end]) =>
+    splitWriter.export({
+      mode: "updates-in-range",
+      spans: [{ id: { counter: start, peer }, len: end - start }],
+    }));
+  for (const part of parts) importUpdates(splitReader, [part]);
+  assert.equal(splitReader.getAllChanges().get(peer).length, 2);
+  assert.equal(exportFullHistoryIdentity(splitReader),
+    exportFullHistoryIdentity(splitWriter));
+  for (const part of parts) {
+    assert.equal(updateMatchesDocumentHistory(splitWriter, part), true);
+    assert.equal(updateMatchesDocumentHistory(splitReader, part), true);
+  }
+} finally {
+  splitWriter.free();
+  splitReader.free();
+}
 `;
