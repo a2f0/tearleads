@@ -2,12 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import {
-  loadSeededTree,
-  type SeededTree,
-  saveJson,
-  seedFileName,
-} from "./artifacts";
+import { saveJson } from "../reportFiles";
+import { loadSeededTree, type SeededTree, seedFileName } from "./artifacts";
 
 const directories: string[] = [];
 afterEach(async () => {

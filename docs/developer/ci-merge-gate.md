@@ -56,12 +56,24 @@ static checks still run in `Lint`. Local
 [`check:fast`](./verification.md#before-a-push) and the direct model commands
 still execute TLC.
 
-`Web E2E` runs the app-web Playwright suite in Chromium and the themed
-control tests in Firefox and WebKit through
-`bun run test:turbo:e2e`. Its Turbo task depends on the app-web workspace
-builds and the API's runtime sources, so a pass replays from the cache until a
-change reaches either. The [push gate](./static-analysis.md#ci-and-the-push-gate)
-runs no tests, so CI is the only place this suite runs automatically.
+The `Web E2E (...)` jobs run the app-web Playwright suite in Chromium and the
+themed control tests in Firefox and WebKit, split into Playwright shards
+(`--shard=1/4` and so on) passed to the app-web `e2e` Turbo task. Playwright
+deals whole spec files to shards by test count, not time, and the first
+quarter of the tests holds many quick ones, so it takes four shards for the
+slowest to hold about a third of the suite's time. Each shard keeps
+Playwright's default two workers beside its three app servers and the API, and
+installs only the browsers its listing uses
+([`e2eShardBrowsers.ts`](../../packages/app-web/scripts/e2eShardBrowsers.ts)).
+[`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
+checks that every shard runs, and each shard's log ends with its spec files'
+summed test times, slowest first, for rebalancing. The gate requires the
+job's aggregate result, so the shards need no ruleset entries. The Turbo task
+depends on the app-web workspace builds and the API's runtime sources, so each
+shard replays from the cache until a change reaches either. The
+[push gate](./static-analysis.md#ci-and-the-push-gate) runs no tests, so CI is
+the only place this suite runs automatically; `bun run test:turbo:e2e` runs it
+whole locally.
 
 Website-only source changes leave application unit-test and platform-verification
 hashes unchanged. Version bumps also invalidate client bundle and browser-test
@@ -87,10 +99,17 @@ selection. The shared `agent-tool ci gate` command evaluates
 required jobs and binds conditional jobs to the classifier’s exact outputs. A
 platform job may be skipped only when successful change detection explicitly
 marked it irrelevant. A failed, cancelled, missing, or unexpectedly skipped job
-fails the gate. Changes to workflows, CI scripts, tool pins,
-[`package.json`](../../package.json), or [`bun.lock`](../../bun.lock) exercise
-every lane. CI runs on pull requests and `main` pushes only, so a feature-branch
-push does not duplicate the pull-request run.
+fails the gate. Changes to workflows, CI scripts, tool pins, or
+[`package.json`](../../package.json) exercise every lane. So does a
+[`bun.lock`](../../bun.lock) change, unless it only rewrites workspace
+`version` fields, as `versions prepare` does on nearly every pull request: the
+classifier compares the merge base's and head's lockfiles with those fields
+removed, so a dependency, resolution, integrity, or workspace-set change still
+selects every lane, and a lockfile it cannot read or parse counts as changed.
+A version bump inside a lane's paths, such as
+[`packages/app-capacitor`](../../packages/app-capacitor/), still
+selects that lane. CI runs on pull requests and `main` pushes only, so a
+feature-branch push does not duplicate the pull-request run.
 
 Require the aggregate gate rather than a path-filtered workflow: GitHub leaves
 checks from skipped workflows pending, while skipped jobs can count as passing.

@@ -12,8 +12,9 @@ export const usage = `Usage: tearleads <command> [--env production|staging|devel
        tearleads restore-keepass <file.kdbx> [--name <folder>] [--key-file <path>]
 
 Commands:
-  login    Save a recovery key (seed phrase) for the target in the Keychain.
-           Reads it from the terminal without echo, or from piped stdin.
+  login    Save a recovery key (seed phrase) for the target in the macOS
+           Keychain or the Linux desktop keyring. Reads it from the terminal
+           without echo, or from piped stdin.
   register Create the account for a recovery key, as a new app install does,
            then save the key like login. An existing account is left as is.
   logout   Remove the target's saved recovery key.
@@ -30,7 +31,7 @@ http://localhost:3001. Every command signs in, works on an in-memory
 database, and revokes its session before exiting.
 
 --key-stdin reads a one-time recovery key for register, seed, or verify-seed,
-and keeps it out of the Keychain.
+and keeps it out of the Keychain or keyring.
 
 Creating an account means agreeing to the Tearleads Privacy Policy and Terms of
 Service. register, and seed --roster for each member account it creates, print

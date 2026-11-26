@@ -339,13 +339,19 @@ jobs:
             bun scripts/testing/runVerifiedTurbo.ts test "--filter=$SUITE_FILTER"
           fi
 
-  # The web app's browser suite. Turbo replays a pass whose inputs match an
-  # earlier run on this branch or main, so only changes that reach app-web or
-  # the API it signs in against run Playwright.
+  # The web app's browser suite. Playwright deals whole spec files to shards by
+  # test count, not time; four keep the slowest near a third of the suite. Turbo
+  # hashes the shard argument, so a shard replays until a change reaches it.
   e2e:
-    name: Web E2E
+    name: Web E2E (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/4, 2/4, 3/4, 4/4]
+    env:
+      E2E_SHARD: ${{ matrix.shard }}
 
     steps:
       - name: Checkout
@@ -376,14 +382,17 @@ jobs:
       - name: Install dependencies
         run: sh scripts/lib/installDependencies.sh
 
+      # Only the shard's browsers: most shards need Chromium alone.
       - name: Install Playwright browsers
         run: |
           # The runner's Azure mirror has timed out fetching WebKit dependencies.
           printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
-          bun run --cwd packages/app-web playwright install --with-deps chromium firefox webkit
+          browsers=$(bun packages/app-web/scripts/e2eShardBrowsers.ts "$E2E_SHARD")
+          # shellcheck disable=SC2086
+          bun run --cwd packages/app-web playwright install --with-deps $browsers
 
       - name: Run E2E tests
-        run: bun run test:turbo:e2e
+        run: bun scripts/testing/runVerifiedTurbo.ts e2e --filter=app-web -- "--shard=$E2E_SHARD"
 
       # Playwright keeps a failing spec's trace and page snapshot
       # (playwright.config.ts); the job log alone cannot show what the page did.
@@ -391,7 +400,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: web-e2e-test-results-${{ github.run_attempt }}
+          name: web-e2e-test-results-${{ strategy.job-index }}-${{ github.run_attempt }}
           path: packages/app-web/test-results
           if-no-files-found: ignore
           retention-days: 14

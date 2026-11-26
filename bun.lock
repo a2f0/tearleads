@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.201",
+      "version": "0.1.202",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -99,7 +99,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.362",
+      "version": "0.1.363",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -191,7 +191,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.120",
+      "version": "0.1.121",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -226,7 +226,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.27",
+      "version": "0.1.28",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -242,7 +242,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.333",
+      "version": "0.1.335",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -315,7 +315,7 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "dependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/api-shared": "workspace:*",
@@ -370,7 +370,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.100",
+      "version": "0.1.101",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "zod": "catalog:",
