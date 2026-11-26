@@ -9,6 +9,7 @@ import {
   type SweepPlan,
   withOpenContainer,
 } from "./containerRefresh";
+import { SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
 import type { ReconciliationState } from "./serviceState";
 import type { ReconciliationHost } from "./serviceTypes";
 import { awaitTreeCrawl } from "./treeCrawlWait";
@@ -109,6 +110,7 @@ async function catchUpAfterCrawl(
   // A stopped service drops the catch-up: its next start resumes owed lanes.
   if (stop.aborted) return;
   dispatchCatchUp(state, { type: "crawlSettled", wait });
+  let planned = false;
   try {
     await requestContainerRefresh({
       // It never joins a sweep that already started: that one may have
@@ -118,21 +120,43 @@ async function catchUpAfterCrawl(
       state,
       // The container store lists the tree itself on the acknowledgement.
       refreshTree: () => Promise.resolve(),
-      // The sweep has taken the queue over by the time it reads its plan.
-      planSweep: () => {
-        dispatchCatchUp(state, { type: "turnTaken", wait });
-        return planCatchUp(host, state, crawlVouches);
+      planSweep: async () => {
+        // The service stopped while this sweep awaited its turn: its crawl
+        // says nothing to the session that runs now.
+        if (stop.aborted) return { containerIds: [] };
+        try {
+          return await planCatchUp(host, state, crawlVouches);
+        } finally {
+          // Deferral ends with the plan in hand, not before: a lane queued
+          // while the owed record is read is the sweep's to list or vouch
+          // for. The sweep marks its lanes before the lane can run again.
+          planned = true;
+          dispatchCatchUp(state, { type: "turnTaken", wait });
+        }
       },
       scope: "acknowledged",
       signal: undefined,
     });
   } finally {
-    // A sweep that never read its plan (the device went offline, or the
-    // plan could not be read) took nothing over: the catch-up is over all
-    // the same, and what it deferred is the lane's again.
     dispatchCatchUp(state, { type: "turnTaken", wait });
-    if (state.queue.size > 0) state.lane?.requestSync();
+    wakeLaneForDeferredWork(state, planned);
   }
+}
+
+/**
+ * Wakes the lane for entries the catch-up deferred and its sweep did not
+ * take. A sweep that never read its plan (the device went offline) took
+ * nothing, so the lane runs at once. One that did took the queue first, and
+ * may have just handed back a lane it failed, which must wait out its retry
+ * backoff: an immediate request would cancel that delay.
+ */
+function wakeLaneForDeferredWork(
+  state: ReconciliationState,
+  planned: boolean,
+): void {
+  if (state.queue.size === 0) return;
+  if (planned) state.lane?.requestSyncAfter(SWEEP_RETRY_BACKOFF_MS);
+  else state.lane?.requestSync();
 }
 
 /**

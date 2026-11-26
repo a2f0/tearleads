@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
 import { createReconciliationService } from "./service";
 import {
   createGate,
@@ -259,6 +260,61 @@ test("an acknowledgement while a catch-up awaits its turn gets its own crawl", a
   secondCrawl.open();
   await second;
   expect(listings).toEqual([["b"]]);
+  service.stop();
+});
+
+test("a lane the catch-up's sweep failed waits out its retry backoff", async () => {
+  let fail = true;
+  const { host, listings, service } = awaitingCrawl({
+    overrides: {
+      logError: () => undefined,
+      whenTreeCrawlSettles: async () => true,
+    },
+    owed: () => ["b"],
+  });
+  const discover = host.discoverContainerDocuments;
+  host.discoverContainerDocuments = async (requests, onOutcome) => {
+    if (!fail) return discover(requests, onOutcome);
+    listings.push(requests.map((request) => request.containerId));
+    throw new Error("listing failed");
+  };
+
+  await service.reconcileAcknowledgedConnection().catch(() => undefined);
+  fail = false;
+  await Bun.sleep(100);
+  // The failed lane is queued again, and the lane is not woken at once.
+  expect(listings).toEqual([["b"]]);
+
+  await Bun.sleep(SWEEP_RETRY_BACKOFF_MS + 300);
+  expect(listings).toEqual([["b"], ["b"]]);
+  service.stop();
+});
+
+test("a catch-up queued across a restart vouches for nothing in the new session", async () => {
+  const rootTree = createGate();
+  const { listings, service } = awaitingCrawl({
+    overrides: {
+      refreshRootTree: () => rootTree.wait,
+      whenTreeCrawlSettles: async () => true,
+    },
+  });
+  // The catch-up's crawl has settled; it waits its turn behind a refresh.
+  const rootRefresh = service.reconcileRootContainersNow().catch(() => {});
+  await settle();
+  const catchUp = service.reconcileAcknowledgedConnection().catch(() => {});
+  await settle();
+
+  service.stop();
+  service.start();
+  rootTree.open();
+  await Promise.all([rootRefresh, catchUp]);
+  await settle();
+
+  // The old session's crawl is not the new session's knowledge.
+  service.enqueueContainer("a", "idle");
+  await settle();
+  await settle();
+  expect(listings).toEqual([["a"]]);
   service.stop();
 });
 

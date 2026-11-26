@@ -90,6 +90,7 @@ async function measureRestart(input: {
 }) {
   // Holds one tree request, the next one sent: the measured restart's crawl.
   let crawlAnswers: Promise<void> | undefined;
+  let crawlHeld = false;
   useTestApiAppHandlers({
     holdRequest: (request) => {
       if (new URL(request.url).pathname !== "/containers/parent-lanes/query") {
@@ -97,6 +98,7 @@ async function measureRestart(input: {
       }
       const held = crawlAnswers;
       crawlAnswers = undefined;
+      if (held) crawlHeld = true;
       return held;
     },
   });
@@ -164,9 +166,10 @@ async function measureRestart(input: {
       await waitForSinglePaneProvisioning(second.pane);
       if (input.rootRefreshBeforeCrawl) {
         // The acknowledgement has started the crawl, whose request is held.
-        await waitFor(() =>
-          expect(second.sdk().events.connectionGeneration).toBe(1),
-        );
+        await waitFor(() => {
+          expect(second.sdk().events.connectionGeneration).toBe(1);
+          expect(crawlHeld).toBe(true);
+        });
         // The root refresh takes its turn among the sweeps at once, ahead
         // of the catch-up, which is still waiting on the crawl.
         const rootRefresh = second
