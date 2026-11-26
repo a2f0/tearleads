@@ -298,8 +298,11 @@ function useSelectMenuHighlightActions(params: {
 
   const moveHighlight = useCallback(
     (direction: -1 | 1) => {
+      // Move from the highlighted option whenever it is listed, even one
+      // whose id is empty (a "None" entry); otherwise from the selection.
       const nextIndex = getNextOptionIndex({
-        currentId: highlightedId || value,
+        currentId:
+          getOptionIndex(options, highlightedId) >= 0 ? highlightedId : value,
         direction,
         options,
       });
