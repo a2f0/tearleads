@@ -7,7 +7,13 @@
  * invariant that has become vacuous, is caught on every push.
  */
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { checkRoot } from "../lib/checkRoot";
@@ -19,6 +25,11 @@ import {
   violationPattern,
 } from "./protocolNegativeControls";
 import type { NegativeControl } from "./protocolNegativeControlTypes";
+import {
+  CONTROL_DURATIONS_PATH,
+  longestFirst,
+  parseTlcDurations,
+} from "./tlcDurations";
 import { resolveTlcTools, runTlcAsync, tlcParallelism } from "./tlcTools";
 
 function fail(message: string): never {
@@ -47,6 +58,7 @@ async function runControl(
   root: string,
   tools: ReturnType<typeof resolveTlcTools>,
   control: NegativeControl,
+  overlappingRuns: number,
 ): Promise<string | undefined> {
   const base = parseConfig(readFileSync(join(root, control.config), "utf8"));
   const rendered = renderNegativeControlConfig(base, control);
@@ -56,12 +68,15 @@ async function runControl(
     const configPath = join(workDirectory, `${control.id}.cfg`);
     writeFileSync(modulePath, readFileSync(join(root, control.module)));
     writeFileSync(configPath, rendered);
+    const started = performance.now();
     const result = await runTlcAsync(tools, {
       configPath,
       cwd: workDirectory,
       libraryPath: join(root, dirname(control.module)),
       modulePath,
+      overlappingRuns,
     });
+    const seconds = ((performance.now() - started) / 1000).toFixed(1);
     if (result.ok) {
       return `${control.id} passed TLC; the ${control.expect.kind} ${control.expect.name} no longer depends on the flipped rule:\n${result.output}`;
     }
@@ -69,7 +84,7 @@ async function runControl(
       return `${control.id} failed TLC, but not with the expected ${control.expect.kind} ${control.expect.name}:\n${result.output}`;
     }
     console.log(
-      `${control.id}: TLC reported ${control.expect.kind} ${control.expect.name} violated, as expected.`,
+      `${control.id}: TLC reported ${control.expect.kind} ${control.expect.name} violated, as expected (${seconds}s).`,
     );
     return undefined;
   } finally {
@@ -88,11 +103,37 @@ for (const control of NEGATIVE_CONTROLS) {
   assertBaseIsRegistered(root, control);
 }
 
+/** Recorded durations, which start the longest controls first. */
+function recordedDurations(): Map<string, number> {
+  const path = join(root, CONTROL_DURATIONS_PATH);
+  if (!existsSync(path)) {
+    return new Map();
+  }
+  let durations: Map<string, number>;
+  try {
+    durations = parseTlcDurations(
+      readFileSync(path, "utf8"),
+      CONTROL_DURATIONS_PATH,
+    );
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
+  }
+  for (const id of durations.keys()) {
+    if (!ids.has(id)) {
+      fail(
+        `${CONTROL_DURATIONS_PATH} lists ${id}, which is not a registered negative control.`,
+      );
+    }
+  }
+  return durations;
+}
+
 // Overlapped runs finish in completion order, so progress lines interleave.
+const parallelism = tlcParallelism();
 const failures = await runFailFastPool(
-  NEGATIVE_CONTROLS,
-  tlcParallelism(),
-  (control) => runControl(root, tools, control),
+  longestFirst(NEGATIVE_CONTROLS, recordedDurations(), (control) => control.id),
+  parallelism,
+  (control) => runControl(root, tools, control, parallelism),
   (control) => control.id,
 );
 if (failures.length > 0) {

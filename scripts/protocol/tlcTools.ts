@@ -101,6 +101,8 @@ interface TlcRunInput {
   readonly cwd: string;
   readonly libraryPath?: string;
   readonly modulePath: string;
+  /** How many TLC runs may overlap this one; sets its heap share. */
+  readonly overlappingRuns?: number;
 }
 
 /**
@@ -130,6 +132,18 @@ export function tlcParallelism(): number {
 }
 
 /**
+ * The percentage of physical memory one TLC JVM may use for its heap, by the
+ * same rule as checkProtocolModels.sh. The JVM's default is 25, so four
+ * overlapping runs could claim all of a CI runner's 16 GB between them; the
+ * runs instead share 75 percent, which leaves the rest for the system, the
+ * checker, and each JVM's memory outside the heap. Up to three runs keep the
+ * default.
+ */
+export function tlcHeapPercent(parallelism: number): number {
+  return Math.max(1, Math.min(25, Math.floor(75 / parallelism)));
+}
+
+/**
  * Prepares a run's private files inside its state directory and returns the
  * JVM and TLC arguments. Two isolations keep overlapping runs independent:
  *
@@ -155,6 +169,7 @@ function prepareTlcRun(
   writeFileSync(hostsFile, `127.0.0.1 ${hostname()} localhost\n`);
   return [
     "-XX:+UseParallelGC",
+    `-XX:MaxRAMPercentage=${tlcHeapPercent(input.overlappingRuns ?? 1)}`,
     `-Djava.io.tmpdir=${javaTmpDirectory}`,
     `-Djdk.net.hosts.file=${hostsFile}`,
     ...(input.libraryPath ? [`-DTLA-Library=${input.libraryPath}`] : []),

@@ -151,12 +151,68 @@ unregistered_model=$(sed -n '1p' "$UNREGISTERED_MODELS")
 mv "$SORTED_MODELS" "$REGISTERED_MODELS" ||
   fail "could not finalize the protocol model registry."
 
+# Longest first: a long model that starts late stretches the check past every
+# other run, so runs start in descending order of the seconds each took,
+# recorded in $DURATIONS_PATH. A model with no recorded duration starts first,
+# since it may be long, and ties keep registry order. The order decides only
+# when the check finishes, never what it checks. An entry for a pair the
+# registry does not list fails, so a renamed or removed model leaves no stale
+# entry behind.
+DURATIONS_PATH=formal/protocol-model-durations.txt
+RECORDED_DURATIONS=$CHECK_ROOT/recorded-durations.txt
+RANKED_MODELS=$CHECK_ROOT/ranked-models.txt
+SCHEDULED_MODELS=$CHECK_ROOT/scheduled-models.txt
+: >"$RECORDED_DURATIONS"
+if [ -f "$DURATIONS_PATH" ]; then
+  line_number=0
+  while IFS= read -r duration_line || [ -n "$duration_line" ]; do
+    line_number=$((line_number + 1))
+    case "$duration_line" in
+      ''|'#'*) continue ;;
+    esac
+    duration_seconds=${duration_line%% *}
+    duration_pair=${duration_line#* }
+    case "$duration_seconds" in
+      ''|*[!0-9]*)
+        fail "$DURATIONS_PATH:$line_number must read '<seconds> model|config'."
+        ;;
+    esac
+    grep -Fqx -- "$duration_pair" "$REGISTERED_MODELS" ||
+      fail "$DURATIONS_PATH:$line_number lists $duration_pair, which $REGISTRY_PATH does not register."
+    printf '%s %s\n' "$duration_seconds" "$duration_pair" >>"$RECORDED_DURATIONS"
+  done <"$DURATIONS_PATH"
+fi
+# Each line becomes "unrecorded seconds registry-position pair" for sorting.
+awk -v durations="$RECORDED_DURATIONS" '
+  BEGIN {
+    while ((getline entry < durations) > 0) {
+      split(entry, field, " ")
+      seconds[field[2]] = field[1]
+    }
+  }
+  $0 in seconds { print 0, seconds[$0], NR, $0; next }
+  { print 1, 0, NR, $0 }' "$REGISTERED_MODELS" >"$RANKED_MODELS" ||
+  fail "could not rank the registered models."
+LC_ALL=C sort -k1,1nr -k2,2nr -k3,3n "$RANKED_MODELS" | cut -d ' ' -f 4- \
+  >"$SCHEDULED_MODELS" || fail "could not order the registered models."
+# Scheduling reorders the registry and must never drop a model from it.
+[ "$(wc -l <"$SCHEDULED_MODELS")" -eq "$(wc -l <"$REGISTERED_MODELS")" ] ||
+  fail "scheduling the registered models lost some of them."
+mv "$SCHEDULED_MODELS" "$REGISTERED_MODELS" ||
+  fail "could not schedule the registered models."
+
 TLC_PARALLELISM=${PROTOCOL_TLC_PARALLELISM:-2}
 case "$TLC_PARALLELISM" in
   *[!0-9]*) fail "PROTOCOL_TLC_PARALLELISM must be a positive integer." ;;
 esac
 [ "$TLC_PARALLELISM" -ge 1 ] ||
   fail "PROTOCOL_TLC_PARALLELISM must be a positive integer."
+# Each JVM's heap share of physical memory, as tlcHeapPercent in
+# scripts/protocol/tlcTools.ts computes it: overlapping runs share 75 percent,
+# and up to three keep the JVM's default 25.
+TLC_HEAP_PERCENT=$((75 / TLC_PARALLELISM))
+[ "$TLC_HEAP_PERCENT" -le 25 ] || TLC_HEAP_PERCENT=25
+[ "$TLC_HEAP_PERCENT" -ge 1 ] || TLC_HEAP_PERCENT=1
 
 if [ -z "${JAVA_BIN:-}" ] || [ -z "${TLA_TOOLS_ROOT:-}" ]; then
   command -v mise >/dev/null 2>&1 ||
@@ -217,6 +273,7 @@ run_model() {
   run_state_path=$CHECK_ROOT/model-$1
   mkdir "$run_state_path" "$run_state_path/java-tmp"
   "$JAVA_BIN" -XX:+UseParallelGC \
+    "-XX:MaxRAMPercentage=$TLC_HEAP_PERCENT" \
     "-Djava.io.tmpdir=$run_state_path/java-tmp" \
     "-Djdk.net.hosts.file=$TLC_HOSTS_FILE" \
     -jar "$TLA_TOOLS_JAR" \
@@ -238,10 +295,10 @@ run_model() {
 }
 
 # Up to $TLC_PARALLELISM runs overlap. A finished run posts its index to a FIFO,
-# which frees its slot. Output is replayed in registry order once every earlier
+# which frees its slot. Output is replayed in launch order once every earlier
 # run has finished, so the log reads the same at any parallelism. After a
 # failure no new run starts and the in-flight ones finish; the first failure in
-# registry order sets the exit status.
+# launch order sets the exit status.
 DONE_FIFO=$CHECK_ROOT/done
 mkfifo "$DONE_FIFO"
 exec 3<>"$DONE_FIFO"

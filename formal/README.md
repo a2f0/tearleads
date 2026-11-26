@@ -24,8 +24,22 @@ The repository pins Java 25 LTS and the prebuilt TLA+ tools; TLC requires Java
 [`protocol-models.txt`](./protocol-models.txt) registers `model|config` pairs.
 The checker validates every pair and rejects unregistered configurations before
 running Java. Each invocation has isolated state, JVM temporary files, and hosts
-files. `PROTOCOL_TLC_PARALLELISM` controls concurrency (default 2); results print
-in deterministic registry order.
+files. `PROTOCOL_TLC_PARALLELISM` controls concurrency (default 2; CI's model
+jobs use 4). Four or more overlapping JVMs share three quarters of physical
+memory for their heaps instead of taking the JVM's default quarter each.
+
+Both TLC checks start their longest runs first, by the seconds recorded in
+[`protocol-model-durations.txt`](./protocol-model-durations.txt) and
+[`protocol-negative-control-durations.txt`](./protocol-negative-control-durations.txt),
+so a long run never starts last and stretches the check. A run with no entry
+starts before all of them, and a stale entry fails the check. Model results
+print in that launch order. After adding a slow model or control, or when a
+check's log shows the order has drifted, rewrite both files from a CI
+`Protocol models (...)` job log or local check output:
+
+```sh
+bun run generate:protocol-durations <log>...
+```
 
 ## Abstraction maps
 

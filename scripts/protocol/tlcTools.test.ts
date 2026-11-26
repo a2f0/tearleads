@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { parseTlcParallelism } from "./tlcTools";
+import { parseTlcParallelism, tlcHeapPercent } from "./tlcTools";
 
 test("unset and empty PROTOCOL_TLC_PARALLELISM default to two runs", () => {
   expect(parseTlcParallelism(undefined)).toBe(2);
@@ -18,4 +18,12 @@ test("PROTOCOL_TLC_PARALLELISM rejects what the shell check rejects", () => {
   for (const value of ["0", "two", "-1", "2.0", " 2", "0x2", "1e1", "+2"]) {
     expect(parseTlcParallelism(value)).toBeUndefined();
   }
+});
+
+// checkProtocolModels.sh computes the same share; testProtocolModels.sh pins
+// the shell side to these values.
+test("overlapping TLC runs share three quarters of memory for their heaps", () => {
+  expect([1, 2, 3, 4, 6, 12, 75, 76, 200].map(tlcHeapPercent)).toEqual([
+    25, 25, 25, 18, 12, 6, 1, 1, 1,
+  ]);
 });

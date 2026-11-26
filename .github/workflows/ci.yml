@@ -178,11 +178,14 @@ jobs:
       - name: Install dependencies
         run: sh scripts/lib/installDependencies.sh
 
+      # One TLC run per vCPU; the checks cap each JVM's heap so four fit in
+      # the runner's memory, and start their longest runs first.
       - name: Run model check
         env:
           CI_TURBO_PROTOCOL_CACHE: "1"
           MODEL_CHECK: ${{ matrix.check }}
           PROTOCOL_TLC_FAILURE_LOG_DIR: ${{ runner.temp }}/tlc-failures
+          PROTOCOL_TLC_PARALLELISM: "4"
         run: bun scripts/checks/runCachedProtocolCheck.ts "$MODEL_CHECK"
 
       # A failing model's full TLC log, which the job's stdout can cut short.
