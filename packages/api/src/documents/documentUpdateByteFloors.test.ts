@@ -82,17 +82,6 @@ async function storeWriteHeader(input: {
   });
 }
 
-async function storeCheckpoint(input: {
-  readonly documentId: string;
-  readonly sourceVersionVector: string;
-  readonly updateId: string;
-}) {
-  await db
-    .update(documentUpdates)
-    .set({ baselineSourceVersionVector: input.sourceVersionVector })
-    .where(eq(documentUpdates.id, input.updateId));
-}
-
 test("response byte floors count the UTF-8 bytes of every variable-size part", async () => {
   // Multibyte text tells bytes apart from characters on every dialect.
   const ordinary = storedUpdate({
@@ -103,14 +92,20 @@ test("response byte floors count the UTF-8 bytes of every variable-size part", a
     partialStartVersionVector: "start-✓",
     plaintextHash: "hash-✓",
   });
-  const checkpoint = { ...ordinary, id: crypto.randomUUID() };
-  const documentId = await storeDocument([ordinary, checkpoint]);
-  const sourceVersionVector = "source-✓✓✓";
-  await storeCheckpoint({
-    documentId,
-    sourceVersionVector,
-    updateId: checkpoint.id,
-  });
+  // A baseline segment's group fields are fixed-size, so its floor is an
+  // ordinary update's: here one with no header stored.
+  const segment = { ...ordinary, id: crypto.randomUUID() };
+  const documentId = await storeDocument([ordinary, segment]);
+  await db
+    .update(documentUpdates)
+    .set({
+      baselineCoversThroughUpdateId: crypto.randomUUID(),
+      baselineId: crypto.randomUUID(),
+      baselineSegmentCount: 1,
+      baselineSegmentIndex: 0,
+      baselineSegmentsDigest: "ab".repeat(32),
+    })
+    .where(eq(documentUpdates.id, segment.id));
   const header = { signature: "sig-✓", version: 1, writerDeviceId: "device-✓" };
   const authorizationTargets = [{ containerId: "container-✓", epoch: 2 }];
   await storeWriteHeader({
@@ -128,28 +123,19 @@ test("response byte floors count the UTF-8 bytes of every variable-size part", a
     bytes(ordinary.partialStartVersionVector) +
     bytes(ordinary.plaintextHash);
   expect(
-    await listDocumentUpdateResponseByteFloors(db, [
-      ordinary.id,
-      checkpoint.id,
-    ]),
+    await listDocumentUpdateResponseByteFloors(db, [ordinary.id, segment.id]),
   ).toEqual(
     new Map([
       [
         ordinary.id,
         stringBytes + jsonBytes(header) + jsonBytes(authorizationTargets),
       ],
-      [checkpoint.id, stringBytes + bytes(sourceVersionVector)],
+      [segment.id, stringBytes],
     ]),
   );
 });
 
 const largeParts = {
-  "checkpoint source version vector": (documentId: string, id: string) =>
-    storeCheckpoint({
-      documentId,
-      sourceVersionVector: "s".repeat(4_096),
-      updateId: id,
-    }),
   "write header": (documentId: string, id: string) =>
     storeWriteHeader({
       authorizationTargets: [],
@@ -172,18 +158,13 @@ for (const [part, store] of Object.entries(largeParts)) {
     const second = storedUpdate();
     const documentId = await storeDocument([first, second]);
     await store(documentId, second.id);
-    // A checkpoint's vector rides on its update row; measure the rows
-    // without it, as the other parts live outside the row.
+    // The large part lives outside the update row; measure the rows alone.
     const rowsBytes = (
       await db
         .select()
         .from(documentUpdates)
         .where(eq(documentUpdates.documentId, documentId))
-    ).reduce(
-      (sum, row) =>
-        sum + jsonBytes({ ...row, baselineSourceVersionVector: null }),
-      3,
-    );
+    ).reduce((sum, row) => sum + jsonBytes(row), 3);
 
     // Both rows fit the ceiling, but a response entry for the second carries
     // the large part too, so the page never loads that row.

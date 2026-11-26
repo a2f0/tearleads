@@ -13,10 +13,11 @@ import {
   documentEnvelopeFixture,
 } from "../../../../test/helpers/documentEnvelopeFixture";
 import {
+  assertOutgoingDeclaredDependencies,
   assertOutgoingDeclaredSpan,
   assertOutgoingEnvelopeCommitsToEpochKey,
   assertOutgoingEnvelopeMatchesHeader,
-  assertOutgoingSpanOrCursoredEmptyBaseline,
+  assertOutgoingSpanOrEmptyBaseline,
 } from "./outgoingUpdateShape";
 
 const DOCUMENT_ID = "6f1b1f8e-4f5a-4c4e-9a52-6f0a1b2c3d4e";
@@ -46,33 +47,62 @@ test("a declared span must name at least one operation", () => {
   }
 });
 
-test("only a rotation baseline that signs a cursor may declare no operations", () => {
+test("only the whole of an empty baseline may declare no operations", () => {
   const empty = {
     partialEndVersionVector: emptyVersionVector(),
     partialStartVersionVector: emptyVersionVector(),
   };
+  const wholeEmptyBaseline = {
+    ...empty,
+    baselineSegmentCount: 1,
+    baselineSegmentIndex: 0,
+    coversThroughUpdateId: RECORD_ID,
+  };
   expect(() =>
-    assertOutgoingSpanOrCursoredEmptyBaseline({
-      ...empty,
-      checkpointKind: "rotate_baseline",
-      coversThroughUpdateId: RECORD_ID,
-    }),
+    assertOutgoingSpanOrEmptyBaseline(wholeEmptyBaseline),
   ).not.toThrow();
   for (const refused of [
-    { ...empty, checkpointKind: "rotate_baseline" as const },
+    // No cursor: nothing says which updates its author voided.
+    { ...wholeEmptyBaseline, coversThroughUpdateId: undefined },
+    // One segment of several, final or not.
+    { ...wholeEmptyBaseline, baselineSegmentCount: 2, baselineSegmentIndex: 1 },
+    { ...empty, baselineSegmentIndex: 0 },
     { ...empty, coversThroughUpdateId: RECORD_ID },
     empty,
   ]) {
-    expect(() => assertOutgoingSpanOrCursoredEmptyBaseline(refused)).toThrow(
+    expect(() => assertOutgoingSpanOrEmptyBaseline(refused)).toThrow(
       "Document update declares no operations",
     );
   }
   expect(() =>
-    assertOutgoingSpanOrCursoredEmptyBaseline({
+    assertOutgoingSpanOrEmptyBaseline({
       partialEndVersionVector: vector({ "7": 5 }),
       partialStartVersionVector: vector({ "7": 3 }),
     }),
   ).not.toThrow();
+  // An empty baseline's vectors must still be vectors.
+  expect(() =>
+    assertOutgoingSpanOrEmptyBaseline({
+      ...wholeEmptyBaseline,
+      partialEndVersionVector: "not-a-vector",
+    }),
+  ).toThrow("Document update version vectors are invalid");
+});
+
+test("declared dependencies must be a version vector", () => {
+  for (const dependencyVersionVector of [
+    emptyVersionVector(),
+    vector({ "7": 3 }),
+  ]) {
+    expect(() =>
+      assertOutgoingDeclaredDependencies({ dependencyVersionVector }),
+    ).not.toThrow();
+  }
+  expect(() =>
+    assertOutgoingDeclaredDependencies({
+      dependencyVersionVector: "not-a-vector",
+    }),
+  ).toThrow("Document update dependency version vector is invalid");
 });
 
 test("a declared span whose end does not cover its start is refused", () => {

@@ -171,7 +171,18 @@ export async function buildDocumentUnlinkRequest(input: {
   readonly rotationBaselineContentKeyCommitment?: string | undefined;
   /** The rotation baseline's signed processed cursor. */
   readonly rotationBaselineCoversThroughUpdateId?: string | undefined;
-  readonly rotationBaselineSourceVersionVector?: string;
+  /** The version the baseline's segments reach; the committed frontier when absent. */
+  readonly rotationBaselineCoverage?: string | undefined;
+  /** Signs exactly these ranges as the baseline's segments. */
+  readonly rotationBaselineRanges?:
+    | Parameters<typeof createSignedAtomicRotationBaseline>[0]["ranges"]
+    | undefined;
+  /** How many segments to cut the baseline into; one when absent. */
+  readonly rotationBaselineSegments?: number | undefined;
+  /** Changes what a baseline segment signs, to break one group rule. */
+  readonly rotationBaselineOverride?:
+    | Parameters<typeof createSignedAtomicRotationBaseline>[0]["override"]
+    | undefined;
   readonly root: StoredRootFixture;
   readonly unlinkedContainer?: StoredRootFixture | undefined;
   readonly unlinkedContainerPath?:
@@ -257,11 +268,10 @@ export async function buildDocumentUnlinkRequest(input: {
     documentId,
     organizationId: state.organizationId,
     owner: input.owner,
-    ...(input.rotationBaselineSourceVersionVector === undefined
-      ? {}
-      : {
-          sourceVersionVector: input.rotationBaselineSourceVersionVector,
-        }),
+    coverage: input.rotationBaselineCoverage,
+    override: input.rotationBaselineOverride,
+    ranges: input.rotationBaselineRanges,
+    segments: input.rotationBaselineSegments,
     targetHash,
   });
 
@@ -297,10 +307,12 @@ export async function buildDocumentUnlinkRequest(input: {
       },
       // A document with no committed history has nothing for a baseline to
       // cover: the SDK unlinks it without one, as the API requires. An empty
-      // snapshot that signs a processed cursor is still sent.
-      ...(versionVectorsEqual(
-        rotationBaseline.partialEndVersionVector,
-        emptyVersionVector(),
+      // baseline that signs a processed cursor is still sent.
+      ...(rotationBaseline.every((segment) =>
+        versionVectorsEqual(
+          segment.partialEndVersionVector,
+          emptyVersionVector(),
+        ),
       ) && input.rotationBaselineCoversThroughUpdateId === undefined
         ? {}
         : { rotationBaseline }),

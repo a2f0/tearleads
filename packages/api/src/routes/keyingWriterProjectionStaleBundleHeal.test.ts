@@ -82,7 +82,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
       ],
     ],
     localVersionVector: null,
-    outgoingUpdates: [preRevokeBaseline],
+    outgoingUpdates: preRevokeBaseline,
     supportsPullPagination: true,
   });
   expect(preRevokeBaselineResponse.status).toBe(200);
@@ -178,20 +178,22 @@ test("a heal that advances the content-key epoch must carry a newly written base
   const malformedVectorResponse = await postDocumentSync(owner, created.id, {
     ...malformedVectorHeal.request,
     outgoingUpdates: malformedVectorHeal.request.outgoingUpdates.map(
-      (update) => ({ ...update, sourceVersionVector: "not-a-vector" }),
+      (update) => ({ ...update, partialEndVersionVector: "not-a-vector" }),
     ),
   });
-  expect(malformedVectorResponse.status).toBe(400);
-  expect((await malformedVectorResponse.json()).error).toBe(
-    "Document content-key rotation baseline source vector is invalid",
-  );
+  // What a baseline covers is read from its segments' vectors, so one that
+  // does not decode is refused as a client error, not a 500 from the decoder.
+  expect(malformedVectorResponse.status).toBe(409);
+  expect(await malformedVectorResponse.json()).toMatchObject({
+    code: DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
+  });
 
   // Replaying the already-committed pre-revoke baseline cannot anchor the
   // advance: the idempotent-retry path would keep its old-epoch write header,
   // so no baseline readable under the new key would exist.
   const replayedBaselineResponse = await postDocumentSync(owner, created.id, {
     ...healedRequestEnvelope,
-    outgoingUpdates: [preRevokeBaseline],
+    outgoingUpdates: preRevokeBaseline,
   });
   expect(replayedBaselineResponse.status).toBe(409);
   expect((await replayedBaselineResponse.json()).error).toBe(
@@ -212,7 +214,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   });
   const otherKeyResponse = await postDocumentSync(owner, created.id, {
     ...healedRequestEnvelope,
-    outgoingUpdates: [otherKeyBaseline],
+    outgoingUpdates: otherKeyBaseline,
   });
   expect(otherKeyResponse.status).toBe(400);
   expect((await otherKeyResponse.json()).error).toBe(
@@ -232,12 +234,14 @@ test("a heal that advances the content-key epoch must carry a newly written base
   });
   const coveringResponse = await postDocumentSync(owner, created.id, {
     ...healedRequestEnvelope,
-    outgoingUpdates: [coveringBaseline],
+    outgoingUpdates: coveringBaseline,
   });
   expect(coveringResponse.status).toBe(200);
   const healed = await coveringResponse.json();
   expect(isDocumentSyncResponse(healed)).toBe(true);
-  expect(healed.acceptedOutgoingUpdateIds).toContain(coveringBaseline.id);
+  expect(healed.acceptedOutgoingUpdateIds).toEqual(
+    coveringBaseline.map((segment) => segment.id),
+  );
 
   const { response, projection } = await getWriterProjection(owner, created.id);
   expect(response.status).toBe(200);
@@ -271,7 +275,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   // already-committed baseline inserts nothing and cannot regress coverage.
   const retriedHealResponse = await postDocumentSync(owner, created.id, {
     ...healedRequestEnvelope,
-    outgoingUpdates: [coveringBaseline],
+    outgoingUpdates: coveringBaseline,
   });
   expect(retriedHealResponse.status).toBe(200);
 
@@ -326,7 +330,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
         ),
       })),
     },
-    outgoingUpdates: [losingBaseline],
+    outgoingUpdates: losingBaseline,
   });
   expect(losingHealResponse.status).toBe(409);
   expect(await losingHealResponse.json()).toEqual({

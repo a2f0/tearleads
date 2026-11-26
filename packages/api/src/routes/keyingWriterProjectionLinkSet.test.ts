@@ -232,7 +232,7 @@ test("POST /documents/:documentId/unlink rolls back a stale atomic rotation base
         root,
         // Covers another peer's operation but not the committed update. An
         // empty baseline is refused before staleness is checked.
-        rotationBaselineSourceVersionVector: encodeVersionVectorCounters({
+        rotationBaselineCoverage: encodeVersionVectorCounters({
           "4242": 1,
         }),
       }),

@@ -25,34 +25,30 @@ import type { AppendDocumentUpdatesInput } from "./types";
 
 /**
  * Dedup, idempotent-retry matching, and insertion of a sync request's outgoing
- * updates; a rotation baseline is marked on its own update row. Split from syncDocument.ts, which keeps the
- * transaction orchestration; per-update verification lives in
- * outgoingUpdateVerification.
+ * updates; a rotation baseline's segments are marked on their own update
+ * rows. Split from syncDocument.ts, which keeps the transaction
+ * orchestration; per-update verification lives in outgoingUpdateVerification.
+ * One insert takes the request's new updates in request order, so their
+ * sequences rise in that order and a baseline's segments are served as sent.
  */
 function documentUpdateByteLength(update: DocumentOutgoingUpdate): number {
   return Buffer.byteLength(update.encryptedData, "utf8");
 }
 
 /**
- * A rotation baseline carries its declared source version vector on its update
- * row, so the redirect, sync response, and edit attribution find it without a
- * second insert. Only updates this transaction inserts are written, so a
- * retried baseline never changes a committed row.
+ * A rotation baseline's segments carry their group fields on their update
+ * rows, so the redirect, sync response, and edit attribution find the group
+ * without a second insert. Only updates this transaction inserts are
+ * written, so a retried segment never changes a committed row.
  */
-function baselineSourceVersionVector(
-  update: DocumentOutgoingUpdate,
-): string | null {
-  return update.checkpointKind === undefined
-    ? null
-    : (update.sourceVersionVector ?? null);
-}
-
-function baselineCoversThroughUpdateId(
-  update: DocumentOutgoingUpdate,
-): string | null {
-  return update.checkpointKind === undefined
-    ? null
-    : (update.coversThroughUpdateId ?? null);
+function baselineSegmentColumns(update: DocumentOutgoingUpdate) {
+  return {
+    baselineCoversThroughUpdateId: update.coversThroughUpdateId ?? null,
+    baselineId: update.baselineId ?? null,
+    baselineSegmentCount: update.baselineSegmentCount ?? null,
+    baselineSegmentIndex: update.baselineSegmentIndex ?? null,
+    baselineSegmentsDigest: update.baselineSegmentsDigest ?? null,
+  };
 }
 
 function acceptedOutgoingUpdateIds(
@@ -94,8 +90,7 @@ async function insertNewDocumentUpdates(input: {
         partialEndVersionVector: update.partialEndVersionVector,
         dependencyVersionVector: update.dependencyVersionVector,
         plaintextHash: update.plaintextHash,
-        baselineSourceVersionVector: baselineSourceVersionVector(update),
-        baselineCoversThroughUpdateId: baselineCoversThroughUpdateId(update),
+        ...baselineSegmentColumns(update),
       })),
     )
     .onConflictDoNothing({ target: documentUpdates.id })

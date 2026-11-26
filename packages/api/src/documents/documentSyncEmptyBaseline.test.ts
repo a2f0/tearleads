@@ -1,33 +1,24 @@
 import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  documentContentWriteHeaders,
-  documentUpdates,
-} from "@tearleads/api-shared/schema";
-import {
-  computeDocumentContentRecordMetadataHash,
-  type WriteHeader,
-} from "@tearleads/crypto";
+import { documentUpdates } from "@tearleads/api-shared/schema";
 import {
   emptyVersionVector,
   encodeVersionVectorCounters,
 } from "@tearleads/loro";
+import { baselineSegmentRanges } from "../../test/helpers/documentBaselineGroups";
+import { insertStoredBaselineGroup } from "../../test/helpers/storedBaselineGroup";
 import { resolveBaselineRedirectAfterSequence } from "./documentSyncBaselineRedirect";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import { listMissingDocumentUpdatePage } from "./documentUpdateStore";
 
-/** Commits an update with its spans; a baseline also gets its header. */
+/** Commits an ordinary update with its spans. */
 async function commit(input: {
-  readonly baselineCursor?: string;
   readonly contentKeyEpoch: number;
   readonly documentId: string;
   readonly end: string;
 }): Promise<{ readonly id: string; readonly sequence: number }> {
   const id = randomUUID();
-  const start = emptyVersionVector();
-  const plaintextHash = `plaintext-${id}`;
-  const baseline = input.baselineCursor !== undefined;
   const update = {
     id,
     documentId: input.documentId,
@@ -36,11 +27,9 @@ async function commit(input: {
     encryptedData: `encrypted-${id}`,
     byteLength: 16,
     dependencyVersionVector: emptyVersionVector(),
-    partialStartVersionVector: start,
+    partialStartVersionVector: emptyVersionVector(),
     partialEndVersionVector: input.end,
-    plaintextHash,
-    baselineSourceVersionVector: baseline ? input.end : null,
-    baselineCoversThroughUpdateId: input.baselineCursor ?? null,
+    plaintextHash: `plaintext-${id}`,
   };
   const [inserted] = await db
     .insert(documentUpdates)
@@ -51,33 +40,22 @@ async function commit(input: {
     documentId: input.documentId,
     updates: [update],
   });
-  if (baseline) {
-    const metadataHash = await computeDocumentContentRecordMetadataHash({
-      checkpointKind: "rotate_baseline",
-      checkpointPayloadKind: "full_history_snapshot",
-      coversThroughUpdateId: input.baselineCursor,
-      dependencyVersionVector: update.dependencyVersionVector,
-      documentId: input.documentId,
-      partialEndVersionVector: input.end,
-      partialStartVersionVector: start,
-      plaintextHash,
-      sourceVersionVector: input.end,
-      updateId: id,
-    });
-    await db.insert(documentContentWriteHeaders).values({
-      // This fixture tests baseline coverage, not write authorization.
-      authorizationTargets: [],
-      updateId: id,
-      documentId: input.documentId,
-      organizationId: randomUUID(),
-      contentKeyEpoch: input.contentKeyEpoch,
-      contentRecordId: id,
-      nonceDomainHash: `nonce-${id}`,
-      headerHash: `header-${id}`,
-      header: { metadataHash } as unknown as WriteHeader,
-    });
-  }
   return { id, sequence: inserted.sequence };
+}
+
+/** Commits a one-segment baseline that reaches `end` and signs `cursor`. */
+function commitBaseline(input: {
+  readonly cursor: string;
+  readonly documentId: string;
+  readonly end: string;
+}) {
+  return insertStoredBaselineGroup({
+    contentKeyEpoch: 2,
+    coversThroughUpdateId: input.cursor,
+    documentId: input.documentId,
+    ranges: baselineSegmentRanges(input.end),
+    withSpans: true,
+  });
 }
 
 /**
@@ -91,26 +69,24 @@ async function allVoidThenRotated() {
     documentId,
     end: encodeVersionVectorCounters({ "4242": 7 }),
   });
-  await commit({
-    baselineCursor: overclaim.id,
-    contentKeyEpoch: 2,
+  await commitBaseline({
+    cursor: overclaim.id,
     documentId,
     end: emptyVersionVector(),
   });
   const honestEnd = encodeVersionVectorCounters({ "7": 3 });
   await commit({ contentKeyEpoch: 2, documentId, end: honestEnd });
-  const later = await commit({
-    baselineCursor: overclaim.id,
-    contentKeyEpoch: 2,
+  const later = await commitBaseline({
+    cursor: overclaim.id,
     documentId,
     end: honestEnd,
   });
   return { documentId, honestEnd, later, overclaim };
 }
 
-// An empty rotation baseline declares no operations, so it has no span rows,
-// and every frontier holds what it carries. Counted as missing, it would be
-// served again to every pull that starts before it.
+// An empty rotation baseline is one segment that declares no operations, so
+// it has no span rows, and every frontier holds what it carries. Counted as
+// missing, it would be served again to every pull that starts before it.
 test("an empty baseline is not served to a pull that holds the rest", async () => {
   const { documentId, honestEnd, later, overclaim } =
     await allVoidThenRotated();
@@ -120,7 +96,7 @@ test("an empty baseline is not served to a pull that holds the rest", async () =
     localVersionVector: honestEnd,
     maxSerializedBytes: 10_000,
     maxUpdates: 64,
-    upperBoundSequence: later.sequence,
+    upperBoundSequence: later.lastSequence,
   });
   expect(page.updates).toEqual([]);
 });
@@ -138,7 +114,7 @@ test("a later baseline redirects a new reader past an empty one", async () => {
       executor: db,
       firstPage: true,
       localVersionVector: null,
-      upperBoundSequence: later.sequence,
+      upperBoundSequence: later.lastSequence,
     }),
-  ).toBe(later.sequence - 1);
+  ).toBe(later.firstSequence - 1);
 });

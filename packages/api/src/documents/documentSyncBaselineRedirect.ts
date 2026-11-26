@@ -1,13 +1,8 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import {
-  documentContentWriteHeaders,
-  documentUpdates,
-} from "@tearleads/api-shared/schema";
 import { mergeVersionVectors } from "@tearleads/loro";
-import { and, desc, eq, isNotNull, lte } from "drizzle-orm";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { readProcessedThroughSequence } from "./documentProcessedCursor";
-import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";
+import { loadLatestStoredDocumentBaselineGroup } from "./documentStoredBaselineGroup";
 import { hasMissingDocumentUpdatesThroughSequence } from "./documentUpdateStore";
 
 /**
@@ -19,12 +14,14 @@ import { hasMissingDocumentUpdatesThroughSequence } from "./documentUpdateStore"
  * all-or-nothing — one undecryptable update poisons the whole batch, so the
  * reader never converges (see the post-rotation-reader-convergence repro).
  *
- * A rotate_baseline is a full export re-encrypted under the current content key,
- * so it both (a) is readable by every current reader (including newcomers) and
- * (b) carries the state of all pre-rotation updates it dominates. When the
- * missing set spans an older content-key epoch, we therefore redirect the reader
- * to the latest current-epoch baseline and omit the older-epoch updates it
- * covers — but ONLY when the baseline provably dominates every one of them.
+ * A rotation baseline is the document's whole history written again under
+ * the current content key, as an ordered group of updates (its segments)
+ * committed together. So it both (a) is readable by every current reader
+ * (including newcomers) and (b) carries the operations of all pre-rotation
+ * updates it dominates. When the missing set spans an older content-key
+ * epoch, we therefore redirect the reader to the latest whole current-epoch
+ * baseline and omit the older-epoch updates it covers — but ONLY when the
+ * baseline provably dominates every one of them.
  *
  * The gate is what keeps this safe: we never drop an update that is not covered
  * by a served baseline, so a reader can never silently converge to partial
@@ -88,85 +85,6 @@ export function selectServedSyncUpdates<
   );
 }
 
-/**
- * Load the `sourceVersionVector` of the latest rotate_baseline whose baseline
- * update was written under `contentKeyEpoch` (the reader-readable current
- * epoch). Returns `null` when no such baseline exists.
- */
-async function loadLatestReadableBaseline(
-  executor: DatabaseSession,
-  input: {
-    readonly documentId: string;
-    readonly contentKeyEpoch: number;
-    readonly upperBoundSequence?: number | undefined;
-  },
-): Promise<{
-  readonly coversThroughUpdateId: string | undefined;
-  readonly sequence: number;
-  readonly sourceVersionVector: string;
-  readonly updateId: string;
-} | null> {
-  const rows = await executor
-    .select({
-      coversThroughUpdateId: documentUpdates.baselineCoversThroughUpdateId,
-      dependencyVersionVector: documentUpdates.dependencyVersionVector,
-      header: documentContentWriteHeaders.header,
-      partialEndVersionVector: documentUpdates.partialEndVersionVector,
-      partialStartVersionVector: documentUpdates.partialStartVersionVector,
-      plaintextHash: documentUpdates.plaintextHash,
-      sequence: documentUpdates.sequence,
-      sourceVersionVector: documentUpdates.baselineSourceVersionVector,
-      updateId: documentUpdates.id,
-    })
-    .from(documentUpdates)
-    .innerJoin(
-      documentContentWriteHeaders,
-      eq(documentContentWriteHeaders.updateId, documentUpdates.id),
-    )
-    .where(
-      and(
-        eq(documentUpdates.documentId, input.documentId),
-        isNotNull(documentUpdates.baselineSourceVersionVector),
-        eq(documentContentWriteHeaders.contentKeyEpoch, input.contentKeyEpoch),
-        ...(input.upperBoundSequence === undefined
-          ? []
-          : [lte(documentUpdates.sequence, input.upperBoundSequence)]),
-      ),
-    )
-    .orderBy(desc(documentUpdates.sequence));
-
-  for (const row of rows) {
-    const { sourceVersionVector } = row;
-    if (sourceVersionVector === null) continue;
-    const coversThroughUpdateId = row.coversThroughUpdateId ?? undefined;
-    // The kind is the rotation constant; the recomputed signed metadata hash
-    // still binds it, the vector, and the update row, so a tampered column
-    // fails closed rather than redirecting.
-    if (
-      await isAuthenticatedReplayableBaseline({
-        checkpointKind: "rotate_baseline",
-        coversThroughUpdateId,
-        dependencyVersionVector: row.dependencyVersionVector,
-        documentId: input.documentId,
-        metadataHash: row.header.metadataHash,
-        partialEndVersionVector: row.partialEndVersionVector,
-        partialStartVersionVector: row.partialStartVersionVector,
-        plaintextHash: row.plaintextHash,
-        sourceVersionVector,
-        updateId: row.updateId,
-      })
-    ) {
-      return {
-        coversThroughUpdateId,
-        sequence: row.sequence,
-        sourceVersionVector,
-        updateId: row.updateId,
-      };
-    }
-  }
-  return null;
-}
-
 export async function loadLatestReadableBaselineCoverage(
   executor: DatabaseSession,
   input: {
@@ -176,7 +94,7 @@ export async function loadLatestReadableBaselineCoverage(
   },
 ): Promise<string | null> {
   return (
-    (await loadLatestReadableBaseline(executor, input))?.sourceVersionVector ??
+    (await loadLatestStoredDocumentBaselineGroup(executor, input))?.coverage ??
     null
   );
 }
@@ -188,10 +106,12 @@ export async function loadLatestReadableBaselineCoverage(
  * sent one, and updates at or before the cursor were judged already, so they
  * neither need the baseline nor keep it from serving. A baseline covers every
  * update at or before its own signed cursor, which its author imported or
- * voided, and each later one its source version holds. A continuation page
- * keeps its position. This decision happens before the bounded page query,
- * so a long run of covered old-epoch updates cannot consume empty pages and
- * starve the baseline itself.
+ * voided, and each later one whose operations its segments hold. The page
+ * then starts just before the baseline's first segment, and the segments are
+ * served as ordinary updates, over as many pages as they take. A
+ * continuation page keeps its position. This decision happens before the
+ * bounded page query, so a long run of covered old-epoch updates cannot
+ * consume empty pages and starve the baseline itself.
  */
 export async function resolveBaselineRedirectAfterSequence(input: {
   readonly afterSequence: number;
@@ -204,14 +124,14 @@ export async function resolveBaselineRedirectAfterSequence(input: {
   readonly upperBoundSequence: number;
 }): Promise<number> {
   if (!input.firstPage) return input.afterSequence;
-  const baseline = await loadLatestReadableBaseline(input.executor, {
+  const baseline = await loadLatestStoredDocumentBaselineGroup(input.executor, {
     contentKeyEpoch: input.contentKeyEpoch,
     documentId: input.documentId,
     upperBoundSequence: input.upperBoundSequence,
   });
   if (!baseline) return input.afterSequence;
 
-  const beforeBaseline = baseline.sequence - 1;
+  const beforeBaseline = baseline.firstSequence - 1;
   if (beforeBaseline <= input.afterSequence) return input.afterSequence;
   const missingBeforeBaseline = (
     afterSequence: number,
@@ -233,14 +153,14 @@ export async function resolveBaselineRedirectAfterSequence(input: {
   }
 
   // The baseline's author imported or voided every update up to its signed
-  // cursor, so the snapshot stands for those; later ones must be covered.
+  // cursor, so the segments stand for those; later ones must be covered.
   const coveredThrough = await readProcessedThroughSequence(input.executor, {
     documentId: input.documentId,
     processedThroughUpdateId: baseline.coversThroughUpdateId,
   });
   const coveredFrontier = mergeVersionVectors([
     ...(input.localVersionVector === null ? [] : [input.localVersionVector]),
-    baseline.sourceVersionVector,
+    baseline.coverage,
   ]);
   return (await missingBeforeBaseline(
     Math.max(input.afterSequence, coveredThrough),

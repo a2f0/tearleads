@@ -9,11 +9,6 @@ import {
   computeWriteHeaderHash,
   verifyWriteHeader,
 } from "@tearleads/crypto";
-import {
-  emptyVersionVector,
-  listVersionVectorSpans,
-  versionVectorsEqual,
-} from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { assertStoredWriteHeaderVerbatim } from "../../../access/write/documentContentKeyStore";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
@@ -23,15 +18,16 @@ import {
   assertOutgoingDeclaredDependencies,
   assertOutgoingEnvelopeCommitsToEpochKey,
   assertOutgoingEnvelopeMatchesHeader,
-  assertOutgoingSpanOrCursoredEmptyBaseline,
+  assertOutgoingSpanOrEmptyBaseline,
 } from "./outgoingUpdateShape";
 import { readWriteHeader } from "./shared/records";
 import type { DocumentWriteAuthorizationProof } from "./types";
 
 /**
  * Per-update verification for a sync request's outgoing updates: write-header
- * authorization, payload/header binding, rotation-checkpoint consistency, and
- * the byte-exact matching rules for idempotent retries and duplicate ids.
+ * authorization, payload/header binding, and the byte-exact matching rules
+ * for idempotent retries and duplicate ids. The rules that span a rotation
+ * baseline's segments are in outgoingBaselineGroup.
  */
 export async function verifyOutgoingWriteHeader(input: {
   /** The commitment of the epoch the request writes at. */
@@ -95,27 +91,19 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
   readonly header: WriteHeader;
   readonly update: DocumentOutgoingUpdate;
 }): Promise<ParsedDocumentEncryptedUpdate> {
-  assertOutgoingCheckpointConsistency(input.update);
-  assertOutgoingSpanOrCursoredEmptyBaseline(input.update);
+  assertOutgoingSpanOrEmptyBaseline(input.update);
   assertOutgoingDeclaredDependencies(input.update);
   const metadataHash = await computeDocumentContentRecordMetadataHash({
-    ...(input.update.checkpointKind === undefined
-      ? {}
-      : { checkpointKind: input.update.checkpointKind }),
-    ...(input.update.checkpointPayloadKind === undefined
-      ? {}
-      : { checkpointPayloadKind: input.update.checkpointPayloadKind }),
-    ...(input.update.coversThroughUpdateId === undefined
-      ? {}
-      : { coversThroughUpdateId: input.update.coversThroughUpdateId }),
+    baselineId: input.update.baselineId,
+    baselineSegmentCount: input.update.baselineSegmentCount,
+    baselineSegmentIndex: input.update.baselineSegmentIndex,
+    baselineSegmentsDigest: input.update.baselineSegmentsDigest,
+    coversThroughUpdateId: input.update.coversThroughUpdateId,
     dependencyVersionVector: input.update.dependencyVersionVector,
     documentId: input.documentId,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
     plaintextHash: input.update.plaintextHash,
-    ...(input.update.sourceVersionVector === undefined
-      ? {}
-      : { sourceVersionVector: input.update.sourceVersionVector }),
     updateId: input.update.id,
   });
   if (metadataHash !== input.header.metadataHash) {
@@ -135,53 +123,6 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
     );
   }
   return assertOutgoingEnvelopeMatchesHeader(input);
-}
-
-function assertOutgoingCheckpointConsistency(
-  update: DocumentOutgoingUpdate,
-): void {
-  const isCheckpoint =
-    update.checkpointKind !== undefined ||
-    update.checkpointPayloadKind !== undefined ||
-    update.sourceVersionVector !== undefined ||
-    update.coversThroughUpdateId !== undefined;
-  if (!isCheckpoint) {
-    return;
-  }
-  if (
-    update.checkpointKind !== "rotate_baseline" ||
-    update.checkpointPayloadKind !== "full_history_snapshot" ||
-    !update.sourceVersionVector
-  ) {
-    throw new DocumentMutationError(
-      "Document rotation checkpoint metadata is incomplete",
-      400,
-    );
-  }
-
-  try {
-    listVersionVectorSpans({
-      partialStartVersionVector: update.partialStartVersionVector,
-      partialEndVersionVector: update.partialEndVersionVector,
-    });
-  } catch {
-    throw new DocumentMutationError(
-      "Document rotation checkpoint version vectors are invalid",
-      400,
-    );
-  }
-  if (
-    !versionVectorsEqual(
-      update.sourceVersionVector,
-      update.partialEndVersionVector,
-    ) ||
-    !versionVectorsEqual(update.partialStartVersionVector, emptyVersionVector())
-  ) {
-    throw new DocumentMutationError(
-      "Document rotation checkpoint must start empty and end at its source vector",
-      400,
-    );
-  }
 }
 
 async function assertRetryWriteHeaderMatches(input: {
@@ -267,6 +208,14 @@ export async function assertRetryUpdateMatchesAcceptedContent(input: {
   });
 }
 
+const BASELINE_SEGMENT_FIELDS = [
+  "baselineId",
+  "baselineSegmentCount",
+  "baselineSegmentIndex",
+  "baselineSegmentsDigest",
+  "coversThroughUpdateId",
+] as const satisfies readonly (keyof DocumentOutgoingUpdate)[];
+
 function assertDuplicateOutgoingUpdateMatches(
   first: DocumentOutgoingUpdate,
   next: DocumentOutgoingUpdate,
@@ -277,11 +226,7 @@ function assertDuplicateOutgoingUpdateMatches(
     first.partialStartVersionVector === next.partialStartVersionVector &&
     first.partialEndVersionVector === next.partialEndVersionVector &&
     first.plaintextHash === next.plaintextHash &&
-    (first.sourceVersionVector ?? null) ===
-      (next.sourceVersionVector ?? null) &&
-    (first.checkpointKind ?? null) === (next.checkpointKind ?? null) &&
-    (first.checkpointPayloadKind ?? null) ===
-      (next.checkpointPayloadKind ?? null) &&
+    BASELINE_SEGMENT_FIELDS.every((field) => first[field] === next[field]) &&
     canonicalJsonEquals(first.writeHeader, next.writeHeader)
   ) {
     return;

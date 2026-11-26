@@ -1,68 +1,57 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
 import { satisfiesVersionVector } from "@tearleads/loro";
 import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
-import { inArray } from "drizzle-orm";
 import { getLatestDocumentContentKeyEpoch } from "../../../access/read/documentContentKeyStore";
+import type { DocumentBaselineGroup } from "../../../documents/documentBaselineGroup";
 import {
   committedFrontierAfterBaselineCursor,
   hasCommittedDocumentUpdate,
 } from "./committedDocumentUpdates";
 import { DocumentMutationError } from "./errors";
+import {
+  documentBaselineGroupInvalid,
+  readCommittedBaselineGroupState,
+  requireOutgoingBaselineGroup,
+  selectOutgoingBaselineSegments,
+} from "./outgoingBaselineGroup";
 import { readWriteHeader } from "./shared/records";
 
-async function listCommittedBaselineIds(
-  executor: DatabaseTransaction,
-  baselines: readonly DocumentOutgoingUpdate[],
-): Promise<Set<string>> {
-  const rows = await executor
-    .select({ id: documentUpdates.id })
-    .from(documentUpdates)
-    .where(
-      inArray(
-        documentUpdates.id,
-        baselines.map((baseline) => baseline.id),
-      ),
-    );
-  return new Set(rows.map((row) => row.id));
-}
-
-function assertNewBaselineSound(input: {
-  readonly baseline: DocumentOutgoingUpdate;
-  readonly committedFrontier: string;
+/**
+ * A newly written group must be signed at the request's epoch and cover the
+ * committed frontier after its cursor. What it covers is read from its
+ * segments' spans, which run gapless from zero.
+ */
+async function assertNewBaselineGroupSound(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly group: DocumentBaselineGroup;
   readonly requestContentKeyEpoch: number;
-}): void {
-  const header = readWriteHeader(
-    input.baseline.writeHeader,
-    "Document rotation baseline write header",
-  );
-  if (header.contentKeyEpoch !== input.requestContentKeyEpoch) {
-    throw new DocumentMutationError(
-      "Document content-key rotation baseline must use the request content-key epoch",
-      409,
+  readonly segments: readonly DocumentOutgoingUpdate[];
+}): Promise<void> {
+  for (const segment of input.segments) {
+    const header = readWriteHeader(
+      segment.writeHeader,
+      "Document rotation baseline write header",
     );
-  }
-  // The wire schema only requires a non-empty string; an undecodable vector
-  // must surface as a client error, not a 500 out of the vector decoder.
-  let coversCommittedFrontier: boolean;
-  try {
-    coversCommittedFrontier =
-      !!input.baseline.sourceVersionVector &&
-      satisfiesVersionVector(
-        input.baseline.sourceVersionVector,
-        input.committedFrontier,
+    if (header.contentKeyEpoch !== input.requestContentKeyEpoch) {
+      throw new DocumentMutationError(
+        "Document content-key rotation baseline must use the request content-key epoch",
+        409,
       );
-  } catch {
-    throw new DocumentMutationError(
-      "Document content-key rotation baseline source vector is invalid",
-      400,
-    );
+    }
   }
-  if (!coversCommittedFrontier) {
+  const committedFrontier = await committedFrontierAfterBaselineCursor(
+    input.executor,
+    {
+      coversThroughUpdateId: input.group.coversThroughUpdateId,
+      documentId: input.documentId,
+    },
+  );
+  if (!satisfiesVersionVector(input.group.coverage, committedFrontier)) {
     throw new DocumentMutationError(
       "Document content-key rotation baseline does not cover the committed frontier",
       409,
@@ -72,26 +61,30 @@ function assertNewBaselineSound(input: {
 }
 
 /**
- * Soundness gate for rotation baselines arriving via document sync.
+ * Soundness gate for a rotation baseline arriving via document sync.
+ *
+ * A baseline is an ordered group of updates, its segments, sent together in
+ * the request. The group rules (`requireOutgoingBaselineGroup`) hold for any
+ * group a request carries, whatever the document holds.
  *
  * A request that ADVANCES the content-key epoch is a rotation (e.g. the
  * stale-bundle heal after a container KEK rotation). Rotated-away epochs
  * become undecryptable for every reader, so the advance must be anchored by a
- * NEWLY WRITTEN rotation baseline that dominates the committed frontier
- * after its signed cursor — otherwise uncovered old-epoch updates are served
- * forever, poison every reader's all-or-nothing decrypt, and the document
- * never converges (mirrors the atomic unlink's
- * assertAtomicRotationBaselineCoversCommittedFrontier). A replayed,
- * already-committed baseline id cannot anchor it: the append path's
- * idempotent-retry equality check would keep its ORIGINAL (old-epoch) write
- * header, advancing the epoch without a baseline readable under the new key.
+ * NEWLY WRITTEN baseline that covers the committed frontier after its signed
+ * cursor. Otherwise uncovered old-epoch updates are served forever, poison
+ * every reader's all-or-nothing decrypt, and the document never converges
+ * (mirrors the atomic unlink's
+ * assertAtomicRotationBaselineCoversCommittedFrontier). A replayed, already
+ * committed group cannot anchor it: the append path's idempotent-retry
+ * equality check would keep its ORIGINAL (old-epoch) write headers,
+ * advancing the epoch without a baseline readable under the new key.
  *
- * The same coverage rule applies to every OTHER newly written baseline too:
- * the redirect reads the NEWEST authenticated baseline at the current epoch,
- * so a later under-covering baseline (e.g. a pre-heal checkpoint replayed
- * after a lost heal ack) would silently shrink coverage below an existing
- * covering baseline. Idempotent retries of already-committed baseline ids are
- * exempt — they insert nothing.
+ * The same coverage rule applies to a newly written baseline that advances
+ * nothing: the redirect reads the NEWEST whole group at the current epoch,
+ * so a later under-covering one would silently shrink coverage below an
+ * existing covering baseline. An idempotent retry of a committed group is
+ * exempt: it inserts nothing. A group of which only some segments are
+ * committed is refused, because committing the rest would not be one group.
  *
  * A device that is behind must not rotate yet. It can first rematerialize the
  * missing updates through the container predecessor-KEK chain and then retry
@@ -104,9 +97,15 @@ export async function assertSyncRotationBaselinesSound(input: {
   readonly request: DocumentSyncRequest;
 }): Promise<void> {
   const bundle = input.request.contentKeyBundle;
-  const baselines = input.request.outgoingUpdates.filter(
-    (update) => update.checkpointKind === "rotate_baseline",
+  const segments = selectOutgoingBaselineSegments(
+    input.request.outgoingUpdates,
   );
+  const group = segments
+    ? await requireOutgoingBaselineGroup({
+        documentId: input.documentId,
+        segments,
+      })
+    : null;
   let advancesEpoch = false;
   if (bundle) {
     const latestEpoch = await getLatestDocumentContentKeyEpoch(
@@ -116,51 +115,43 @@ export async function assertSyncRotationBaselinesSound(input: {
     advancesEpoch =
       latestEpoch !== null && bundle.contentKeyEpoch > latestEpoch;
   }
-  if (baselines.length === 0 && !advancesEpoch) {
+  if (!group && !advancesEpoch) {
     return;
   }
 
   if (!(await hasCommittedDocumentUpdate(input.executor, input.documentId))) {
     return;
   }
-  if (baselines.length === 0) {
+  if (!segments || !group) {
     throw new DocumentMutationError(
       "Document content-key rotation requires a rotation baseline covering committed updates",
       409,
     );
   }
 
-  const committedBaselineIds = await listCommittedBaselineIds(
+  const committed = await readCommittedBaselineGroupState(
     input.executor,
-    baselines,
+    segments,
   );
-  if (advancesEpoch && committedBaselineIds.size > 0) {
-    throw new DocumentMutationError(
-      "Document content-key rotation baseline must be newly written",
-      409,
+  if (committed === "partial") {
+    throw documentBaselineGroupInvalid(
+      "some of its segments are committed already",
     );
   }
-  const newBaselines = baselines.filter(
-    (baseline) => !committedBaselineIds.has(baseline.id),
-  );
-  if (advancesEpoch && newBaselines.length === 0) {
-    throw new DocumentMutationError(
-      "Document content-key rotation requires a rotation baseline covering committed updates",
-      409,
-    );
+  if (committed === "committed") {
+    if (advancesEpoch) {
+      throw new DocumentMutationError(
+        "Document content-key rotation baseline must be newly written",
+        409,
+      );
+    }
+    return;
   }
-
-  for (const baseline of newBaselines) {
-    assertNewBaselineSound({
-      baseline,
-      committedFrontier: await committedFrontierAfterBaselineCursor(
-        input.executor,
-        {
-          coversThroughUpdateId: baseline.coversThroughUpdateId,
-          documentId: input.documentId,
-        },
-      ),
-      requestContentKeyEpoch: input.request.contentKeyEpoch,
-    });
-  }
+  await assertNewBaselineGroupSound({
+    documentId: input.documentId,
+    executor: input.executor,
+    group,
+    requestContentKeyEpoch: input.request.contentKeyEpoch,
+    segments,
+  });
 }

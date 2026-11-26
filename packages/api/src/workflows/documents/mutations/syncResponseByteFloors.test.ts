@@ -95,10 +95,12 @@ test("served sync entries carry at least their byte floors plus only fixed-size 
     return Buffer.byteLength(JSON.stringify(loaded), "utf8") - floor;
   });
   expect(slack.length).toBeGreaterThanOrEqual(3);
-  // What a floor leaves out is keys, ids, epochs, and timestamps: measured
-  // as 312 bytes for an ordinary entry and 420 for a checkpoint.
+  // What a floor leaves out is keys, ids, epochs, timestamps, and a baseline
+  // segment's group fields: measured as 312 bytes for an ordinary entry and
+  // 571 for a baseline's final segment, which carries its baseline id, index,
+  // count, digest and cursor.
   for (const bytes of slack) {
     expect(bytes).toBeGreaterThanOrEqual(0);
-    expect(bytes).toBeLessThan(512);
+    expect(bytes).toBeLessThan(640);
   }
 }, 30_000);

@@ -9,7 +9,6 @@ import type {
   DocumentOutgoingUpdate,
 } from "@tearleads/validators/request";
 import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
-import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import {
@@ -17,77 +16,38 @@ import {
   hasCommittedDocumentUpdate,
 } from "./committedDocumentUpdates";
 import { DocumentMutationError } from "./errors";
-import { readWriteHeader } from "./shared/records";
+import { requireOutgoingBaselineGroup } from "./outgoingBaselineGroup";
 import type { DocumentWriteAuthorizationProof } from "./types";
 
-function requireRotationBaselineMetadata(update: DocumentOutgoingUpdate) {
-  if (
-    update.checkpointKind !== "rotate_baseline" ||
-    update.checkpointPayloadKind !== "full_history_snapshot" ||
-    !update.sourceVersionVector
-  ) {
-    throw new DocumentMutationError(
-      "Document unlink requires a replayable rotation baseline",
-      400,
-    );
-  }
-
-  return {
-    checkpointKind: update.checkpointKind,
-    checkpointPayloadKind: update.checkpointPayloadKind,
-    coversThroughUpdateId: update.coversThroughUpdateId,
-    sourceVersionVector: update.sourceVersionVector,
-  };
-}
-
 /**
- * Prove that the baseline carried by an unlink is authenticated and covers the
- * committed frontier after its signed cursor. The caller must hold the document manifest-head
- * write lock through this read and the subsequent append; sync writers take the
- * same exclusive lock, so no old-key update can appear between them.
+ * Prove that the baseline carried by an unlink is one whole group and covers
+ * the committed frontier after its signed cursor. What a group covers is
+ * read from its segments' spans. The caller must hold the document
+ * manifest-head write lock through this read and the subsequent append; sync
+ * writers take the same exclusive lock, so no old-key update can appear
+ * between them. The append, in the same transaction, verifies every
+ * segment's signature and that its declared fields are the signed ones, and
+ * `appendAtomicRotationBaseline` refuses a group it did not insert whole.
  */
 export async function assertAtomicRotationBaselineCoversCommittedFrontier(
   executor: DatabaseSession,
   input: {
-    readonly baseline: DocumentOutgoingUpdate;
+    readonly baseline: readonly DocumentOutgoingUpdate[];
     readonly documentId: string;
   },
 ): Promise<void> {
-  const metadata = requireRotationBaselineMetadata(input.baseline);
-  const header = readWriteHeader(
-    input.baseline.writeHeader,
-    "Document rotation baseline write header",
-  );
-  if (
-    !(await isAuthenticatedReplayableBaseline({
-      checkpointKind: metadata.checkpointKind,
-      coversThroughUpdateId: metadata.coversThroughUpdateId,
-      dependencyVersionVector: input.baseline.dependencyVersionVector,
-      documentId: input.documentId,
-      metadataHash: header.metadataHash,
-      partialEndVersionVector: input.baseline.partialEndVersionVector,
-      partialStartVersionVector: input.baseline.partialStartVersionVector,
-      plaintextHash: input.baseline.plaintextHash,
-      sourceVersionVector: metadata.sourceVersionVector,
-      updateId: input.baseline.id,
-    }))
-  ) {
-    throw new DocumentMutationError(
-      "Document unlink rotation baseline is not replayable",
-      400,
-    );
-  }
-
+  const group = await requireOutgoingBaselineGroup({
+    documentId: input.documentId,
+    segments: input.baseline,
+  });
   const committedFrontier = await committedFrontierAfterBaselineCursor(
     executor,
     {
-      coversThroughUpdateId: metadata.coversThroughUpdateId,
+      coversThroughUpdateId: group.coversThroughUpdateId,
       documentId: input.documentId,
     },
   );
-  if (
-    !satisfiesVersionVector(metadata.sourceVersionVector, committedFrontier)
-  ) {
+  if (!satisfiesVersionVector(group.coverage, committedFrontier)) {
     throw new DocumentMutationError(
       "Document unlink rotation baseline is stale",
       409,
@@ -120,8 +80,15 @@ export async function assertBaselinelessUnlinkHasEmptyCommittedFrontier(
   }
 }
 
+/**
+ * Append the unlink's baseline, every segment in index order in one insert.
+ * The caller's transaction commits the group with the unlink or not at all.
+ * Every segment must be newly inserted: one whose id is committed already
+ * would leave the unlink anchored by a group written only in part, so the
+ * unlink is refused and rolls back.
+ */
 export async function appendAtomicRotationBaseline(input: {
-  readonly baseline: DocumentOutgoingUpdate;
+  readonly baseline: readonly DocumentOutgoingUpdate[];
   /** The stored commitment of the epoch the unlink opened. */
   readonly contentKeyCommitment: string;
   readonly documentId: string;
@@ -147,7 +114,7 @@ export async function appendAtomicRotationBaseline(input: {
       expectedLinkSetManifestHash: input.manifest.manifestHash,
       expectedTargetHash: input.request.contentKeyBundle.targetHash,
       localVersionVector: null,
-      outgoingUpdates: [input.baseline],
+      outgoingUpdates: [...input.baseline],
       supportsPullPagination: true,
     },
     signingPublicKey: await loadSignerPublicKey(input.executor, {
@@ -157,7 +124,11 @@ export async function appendAtomicRotationBaseline(input: {
     userId: input.userId,
     writeAuthorization: input.writeAuthorization,
   });
-  if (!appendResult.insertedUpdateIds.has(input.baseline.id)) {
+  if (
+    input.baseline.some(
+      (segment) => !appendResult.insertedUpdateIds.has(segment.id),
+    )
+  ) {
     throw new DocumentMutationError(
       "Document rotation baseline was not inserted",
       409,

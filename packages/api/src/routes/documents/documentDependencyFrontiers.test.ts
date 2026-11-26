@@ -79,7 +79,9 @@ test("an update may depend on an earlier update of its request, never a later on
   expect(await committedUpdateIds(ordered.updateIds)).toHaveLength(2);
 }, 30_000);
 
-test("a rotation baseline that declares dependencies is refused", async () => {
+// A baseline carries a history from nothing, so its first segment depends on
+// nothing: a dependency no earlier segment carries fails the group rule.
+test("a rotation baseline that depends on operations outside it is refused", async () => {
   const fixture = await sharedWriterDocument();
   const { writer } = fixture;
   expect(
@@ -94,9 +96,11 @@ test("a rotation baseline that declares dependencies is refused", async () => {
     { checkpoint: true },
   );
 
-  expect(baseline.response.status).toBe(400);
-  expect(await baseline.response.json()).toMatchObject({
-    error: "Document rotation baseline declares dependencies",
+  expect(baseline.response.status).toBe(409);
+  expect(await baseline.response.json()).toEqual({
+    code: DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
+    error:
+      "Document rotation baseline is not one whole group: the segments do not carry each peer's operations gapless from zero, each depending only on earlier segments",
   });
   expect(await committedUpdateIds(baseline.updateIds)).toEqual([]);
 }, 30_000);
