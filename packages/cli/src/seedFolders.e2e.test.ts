@@ -240,12 +240,12 @@ test("a note the owner moved out of its folder stays unshared, without lines", a
     return elsewhere.id;
   });
 
-  // The seed keeps the note where the owner put it and shares only its own
-  // folder, so no member signs in to add a line to the moved note.
+  // The seed keeps the note where the owner put it and shares nothing, so no
+  // member signs in to add a line to the moved note.
   expect(await seedFamily(seedPhrase)).toEqual({
-    folders: 1,
+    folders: 0,
     notes: 1,
-    grants: family.grants.length,
+    grants: 0,
     additions: 0,
     moved: 1,
     signIns: 0,
@@ -260,8 +260,8 @@ test("a note the owner moved out of its folder stays unshared, without lines", a
   });
 }, 300_000);
 
-test("the seed refuses a folder of the user's own by the dataset's name", async () => {
-  const { family } = await familyFixture();
+test("a folder of the user's own by the dataset's name is left alone", async () => {
+  const { family, note, expectedText } = await familyFixture();
   const { spec, datasetSha256, readAttachment } = await loadContinuityAssets();
   const other = continuityDocuments(spec).find(
     (document) => document.kind === "note",
@@ -290,12 +290,31 @@ test("the seed refuses a folder of the user's own by the dataset's name", async 
     return mine.id;
   });
 
-  await expect(seedFamily(seedPhrase)).rejects.toThrow(
-    `Your folder "${family.name}" holds items the seed did not write`,
-  );
+  // The seed makes its own folder, numbered past the user's, and a rerun
+  // finds it again through its note.
+  expect(await seedFamily(seedPhrase)).toEqual({
+    folders: 1,
+    notes: 1,
+    grants: family.grants.length,
+    additions: note.additions.length,
+    moved: 0,
+    signIns: note.additions.length,
+  });
+  expect(await seedFamily(seedPhrase)).toEqual({
+    folders: 1,
+    notes: 1,
+    grants: 0,
+    additions: 0,
+    moved: 0,
+    signIns: 0,
+  });
   await asOwner(seedPhrase, async (session) => {
+    const { sdk } = session;
     const { nodes } = await loadFolderTree(session);
     expect(rootFolder(session, nodes, family.name)).toBe(mineId);
-    expect(await groupAccess(session.sdk, family.name, mineId)).toEqual([]);
+    expect(await groupAccess(sdk, family.name, mineId)).toEqual([]);
+    const seededId = rootFolder(session, nodes, `${family.name} (2)`);
+    expect(await groupAccess(sdk, family.name, seededId)).toEqual(["write"]);
+    expect((await readFolderNote(sdk, seededId)).text).toBe(expectedText);
   });
 }, 300_000);

@@ -65,9 +65,10 @@ function validNotes(notes: unknown, authors: ReadonlySet<unknown>) {
 }
 
 /**
- * Folders have distinct plain names; each grant names a seeded group once,
- * with read or write access; and each note addition's author is a member of
- * a group the folder grants write.
+ * Folders have distinct plain names and at least one note, by which a rerun
+ * finds the folder again; each grant names a seeded group once, with read or
+ * write access; and each note addition's author is a member of a group the
+ * folder grants write.
  */
 export function validSeedFolders(
   folders: unknown,
@@ -89,6 +90,8 @@ export function validSeedFolders(
         name.trim() === name &&
         !name.includes("/") &&
         validGrants(grants, groupNames) &&
+        Array.isArray(notes) &&
+        notes.length > 0 &&
         validNotes(notes, writers(Array.isArray(grants) ? grants : [], groups))
       );
     }) &&

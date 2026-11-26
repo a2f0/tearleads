@@ -36,9 +36,11 @@ const LAST_AUTHOR = NOTE.authors.at(-1) ?? "";
 
 async function openFamilyFolder(scope: Scope): Promise<void> {
   // The row whose name is exactly the folder's; a phone row adds its type
-  // beside the name, and a sibling may share the name's start.
+  // beside the name, and a sibling may share the name's start. The inner
+  // locator starts from the page, since it is matched inside each row.
+  const page = "page" in scope ? scope.page() : scope;
   const row = scope.locator(".explorer-item-row-button").filter({
-    has: scope.locator(".explorer-item-name").getByText(FOLDER, {
+    has: page.locator(".explorer-item-name").getByText(FOLDER, {
       exact: true,
     }),
   });

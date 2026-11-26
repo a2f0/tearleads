@@ -6,7 +6,6 @@ import {
   captureContinuityScope,
   openReadyContainerTree,
 } from "app/continuity";
-import { waitForFoldersSynced } from "./folderSync";
 import { loadFolderTree } from "./folderTree";
 import {
   confirmDocumentSynced,
@@ -14,9 +13,8 @@ import {
   seedContinuityDocument,
   seedDocumentIds,
 } from "./seedDocument";
+import { removeEmptySeedFolder, resolveSeedFolder } from "./seedFolderTarget";
 import { type CliSession, withSession } from "./session";
-
-type FolderNodes = Awaited<ReturnType<typeof loadFolderTree>>["nodes"];
 
 // A group grant reaches a member's device as the organization read model and
 // the folder's key wrap catch up, which takes a few round trips. Attempts
@@ -56,75 +54,6 @@ async function settle<T>(
     await Bun.sleep(SETTLE_DELAY_MS);
   }
   throw new Error(failure);
-}
-
-/**
- * Whether the folder holds nothing but the dataset folder's seeded notes,
- * if anything: no folder of its own and no other document.
- */
-async function holdsOnlySeedNotes(
-  run: SeedRun,
-  folder: { id: string; nodes: FolderNodes },
-  notes: ContinuityFolder["notes"],
-): Promise<boolean> {
-  const { sdk } = run.session;
-  if (folder.nodes.some((node) => node.parentId === folder.id)) return false;
-  const noteIds = new Set<string>();
-  for (const { document } of notes) {
-    noteIds.add((await seedDocumentIds(run, document.key)).documentId);
-  }
-  // This session's device is new, so discovery returns every document in
-  // the folder, a page at a time.
-  const discover = () =>
-    sdk.containerContents.discoverContainerDocuments(folder.id);
-  let batch = await discover();
-  if (!batch) throw new Error("Could not list a folder the seed would reuse.");
-  while (batch?.length) {
-    if (
-      batch.some(
-        ({ documentId }) => documentId === null || !noteIds.has(documentId),
-      )
-    )
-      return false;
-    batch = await discover();
-  }
-  return true;
-}
-
-/**
- * The root's folder with the dataset folder's name, made and synced when it
- * has none. An existing one is reused only while it holds nothing but the
- * seed's notes, so a folder of the user's own is never written to or shared.
- */
-async function ensureSeedFolder(
-  run: SeedRun,
-  folder: ContinuityFolder,
-): Promise<string> {
-  const { session, rootId } = run;
-  const { sdk } = session;
-  const { name } = folder;
-  const { nodes } = await loadFolderTree(session);
-  const existing = nodes.find(
-    (node) =>
-      node.parentId === rootId &&
-      node.organizationId === sdk.session.organizationId &&
-      !node.systemSlot &&
-      node.name === name,
-  );
-  if (existing) {
-    if (await holdsOnlySeedNotes(run, { id: existing.id, nodes }, folder.notes))
-      return existing.id;
-    throw new Error(
-      `Your folder "${name}" holds items the seed did not write, so the seed will not use or share it. Rename it, then run the command again.`,
-    );
-  }
-  const tree = await openReadyContainerTree(sdk, captureContinuityScope(sdk));
-  const node = await tree.createChild(rootId, name);
-  if (!node) throw new Error(`Could not create the ${name} folder.`);
-  await waitForFoldersSynced(session, () => tree.getSnapshot().nodes, [
-    node.id,
-  ]);
-  return node.id;
 }
 
 /** Grants each group its access, unless the group already holds it. */
@@ -288,39 +217,60 @@ async function addMemberLines(
   return added;
 }
 
+/** Seeds one dataset folder into the counts: its folder, notes, and lines. */
+async function seedFolder(
+  run: SeedRun,
+  folder: ContinuityFolder,
+  roster: FolderRoster | null,
+  count: { -readonly [K in keyof SeededFolders]: number },
+): Promise<void> {
+  const { tracer } = run.session;
+  let target = await tracer.span(`folder ${folder.name}`, () =>
+    resolveSeedFolder(run, folder),
+  );
+  if (target) run.folders.add(target.id);
+  // A note that exists stays where it is; a new one goes into the folder.
+  const notes = await seedFolderNotes(
+    run,
+    target?.id ?? run.rootId,
+    folder.notes,
+  );
+  const inFolder = notes.filter((note) => note.containerId === target?.id);
+  if (target?.created && inFolder.length === 0) {
+    await removeEmptySeedFolder(run, target.id);
+    target = null;
+  }
+  if (target) count.folders += 1;
+  count.notes += notes.length;
+  if (!roster) return;
+  if (target) {
+    const folderId = target.id;
+    count.grants += await tracer.span(`share ${folder.name}`, () =>
+      grantFolder(run.session, folderId, folder.grants),
+    );
+  }
+  count.moved += notes.filter(
+    (note) => note.containerId !== target?.id && note.additions.length > 0,
+  ).length;
+  count.additions += await addMemberLines(run, roster, inFolder);
+}
+
 /**
  * Makes each dataset folder under the root and writes its notes. With the
  * roster, it also grants the folder's groups their access and has each
- * member append their lines. Idempotent: a rerun reuses the folder by name
- * while it holds only the seed's notes, keeps held grants, and skips lines
- * the note already has. Only the seeded
- * folder is shared: a note the user moved elsewhere stays private to them,
- * so its missing lines are skipped and counted.
+ * member append their lines. Idempotent: a rerun finds the folder through
+ * its notes, keeps held grants, and skips lines the note already has. Only
+ * the seed's own folder is shared: a note the user moved elsewhere stays
+ * private to them, so its missing lines are skipped and counted.
  */
 export async function seedFolders(
   run: SeedRun,
   folders: readonly ContinuityFolder[],
   roster: FolderRoster | null,
 ): Promise<SeededFolders> {
-  const { tracer } = run.session;
   const count = { folders: 0, notes: 0, grants: 0, additions: 0, moved: 0 };
   for (const folder of folders) {
-    const folderId = await tracer.span(`folder ${folder.name}`, () =>
-      ensureSeedFolder(run, folder),
-    );
-    run.folders.add(folderId);
-    count.folders += 1;
-    const notes = await seedFolderNotes(run, folderId, folder.notes);
-    count.notes += notes.length;
-    if (!roster) continue;
-    count.grants += await tracer.span(`share ${folder.name}`, () =>
-      grantFolder(run.session, folderId, folder.grants),
-    );
-    const inFolder = notes.filter((note) => note.containerId === folderId);
-    count.moved += notes.filter(
-      (note) => note.containerId !== folderId && note.additions.length > 0,
-    ).length;
-    count.additions += await addMemberLines(run, roster, inFolder);
+    await seedFolder(run, folder, roster, count);
   }
   return count;
 }

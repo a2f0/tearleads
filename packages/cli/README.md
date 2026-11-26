@@ -96,10 +96,11 @@ The command writes the pinned screenshot dataset into your personal
 organization. Contacts and avatars appear in Contacts. Notes, photos, ID
 documents, equipment with its avatar photo, passcodes, and health trackers
 sync under your root folder, and each dataset folder (today Family) is made
-under it with its notes inside. A rerun reuses a root folder of that name only
-while it holds nothing but the seed's notes; if you have a folder of your own
-by that name, the command stops and asks you to rename it, so it never writes
-to or shares your folder.
+under it with its notes inside. A rerun finds that folder through its notes,
+not its name: if you already have a folder of your own by that name, the seed
+leaves it alone and makes Family (2) instead, so it never writes to or shares
+your folder. A folder the seed made is removed again in the same run if all of
+its notes turn out to be permanently deleted.
 The import commits each document with an encrypted fingerprint of its fixture.
 If it stops partway, run the
 same command again. For the same dataset version it reuses the documents,
@@ -134,10 +135,10 @@ Family group), skipping a grant your organization already holds. Each member
 then signs in again to add their own line to the folder's note, so the note
 has several authors for Get Info's attribution and for History. A line already
 in the note is not added twice, and a rerun signs no member in for a line you
-can already see. Only the seeded folder is shared: if you move its note
-elsewhere, the note keeps its place and gets no member lines, and the command
-says so. Without `--roster` the folders and their notes are made, but no grant
-or member line is.
+can already see. Only the seed's own folder is shared: if you move its note
+elsewhere, the note keeps its place, nothing is shared, and the note gets no
+member lines; the command says so. Without `--roster` the folders and their
+notes are made, but no grant or member line is.
 
 Each member takes a seat in your organization, so on a billed organization
 this raises the seat count. The screenshot run passes `--roster`; leave it
