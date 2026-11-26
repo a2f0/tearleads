@@ -34,8 +34,9 @@ samples; the longest lag and peak heap are the worst sample.
 | 10,000 | 4 | Revalidation | 4,294 ms | 5,316 ms | 647 ms | 1,207 ms | 2,553 ms | 1,105 MiB |
 | 10,000 | 1 | Unmarked declaration | 78,886 ms | 76,214 ms | 4 ms | 25 ms | 15 ms | 232 MiB |
 
-Every hint was delivered. Blocked is lag above one interval, summed: the time
-hints spent queued behind the hub.
+The unmarked declaration ran once, first in the process, so its row is one
+pass rather than a median. Every hint was delivered. Blocked is lag above one
+interval, summed: the time hints spent queued behind the hub.
 
 - **A 10,000-folder pass stops the hub for about 0.65 s at a time.** Each
   marked declaration or revalidation at 10,000 folders delayed a hint by

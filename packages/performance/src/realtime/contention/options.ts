@@ -1,7 +1,6 @@
 import { parseArgs } from "node:util";
+import { ascendingIntegers, integer, MAX_DECLARED_IDS } from "../optionValues";
 
-/** The hub refuses a declaration of more ids than this. */
-const MAX_DECLARED_IDS = 10_000;
 // The root and the three system containers registration provisions.
 const MIN_DECLARED_IDS = 4;
 // Each socket holds a full pass's rows and bundles in memory at once.
@@ -28,36 +27,15 @@ DATABASE_URL=postgres://$USER@localhost:5432/<scratch> \\
 
 Boots the API in this process against a local scratch database and seeds one
 account's folder tree through the SDK, or reuses the tree perf:realtime
-seeded. First one socket declares the largest size with no verification
-marker this process accepts, so every manifest is verified in full. Then, for
+seeded. With --reuse, one socket first declares the largest size with no
+verification marker this process accepts, so every manifest is verified in
+full; a tree seeded in this process is already marked. Then, for
 each size, socket count and sample, a fresh gateway opens an observing socket
 that holds one folder, then that many sockets that each declare the first
 --sizes folders at once and then revalidate them at once.
 A hint for the observer's folder is published every --hint-interval-ms
 throughout, and each is timed until the observer receives it. Reports are
 saved under .test_files/performance/.`;
-
-function integer(value: string, name: string, min: number, max: number) {
-  if (!/^[1-9]\d*$/.test(value) || Number(value) < min || Number(value) > max)
-    throw new Error(`${name} must be an integer from ${min} to ${max}.`);
-  return Number(value);
-}
-
-function ascending(
-  value: string,
-  name: string,
-  min: number,
-  max: number,
-): number[] {
-  const values = value
-    .split(",")
-    .map((item) => integer(item.trim(), name, min, max));
-  if (
-    values.some((item, index) => index > 0 && item <= (values[index - 1] ?? 0))
-  )
-    throw new Error(`${name} must be strictly ascending.`);
-  return values;
-}
 
 export function parseContentionOptions(
   args: string[],
@@ -78,13 +56,13 @@ export function parseContentionOptions(
   });
   if (values.help) return null;
   return {
-    sizes: ascending(
+    sizes: ascendingIntegers(
       values.sizes,
       "--sizes",
       MIN_DECLARED_IDS,
       MAX_DECLARED_IDS,
     ),
-    sockets: ascending(values.sockets, "--sockets", 1, MAX_SOCKETS),
+    sockets: ascendingIntegers(values.sockets, "--sockets", 1, MAX_SOCKETS),
     fanout: integer(values.fanout, "--fanout", 1, MAX_DECLARED_IDS),
     samples: integer(values.samples, "--samples", 1, 10),
     hintIntervalMs: integer(

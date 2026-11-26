@@ -61,6 +61,7 @@ test("sockets declare and revalidate together while hints reach the observer", a
       "1,3",
       "--hint-interval-ms",
       "2",
+      "--reuse",
     ]),
     seed,
     traffic: emptyTraffic,
@@ -102,9 +103,10 @@ test("a socket left short of its folders fails the pass", async () => {
     idleMs: 1,
     measured: async () => undefined,
   });
-  // The first pass, one socket's unmarked declaration, already falls short.
+  // Without --reuse there is no unmarked pass, so the first to fall short is
+  // the two sockets' declaration.
   await expect(run).rejects.toThrow(
-    /unmarked pass did not authorize 5 folders on each of 1 sockets/,
+    /declaration pass did not authorize 5 folders on each of 2 sockets/,
   );
 });
 

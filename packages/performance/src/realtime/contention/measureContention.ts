@@ -72,21 +72,31 @@ async function observeWork(input: {
     systemClock,
   );
   const started = performance.now();
+  let failed = false;
+  let failure: unknown;
   try {
     await input.work();
   } catch (error) {
-    sampler.stop();
-    try {
-      monitor.stop();
-    } catch {
-      // The pass's own failure is the one to report.
-    }
-    throw error;
+    failed = true;
+    failure = error;
   }
   const durationMs = round(performance.now() - started);
-  const hints = monitor.stop();
+  // Both timers stop on every path.
+  const resources = sampler.stop();
+  let hints: HintLag;
+  try {
+    hints = monitor.stop();
+  } catch (error) {
+    // The pass's own failure is the one to report.
+    throw failed ? failure : error;
+  }
+  if (failed) throw failure;
+  if (hints.delivered !== hints.sent)
+    throw new Error(
+      `${hints.sent - hints.delivered} of ${hints.sent} hints never reached the observing socket.`,
+    );
   const database = trafficSince(input.traffic(), before);
-  return { durationMs, hints, database, resources: sampler.stop() };
+  return { durationMs, hints, database, resources };
 }
 
 /** The sockets' own authorization calls, checked complete. */
@@ -212,9 +222,10 @@ interface MeasureInput {
 }
 
 /**
- * First, one socket declares the largest size while no manifest carries a
- * marker this process accepts, so every one is verified in full (`unmarked`).
- * That pass also loads and compiles the hub's code. Then an idle control per
+ * First, for a reused tree, one socket declares the largest size while no
+ * manifest carries a marker this process accepts, so every one is verified
+ * in full (`unmarked`). That pass also loads and compiles the hub's code; a
+ * tree seeded in this process warmed it already. Then an idle control per
  * sample, and for each size, socket count and sample, one gateway where that
  * many sockets declare the size at once and then revalidate at once, against
  * the markers the first pass recorded.
@@ -224,14 +235,16 @@ export async function measureContention(
     readonly measured: (measurement: ContentionMeasurement) => Promise<void>;
   },
 ): Promise<void> {
-  const largest = input.options.sizes.at(-1) ?? 0;
-  for (const measurement of await measureSockets(
-    input,
-    { size: largest, sockets: 1 },
-    1,
-    ["unmarked"],
-  ))
-    await input.measured(measurement);
+  // A tree seeded by this process was marked under this process's key as
+  // each folder was written, so only a reused tree can be measured unmarked.
+  if (input.options.reuse)
+    for (const measurement of await measureSockets(
+      input,
+      { size: input.options.sizes.at(-1) ?? 0, sockets: 1 },
+      1,
+      ["unmarked"],
+    ))
+      await input.measured(measurement);
   for (let sample = 1; sample <= input.options.samples; sample++)
     await input.measured(await measureIdle(input, sample));
   for (const size of input.options.sizes)

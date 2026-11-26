@@ -114,7 +114,8 @@ test("a hint the hub fails to publish fails the measurement", async () => {
     clock,
   );
   fireAt(5);
-  await Promise.resolve();
+  // Let the rejected publish settle.
+  await Bun.sleep(0);
   expect(() => monitor.stop()).toThrow(/1 hints failed/);
 });
 

@@ -20,6 +20,12 @@ interface SeedOptions {
   readonly reuse: boolean;
 }
 
+/** What a probe adds to its report; nothing else can overwrite metadata. */
+interface ProbeResults {
+  readonly summary: readonly object[];
+  readonly measurements: readonly object[];
+}
+
 export interface ProbeContext {
   readonly api: InProcessApi;
   readonly seed: SeededTree;
@@ -71,7 +77,7 @@ export async function runRealtimeProbe(input: {
   readonly options: SeedOptions;
   readonly measure: (context: ProbeContext) => Promise<void>;
   /** The report's measurement fields, read at every save. */
-  readonly results: () => object;
+  readonly results: () => ProbeResults;
 }): Promise<void> {
   const { DATABASE_URL: databaseUrl } = process.env;
   const target = parseLocalDatabaseUrl(databaseUrl);
@@ -114,7 +120,8 @@ export async function runRealtimeProbe(input: {
         seedMs: seed.seedMs,
         reused: input.options.reuse,
       },
-      ...input.results(),
+      summary: input.results().summary,
+      measurements: input.results().measurements,
     });
   const api = await startInProcessApi();
   let status: "complete" | "failed" = "failed";

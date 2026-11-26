@@ -1,7 +1,5 @@
 import { parseArgs } from "node:util";
-
-/** The hub refuses a declaration of more ids than this. */
-const MAX_DECLARED_IDS = 10_000;
+import { ascendingIntegers, integer, MAX_DECLARED_IDS } from "./optionValues";
 
 export interface RealtimeOptions {
   /** Declared folder counts, ascending; the largest sets the seeded tree. */
@@ -24,12 +22,6 @@ declares the first folders of a breadth-first tree with --fanout children
 per folder. --reuse measures the account a previous run seeded in the same
 database. Reports are saved under .test_files/performance/.`;
 
-function integer(value: string, name: string, min: number, max: number) {
-  if (!/^[1-9]\d*$/.test(value) || Number(value) < min || Number(value) > max)
-    throw new Error(`${name} must be an integer from ${min} to ${max}.`);
-  return Number(value);
-}
-
 export function parseRealtimeOptions(args: string[]): RealtimeOptions | null {
   const { values } = parseArgs({
     args,
@@ -44,13 +36,8 @@ export function parseRealtimeOptions(args: string[]): RealtimeOptions | null {
     allowPositionals: false,
   });
   if (values.help) return null;
-  const sizes = values.sizes
-    .split(",")
-    .map((size) => integer(size.trim(), "--sizes", 1, MAX_DECLARED_IDS));
-  if (sizes.some((size, index) => index > 0 && size <= (sizes[index - 1] ?? 0)))
-    throw new Error("--sizes must be strictly ascending.");
   return {
-    sizes,
+    sizes: ascendingIntegers(values.sizes, "--sizes", 1, MAX_DECLARED_IDS),
     fanout: integer(values.fanout, "--fanout", 1, MAX_DECLARED_IDS),
     samples: integer(values.samples, "--samples", 1, 10),
     reuse: values.reuse,

@@ -135,14 +135,16 @@ It boots the API as the interest probe does and reuses the account that
 `perf:realtime` seeded in the same database (`--reuse`), or seeds one with
 the same `--fanout`.
 
-The first pass declares the largest size on one socket with no verification
-marker the process accepts, so every manifest is verified in full
-(`unmarked`). Production keys markers with `DOCUMENT_SYNC_CURSOR_HMAC_KEY`.
-The probe unsets it, so the API keys them to the process and the markers
-earlier runs stored never match. That pass is what a hub pays after a secret
-rotation or a verification revision bump retires every marker. It runs once
-per process, whatever `--samples` says, and also warms up the hub's code.
-Later passes use the markers it recorded.
+With `--reuse`, the first pass declares the largest size on one socket with
+no verification marker the process accepts, so every manifest is verified in
+full (`unmarked`). Production keys markers with
+`DOCUMENT_SYNC_CURSOR_HMAC_KEY`. The probe unsets it, so the API keys them to
+the process and the markers earlier runs stored never match. That pass is
+what a hub pays after a secret rotation or a verification revision bump
+retires every marker. It runs once per process, whatever `--samples` says,
+and also warms up the hub's code. Later passes use the markers it recorded.
+Without `--reuse` there is no such pass: seeding marks each folder under the
+process's key as it is written.
 
 Then an idle control of one second runs, with only an observing socket open.
 After that, each size, socket count and sample gets a fresh gateway from

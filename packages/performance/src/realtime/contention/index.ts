@@ -16,6 +16,10 @@ async function main(): Promise<void> {
   // so markers earlier runs stored never match and the first pass verifies
   // every manifest in full. Unset, that pass is the same in every run.
   Reflect.deleteProperty(process.env, "DOCUMENT_SYNC_CURSOR_HMAC_KEY");
+  if (!options.reuse)
+    console.log(
+      "Seeding marks every folder as it is written, so there is no unmarked pass; rerun with --reuse to measure one.",
+    );
   const measurements: ContentionMeasurement[] = [];
   await runRealtimeProbe({
     scenario: "realtime-hub-contention",
