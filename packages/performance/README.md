@@ -22,6 +22,27 @@ The [document reload probe](#document-reload) counts the requests a returning
 client makes when it reloads, as its account grows. Run it with
 `bun run perf:reload`.
 
+The [request-volume canaries](#request-volume-canaries) record what the app's
+canary tests send to the API, per phase and endpoint. Run them with
+`bun run perf:canaries`.
+
+## Skills that use these tasks
+
+The repository's optimization skills take their baselines and their
+before-and-after numbers from these tasks. When a skill cites a task, use it
+as this README describes, and record a run that supports a shipped change in
+[results](results/README.md).
+
+| Skill | Tasks |
+| --- | --- |
+| `protocol-efficiency-audit` | `perf:canaries` for its request and byte baseline; `perf:reload` for the requests a reload makes at sizes the canaries do not reach; `perf:realtime` and `perf:realtime-contention` for the hub; `perf:provision`, `perf:seed` and `perf:database` results for deployed costs |
+| `database-efficiency-audit` | `perf:canaries` beside its statement capture; `perf:realtime` for the hub's statements; `perf:database` and `perf:provision` results for deployed costs |
+
+The audits run local tasks themselves. A task that touches a deployed tier
+(`perf:provision`, `perf:seed`, `perf:database`) creates accounts or a
+temporary Worker, so an audit cites its latest result unless the user
+approves a new run.
+
 ## Continuity seed round trip
 
 ```sh
@@ -242,6 +263,54 @@ app's system bootstrap creates after sign-in, so nothing the app requests for
 that folder is counted. Reports are saved as
 `.test_files/performance/reload-<run>.json`. See the
 [2026-11-26 results](results/2026-11-26-document-reload.md).
+
+## Request-volume canaries
+
+```sh
+bun run --filter='@tearleads/client-sdk' build
+bun run perf:canaries
+bun run perf:canaries --canary GroupMutation --canary sharing --samples 3
+bun run perf:canaries --baseline .test_files/performance/canaries-<run>.json
+bun run perf:canaries --compare <before.json> <after.json>
+```
+
+The app's request-volume canaries drive the real app, SDK and in-process test
+API through a recorder that keeps every proxied request. With
+`DUAL_PANE_REQUEST_PROFILE=1`, each measured phase prints one
+`[dual-pane-request-metrics]` line, with its request count, body bytes, and
+per-endpoint counts. With `DUAL_PANE_REQUEST_PROFILE_DETAIL=1`, the phase also
+prints the exact paths it requested more than once. A canary is any test
+under `packages/app/src` that calls `profileProxiedApiRequests` or
+`measureWorkflowRequests`. The runner finds them there, so a new canary needs
+no registration. A canary that only asserts counts, such as
+`DualPaneProvider.activePeerRequestVolume`, prints nothing and is not run.
+
+Each canary file runs alone from `packages/app` with both variables set, the
+way its suite runs it. A file that fails, hangs past ten minutes, or passes
+without printing a phase fails the run. `--canary` keeps the canaries whose
+name contains the text, ignoring case; a filter that matches nothing is an
+error. `--samples` repeats every file, since body bytes can vary between runs.
+The report gives each phase's lowest and highest value across samples.
+Phases are matched by canary, label and position, so a label printed twice
+is two phases.
+
+| Field | What it measures |
+| --- | --- |
+| `runs[].status` | `passed`, `failed`, `timed-out`, or `unprofiled` (passed, printed no phase) |
+| `runs[].phases` | Every metrics line the file printed, with its repeated exact paths |
+| `summary[].requests` | Proxied API requests in the phase |
+| `summary[].requestBytes`, `responseBytes` | Request and response body bytes, headers excluded |
+| `summary[].byRequest` | Per `METHOD /normalized/path`: count and body bytes |
+
+The canaries run against PGlite and the in-memory object store, so a request
+they show is not always one production makes. Dual-pane canaries sum both
+panes, so a path counted twice may be one read per device. Reports are saved
+as `.test_files/performance/canaries-<run>.json` and `.md`. Each file's
+complete output is kept in `canaries-<run>/` beside them. `--baseline` adds a
+comparison with an earlier report to the Markdown, and `--compare` prints one
+without running anything. Relative report paths resolve from the repository
+root. The canaries still assert their ceilings, so a count above one fails
+that canary's run.
 
 ## Account provisioning
 

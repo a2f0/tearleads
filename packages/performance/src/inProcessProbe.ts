@@ -1,6 +1,6 @@
 import { cpus } from "node:os";
 import { sourceIdentity } from "./database/artifacts";
-import { saveJson } from "./realtime/artifacts";
+import { saveJson } from "./reportFiles";
 import { type InProcessApi, startInProcessApi } from "./realtime/inProcessApi";
 import {
   parseLocalDatabaseUrl,

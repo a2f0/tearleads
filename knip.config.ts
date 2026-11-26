@@ -319,6 +319,7 @@ const productionConfig = {
         "src/realtime/index.ts!",
         "src/realtime/contention/index.ts!",
         "src/reload/index.ts!",
+        "src/canaries/index.ts!",
       ],
       project: productionProject,
     },
