@@ -187,6 +187,17 @@ test("seed folders grant seeded groups and take additions only from writers", ()
         notes: [{ ...note, additions: [{ author: "rosa", text: " " }] }],
       },
     ],
+    [
+      {
+        ...folder,
+        notes: [
+          {
+            ...note,
+            additions: [...note.additions, { author: "rosa", text: "- pie" }],
+          },
+        ],
+      },
+    ],
   ]) {
     expect(() => validateSeedSpec(withFolders(folders))).toThrow();
   }

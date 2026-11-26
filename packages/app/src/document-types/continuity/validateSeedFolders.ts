@@ -42,16 +42,20 @@ function validGrants(grants: unknown, groupNames: ReadonlySet<unknown>) {
 
 // A note's additions are written by members of a group that can write in its
 // folder, so an addition by anyone else would fail only after the owner's
-// writes; reject it before the seed writes anything.
+// writes; reject it before the seed writes anything. Each member adds one
+// line, which is one change in the note's history.
 function validNotes(notes: unknown, authors: ReadonlySet<unknown>) {
   return optionalArray(notes, (note) => {
     if (!record(note)) return false;
     const { text, additions } = note;
+    const added = new Set<unknown>();
     return (
       nonEmptyString(text) &&
       optionalArray(additions, (addition) => {
         if (!record(addition)) return false;
         const { author, text: line } = addition;
+        if (added.has(author)) return false;
+        added.add(author);
         return (
           authors.has(author) && nonEmptyString(line) && line.trim().length > 0
         );

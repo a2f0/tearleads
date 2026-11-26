@@ -133,23 +133,30 @@ export async function confirmDocumentSynced(
   }
 }
 
+/** A seeded document's store, holding what the API holds, and its folder. */
+export interface SeededDocument {
+  readonly store: DocumentStore;
+  readonly containerId: string;
+}
+
 /**
  * Writes one fixture into `containerId`, or resumes it wherever an earlier
- * run left it, and waits until the API holds it. Returns its store, holding
- * what the API holds, or "purged" when the account permanently deleted it,
+ * run left it, and waits until the API holds it. Returns its store and the
+ * folder it is in, or "purged" when the account permanently deleted it,
  * which the seed then skips.
  */
 export async function seedContinuityDocument(
   run: SeedRun,
   document: SeedDocument,
   containerId: string,
-): Promise<DocumentStore | "purged"> {
+): Promise<SeededDocument | "purged"> {
   const { session, assertCurrent } = run;
   const { tracer } = session;
   return tracer.span(`seed ${document.key}`, async () => {
     const ids = await seedDocumentIds(run, document.key);
     const { documentId } = ids;
     const existing = await findSeedPlacement(run, documentId);
+    const placement = existing?.containerId ?? containerId;
     assertCurrent();
     const store = await writeContinuityDocument({
       traceAttachment: (event) => tracer.event(`seed ${document.key} ${event}`),
@@ -159,7 +166,7 @@ export async function seedContinuityDocument(
         session.recordExpectedSeedFailure("refused stale bind"),
       sdk: session.sdk,
       document,
-      containerId: existing?.containerId ?? containerId,
+      containerId: placement,
       localId: ids.localId,
       readAttachment: run.readAttachment,
       existing,
@@ -171,6 +178,6 @@ export async function seedContinuityDocument(
     await tracer.span(`confirm sync ${document.key}`, () =>
       confirmDocumentSynced(session, store, documentId, document.key),
     );
-    return store;
+    return { store, containerId: placement };
   });
 }

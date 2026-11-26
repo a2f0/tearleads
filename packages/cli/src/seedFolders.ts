@@ -29,6 +29,11 @@ export interface FolderRoster {
   readonly memberRecoveryKey: (contactId: string) => string;
 }
 
+/** A written note, the folder it is in, and the lines it still lacks. */
+type SeededNote = ContinuityFolder["notes"][number] & {
+  readonly containerId: string;
+};
+
 export interface SeededFolders {
   readonly folders: number;
   readonly notes: number;
@@ -102,18 +107,28 @@ async function grantFolder(
   return granted;
 }
 
+/** A note to add a line to: its folder, document, and dataset key. */
+interface NoteTarget {
+  readonly folderId: string;
+  readonly documentId: string;
+  readonly key: string;
+}
+
 /** The note as the member's device sees it, once their grant has reached it. */
 async function openSharedNote(
   member: CliSession,
-  target: { folderId: string; documentId: string },
+  organizationId: string,
+  target: NoteTarget,
   deadline: AbortSignal,
 ): Promise<DocumentStore | null> {
   const { sdk } = member;
   const { folderId, documentId } = target;
+  // The shared folder joins the member's tree once their grant reaches it.
+  await loadFolderTree(member, { organizationId });
   // Discovery returns only what is new, so the note may have arrived in an
   // earlier attempt: drain it, then find the note on the device by its ID.
   let batch = await sdk.containerContents.discoverContainerDocuments(folderId);
-  while (batch?.length) {
+  while (batch?.length && !deadline.aborted) {
     batch = await sdk.containerContents.discoverContainerDocuments(folderId);
   }
   const localId = await sdk.documents.findLocalIdByDocumentId(documentId);
@@ -136,7 +151,7 @@ async function openSharedNote(
 function appendAsMember(
   run: SeedRun,
   roster: FolderRoster,
-  target: { folderId: string; documentId: string; key: string },
+  target: NoteTarget,
   addition: { author: string; text: string },
 ): Promise<boolean> {
   const { session } = run;
@@ -151,9 +166,8 @@ function appendAsMember(
       automaticSessionRenewal: false,
     },
     async (member) => {
-      await loadFolderTree(member, { organizationId });
       const store = await settle(
-        (deadline) => openSharedNote(member, target, deadline),
+        (deadline) => openSharedNote(member, organizationId, target, deadline),
         `${addition.author} could not open ${target.key}.`,
       );
       const next = appendNoteAddition(store.getSnapshot().text, addition.text);
@@ -173,14 +187,16 @@ async function seedFolderNotes(
   run: SeedRun,
   folderId: string,
   notes: ContinuityFolder["notes"],
-): Promise<ContinuityFolder["notes"]> {
+): Promise<SeededNote[]> {
   const written = [];
   for (const note of notes) {
-    const store = await seedContinuityDocument(run, note.document, folderId);
-    if (store === "purged") continue;
-    const { text } = store.getSnapshot();
+    const seeded = await seedContinuityDocument(run, note.document, folderId);
+    if (seeded === "purged") continue;
+    const { text } = seeded.store.getSnapshot();
     written.push({
       document: note.document,
+      // An earlier run, or the user, may have left the note elsewhere.
+      containerId: seeded.containerId,
       additions: note.additions.filter(
         (addition) => appendNoteAddition(text, addition.text) !== null,
       ),
@@ -193,11 +209,10 @@ async function seedFolderNotes(
 async function addMemberLines(
   run: SeedRun,
   roster: FolderRoster,
-  folderId: string,
-  notes: ContinuityFolder["notes"],
+  notes: readonly SeededNote[],
 ): Promise<number> {
   let added = 0;
-  for (const { document, additions } of notes) {
+  for (const { document, containerId, additions } of notes) {
     const { documentId } = await seedDocumentIds(run, document.key);
     for (const addition of additions) {
       const appended = await run.session.tracer.span(
@@ -206,7 +221,7 @@ async function addMemberLines(
           appendAsMember(
             run,
             roster,
-            { folderId, documentId, key: document.key },
+            { folderId: containerId, documentId, key: document.key },
             addition,
           ),
       );
@@ -238,10 +253,18 @@ export async function seedFolders(
     const notes = await seedFolderNotes(run, folderId, folder.notes);
     count.notes += notes.length;
     if (!roster) continue;
-    count.grants += await tracer.span(`share ${folder.name}`, () =>
-      grantFolder(run.session, folderId, folder.grants),
-    );
-    count.additions += await addMemberLines(run, roster, folderId, notes);
+    // Members reach each note through the folder it is in, so a note left
+    // outside the dataset's folder shares its own folder too.
+    const shared = new Set([
+      folderId,
+      ...notes.map((note) => note.containerId),
+    ]);
+    for (const containerId of shared) {
+      count.grants += await tracer.span(`share ${folder.name}`, () =>
+        grantFolder(run.session, containerId, folder.grants),
+      );
+    }
+    count.additions += await addMemberLines(run, roster, notes);
   }
   return count;
 }

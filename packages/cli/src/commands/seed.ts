@@ -89,8 +89,8 @@ export async function seed(input: CommandInput): Promise<void> {
       let purged = 0;
       for (const document of documents) {
         const containerId = document.kind === "contact" ? contactsId : rootId;
-        const store = await seedContinuityDocument(run, document, containerId);
-        if (store === "purged") purged++;
+        const seeded = await seedContinuityDocument(run, document, containerId);
+        if (seeded === "purged") purged++;
       }
       assertCurrent();
       session.assertNoFailures();
