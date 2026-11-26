@@ -136,8 +136,9 @@ The stored shapes enforce:
 - A rotation baseline too large for one request is
   [staged](../document-rotation-baselines.md#a-baseline-staged-ahead) and
   committed by reference. Migration `0016` adds `document_baseline_stages`
-  (one row per open stage), `document_baseline_segments` (each staged
-  segment's ciphertext, signed vectors, and write header), and
+  (one row per open stage, with its staged byte and span counts),
+  `document_baseline_segments` (each staged segment's ciphertext, signed
+  vectors, write header, content record, and nonce domain), and
   `document_baseline_segment_spans`. It makes
   `document_updates.encrypted_data` nullable: a segment a stage committed
   keeps its ciphertext in its `document_baseline_segments` row, and the
@@ -148,9 +149,11 @@ The stored shapes enforce:
   so a staged segment no request committed is never read. The unique index
   `document_updates_baseline_segment_idx` gains `document_id` first: a
   `baselineId` is its writer's choice and names a group only within its
-  document. The tables are new and the column only loses a constraint, but
-  the previous Worker would read a null payload once a stage commits, so the
-  Worker ships with the schema.
+  document. The stage tables are new. On `document_updates` the migration
+  rebuilds that index and adds the check constraint, and each statement
+  locks the table while it scans every row, so like `0015` it is applied
+  through the reset above, to empty tables. The previous Worker would read a
+  null payload once a stage commits, so the Worker ships with the schema.
 - Signed write headers are the write-integrity mechanism (see
   [document write integrity](../document-rekey-and-audit-history.md#write-integrity));
   there is no server-side audit hash chain. A
