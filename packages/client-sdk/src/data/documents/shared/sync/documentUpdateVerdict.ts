@@ -37,7 +37,7 @@ export type DocumentVoidStage =
  * judges every update it voided again: a format an older decoder could not
  * read is not a fault of the writer.
  */
-const DOCUMENT_VOID_RULES_VERSION = "void-rules-5";
+const DOCUMENT_VOID_RULES_VERSION = "void-rules-6";
 
 export function documentVerdictJudge(): string {
   return `${DOCUMENT_VOID_RULES_VERSION}:${loroDecoderIdentity()}`;
