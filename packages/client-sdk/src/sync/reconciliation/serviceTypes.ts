@@ -201,11 +201,5 @@ export interface ReconciliationService {
    * that cannot be listed has its registered documents probed instead.
    */
   reconcileAcknowledgedConnection: () => Promise<void>;
-  /**
-   * List the document lanes that are owed a listing now. A tree listing
-   * outside an acknowledged connection's catch-up calls for it: it was served
-   * a container's row and owed that container's lane a listing.
-   */
-  reconcileOwedLanes: () => Promise<void>;
   stop: () => void;
 }

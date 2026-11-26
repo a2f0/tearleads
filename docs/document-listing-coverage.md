@@ -105,9 +105,13 @@ crawl that the same acknowledgement starts already says which folders moved.
 - Fallback. When the crawl did not list every lane it queued, or the host
   reports no crawl, nothing vouches for the lanes it was not served, and the
   catch-up lists every known lane, as it did before lanes were owed listings.
-  A crawl that is retried and then served a row announces it, and the owed
-  lanes are listed then. So are lanes a hint's or a start's tree listing
-  owes.
+- Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's
+  owes lanes the same way and lists nothing for them at once. The request is
+  durable, so the next catch-up lists the lane, as does the owed-lane resume
+  of a start that never connects, and a listing of that lane sent for any
+  other reason settles it. That is when a lost hint was recovered before
+  lanes were owed listings: at the next acknowledged connection. A hint that
+  arrives still forces its own lanes.
 - Not covered, before or after. Access gained or lost through a principal
   policy changes a row's effective access level without republishing
   anything, so neither a listing from a watermark nor this mechanism sees it;

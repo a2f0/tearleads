@@ -70,26 +70,3 @@ test("whoever asks while a crawl is owed is told how it settles", async () => {
   port.crawlSettled(true);
   expect(await port.whenCrawlSettles()).toBe(true);
 });
-
-test("owed lanes are announced once for a burst, and not after unsubscribing", async () => {
-  const port = getOrCreateTreeCatchUp(createDomainScope());
-  let announcements = 0;
-  const unsubscribe = port.subscribeToOwedLanes(() => {
-    announcements += 1;
-  });
-
-  port.lanesOwed();
-  port.lanesOwed();
-  expect(announcements).toBe(0);
-  await Promise.resolve();
-  expect(announcements).toBe(1);
-
-  port.lanesOwed();
-  await Promise.resolve();
-  expect(announcements).toBe(2);
-
-  unsubscribe();
-  port.lanesOwed();
-  await Promise.resolve();
-  expect(announcements).toBe(2);
-});

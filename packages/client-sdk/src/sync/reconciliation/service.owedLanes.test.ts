@@ -3,7 +3,6 @@ import { createReconciliationService } from "./service";
 import {
   createGate,
   createReconciliationTestHost,
-  perContainerDiscovery,
 } from "./service.testFixtures";
 import type { ReconciliationHost } from "./serviceTypes";
 
@@ -166,80 +165,4 @@ test("a catch-up that cannot read what is owed releases the lanes it held", asyn
   await settle();
   expect(listings).toEqual([["a"]]);
   service.stop();
-});
-
-test("lanes owed outside a catch-up are listed on request", async () => {
-  let owed: ReadonlyArray<string> = ["a"];
-  const { host, listings, steps } = createOwedLaneHost({ owed: () => owed });
-  const service = createReconciliationService(host);
-
-  await service.reconcileOwedLanes();
-  expect(listings).toEqual([["a"]]);
-  expect(steps).toEqual(["owed-reads"]);
-
-  // Nothing owed: no listing, and no lane is vouched for either.
-  owed = [];
-  await service.reconcileOwedLanes();
-  expect(listings).toEqual([["a"]]);
-  service.start();
-  service.enqueueContainer("b", "idle");
-  await settle();
-  await settle();
-  expect(listings).toEqual([["a"], ["b"]]);
-  service.stop();
-});
-
-test("an owed-lane request joins a catch-up that has not read what is owed", async () => {
-  const crawl = createGate();
-  let owed: ReadonlyArray<string> = [];
-  const { host, listings } = createOwedLaneHost({
-    overrides: {
-      whenTreeCrawlSettles: async () => {
-        await crawl.wait;
-        return true;
-      },
-    },
-    owed: () => owed,
-  });
-  const service = createReconciliationService(host);
-
-  const catchUp = service.reconcileAcknowledgedConnection();
-  await settle();
-  // The crawl the catch-up waits for owes a lane and announces it.
-  owed = ["b"];
-  const announced = service.reconcileOwedLanes();
-  crawl.open();
-  await Promise.all([catchUp, announced]);
-
-  // One sweep answered both.
-  expect(listings).toEqual([["b"]]);
-});
-
-test("an owed-lane request queues behind a sweep that already read what is owed", async () => {
-  const listing = createGate();
-  let owed: ReadonlyArray<string> = ["a"];
-  const listings: string[][] = [];
-  const { host } = createOwedLaneHost({
-    overrides: {
-      discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
-        listings.push([containerId]);
-        await listing.wait;
-        return null;
-      }),
-    },
-    owed: () => owed,
-  });
-  const service = createReconciliationService(host);
-
-  const first = service.reconcileOwedLanes();
-  await settle();
-  expect(listings).toEqual([["a"]]);
-  // Another tree listing owes lane b while the first sweep is listing lane a.
-  owed = ["a", "b"];
-  const second = service.reconcileOwedLanes();
-  listing.open();
-  await Promise.all([first, second]);
-
-  // The first sweep never knew of lane b; the second lists what is owed now.
-  expect(listings).toEqual([["a"], ["a"], ["b"]]);
 });

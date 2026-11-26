@@ -33,10 +33,10 @@ watermarks and the request survive.
 | `OtherTouch` | `touchContainerStructure` for a grant or a rekey, or a metadata edit's `touchAcceptedSyncTargets` |
 | `Acknowledge` | `consumePendingContainerContentsReconnectRefresh` after the interest acknowledgement advances the connection generation |
 | `BeginCrawl` | `fetchContainerParentLaneBatch` listing the lane that serves the container from its saved watermark |
-| `CrawlOwe` | `oweServedDocumentLanes` in `applyContainerParentLanePage`, through `oweDocumentLaneListings` to `requestDocumentLaneListings` |
+| `CrawlOwe` | `oweServedDocumentLanes` in `applyContainerParentLanePage`, through the store host's `requestDocumentLaneListings` |
 | `CrawlPass` | `checkpointPage` saving the serving lane's watermark with `markContainerParentLaneFetched` |
 | `FinishCrawl` | the reconnect crawl settling: `crawlSettled` on the scope's `getOrCreateTreeCatchUp` port, which releases `whenCrawlSettles` |
-| `SweepListing` | `requestAcknowledgedConnectionSweep`, or `requestOwedLanesSweep` for a crawl outside a catch-up, planning with `listOwedDocumentLaneContainerIds`; the listing reads the request with `findOwedDocumentLaneListings` before `listContainerDocumentsFromWatermarks` |
+| `SweepListing` | `requestAcknowledgedConnectionSweep` planning with `listOwedDocumentLaneContainerIds`; the listing reads the request with `findOwedDocumentLaneListings` before `listContainerDocumentsFromWatermarks` |
 | `HintListing` | `enqueueContainer` with a force, listed by `reconcileMarkedContainers` |
 | `FinishListing` | `applyListedContainerDocuments` saving the lane's watermark, then `settleOwedDocumentLaneListing` for the request read before the listing |
 

@@ -29,7 +29,7 @@ function forgetIneligibleDiscoveredContainers(
  * listing itself, and a lane that cannot be listed has its documents probed.
  */
 function listsLanesUnforced(scope: RefreshScope): boolean {
-  return scope === "acknowledged" || scope === "owed";
+  return scope === "acknowledged";
 }
 
 /** Sweeps the known containers as `scope` asks; see `RefreshScope`. */
@@ -97,7 +97,6 @@ type PlanSweep = () => SweepPlan | Promise<SweepPlan>;
 async function planSweepHolding(
   input: {
     holdWhilePlanning?: (() => ReadonlyArray<string>) | undefined;
-    markListed: () => void;
     planSweep: PlanSweep;
     state: ReconciliationState;
   },
@@ -122,7 +121,6 @@ async function planSweepHolding(
     release(new Set());
     throw error;
   }
-  input.markListed();
   const vouched = plan.vouchedContainerIds ?? [];
   release(new Set([...plan.containerIds, ...vouched]));
   for (const containerId of vouched) {
@@ -140,8 +138,6 @@ async function refreshAndReconcileContainers(input: {
    * passive enqueue of one meanwhile would only list it twice.
    */
   holdWhilePlanning?: (() => ReadonlyArray<string>) | undefined;
-  /** Called once the sweep has read which containers it lists. */
-  markListed: () => void;
   planSweep: PlanSweep;
   refreshTree: () => Promise<void>;
   scope: RefreshScope;
@@ -261,17 +257,15 @@ function requeueUnsettledContainers(
 /**
  * Whether a request of `scope` may join the `pending` sweep. A request joins
  * a sweep of its own scope or a full one, which does all a narrower sweep
- * does. An owed request also joins an acknowledged sweep, which lists every
- * owed lane or more. No other pair joins: neither an acknowledged nor an owed
- * sweep lists a tree lane, so a root request that joined one would skip its
- * root listing, and a full request after a narrower sweep must wait for it
- * and then refresh the whole tree.
+ * does. No other pair joins: an acknowledged sweep lists no tree lane, so a
+ * root request that joined one would skip its root listing, and a full
+ * request after a narrower sweep must wait for it and then refresh the whole
+ * tree.
  *
  * A fresh-listing request joins only a sweep that has not started: one
  * already running may have listed before the event behind the request, so it
- * queues a trailing sweep instead. An owed request is looser: the lanes are
- * owed durably, so it joins any sweep that has yet to read which lanes it
- * lists. A sweep every caller withdrew from is stopping, so nothing joins it.
+ * queues a trailing sweep instead. A sweep every caller withdrew from is
+ * stopping, so nothing joins it.
  */
 function joinsPendingRefresh(
   pending: SharedRefresh,
@@ -279,14 +273,6 @@ function joinsPendingRefresh(
   freshListing: boolean,
 ): boolean {
   if (pending.stopping) return false;
-  if (scope === "owed") {
-    return (
-      (pending.scope === "full" ||
-        pending.scope === "owed" ||
-        pending.scope === "acknowledged") &&
-      !pending.listed
-    );
-  }
   return (
     (pending.scope === "full" || pending.scope === scope) &&
     !(freshListing && pending.started)
@@ -316,11 +302,10 @@ function requestContainerRefresh(input: {
     onSettled: (settled) => {
       if (state.pendingRefresh === settled) state.pendingRefresh = null;
     },
-    run: (stop, markListed) =>
+    run: (stop) =>
       refreshAndReconcileContainers({
         holdWhilePlanning: input.holdWhilePlanning,
         host: input.host,
-        markListed,
         planSweep: input.planSweep,
         refreshTree: input.refreshTree,
         scope,
@@ -372,21 +357,18 @@ export function requestFullRefresh(
 }
 
 /**
- * A sweep of the known lanes a durable record says are owed a listing. With
- * `vouched`, a complete tree crawl stands behind every other known lane.
+ * A sweep of the known lanes a durable record says are owed a listing. A
+ * complete tree crawl stands behind every other known lane.
  */
 async function planOwedLanesSweep(
   host: ReconciliationHost,
   state: ReconciliationState,
-  vouched: boolean,
 ): Promise<SweepPlan> {
   const owed = new Set(await host.listOwedDocumentDiscoveryContainerIds());
   const known = listFullRefreshContainerIds(host, state);
   return {
     containerIds: known.filter((id) => owed.has(id)),
-    vouchedContainerIds: vouched
-      ? known.filter((id) => !owed.has(id))
-      : undefined,
+    vouchedContainerIds: known.filter((id) => !owed.has(id)),
   };
 }
 
@@ -421,33 +403,12 @@ export function requestAcknowledgedConnectionSweep(
       holdWhilePlanning: () => listFullRefreshContainerIds(host, state),
       planSweep: async () =>
         (await host.whenTreeCrawlSettles?.()) === true
-          ? planOwedLanesSweep(host, state, true)
+          ? planOwedLanesSweep(host, state)
           : { containerIds: listFullRefreshContainerIds(host, state) },
       scope: "acknowledged",
       signal: undefined,
     }),
     "Reconciliation: connection catch-up failed",
-  );
-}
-
-// A tree listing outside an acknowledged connection's catch-up owed lanes a
-// listing: a hint's, a start's, or a retried crawl's. List what is owed now.
-export function requestOwedLanesSweep(
-  host: ReconciliationHost,
-  state: ReconciliationState,
-): Promise<void> {
-  return reportUnawaitedSweep(
-    host,
-    requestContainerRefresh({
-      freshListing: true,
-      host,
-      state,
-      refreshTree: () => Promise.resolve(),
-      planSweep: () => planOwedLanesSweep(host, state, false),
-      scope: "owed",
-      signal: undefined,
-    }),
-    "Reconciliation: owed lane listing failed",
   );
 }
 

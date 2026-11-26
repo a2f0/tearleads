@@ -9,10 +9,7 @@ import {
 } from "../../stores/documents";
 import { requestRegisteredDocumentRemoteSyncs } from "../../stores/documents/registry";
 import type { LocalProjectionStore } from "../../stores/local-projection";
-import type {
-  ReconciliationHost,
-  ReconciliationService,
-} from "../../sync/reconciliation";
+import type { ReconciliationHost } from "../../sync/reconciliation";
 import {
   forgetUnheldDocumentListingReads,
   listOwedDocumentListingReads,
@@ -111,19 +108,5 @@ export function installDocumentListingAuthority(input: {
       }
       return listedContainerIds.has(containerId);
     },
-  });
-}
-
-/**
- * Lists the owed document lanes whenever a tree listing owes one outside an
- * acknowledged connection's catch-up. Returns the function that stops it.
- */
-export function listOwedLanesWhenOwed(
-  domainScope: DomainScope,
-  service: Pick<ReconciliationService, "reconcileOwedLanes">,
-): () => void {
-  return getOrCreateTreeCatchUp(domainScope).subscribeToOwedLanes(() => {
-    // The sweep reports its own failure; nothing awaits it here.
-    service.reconcileOwedLanes().catch(() => undefined);
   });
 }

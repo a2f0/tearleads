@@ -359,7 +359,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // (19.3 KB with it). Bundles and envelopes name their content-key
       // commitment: 18.8 KB received (about 20.1 KB with the directory, which
       // exceeds this ceiling).
-      bodyBytes: { request: 16_350, response: 19_100 },
+      // The root lane is listed twice in one request, from its watermark and
+      // for membership: 16,620 bytes sent.
+      bodyBytes: { request: 16_700, response: 20_100 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
@@ -404,7 +406,7 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // and sends its manifest hash alone: 16.2 KB sent. Projections cite
       // the held organization directory: 30.6 KB received (35.8 KB with it,
       // which exceeds this ceiling).
-      bodyBytes: { request: 16_500, response: 33_000 },
+      bodyBytes: { request: 16_850, response: 33_000 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,

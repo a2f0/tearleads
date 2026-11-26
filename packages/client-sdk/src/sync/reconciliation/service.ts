@@ -2,7 +2,6 @@ import { clearOriginatedDocuments } from "../../data/sync/originatedDocuments";
 import {
   requestAcknowledgedConnectionSweep,
   requestFullRefresh,
-  requestOwedLanesSweep,
   requestRootRefresh,
 } from "./containerRefresh";
 import {
@@ -281,7 +280,6 @@ export function createReconciliationService(
     reconcileNow: (options) => requestFullRefresh(host, state, options),
     reconcileAcknowledgedConnection: () =>
       requestAcknowledgedConnectionSweep(host, state),
-    reconcileOwedLanes: () => requestOwedLanesSweep(host, state),
     stop: () => stopReconciliationService(host, state),
   };
 }

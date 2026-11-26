@@ -4,10 +4,10 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
+import { requestDocumentLaneListings } from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordination";
 import { persistContainerState } from "./containerState/containerStatePersistence";
 import { createTreeRefreshMethods } from "./hydration/remoteHydrationRefresh";
-import { oweDocumentLaneListings } from "./hydration/treeCatchUp";
 import {
   createChildContainer,
   deleteContainer,
@@ -103,8 +103,9 @@ function createContainerContentsStoreSyncHost(
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
     },
+    // Durable only: the next catch-up, or the owed-lane resume, lists them.
     requestDocumentLaneListings: (containerIds) =>
-      oweDocumentLaneListings(state, containerIds),
+      requestDocumentLaneListings(state.runtime.infra.execSql, containerIds),
     requestMetadataRevalidation: (request) =>
       oweContainerMetadataRead(state, request),
     updateSnapshot: () => updateContainerContentsSnapshot(state),

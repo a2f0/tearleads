@@ -11,11 +11,10 @@ import {
  * root catch-up set. `acknowledged` catches up after an acknowledged
  * connection: once the tree crawl that connection owes has settled, it lists
  * the document lanes that are owed a listing, or every known lane when that
- * crawl did not vouch for the rest. `owed` lists the owed lanes without
- * waiting on a crawl. `full` also refreshes the whole tree and revalidates
- * every registered document.
+ * crawl did not vouch for the rest. `full` also refreshes the whole tree and
+ * revalidates every registered document.
  */
-export type RefreshScope = "root" | "acknowledged" | "owed" | "full";
+export type RefreshScope = "root" | "acknowledged" | "full";
 
 /**
  * One refresh every joining caller shares; see `sharedRefreshMachine.ts` for
@@ -33,8 +32,7 @@ export class SharedRefresh {
     /** A refresh this one queues behind; its failure never prevents this one. */
     readonly after: Promise<void> | undefined;
     readonly onSettled: (refresh: SharedRefresh) => void;
-    /** `markListed` is called once the refresh has read what it will list. */
-    readonly run: (stop: AbortSignal, markListed: () => void) => Promise<void>;
+    readonly run: (stop: AbortSignal) => Promise<void>;
     readonly scope: RefreshScope;
   }) {
     this.scope = input.scope;
@@ -43,9 +41,7 @@ export class SharedRefresh {
       .then(() => {
         this.dispatch({ type: "started" });
         if (this.state.status !== "running") return;
-        return input.run(this.stopController.signal, () =>
-          this.dispatch({ type: "listed" }),
-        );
+        return input.run(this.stopController.signal);
       })
       .finally(() => {
         this.dispatch({ type: "settled" });
@@ -56,14 +52,6 @@ export class SharedRefresh {
   /** Running: a fresh-listing request must queue behind it, not join it. */
   get started(): boolean {
     return this.state.status === "running";
-  }
-
-  /**
-   * Running, and past reading which containers it lists: a lane owed a
-   * listing since then must queue a refresh behind it, not join it.
-   */
-  get listed(): boolean {
-    return this.state.status === "running" && this.state.listed;
   }
 
   /** Every caller withdrew; a new caller must start a new refresh. */

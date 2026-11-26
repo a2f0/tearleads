@@ -16,10 +16,7 @@ import { getOrCreateTreeCatchUp } from "../../stores/container-contents";
 import { registerDocumentStore } from "../../stores/documents/registry";
 import { registerDocumentStoreLoadedRecord } from "../../stores/documents/savedElsewhere";
 import type { DocumentStoreFacade } from "../../stores/documents/types";
-import {
-  createListingCoverageHost,
-  listOwedLanesWhenOwed,
-} from "./listingCoverageHost";
+import { createListingCoverageHost } from "./listingCoverageHost";
 
 const LOADED = encodeVersionVectorCounters({ "7": 4 });
 const SAVED_ELSEWHERE = encodeVersionVectorCounters({ "7": 4, "9": 2 });
@@ -114,41 +111,4 @@ test("the catch-up asks the scope's tree crawl whether it vouches", async () => 
   const settled = host.whenTreeCrawlSettles?.();
   treeCatchUp.crawlSettled(true);
   expect(await settled).toBe(true);
-});
-
-test("lanes a tree listing owes are listed, until the scope stops listening", async () => {
-  const treeCatchUp = getOrCreateTreeCatchUp(domainScope);
-  let sweeps = 0;
-  const stop = listOwedLanesWhenOwed(domainScope, {
-    reconcileOwedLanes: async () => {
-      sweeps += 1;
-    },
-  });
-
-  treeCatchUp.lanesOwed();
-  treeCatchUp.lanesOwed();
-  await Promise.resolve();
-  expect(sweeps).toBe(1);
-
-  // Another scope's tree listing is not this scope's to answer.
-  getOrCreateTreeCatchUp(createDomainScope()).lanesOwed();
-  await Promise.resolve();
-  expect(sweeps).toBe(1);
-
-  stop();
-  treeCatchUp.lanesOwed();
-  await Promise.resolve();
-  expect(sweeps).toBe(1);
-});
-
-test("a failed owed-lane sweep is the sweep's to report", async () => {
-  const stop = listOwedLanesWhenOwed(domainScope, {
-    reconcileOwedLanes: () => Promise.reject(new Error("listing failed")),
-  });
-
-  getOrCreateTreeCatchUp(domainScope).lanesOwed();
-  // An unhandled rejection here would fail the run.
-  await Promise.resolve();
-  await Promise.resolve();
-  stop();
 });
