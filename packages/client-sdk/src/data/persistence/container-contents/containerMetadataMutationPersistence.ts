@@ -14,10 +14,8 @@ import {
   DocumentRecordRepository,
   type PendingUpdateFields,
 } from "../documents/records";
-import {
-  hasQueuedDocumentUpdates,
-  settleQueuedDocumentUpdatesInTransaction,
-} from "../documents/records/documentPendingUpdatePersistence";
+import { settleDocumentSyncResponseInTransaction } from "../documents/records/documentCommittedVersionPersistence";
+import { hasQueuedDocumentUpdates } from "../documents/records/documentPendingUpdatePersistence";
 import { clearDocumentSyncFailureInTransaction } from "../documents/records/documentSyncFailurePersistence";
 import { resetAccessDiscovery } from "./containerAccessDiscovery";
 import {
@@ -142,15 +140,17 @@ async function loadStoredContainerState(
   };
 }
 
-async function deleteAcceptedPendingUpdates(
+/** `currentRecord` is the record as this transaction read it. */
+function settleSyncResponse(
   tx: ClientSQLiteTransactionScope,
-  containerId: string,
-  ids: readonly string[],
+  currentRecord: ContainerMetadataRecord,
+  response: Parameters<typeof settleDocumentSyncResponseInTransaction>[3],
 ): Promise<void> {
-  await settleQueuedDocumentUpdatesInTransaction(
+  return settleDocumentSyncResponseInTransaction(
     tx,
-    getContainerMetadataScope(containerId),
-    ids,
+    getContainerMetadataScope(currentRecord.id),
+    currentRecord,
+    response,
   );
 }
 
@@ -271,11 +271,7 @@ async function rejectMetadataMutationConflict(input: {
     mutation.settleAcceptedPendingOnConflict &&
     sameMetadataSecurityIdentity(currentState.record, mutation.expectedRecord)
   ) {
-    await deleteAcceptedPendingUpdates(
-      tx,
-      mutation.container.id,
-      mutation.acceptedPendingUpdateIds,
-    );
+    await settleSyncResponse(tx, currentState.record, mutation);
   }
   return { committed: false as const, currentState };
 }
@@ -410,11 +406,7 @@ export async function commitStoredMetadataMutation(
           input.container.id,
           input.pendingUpdate,
         );
-        await deleteAcceptedPendingUpdates(
-          tx,
-          input.container.id,
-          input.acceptedPendingUpdateIds,
-        );
+        await settleSyncResponse(tx, currentState.record, input);
         if (input.clearSyncFailure) {
           await clearMetadataSyncFailure(tx, input.container.id);
         }
@@ -483,11 +475,10 @@ export async function settleStoredMetadataPendingUpdates(
             input.expectedRecord,
           )
         ) {
-          await deleteAcceptedPendingUpdates(
-            tx,
-            input.containerId,
-            input.pendingUpdateIds,
-          );
+          await settleSyncResponse(tx, currentState.record, {
+            acceptedPendingUpdateIds: input.pendingUpdateIds,
+            committedVersions: input.committedVersions,
+          });
         }
         return currentState;
       },

@@ -15,6 +15,7 @@ import {
   addFormatIssue,
   structuredFieldsProjector,
 } from "../shared/documentFieldUtils";
+import type { VariantDocumentFieldDefinition } from "../shared/variantDocumentFieldModel";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const INSURANCE_POLICY_DOCUMENT_KIND =
@@ -38,32 +39,26 @@ export const INSURANCE_POLICY_TYPE_OPTIONS: ReadonlyArray<DocumentFieldOption> =
 const MEMBER_PLAN_TYPES = ["health", "dental", "vision"] as const;
 const PRESCRIPTION_PLAN_TYPES = ["health"] as const;
 
-const INSURANCE_POLICY_FIELDS = [
+export const INSURANCE_POLICY_FIELDS = [
   { key: "insurer", label: "Insurer", placeholder: "Acme Mutual" },
   { key: "planName", label: "Plan Name", placeholder: "Gold PPO" },
   { key: "policyNumber", label: "Policy Number" },
-  { key: "memberId", label: "Member ID", policyTypes: MEMBER_PLAN_TYPES },
+  { key: "memberId", label: "Member ID", variants: MEMBER_PLAN_TYPES },
   {
     key: "groupNumber",
     label: "Group Number",
-    policyTypes: MEMBER_PLAN_TYPES,
+    variants: MEMBER_PLAN_TYPES,
   },
-  { key: "rxBin", label: "Rx BIN", policyTypes: PRESCRIPTION_PLAN_TYPES },
-  { key: "rxPcn", label: "Rx PCN", policyTypes: PRESCRIPTION_PLAN_TYPES },
-  { key: "rxGroup", label: "Rx Group", policyTypes: PRESCRIPTION_PLAN_TYPES },
+  { key: "rxBin", label: "Rx BIN", variants: PRESCRIPTION_PLAN_TYPES },
+  { key: "rxPcn", label: "Rx PCN", variants: PRESCRIPTION_PLAN_TYPES },
+  { key: "rxGroup", label: "Rx Group", variants: PRESCRIPTION_PLAN_TYPES },
   { key: "policyholder", label: "Policyholder" },
   { key: "insured", label: "Insured Person or Property" },
   { key: "effectiveDate", label: "Effective Date", type: "date" },
   { key: "expirationDate", label: "Expiration Date", type: "date" },
   { key: "agentName", label: "Agent or Contact" },
   { key: "agentPhone", label: "Agent Phone", type: "tel" },
-] as const satisfies ReadonlyArray<{
-  key: string;
-  label: string;
-  placeholder?: string;
-  policyTypes?: ReadonlyArray<string>;
-  type?: "date" | "tel";
-}>;
+] as const satisfies ReadonlyArray<VariantDocumentFieldDefinition>;
 
 type InsurancePolicyFieldDefinition = (typeof INSURANCE_POLICY_FIELDS)[number];
 type InsurancePolicyFieldKey = InsurancePolicyFieldDefinition["key"];
@@ -95,28 +90,7 @@ export function getInsurancePolicyFieldLabel(
     : field.label;
 }
 
-/**
- * The fields to show for a document. A variant field (member or prescription
- * details) is offered for its policy types, and also whenever it holds a value,
- * so changing the type never hides what was recorded. An editor passes the
- * fields as they stood when editing began, so clearing such a value keeps its
- * input in place until the edit ends.
- */
-export function getVisibleInsurancePolicyFields(
-  fields: InsurancePolicyDocumentFields,
-  atEditStart?: InsurancePolicyDocumentFields | null,
-): ReadonlyArray<InsurancePolicyFieldDefinition> {
-  const policyType = fields.policyType.trim();
-  return INSURANCE_POLICY_FIELDS.filter(
-    (field) =>
-      !("policyTypes" in field) ||
-      field.policyTypes.some((type) => type === policyType) ||
-      fields[field.key].trim().length > 0 ||
-      (atEditStart?.[field.key].trim().length ?? 0) > 0,
-  );
-}
-
-export function getInsurancePolicyTypeLabel(policyType: string): string {
+function getInsurancePolicyTypeLabel(policyType: string): string {
   return getDocumentFieldOptionLabel(INSURANCE_POLICY_TYPE_OPTIONS, policyType);
 }
 

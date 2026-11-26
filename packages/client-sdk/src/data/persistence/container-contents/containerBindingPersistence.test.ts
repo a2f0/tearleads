@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { encodeVersionVectorCounters } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { insertQueuedUpdateRows } from "../../../../test/helpers/data/queuedUpdateRows";
 import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
@@ -170,6 +171,19 @@ test("a re-home rebinds only the binding it was verified against", async () => {
       accessEpoch: 4,
       lastCommitLsn: "lsn-9",
     });
+    // An earlier settlement recorded what the old stream committed.
+    const seen = encodeVersionVectorCounters({ "11": 3 });
+    const settledAgainst = await persistence.loadContainerMetadataState(
+      execSql,
+      container.id,
+    );
+    if (!settledAgainst?.record) throw new Error("Expected stored metadata");
+    await persistence.settleAcceptedMetadataPendingUpdates(execSql, {
+      committedVersions: [seen],
+      containerId: container.id,
+      expectedRecord: settledAgainst.record,
+      pendingUpdateIds: [],
+    });
     const rebind = (expected: typeof held, stillCurrent?: () => boolean) =>
       persistence.rebindHeldContainer(execSql, {
         containerId: container.id,
@@ -197,6 +211,9 @@ test("a re-home rebinds only the binding it was verified against", async () => {
     });
     expect(rebound?.record).toMatchObject({
       accessEpoch: 1,
+      // The re-home keeps the history, and with it what the device saw
+      // committed of it: the replacement stream is judged against that.
+      committedVersion: seen,
       documentId: next.metadataDocumentId,
       lastCommitLsn: null,
       // Local Loro content and its version marker do not depend on the stream.

@@ -3,6 +3,7 @@ import {
   deriveStableDocumentId,
   type Tearleads,
 } from "@tearleads/client-sdk";
+import { AVATAR_PHOTO_FIELD } from "../shared/documentPhotos";
 import { seedDigest } from "./continuityAssets";
 import { captureContinuityScope } from "./continuityScope";
 import type { SeedDocument } from "./seedDocuments";
@@ -60,6 +61,23 @@ export function prepareContinuityAttachments(
   );
 }
 
+/**
+ * The fixture as it is written: a photo marked as the avatar gets its slot
+ * only when prepared, so the avatar field that selects it is set then too.
+ */
+export function withContinuityAvatar(
+  document: SeedDocument,
+  attachments: Awaited<ReturnType<typeof prepareContinuityAttachments>>,
+): SeedDocument {
+  const index = document.attachments.findIndex(({ avatar }) => avatar);
+  const slotId = attachments[index]?.intent.slotId;
+  if (!slotId) return document;
+  return {
+    ...document,
+    fields: { ...document.fields, [AVATAR_PHOTO_FIELD]: slotId },
+  };
+}
+
 export function continuitySeedTag(
   document: SeedDocument,
   attachments: Awaited<ReturnType<typeof prepareContinuityAttachments>>,
@@ -112,11 +130,12 @@ async function openContinuityDocument(
   });
 }
 
-export async function writeContinuityDocument(input: SeedWriteInput) {
-  const { document } = input;
-  const { stillCurrent, assertCurrent } = captureContinuityScope(input.sdk);
-  const attachments = await prepareContinuityAttachments(input);
+export async function writeContinuityDocument(fixture: SeedWriteInput) {
+  const { stillCurrent, assertCurrent } = captureContinuityScope(fixture.sdk);
+  const attachments = await prepareContinuityAttachments(fixture);
   assertCurrent();
+  const document = withContinuityAvatar(fixture.document, attachments);
+  const input = { ...fixture, document };
   const seedTag = continuitySeedTag(document, attachments);
   const store = await openContinuityDocument(
     input,

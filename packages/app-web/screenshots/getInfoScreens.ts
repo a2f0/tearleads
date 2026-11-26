@@ -16,7 +16,7 @@ type Scope = Page | Locator;
  * panel draws its id row before the info arrives, so wait for `loadedKey`, a
  * row that only has a value once it has.
  */
-async function openItemInfo(
+export async function openItemInfo(
   scope: Scope,
   title: string,
   loadedKey: string,

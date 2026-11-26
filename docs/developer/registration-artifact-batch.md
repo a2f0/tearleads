@@ -85,7 +85,7 @@ A contemporaneous staging database control, run
 `b9893ee1-8c19-4da5-80df-ba41db20c545`, measured trivial-query means of
 5.85–7.60 ms, while PostgreSQL execution was 0.032–0.036 ms. Twenty trivial
 queries in one command took 8–9 ms. Its temporary Worker was deleted.
-The earlier [production probe](../../packages/performance/database-baseline.md)
+The earlier [production probe](../../packages/performance/results/2026-10-26-database-round-trip.md)
 showed the same general pattern.
 
 These controls support targeting serial round trips. They do not measure

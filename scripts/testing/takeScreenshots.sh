@@ -2,8 +2,7 @@
 set -e
 
 # Capture app screenshots for the windowed desktop, iPhone, and iPad layouts in
-# both light and dark themes. Authenticated two-peer scenarios are captured by
-# separate Playwright projects but written into these same three collections.
+# both light and dark themes, from one account seeded with Continuity.
 # In an unlinked clone this writes PNGs below the gitignored
 # .screenshots/{web,mobile,ipad}/ at repo root. Mobile captures use the iPhone
 # 13 browser viewport with touch input at 3x resolution. Phone and iPad PNGs

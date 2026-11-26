@@ -63,6 +63,7 @@ type ApplicableContainerMetadataMutation = Exclude<
 >;
 async function settleSupersededMetadataMutation(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
+  committedVersions?: readonly string[] | undefined;
   execSql: ExecSql;
   expectedRecord?: DocumentRecord | undefined;
   metadataState: ContainerMetadataState;
@@ -73,6 +74,7 @@ async function settleSupersededMetadataMutation(input: {
   const { metadataState, persistence, prepared } = input;
   const settledState = input.expectedRecord
     ? await persistence.settleAcceptedMetadataPendingUpdates(input.execSql, {
+        committedVersions: input.committedVersions,
         containerId: metadataState.container.id,
         expectedRecord: input.expectedRecord,
         pendingUpdateIds: input.acceptedPendingUpdateIds ?? [],
@@ -120,6 +122,7 @@ async function settleSupersededMetadataMutation(input: {
 async function persistPreparedMetadataMutation(input: {
   clearSyncFailure?: boolean | undefined;
   commitSideEffect?: PersistContainerMetadataStateInput["commitSideEffect"];
+  committedVersions?: readonly string[] | undefined;
   createIntentSettlement?: Parameters<
     ContainerContentsPersistence["commitMetadataMutation"]
   >[1]["createIntentSettlement"];
@@ -188,6 +191,7 @@ async function persistPreparedMetadataMutation(input: {
     acceptedPendingUpdateIds: input.acceptedPendingUpdateIds ?? [],
     clearSyncFailure: input.clearSyncFailure,
     commitSideEffect: input.commitSideEffect,
+    committedVersions: input.committedVersions,
     container: nextContainer,
     createIntentSettlement: input.createIntentSettlement,
     expectedContainer: prepared.mutationContainer,
@@ -279,6 +283,7 @@ function settleOrApply(
     return {
       settled: settleSupersededMetadataMutation({
         acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
+        committedVersions: input.committedVersions,
         execSql,
         expectedRecord: input.expectedSyncState?.record,
         metadataState: input.metadataState,
@@ -313,6 +318,7 @@ async function persistContainerMetadataState(
         acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
         clearSyncFailure: input.clearSyncFailure,
         commitSideEffect: input.commitSideEffect,
+        committedVersions: input.committedVersions,
         createIntentSettlement: input.createIntentSettlement,
         execSql: lockedExecSql,
         metadataState: input.metadataState,
