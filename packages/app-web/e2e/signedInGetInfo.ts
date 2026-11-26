@@ -5,6 +5,7 @@ import {
   type Response,
 } from "@playwright/test";
 import { createFirstIdentity } from "./createFirstIdentity";
+import { watchNoteUploads } from "./noteUploads";
 import { SIGNED_IN_API_URL } from "./signedInServer";
 
 /*
@@ -60,10 +61,16 @@ const GET_INFO_TABLE_HEADINGS = {
 
 type GetInfoTable = keyof typeof GET_INFO_TABLE_HEADINGS;
 
+/**
+ * The next successful API response to `method` on `pathname` that `matches`
+ * accepts. A path alone can match another object's request: a new profile
+ * creates and syncs system folders and documents of its own while a test runs.
+ */
 export function apiResponse(
   page: Page,
   method: string,
   pathname: RegExp,
+  matches: (response: Response) => boolean = () => true,
 ): Promise<Response> {
   return page.waitForResponse(
     (response) => {
@@ -72,7 +79,8 @@ export function apiResponse(
         url.origin === SIGNED_IN_API_URL &&
         response.request().method() === method &&
         pathname.test(url.pathname) &&
-        response.status() === 200
+        response.status() === 200 &&
+        matches(response)
       );
     },
     { timeout: 60_000 },
@@ -89,7 +97,8 @@ async function signIn(page: Page): Promise<void> {
   await loggedIn;
 }
 
-export async function createFolder(page: Page): Promise<void> {
+/** Creates the folder and resolves with its server id. */
+export async function createFolder(page: Page): Promise<string> {
   const create = page.getByRole("button", {
     name: "Create Child Folder",
     exact: true,
@@ -100,38 +109,55 @@ export async function createFolder(page: Page): Promise<void> {
   await dialog
     .getByRole("textbox", { name: "Container name" })
     .fill(SIGNED_IN_FOLDER);
+  // The profile's own folders carry a system slot; this one has none.
   const created = apiResponse(
     page,
     "POST",
     /^\/containers\/with-metadata-document$/u,
+    (response) => !response.request().postDataJSON()?.systemSlot,
   );
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
-  await created;
+  const { container } = (await (await created).json()) as {
+    container: { containerId: string };
+  };
   // Creating a folder opens it, so the note below is created inside it.
   await expect(
     page.getByRole("button", { name: `Folder actions: ${SIGNED_IN_FOLDER}` }),
   ).toBeVisible({ timeout: 30_000 });
+  return container.containerId;
 }
 
-/** Two synced edits, so attribution records more than one edit range. */
-export async function createNote(page: Page): Promise<void> {
+/**
+ * Two edits in the folder `folderId`, uploaded one after the other, so
+ * attribution records more than one edit range. The second waits for the
+ * first to be accepted: edits still queued together can go up as one upload.
+ */
+export async function createNote(page: Page, folderId: string): Promise<void> {
   const newDocument = page.getByRole("button", {
     name: "New Document",
     exact: true,
   });
   await expect(newDocument).toBeEnabled({ timeout: 30_000 });
-  await newDocument.click();
-  await page.getByRole("button", { name: "Note", exact: true }).click();
-
-  const editor = page.getByRole("textbox", { name: /Notes editor/u });
-  await expect(editor).toBeEditable({ timeout: 30_000 });
-  const created = apiResponse(page, "POST", /^\/documents$/u);
-  await editor.fill(NOTE_TEXT);
-  await created;
-
-  const synced = apiResponse(page, "POST", /^\/documents\/[^/]+\/sync$/u);
-  await editor.fill(`${NOTE_TEXT}\n${NOTE_EDIT}`);
-  await synced;
+  // Watched from before the note exists: a sync pass can create it on the
+  // server before any edit is queued, so the create can precede the first fill.
+  const uploads = watchNoteUploads(page, folderId);
+  try {
+    await newDocument.click();
+    await page.getByRole("button", { name: "Note", exact: true }).click();
+    const editor = page.getByRole("textbox", { name: /Notes editor/u });
+    await expect(editor).toBeEditable({ timeout: 30_000 });
+    await editor.fill(NOTE_TEXT);
+    await uploads.accepted(1);
+    await editor.fill(`${NOTE_TEXT}\n${NOTE_EDIT}`);
+    await uploads.accepted(2);
+  } finally {
+    uploads.stop();
+  }
+  // The server holds both edits; the device has settled once its queue is
+  // empty too.
+  await expect(
+    page.getByRole("button", { name: "All changes synced" }),
+  ).toBeVisible({ timeout: 60_000 });
 }
 
 /** Attaches a file to the open note through its attachments panel. */
@@ -157,8 +183,7 @@ async function attachFile(page: Page): Promise<void> {
  */
 export async function seedSignedInGetInfo(page: Page): Promise<void> {
   await signIn(page);
-  await createFolder(page);
-  await createNote(page);
+  await createNote(page, await createFolder(page));
   await attachFile(page);
 }
 

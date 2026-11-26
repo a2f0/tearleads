@@ -185,6 +185,9 @@ test.each([
   ["ImageVersion", [windows, ...native]],
   ["DEVELOPER_DIR", [ios]],
   ["TLC_JAVA_RUNTIME", [models, negative]],
+  // Shards share every input but the shard, so without it a passing shard's
+  // entry would answer for the others.
+  ["PROTOCOL_MODEL_SHARD", [models]],
 ])("cache inputs include %s", (name, required) => {
   const repo = cacheFixture();
   try {

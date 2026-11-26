@@ -146,53 +146,11 @@ jobs:
           FASTLANE_SKIP_UPDATE_CHECK: "1"
         run: bun scripts/testing/runVerifiedTurbo.ts test --filter=app-capacitor
 
-  # The pure TLC passes, off Lint, one runner each, four TLC runs per runner.
+  # The TLC passes run off Lint, split into model shards; see the workflow.
   models:
-    name: Protocol models (${{ matrix.check }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        check: [check:protocol-models, check:protocol-negative-controls]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up model tooling
-        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
-        with:
-          version: 2026.11.8
-          install_args: bun java github:tlaplus/tlaplus
-          cache: true
-
-      - name: Key the Turbo cache to this runtime
-        run: echo "CI_TOOLCHAIN=bun-$(bun --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
-
-      - name: Serve the Turbo remote cache from the Actions cache
-        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
-        with:
-          server-port: 0
-
-      - name: Install dependencies
-        run: sh scripts/lib/installDependencies.sh
-
-      - name: Run model check
-        env:
-          CI_TURBO_PROTOCOL_CACHE: "1"
-          MODEL_CHECK: ${{ matrix.check }}
-          PROTOCOL_TLC_FAILURE_LOG_DIR: ${{ runner.temp }}/tlc-failures
-          PROTOCOL_TLC_PARALLELISM: "4"
-        run: bun scripts/checks/runCachedProtocolCheck.ts "$MODEL_CHECK"
-
-      # A failing model's full TLC log, which the job's stdout can cut short.
-      - name: Upload failing TLC logs
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: tlc-failure-logs-${{ strategy.job-index }}
-          path: ${{ runner.temp }}/tlc-failures
-          if-no-files-found: ignore
+    uses: ./.github/workflows/protocol-models.yml
+    with:
+      force: ${{ inputs.force || github.event_name == 'workflow_dispatch' }}
 
   # The suites too long to share a runner run in `test`; this job keeps the
   # remaining package tests alongside the TypeScript and web builds.

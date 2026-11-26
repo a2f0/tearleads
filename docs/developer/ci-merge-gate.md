@@ -53,16 +53,24 @@ stays in, since it holds the check's command and Capacitor's sync hooks. It
 keeps no Xcode build state between runs: restoring DerivedData from the Actions
 cache still rebuilt every object file under the runner's Xcode 16.4.
 
-The two pure TLC model passes run in the `Protocol models (...)` jobs, one per
-pass, with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them
+The two pure TLC model passes run in the `Protocol models (...)` jobs of the
+reusable [`protocol-models.yml`](../../.github/workflows/protocol-models.yml)
+workflow with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them
 (`CI_DEFER_PROTOCOL_MODELS=1`). Their inputs include the formal models,
 registry, checker scripts, tool pins, and Java runtime identity. The wrapper
 validates the installed Java version and jar digest before every lookup,
-including cache hits. Each job overlaps four TLC runs, one per runner vCPU
-(`PROTOCOL_TLC_PARALLELISM=4`; local runs default to two), with each JVM's
-heap capped so the four fit in the runner's memory, and starts its longest
-runs first from the [recorded durations](../../formal/README.md). The
-parallelism is part of the task hash, so changing it reruns both passes.
+including cache hits. The models split across three jobs
+(`PROTOCOL_MODEL_SHARD=1/3` to `3/3`) by their
+[recorded durations](../../formal/README.md), each overlapping two TLC runs;
+the negative controls run in one job overlapping four
+(`PROTOCOL_TLC_PARALLELISM=4`; local runs default to two and check every
+model). Each JVM's heap is capped so the overlapping runs fit in the runner's
+memory, and each job starts its longest runs first. The shard and the
+parallelism are part of the task hash, so each shard caches on its own and
+changing either reruns the affected jobs.
+[`protocolModelShards.test.ts`](../../scripts/checks/staticAnalysis/protocolModelShards.test.ts)
+checks that the shards in the workflow cover the registry, each model exactly
+once.
 Implementation projections, conformance tests, and other
 static checks still run in `Lint`. Local
 [`check:fast`](./verification.md#before-a-push) and the direct model commands

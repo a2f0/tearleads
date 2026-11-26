@@ -28,7 +28,10 @@ can only do and observe what a deployed client could.
   after commit, then release or drop it. Gates make races reproducible and
   recorded HTTP statuses prove which transaction lost the race. A scenario can
   also rewrite matching JSON responses to play a dishonest server at the
-  network boundary, while the API itself stays honest.
+  network boundary, while the API itself stays honest. It can rewrite
+  matching JSON requests too, to play a client that asks for something the
+  SDK asks for only in a state a scenario cannot reach, such as the one-update
+  pages of a device isolating an update.
 - [`src/harness/accessModel.ts`](src/harness/accessModel.ts) is a deliberately
   naive reference for who may
   read and write each document, from parent pointers, grants, and group
@@ -86,6 +89,8 @@ request the API refuses with its error body.
 | `falseSpanUnlink` | After a writer signs a false-span update, a reader that voided it unlinks the document: its rotation leaves the void out of the history it proves, and its baseline signs the reader's processed cursor, so the API asks it to cover only later updates. A fresh install starts from the baseline and never meets the update. |
 | `peerOwnershipRebase` | Another user commits a writer's first queued update as his own, which claims the writer's record peer up to its end. The writer's queue extends that peer past it, so the API refuses it once with `document_sync_peer_owned`; the writer moves its unsent operations onto a fresh peer and the retry lands. Fresh installs read both edits exactly once. |
 | `allVoidUnlink` | After a writer signs only false-span updates, a reader that voided all of them holds an empty document and unlinks it: its baseline is one empty segment signing its processed cursor, so the API asks it to cover only later updates. A fresh install is redirected past the voids and never meets them, and after a second rotation a new device starts from the new baseline. |
+| `pagedBaselineGroup` | An unlink's rotation baseline of several segments, cut at the SDK's own sizes from a 9 MiB history, is read whole across page boundaries. A fresh install asking for one update a page is redirected to the group, served one segment a page and nothing else, and asks for each later page with no version. A second rotation from a device that pages the same way reads the raw history, the first group included, a segment a page, and its unlink goes out because the rebuild equals what sync applied. |
+| `failingFirstPage` | A device sends a queued write with a pull whose first page serves a baseline without its first segment. The API commits the write and the other member reads it; the device fails the page, keeps the write queued, and resends it on each of seven passes. The API refuses each resend with `document_sync_update_id_conflict` and the pass's read-only recovery pull fails on the same page. Once the baseline is served whole, the recovery pull settles the write by content: one commit, nothing sent again. |
 
 Pin a reproducible open issue in a scenario file as a `test.failing` case.
 It passes while the bug stands and fails once it is

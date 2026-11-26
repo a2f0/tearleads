@@ -33,8 +33,9 @@ Run the smallest command that matches the handoff risk:
 - `bun run check:protocol-models`: all bounded TLC checks registered in
   `formal/protocol-models.txt`, using the Java and TLA+ tools pinned in
   `.mise.toml`. It and `bun run check:protocol-negative-controls` run two TLC
-  processes at a time (four in CI), longest recorded run first; set
-  `PROTOCOL_TLC_PARALLELISM` to change that.
+  processes at a time, longest recorded run first; set
+  `PROTOCOL_TLC_PARALLELISM` to change that. CI splits the models across
+  three runners with `PROTOCOL_MODEL_SHARD`.
 - `bun run check:protocol-traces` and `bun run check:protocol-projection`:
   the TLC trace fixture drift check and the implementation-trace projection
   (both also inside `check:fast`; both need the mise-pinned Java/TLA+ tools).

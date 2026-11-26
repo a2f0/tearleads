@@ -37,10 +37,17 @@ export type DocumentVoidStage =
  * judges every update it voided again: a format an older decoder could not
  * read is not a fault of the writer.
  */
-const DOCUMENT_VOID_RULES_VERSION = "void-rules-7";
+const DOCUMENT_VOID_RULES_VERSION = "void-rules-8";
 
 export function documentVerdictJudge(): string {
   return `${DOCUMENT_VOID_RULES_VERSION}:${loroDecoderIdentity()}`;
+}
+
+/** Operations of one peer: its counters `[startCounter, endCounter)`. */
+export interface DocumentOperationSpan {
+  readonly endCounter: number;
+  readonly peerId: string;
+  readonly startCounter: number;
 }
 
 /**
@@ -52,13 +59,16 @@ export function documentVerdictJudge(): string {
 export interface VoidedDocumentSyncUpdate {
   readonly error: DocumentSyncUpdateIsolationError;
   /**
-   * Set when this page judged the update unable to join because the reader
-   * lacks an operation it starts after or depends on. A rotation baseline's
-   * segment in that state, with every earlier segment of its group accepted,
-   * was served without the segments it builds on, and the pass fails
-   * instead of recording the void (`settleBaselineGroupVerdicts`).
+   * Set, and never empty, when this page judged the update unable to join
+   * because the reader lacks operations it starts after or signs a
+   * dependency on: for each such peer, the counters from the reader's own
+   * to the one the update names. A rotation baseline's segment in that
+   * state is void only when unapplied segments of its group, served earlier
+   * in the pull, declared every one of them; otherwise it was served
+   * without the segments it builds on, and the pass fails instead of
+   * recording the void (`settleBaselineGroupVerdicts`).
    */
-  readonly missingDependency?: true | undefined;
+  readonly missingOperations?: readonly DocumentOperationSpan[] | undefined;
   /**
    * This device's peer id, when the update reused ids of operations this
    * device holds under it with other operations: its writer committed them
