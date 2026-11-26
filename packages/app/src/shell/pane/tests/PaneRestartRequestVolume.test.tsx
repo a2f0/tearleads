@@ -88,12 +88,17 @@ async function measureRestart(input: {
   readonly notesPerFolder: number;
   readonly settledRestarts?: number;
 }) {
+  // Holds one tree request, the next one sent: the measured restart's crawl.
   let crawlAnswers: Promise<void> | undefined;
   useTestApiAppHandlers({
-    holdRequest: (request) =>
-      new URL(request.url).pathname === "/containers/parent-lanes/query"
-        ? crawlAnswers
-        : undefined,
+    holdRequest: (request) => {
+      if (new URL(request.url).pathname !== "/containers/parent-lanes/query") {
+        return undefined;
+      }
+      const held = crawlAnswers;
+      crawlAnswers = undefined;
+      return held;
+    },
   });
   const storage = createPersistedPaneStorage();
   const namespace = `restart-budget-${crypto.randomUUID()}`;
@@ -162,11 +167,12 @@ async function measureRestart(input: {
         await waitFor(() =>
           expect(second.sdk().events.connectionGeneration).toBe(1),
         );
+        // The root refresh takes its turn among the sweeps at once, ahead
+        // of the catch-up, which is still waiting on the crawl.
         const rootRefresh = second
           .sdk()
           .deviceFirst.open()
           .reconciler.reconcileRootContainersNow();
-        await new Promise((resolve) => setTimeout(resolve, 50));
         rootRefreshRequested.resolve();
         await rootRefresh;
       }

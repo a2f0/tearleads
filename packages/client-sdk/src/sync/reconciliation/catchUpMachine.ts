@@ -10,21 +10,28 @@
  *   acknowledgement.
  *
  * A hint's forced entry is not deferred, and neither is a container the user
- * opens during the wait: its documents are on screen. The wait takes no turn
- * among the sweeps, so a root or full refresh runs beside it. Once the wait
- * ends, the catch-up takes a turn and lists the owed lanes, or every known
- * lane when nothing vouched for the rest.
+ * opens meanwhile: its documents are on screen. The wait takes no turn among
+ * the sweeps, so a root or full refresh runs beside it. Once the crawl has
+ * settled the catch-up asks for a turn, and when the turn comes its sweep
+ * takes the queue over and lists the owed lanes, or every known lane when
+ * nothing vouched for the rest. Work stays deferred until that turn: a sweep
+ * ahead of it in line would otherwise list lanes it is about to vouch for.
  *
  * | State | Event | Next |
  * | --- | --- | --- |
  * | idle | acknowledged | awaitingCrawl, with that wait and nothing opened |
  * | awaitingCrawl | acknowledged | unchanged: the wait in progress serves both |
- * | awaitingCrawl | opened | awaitingCrawl, with that container opened |
- * | awaitingCrawl | waitEnded, the same wait | idle |
- * | awaitingCrawl | waitEnded, an older wait | unchanged |
+ * | awaitingTurn | acknowledged | awaitingCrawl, with the new wait |
+ * | awaitingCrawl | crawlSettled, the same wait | awaitingTurn |
+ * | awaitingCrawl, awaitingTurn | opened | the same, with that container opened |
+ * | awaitingCrawl, awaitingTurn | turnTaken, the same wait | idle |
  * | any | stopped | idle |
  *
- * Every other pair leaves the state unchanged.
+ * Every other pair leaves the state unchanged. An acknowledgement while a
+ * catch-up awaits its turn starts a wait of its own: that catch-up's crawl
+ * settled before this acknowledgement, so it says nothing about what moved
+ * since. The earlier catch-up still takes its turn; its `turnTaken` names an
+ * older wait and changes nothing.
  */
 export interface CatchUpWait {
   /** Ends the wait at once, as when the service stops. */
@@ -38,50 +45,60 @@ export interface CatchUpWait {
 export type CatchUpState =
   | { readonly status: "idle" }
   | {
-      /** Containers the user opened during the wait. */
+      /** Containers the user opened since the acknowledgement. */
       readonly openedContainerIds: ReadonlySet<string>;
-      readonly status: "awaitingCrawl";
+      readonly status: "awaitingCrawl" | "awaitingTurn";
       readonly wait: CatchUpWait;
     };
 
 export type CatchUpEvent =
   | { readonly type: "acknowledged"; readonly wait: CatchUpWait }
+  | { readonly type: "crawlSettled"; readonly wait: CatchUpWait }
   | { readonly containerId: string; readonly type: "opened" }
-  | { readonly type: "waitEnded"; readonly wait: CatchUpWait }
+  | { readonly type: "turnTaken"; readonly wait: CatchUpWait }
   | { readonly type: "stopped" };
 
 export const IDLE_CATCH_UP: CatchUpState = { status: "idle" };
+
+function afterAcknowledged(
+  state: CatchUpState,
+  wait: CatchUpWait,
+): CatchUpState {
+  if (state.status === "awaitingCrawl") return state;
+  return {
+    openedContainerIds:
+      state.status === "idle" ? new Set() : state.openedContainerIds,
+    status: "awaitingCrawl",
+    wait,
+  };
+}
 
 export function transitionCatchUp(
   state: CatchUpState,
   event: CatchUpEvent,
 ): CatchUpState {
+  if (event.type === "stopped") return IDLE_CATCH_UP;
+  if (event.type === "acknowledged") {
+    return afterAcknowledged(state, event.wait);
+  }
+  if (state.status === "idle") return state;
   switch (event.type) {
-    case "acknowledged":
-      return state.status === "idle"
-        ? {
-            openedContainerIds: new Set(),
-            status: "awaitingCrawl",
-            wait: event.wait,
-          }
+    case "crawlSettled":
+      return state.status === "awaitingCrawl" && state.wait === event.wait
+        ? { ...state, status: "awaitingTurn" }
         : state;
     case "opened":
-      return state.status === "awaitingCrawl" &&
-        !state.openedContainerIds.has(event.containerId)
-        ? {
+      return state.openedContainerIds.has(event.containerId)
+        ? state
+        : {
             ...state,
             openedContainerIds: new Set([
               ...state.openedContainerIds,
               event.containerId,
             ]),
-          }
-        : state;
-    case "waitEnded":
-      return state.status === "awaitingCrawl" && state.wait === event.wait
-        ? IDLE_CATCH_UP
-        : state;
-    case "stopped":
-      return IDLE_CATCH_UP;
+          };
+    case "turnTaken":
+      return state.wait === event.wait ? IDLE_CATCH_UP : state;
   }
 }
 
@@ -93,10 +110,7 @@ export function defersQueuedLane(
   state: CatchUpState,
   containerId: string,
 ): boolean {
-  return (
-    state.status === "awaitingCrawl" &&
-    !state.openedContainerIds.has(containerId)
-  );
+  return state.status !== "idle" && !state.openedContainerIds.has(containerId);
 }
 
 /**
@@ -109,8 +123,8 @@ export function defersRootSweepLane(
   containerId: string,
 ): boolean {
   return (
-    defersQueuedLane(state, containerId) &&
-    state.status === "awaitingCrawl" &&
+    state.status !== "idle" &&
+    !state.openedContainerIds.has(containerId) &&
     state.wait.knownContainerIds.has(containerId)
   );
 }

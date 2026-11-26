@@ -107,18 +107,21 @@ crawl that the same acknowledgement starts already says which folders moved.
   hint) lists the root lane and leaves the document lanes that were known at
   the acknowledgement to the catch-up. A hint's lane and the open folder's
   are listed at once. The wait takes no turn among the sweeps, so a root or
-  full refresh runs beside it and does not end it. An acknowledgement that
-  arrives during the wait shares it.
+  full refresh runs beside it and does not end it. The deferral lasts until
+  the catch-up's sweep takes its turn, so a sweep ahead of it in line lists
+  none of its lanes either. An acknowledgement that arrives during the wait
+  shares it; one that arrives after the crawl settled waits on a crawl of
+  its own.
 - Settling. A listing reads its lane's request before it is sent and settles
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been
   answered before the write behind it.
 - Fallback. When the crawl did not list every lane it queued, did not settle
   within 15 seconds (it cannot start while the store is not ready or after
-  the socket dropped again), the host reports no crawl, or the owed record
-  cannot be read, nothing vouches for the lanes it was not served, and the
-  catch-up lists every known lane, as it did before lanes were owed
-  listings.
+  the socket dropped again), the host reports no crawl, or the crawl's
+  outcome or the owed record cannot be read, nothing vouches for the lanes
+  it was not served, and the catch-up lists every known lane, as it did
+  before lanes were owed listings.
 - Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's
   owes lanes the same way and lists nothing for them at once. The request is
   durable, so the next catch-up lists the lane, as does the owed-lane resume

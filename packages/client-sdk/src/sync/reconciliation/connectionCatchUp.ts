@@ -56,7 +56,11 @@ async function planCatchUp(
   };
 }
 
-function dispatchCatchUp(state: ReconciliationState, event: CatchUpEvent) {
+/** The one place the catch-up's state is written. */
+export function dispatchCatchUp(
+  state: ReconciliationState,
+  event: CatchUpEvent,
+): void {
   state.catchUp = transitionCatchUp(state.catchUp, event);
 }
 
@@ -71,6 +75,26 @@ function reportUnawaitedSweep(
 }
 
 /**
+ * Whether the crawl the acknowledgement owes vouches for the lanes it was
+ * not served. A crawl whose outcome cannot be read vouches for nothing.
+ */
+async function awaitCrawlVerdict(
+  host: ReconciliationHost,
+  stop: AbortSignal,
+): Promise<boolean> {
+  try {
+    return await awaitTreeCrawl(
+      host.whenTreeCrawlSettles?.(),
+      stop,
+      host.clock,
+    );
+  } catch (error) {
+    host.logError?.("Reconciliation: tree crawl outcome was not read", error);
+    return false;
+  }
+}
+
+/**
  * Waits for the tree crawl the acknowledgement owes, then takes a turn among
  * the sweeps and lists what `planCatchUp` says. The wait itself takes no
  * turn: a root or full refresh requested meanwhile runs beside it.
@@ -81,31 +105,34 @@ async function catchUpAfterCrawl(
   wait: CatchUpWait,
   stop: AbortSignal,
 ): Promise<void> {
-  let crawlVouches = false;
-  try {
-    crawlVouches = await awaitTreeCrawl(
-      host.whenTreeCrawlSettles?.(),
-      stop,
-      host.clock,
-    );
-  } finally {
-    dispatchCatchUp(state, { type: "waitEnded", wait });
-  }
+  const crawlVouches = await awaitCrawlVerdict(host, stop);
   // A stopped service drops the catch-up: its next start resumes owed lanes.
   if (stop.aborted) return;
-  // The lane left idle entries queued for this sweep, which takes them over.
-  await requestContainerRefresh({
-    // It never joins a sweep that already started: that one may have listed
-    // before the acknowledgement.
-    freshListing: true,
-    host,
-    state,
-    // The container store lists the tree itself on the acknowledgement.
-    refreshTree: () => Promise.resolve(),
-    planSweep: () => planCatchUp(host, state, crawlVouches),
-    scope: "acknowledged",
-    signal: undefined,
-  });
+  dispatchCatchUp(state, { type: "crawlSettled", wait });
+  try {
+    await requestContainerRefresh({
+      // It never joins a sweep that already started: that one may have
+      // listed before the acknowledgement.
+      freshListing: true,
+      host,
+      state,
+      // The container store lists the tree itself on the acknowledgement.
+      refreshTree: () => Promise.resolve(),
+      // The sweep has taken the queue over by the time it reads its plan.
+      planSweep: () => {
+        dispatchCatchUp(state, { type: "turnTaken", wait });
+        return planCatchUp(host, state, crawlVouches);
+      },
+      scope: "acknowledged",
+      signal: undefined,
+    });
+  } finally {
+    // A sweep that never read its plan (the device went offline, or the
+    // plan could not be read) took nothing over: the catch-up is over all
+    // the same, and what it deferred is the lane's again.
+    dispatchCatchUp(state, { type: "turnTaken", wait });
+    if (state.queue.size > 0) state.lane?.requestSync();
+  }
 }
 
 /**
@@ -141,11 +168,11 @@ export function requestAcknowledgedConnectionSweep(
 }
 
 /**
- * Stops a catch-up that is still waiting on its crawl. The service calls it
- * when it stops.
+ * Stops a catch-up that has not taken its turn. The service calls it when it
+ * stops.
  */
 export function stopCatchUp(state: ReconciliationState): void {
   const { catchUp } = state;
   dispatchCatchUp(state, { type: "stopped" });
-  if (catchUp.status === "awaitingCrawl") catchUp.wait.cancel();
+  if (catchUp.status !== "idle") catchUp.wait.cancel();
 }

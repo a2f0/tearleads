@@ -1,10 +1,7 @@
 import { clearOriginatedDocuments } from "../../data/sync/originatedDocuments";
+import { defersQueuedLane, IDLE_CATCH_UP } from "./catchUpMachine";
 import {
-  defersQueuedLane,
-  IDLE_CATCH_UP,
-  transitionCatchUp,
-} from "./catchUpMachine";
-import {
+  dispatchCatchUp,
   requestAcknowledgedConnectionSweep,
   stopCatchUp,
 } from "./connectionCatchUp";
@@ -281,10 +278,7 @@ export function createReconciliationService(
       activateContainer(state, containerId, (activeId) => {
         // Its documents are on screen: a catch-up waiting on its crawl does
         // not hold this listing back.
-        state.catchUp = transitionCatchUp(state.catchUp, {
-          containerId: activeId,
-          type: "opened",
-        });
+        dispatchCatchUp(state, { containerId: activeId, type: "opened" });
         enqueueContainer(activeId, "active");
       }),
     enqueueContainer,

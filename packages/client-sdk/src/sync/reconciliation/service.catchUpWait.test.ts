@@ -145,6 +145,123 @@ test("a root refresh during the wait leaves the catch-up's lanes to it", async (
   service.stop();
 });
 
+test("a root refresh that plans after the crawl settled still leaves the lanes", async () => {
+  const rootTree = createGate();
+  const { crawl, listings, service } = awaitingCrawl({
+    overrides: {
+      listAutomaticRootCatchupContainerIds: () => [...KNOWN],
+      refreshRootTree: () => rootTree.wait,
+    },
+  });
+  const catchUp = service.reconcileAcknowledgedConnection();
+  await settle();
+  // The root refresh takes its turn first; its own tree listing is slow.
+  const rootRefresh = service.reconcileRootContainersNow();
+  await settle();
+
+  // The crawl settles, and the catch-up waits behind the root refresh.
+  crawl.open();
+  await settle();
+  rootTree.open();
+  await Promise.all([rootRefresh, catchUp]);
+
+  // The root sweep read its plan after the crawl settled and before the
+  // catch-up's turn: the lanes were still the catch-up's to vouch for.
+  expect(listings).toEqual([]);
+  service.stop();
+});
+
+test("a crawl whose outcome cannot be read vouches for nothing", async () => {
+  const errors: unknown[] = [];
+  const failure = new Error("port failed");
+  const { listings, service } = awaitingCrawl({
+    overrides: {
+      logError: (_message, error) => {
+        errors.push(error);
+      },
+      whenTreeCrawlSettles: () => Promise.reject(failure),
+    },
+  });
+  // A lane queued while the catch-up waited must not be left stranded.
+  const catchUp = service.reconcileAcknowledgedConnection();
+  service.enqueueContainer("a", "idle");
+
+  await catchUp;
+  await settle();
+
+  expect(listings).toEqual([[...KNOWN]]);
+  expect(errors).toEqual([failure]);
+  service.stop();
+});
+
+test("a catch-up that cannot take its turn stops deferring", async () => {
+  let online = true;
+  const { crawl, listings, service } = awaitingCrawl({
+    overrides: {
+      getRuntimeStatus: () => ({
+        dbStatus: "ready",
+        isAuthenticated: true,
+        online,
+      }),
+    },
+  });
+  const catchUp = service.reconcileAcknowledgedConnection();
+  service.enqueueContainer("a", "idle");
+  await settle();
+  expect(listings).toEqual([]);
+
+  // The device goes offline before the crawl settles, so the sweep never
+  // reads its plan. The catch-up is over all the same: once the device is
+  // back, the lane lists what was deferred with whatever is queued next.
+  online = false;
+  crawl.open();
+  await catchUp;
+  online = true;
+  service.enqueueContainer("b", "idle");
+  await settle();
+  await settle();
+
+  expect(listings).toEqual([["a", "b"]]);
+  service.stop();
+});
+
+test("an acknowledgement while a catch-up awaits its turn gets its own crawl", async () => {
+  const rootTree = createGate();
+  let crawls = 0;
+  const secondCrawl = createGate();
+  let owed: ReadonlyArray<string> = [];
+  const { listings, service } = awaitingCrawl({
+    overrides: {
+      refreshRootTree: () => rootTree.wait,
+      whenTreeCrawlSettles: async () => {
+        crawls += 1;
+        if (crawls > 1) await secondCrawl.wait;
+        return true;
+      },
+    },
+    owed: () => owed,
+  });
+  // A root refresh holds the turn, so the first catch-up waits for it with
+  // its crawl already settled.
+  const rootRefresh = service.reconcileRootContainersNow();
+  await settle();
+  const first = service.reconcileAcknowledgedConnection();
+  await settle();
+
+  // The socket drops and is acknowledged again; its crawl is served lane b.
+  const second = service.reconcileAcknowledgedConnection();
+  expect(second).not.toBe(first);
+  rootTree.open();
+  await Promise.all([rootRefresh, first]);
+  expect(listings).toEqual([]);
+
+  owed = ["b"];
+  secondCrawl.open();
+  await second;
+  expect(listings).toEqual([["b"]]);
+  service.stop();
+});
+
 test("a root refresh during the wait still lists a lane found since", async () => {
   let known: ReadonlyArray<string> = [...KNOWN];
   const { listings, service } = awaitingCrawl({
