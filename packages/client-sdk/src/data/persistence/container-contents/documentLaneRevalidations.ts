@@ -1,4 +1,8 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notExists, sql } from "drizzle-orm";
+import {
+  containers,
+  containerTableSchemas,
+} from "../../sqlite/schema/containerSchema";
 import {
   containerSyncWatermarkTables,
   documentLaneRevalidations,
@@ -94,6 +98,37 @@ export class DocumentLaneRevalidationRepository {
       );
     }
     return found;
+  }
+
+  /**
+   * Forgets the requests of containers this device does not store. A tree
+   * listing owes a lane before its row is applied, so a row that was then
+   * refused, or one that never verified, leaves a request nothing lists.
+   * Dropping it loses nothing: a container that is stored later has no
+   * settled lane, which owes it a listing by itself.
+   */
+  async forgetUnheld(): Promise<void> {
+    await ensureSqlTables(this.execSql, [
+      ...containerSyncWatermarkTables,
+      ...containerTableSchemas,
+    ]);
+    await getClientSQLitePersistenceRuntime(this.execSql).runMutation(
+      async (db) => {
+        await db
+          .delete(documentLaneRevalidations)
+          .where(
+            notExists(
+              db
+                .select({ id: containers.id })
+                .from(containers)
+                .where(
+                  eq(containers.id, documentLaneRevalidations.containerId),
+                ),
+            ),
+          )
+          .run();
+      },
+    );
   }
 
   /**

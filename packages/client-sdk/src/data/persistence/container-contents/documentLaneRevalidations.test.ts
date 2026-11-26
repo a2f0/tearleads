@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { ExecSql } from "../../sqlite/sqlSchema";
+import { containerTableSchemas } from "../../sqlite/schema/containerSchema";
+import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 import { DocumentLaneRevalidationRepository } from "./documentLaneRevalidations";
 
 let close: () => void = () => undefined;
@@ -56,4 +58,41 @@ test("many containers are requested and found across statements", async () => {
 
   expect((await repository.listOwedContainerIds()).size).toBe(1_200);
   expect((await repository.find(containerIds)).length).toBe(1_200);
+});
+
+test("requests of containers the device does not store are forgotten", async () => {
+  await ensureSqlTables(execSql, containerTableSchemas);
+  await execSql(
+    `INSERT INTO containers
+       (id, organization_id, local_created_at, local_updated_at)
+     VALUES ('stored', 'org-1', '2026-01-01', '2026-01-01')`,
+    [],
+  );
+  await repository.request(["stored", "refused"]);
+
+  await repository.forgetUnheld();
+
+  // A refused row was owed before it could be stored and nothing lists it.
+  expect(await repository.listOwedContainerIds()).toEqual(new Set(["stored"]));
+});
+
+test("deleting a container clears the listing its lane was owed", async () => {
+  const now = "2026-01-01T00:00:00.000Z";
+  await sqlContainerContentsPersistence.ensureSchema(execSql);
+  for (const id of ["deleted", "kept"]) {
+    await execSql(
+      `INSERT INTO containers
+         (id, organization_id, local_created_at, local_updated_at)
+       VALUES (?, 'org-1', ?, ?)`,
+      [id, now, now],
+    );
+  }
+  await repository.request(["deleted", "kept"]);
+
+  await sqlContainerContentsPersistence.deleteContainers(execSql, [
+    { containerId: "deleted", reason: "deleted", updatedAt: now },
+  ]);
+
+  // A lane that no longer exists has nothing left to list.
+  expect(await repository.listOwedContainerIds()).toEqual(new Set(["kept"]));
 });

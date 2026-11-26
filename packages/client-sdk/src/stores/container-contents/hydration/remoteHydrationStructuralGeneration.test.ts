@@ -67,6 +67,49 @@ test("structural generation guards the hydration persistence transaction", async
   expect(transactionalGuard).toBeDefined();
 });
 
+test("a superseded hydration owes no document lane a listing", async () => {
+  let current = false;
+  const requested: Array<ReadonlyArray<string>> = [];
+  const guardedHost = createGenerationGuardedHydrationHost({
+    host: {
+      persistContainerState: async () => ({ status: "stale-generation" }),
+      requestDocumentLaneListings: async (containerIds) => {
+        requested.push(containerIds);
+        // The store is replaced while the request is being written.
+        current = false;
+      },
+      updateSnapshot: () => {},
+    },
+    isCurrent: () => current,
+  });
+
+  // Stale before the write: nothing is recorded for the replaced store.
+  await expect(
+    guardedHost.requestDocumentLaneListings?.(["container-1"]),
+  ).rejects.toBeInstanceOf(StaleRemoteHydrationError);
+  expect(requested).toEqual([]);
+
+  // Stale after the write: the request stays, which only lists the lane once
+  // more, and the page that owed it must not go on to apply.
+  current = true;
+  await expect(
+    guardedHost.requestDocumentLaneListings?.(["container-1"]),
+  ).rejects.toBeInstanceOf(StaleRemoteHydrationError);
+  expect(requested).toEqual([["container-1"]]);
+});
+
+test("a host that owes no listings keeps none when guarded", () => {
+  const guardedHost = createGenerationGuardedHydrationHost({
+    host: {
+      persistContainerState: async () => ({ status: "stale-generation" }),
+      updateSnapshot: () => {},
+    },
+    isCurrent: () => true,
+  });
+
+  expect(guardedHost.requestDocumentLaneListings).toBeUndefined();
+});
+
 test("structural replacement retries hydration in the current generation", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-structural-hydration-generation",

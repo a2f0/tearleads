@@ -68,7 +68,7 @@ unless noted.
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Link a document into the folder, keeping its root link | 2 | One link; no attachment listing, because the device holds no attachment row for the document; 9,300 request and 760 response bytes |
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Unlink the document from the folder | 5 | One unlink, one document projection, one rotation-preflight sync that the replay reuses; no attachment listing; 17,650 request and 21,200 response bytes |
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the document to Trash | 4 | One link and one unlink; the link cites no rewraps without listing and the unlink re-cites what the link committed; the first write into Trash reads its projection, and the unlink reuses the unchanged document's rotation proof, so no sync or document projection; 26,700 request and 8,900 response bytes |
-| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the emptied folder to Trash | 10 | One move, no read-model read (an ungranted move stamps no grants); 16,700 request and 19,950 response bytes |
+| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the emptied folder to Trash | 10 | One move, no read-model read (an ungranted move stamps no grants); 16,700 request and 20,300 response bytes |
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Restore the folder to the root | 11 | One move, no read-model read; 16,850 request and 33,000 response bytes (the root lane is listed twice in one tree request, from its watermark and for membership) |
 | [`DualPaneProvider.groupsRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx) | Open Org Manager and select Admins | 3 | One read-model, one organization-policy and one Admins-policy read |
 | [`DualPaneProvider.groupsRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx) | Add a new peer to Admins, including peer convergence | 49, plus each validated preparation response (at most one) | 132,000 request and 490,000 response bytes; 10 organization-policy, 3 group-policy and 7 history reads; no read-model read (the commit's response carries the actor's delta); 9 document projections (10 after a real stale-target `409`); 11 syncs, all read-only, none of the organization profile; 2 recitations; 1 policy commit; no standalone share |
@@ -190,7 +190,9 @@ sizes. Its two listing requests are one batch of queued lanes and one
 unwatermarked batch for the initial document probe, which reads up to 32 lanes
 per request. A third size, eight folders of one note each, costs no more: the
 tree crawl lists the root lane and each known folder's child lane, up to 32
-parent lanes per request, so it is one request here too. The first restart
+parent lanes per request, so it is one request here too. The root lane's
+second listing, for membership, takes one of the 32, so a tree of 31 folders
+or more needs a second request. The first restart
 after a local edit is served the edited note's folder, whose lane the catch-up
 then lists: one more listing and one more policy read than a settled restart;
 the note is not synced and its head is not read, because the device's own
@@ -313,7 +315,8 @@ reference, and a lane's linked containers reuse the policies its gate loaded, so
 batching also saves statements; every
 [container path](./glossary/access.md#authorizing-container-path) is still verified.
 `POST /containers/parent-lanes/query` accepts 32 parent lanes
-(`MAX_CONTAINER_PARENT_LANES`) on the same terms. Both routes list four lanes
+(`MAX_CONTAINER_PARENT_LANES`) on the same terms; the root lane counts twice
+when a crawl also lists it for membership. Both routes list four lanes
 at a time, the size of the request's
 [database pool](./limits.md#database-connections), so a larger batch does not
 hold more database work at once than four singular listings did. A document

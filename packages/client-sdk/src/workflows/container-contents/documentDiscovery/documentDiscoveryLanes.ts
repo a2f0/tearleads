@@ -44,6 +44,22 @@ export interface OwedContainerDocumentLaneListing {
 }
 
 /**
+ * Settles the request a settled listing answered. The listing has applied by
+ * now, so a failure here never changes its outcome: the request stays owed
+ * and the next catch-up lists the lane once more.
+ */
+async function settleAnsweredRequest(
+  settleOwed: (() => Promise<void>) | undefined,
+  reportSettleFailure: ((error: unknown) => void) | undefined,
+): Promise<void> {
+  try {
+    await settleOwed?.();
+  } catch (error) {
+    reportSettleFailure?.(error);
+  }
+}
+
+/**
  * Applies one lane's listing. With `owed`, a listing that applied with no
  * candidate left pending settles that request; a listing that was refused,
  * superseded or left candidates pending leaves the lane owed.
@@ -53,6 +69,7 @@ async function applyListedLane(
   generation: number,
   listedDocuments: ContainerDocumentLaneListing,
   settleOwed: (() => Promise<void>) | undefined,
+  reportSettleFailure: ((error: unknown) => void) | undefined,
 ): Promise<ContainerDocumentDiscoveryOutcome> {
   // A failed request is retryable, unlike a refused lane: reject it so the
   // caller retries and reports it rather than settling as if nothing changed.
@@ -77,7 +94,9 @@ async function applyListedLane(
       generation,
       listedDocuments,
     );
-    if (applied.status === "applied" && applied.settled) await settleOwed?.();
+    if (applied.status === "applied" && applied.settled) {
+      await settleAnsweredRequest(settleOwed, reportSettleFailure);
+    }
     return applied.status === "superseded"
       ? {
           containerId: lane.containerId,
@@ -118,6 +137,11 @@ export async function discoverContainerDocumentLanes(input: {
     | undefined;
   /** Awaited after each lane settles, before the next lane applies. */
   readonly onOutcome?: ContainerDocumentDiscoveryOutcomeHandler | undefined;
+  /**
+   * Told when settling a request failed. The listing still counts as applied
+   * and its request stays owed.
+   */
+  readonly reportSettleFailure?: ((error: unknown) => void) | undefined;
   /** Settles a request that a settled listing answered. */
   readonly settleOwedLaneListing?:
     | ((owed: OwedContainerDocumentLaneListing) => Promise<void>)
@@ -160,6 +184,7 @@ export async function discoverContainerDocumentLanes(input: {
       owed && settleOwedLaneListing
         ? () => settleOwedLaneListing(owed)
         : undefined,
+      input.reportSettleFailure,
     );
     outcomes.push(outcome);
     await input.onOutcome?.(outcome);

@@ -10,6 +10,7 @@ import {
 import { requestRegisteredDocumentRemoteSyncs } from "../../stores/documents/registry";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import type { ReconciliationHost } from "../../sync/reconciliation";
+import { forgetUnheldDocumentLaneListings } from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import {
   forgetUnheldDocumentListingReads,
   listOwedDocumentListingReads,
@@ -52,6 +53,7 @@ export function createListingCoverageHost(
       await requestRemoteSyncsOfRecordsSavedElsewhere(domainScope, execSql);
       // Housekeeping comes last, so its failure costs no read.
       await forgetUnheldDocumentListingReads(execSql);
+      await forgetUnheldDocumentLaneListings(execSql);
     },
   };
 }
