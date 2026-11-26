@@ -19,7 +19,7 @@ import {
   readLicenseFieldValues,
 } from "./licenseDocumentDefinition";
 
-const LICENSE_TYPE_FIELD: VariantDocumentTypeField = {
+const LICENSE_TYPE_FIELD: VariantDocumentTypeField<"licenseType"> = {
   ariaLabel: "License type",
   key: "licenseType",
   label: "License Type",

@@ -19,7 +19,7 @@ import {
   readInsurancePolicyFieldValues,
 } from "./insurancePolicyDocumentDefinition";
 
-const POLICY_TYPE_FIELD: VariantDocumentTypeField = {
+const POLICY_TYPE_FIELD: VariantDocumentTypeField<"policyType"> = {
   ariaLabel: "Policy type",
   key: "policyType",
   label: "Policy Type",

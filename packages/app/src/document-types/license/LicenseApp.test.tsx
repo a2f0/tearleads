@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { useState } from "react";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import { renderLifecyclePane } from "../../../test/helpers/paneLifecycleTestUtils";
 import {
@@ -90,10 +91,52 @@ test("a wildlife license picks its residency from a list", () => {
   expect(view.queryByLabelText("Class or Restrictions")).toBeNull();
 
   fireEvent.click(view.getByRole("combobox", { name: "Residency" }));
+  // An empty field has nothing to clear, so it offers no "None".
+  expect(
+    within(document.body)
+      .getAllByRole("option")
+      .map((option) => option.textContent?.trim()),
+  ).toEqual(["Resident", "Nonresident"]);
   fireEvent.click(
     within(document.body).getByRole("option", { name: "Nonresident" }),
   );
   expect(patches).toEqual([{ residency: "nonresident" }]);
+});
+
+function EditableLicenseFields(props: {
+  initial: Record<string, string>;
+  isEditing: boolean;
+}) {
+  const [fields, setFields] = useState(() =>
+    readLicenseFieldValues(props.initial),
+  );
+  return (
+    <LicenseFields
+      disabled={false}
+      fields={fields}
+      isEditing={props.isEditing}
+      onChange={(patch) => setFields((current) => ({ ...current, ...patch }))}
+      ready
+    />
+  );
+}
+
+test("a picked residency can be cleared, and then hides on a type without it", () => {
+  const initial = { licenseType: "boating", residency: "resident" };
+  const view = render(<EditableLicenseFields initial={initial} isEditing />);
+  const residency = view.getByRole("combobox", { name: "Residency" });
+  expect(residency.textContent).toContain("Resident");
+
+  fireEvent.click(residency);
+  fireEvent.click(within(document.body).getByRole("option", { name: "None" }));
+  // The cleared input stays for the rest of the edit, showing its placeholder.
+  expect(
+    view.getByRole("combobox", { name: "Residency" }).textContent,
+  ).toContain("Select residency");
+
+  view.rerender(<EditableLicenseFields initial={initial} isEditing={false} />);
+  expect(view.getByText("Boating License")).toBeTruthy();
+  expect(view.queryByText("Residency")).toBeNull();
 });
 
 test("read mode shows option labels and skips other variants' empty fields", () => {

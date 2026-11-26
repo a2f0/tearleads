@@ -78,6 +78,13 @@ test("titles name where and what, never a whole identifier", async () => {
   expect(
     await projectTitle({ customerId: "ALS01234567", licenseType: "other" }),
   ).toBe("License ending 4567");
+  // An identifier of four characters or fewer would be whole in the title.
+  expect(await projectTitle({ licenseNumber: "A 12" })).toBe(
+    "Untitled license",
+  );
+  expect(
+    await projectTitle({ customerId: "ALS01234567", licenseNumber: "4821" }),
+  ).toBe("License ending 4567");
 });
 
 test("partial licenses accept blank values and flag malformed stored fields", () => {

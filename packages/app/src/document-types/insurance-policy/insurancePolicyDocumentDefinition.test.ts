@@ -84,6 +84,13 @@ test("titles name the insurer and type, never a whole identifier", async () => {
   expect(await projectTitle({ memberId: "XJH123456789" })).toBe(
     "Insurance Policy ending 6789",
   );
+  // An identifier of four characters or fewer would be whole in the title.
+  expect(await projectTitle({ policyNumber: "12 34" })).toBe(
+    "Untitled insurance policy",
+  );
+  expect(
+    await projectTitle({ memberId: "XJH123456789", policyNumber: "1234" }),
+  ).toBe("Insurance Policy ending 6789");
 });
 
 test("partial policies accept blank values and flag malformed stored fields", () => {

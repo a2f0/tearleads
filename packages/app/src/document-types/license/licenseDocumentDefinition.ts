@@ -13,6 +13,7 @@ import {
 import {
   addDateOnlyFormatIssue,
   addFormatIssue,
+  identifierEnding,
   isValidDateOnly,
   structuredFieldsProjector,
 } from "../shared/documentFieldUtils";
@@ -158,9 +159,9 @@ const untitledTitle = "Untitled license";
 
 // "Montana Hunting License": where it was issued and its type, degrading to
 // whichever of the two is set, then to the last four characters of the license
-// number or customer ID (a title is listed wherever the document is, so it
-// never carries a whole identifier), then to the untitled title. A type a newer
-// client wrote reads as its humanized value.
+// number or customer ID (never a whole identifier: see identifierEnding), then
+// to the untitled title. A type a newer client wrote reads as its humanized
+// value.
 function deriveLicenseTitle(fields: LicenseDocumentFields): string {
   const licenseType = fields.licenseType.trim();
   const typeLabel =
@@ -174,10 +175,8 @@ function deriveLicenseTitle(fields: LicenseDocumentFields): string {
       .join(" ");
   }
 
-  const identifier = (fields.licenseNumber.trim() || fields.customerId.trim())
-    .replaceAll(/\s+/gu, "")
-    .slice(-4);
-  return identifier.length > 0 ? `License ending ${identifier}` : untitledTitle;
+  const ending = identifierEnding(fields.licenseNumber, fields.customerId);
+  return ending.length > 0 ? `License ending ${ending}` : untitledTitle;
 }
 
 export const LICENSE_SLOTS: ReadonlyArray<DocumentAttachmentSlot> = [

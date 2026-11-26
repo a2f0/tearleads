@@ -116,3 +116,19 @@ export function isTruthyStructuredField(value: string): boolean {
   const normalized = value.trim().toLowerCase();
   return normalized === "1" || normalized === "true";
 }
+
+/**
+ * The last four characters of the first identifier long enough to have an
+ * ending, whitespace removed, for a title such as "License ending 5678". A
+ * title is listed wherever its document is, so an identifier of four
+ * characters or fewer, whose ending would be the whole of it, is skipped.
+ */
+export function identifierEnding(...identifiers: string[]): string {
+  for (const identifier of identifiers) {
+    const compact = identifier.replaceAll(/\s+/gu, "");
+    if (compact.length > 4) {
+      return compact.slice(-4);
+    }
+  }
+  return "";
+}

@@ -95,9 +95,10 @@ test("edit mode offers the hard-coded type list in a themed dropdown", () => {
   ).toBe("Bosch");
 
   fireEvent.click(trigger);
-  expect(listTypeOptionLabels(view)).toEqual(
-    APPLIANCE_TYPE_OPTIONS.map((option) => option.label),
-  );
+  expect(listTypeOptionLabels(view)).toEqual([
+    "None",
+    ...APPLIANCE_TYPE_OPTIONS.map((option) => option.label),
+  ]);
 
   const refrigerator = view
     .getByText("Refrigerator")
@@ -129,7 +130,10 @@ test("edit mode keeps a stored type that is not in this client's list", () => {
   expect(trigger.textContent).toContain("Wine Cooler");
 
   fireEvent.click(trigger);
-  expect(listTypeOptionLabels(view)[0]).toBe("Wine Cooler");
+  expect(listTypeOptionLabels(view).slice(0, 2)).toEqual([
+    "None",
+    "Wine Cooler",
+  ]);
 });
 
 test("whitespace around a stored type does not duplicate its option", () => {
@@ -143,7 +147,7 @@ test("whitespace around a stored type does not duplicate its option", () => {
 
   fireEvent.click(trigger);
   const labels = listTypeOptionLabels(view);
-  expect(labels).toHaveLength(APPLIANCE_TYPE_OPTIONS.length);
+  expect(labels).toHaveLength(APPLIANCE_TYPE_OPTIONS.length + 1);
   expect(labels.filter((label) => label === "Dryer")).toHaveLength(1);
 });
 

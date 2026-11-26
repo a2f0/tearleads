@@ -2,10 +2,11 @@ import type { DocumentFieldOption } from "./documentFieldOptions";
 
 /**
  * One field of a kind whose type picker decides which fields its editor
- * offers (an insurance policy's type, a license's type).
+ * offers (an insurance policy's type, a license's type). `Key` is the kind's
+ * field-key union, so a definition cannot name a field the kind lacks.
  */
-export interface VariantDocumentFieldDefinition {
-  readonly key: string;
+export interface VariantDocumentFieldDefinition<Key extends string = string> {
+  readonly key: Key;
   readonly label: string;
   /** A hard-coded picker in place of a text input. */
   readonly options?: ReadonlyArray<DocumentFieldOption>;
@@ -23,16 +24,17 @@ export interface VariantDocumentFieldDefinition {
  * until the edit ends.
  */
 export function getVisibleVariantFields<
-  Field extends VariantDocumentFieldDefinition,
+  Key extends string,
+  Field extends VariantDocumentFieldDefinition<Key>,
 >(
   definitions: ReadonlyArray<Field>,
   variant: string,
-  fields: Readonly<Record<string, string>>,
-  atEditStart?: Readonly<Record<string, string>> | null,
+  fields: Readonly<Record<Key, string>>,
+  atEditStart?: Readonly<Record<Key, string>> | null,
 ): ReadonlyArray<Field> {
   const type = variant.trim();
-  const holdsValue = (source: Readonly<Record<string, string>>, key: string) =>
-    (source[key] ?? "").trim().length > 0;
+  const holdsValue = (source: Readonly<Record<Key, string>>, key: Key) =>
+    source[key].trim().length > 0;
   return definitions.filter(
     (field) =>
       field.variants === undefined ||
