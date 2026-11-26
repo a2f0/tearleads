@@ -96,11 +96,12 @@ The command writes the pinned screenshot dataset into your personal
 organization. Contacts and avatars appear in Contacts. Notes, photos, ID
 documents, equipment with its avatar photo, passcodes, and health trackers
 sync under your root folder, and each dataset folder (today Family) is made
-under it with its notes inside. A rerun finds that folder through its notes,
-not its name: if you already have a folder of your own by that name, the seed
-leaves it alone and makes Family (2) instead, so it never writes to or shares
-your folder. A folder the seed made is removed again in the same run if all of
-its notes turn out to be permanently deleted.
+under it with its notes inside. The seed knows its folder by an id only your
+key derives, not by its name: if you already have a folder of your own by
+that name, the seed leaves it alone and makes Family (2) instead, so it never
+writes to or shares your folder. If you move the seed's folder out of the root
+or to Trash, a rerun leaves it there. Once you empty it from Trash, its id
+stays taken on the server, and the command stops at the folder step.
 The import commits each document with an encrypted fingerprint of its fixture.
 If it stops partway, run the
 same command again. For the same dataset version it reuses the documents,

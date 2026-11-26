@@ -13,7 +13,7 @@ import {
   seedContinuityDocument,
   seedDocumentIds,
 } from "./seedDocument";
-import { removeEmptySeedFolder, resolveSeedFolder } from "./seedFolderTarget";
+import { resolveSeedFolder } from "./seedFolderTarget";
 import { type CliSession, withSession } from "./session";
 
 // A group grant reaches a member's device as the organization read model and
@@ -43,12 +43,23 @@ export interface SeededFolders {
   readonly moved: number;
 }
 
+/** The one deadline every attempt of a wait shares. */
+interface SettleDeadline {
+  readonly signal: AbortSignal;
+  /** Milliseconds left before the deadline. */
+  readonly remainingMs: () => number;
+}
+
 async function settle<T>(
-  step: (deadline: AbortSignal) => Promise<T | null>,
+  step: (deadline: SettleDeadline) => Promise<T | null>,
   failure: string,
 ): Promise<T> {
-  const deadline = AbortSignal.timeout(SETTLE_TIMEOUT_MS);
-  while (!deadline.aborted) {
+  const until = Date.now() + SETTLE_TIMEOUT_MS;
+  const deadline = {
+    signal: AbortSignal.timeout(SETTLE_TIMEOUT_MS),
+    remainingMs: () => Math.max(0, until - Date.now()),
+  };
+  while (!deadline.signal.aborted) {
     const result = await step(deadline);
     if (result !== null) return result;
     await Bun.sleep(SETTLE_DELAY_MS);
@@ -79,7 +90,9 @@ async function grantFolder(
       (await sdk.organizations.loadGroupContainers(groupId))?.containers.some(
         (container) =>
           container.containerId === folderId &&
-          container.accessLevel === access,
+          // A write grant already covers read.
+          (container.accessLevel === access ||
+            (access === "read" && container.accessLevel === "write")),
       ) ?? false;
     if (await held()) continue;
     const shared = await tree.shareWithGroup(folderId, groupId, access, {
@@ -104,19 +117,22 @@ async function openSharedNote(
   member: CliSession,
   organizationId: string,
   target: NoteTarget,
-  deadline: AbortSignal,
+  deadline: SettleDeadline,
 ): Promise<DocumentStore | null> {
   const { sdk } = member;
   const { folderId, documentId } = target;
   // The shared folder joins the member's tree once their grant reaches it.
-  await loadFolderTree(member, { organizationId });
+  await loadFolderTree(member, {
+    organizationId,
+    timeoutMs: deadline.remainingMs(),
+  });
   // Discovery returns only what is new, so the note may have arrived in an
   // earlier attempt: drain it, then find the note on the device by its ID.
   let batch = await sdk.containerContents.discoverContainerDocuments(folderId);
-  while (batch?.length && !deadline.aborted) {
+  while (batch?.length && !deadline.signal.aborted) {
     batch = await sdk.containerContents.discoverContainerDocuments(folderId);
   }
-  if (deadline.aborted) return null;
+  if (deadline.signal.aborted) return null;
   const localId = await sdk.documents.findLocalIdByDocumentId(documentId);
   if (!localId) return null;
   const store = sdk.containerContents
@@ -124,7 +140,7 @@ async function openSharedNote(
     .openDocument({ containerId: folderId, localId, documentId });
   if (
     !(await store.ensureInitialized()) ||
-    !(await store.requestRemoteSyncAndWait(deadline))
+    !(await store.requestRemoteSyncAndWait(deadline.signal))
   )
     return null;
   return store;
@@ -225,32 +241,29 @@ async function seedFolder(
   count: { -readonly [K in keyof SeededFolders]: number },
 ): Promise<void> {
   const { tracer } = run.session;
-  let target = await tracer.span(`folder ${folder.name}`, () =>
+  const folderId = await tracer.span(`folder ${folder.name}`, () =>
     resolveSeedFolder(run, folder),
   );
-  if (target) run.folders.add(target.id);
+  if (folderId) {
+    run.folders.add(folderId);
+    count.folders += 1;
+  }
   // A note that exists stays where it is; a new one goes into the folder.
   const notes = await seedFolderNotes(
     run,
-    target?.id ?? run.rootId,
+    folderId ?? run.rootId,
     folder.notes,
   );
-  const inFolder = notes.filter((note) => note.containerId === target?.id);
-  if (target?.created && inFolder.length === 0) {
-    await removeEmptySeedFolder(run, target.id);
-    target = null;
-  }
-  if (target) count.folders += 1;
   count.notes += notes.length;
   if (!roster) return;
-  if (target) {
-    const folderId = target.id;
+  if (folderId) {
     count.grants += await tracer.span(`share ${folder.name}`, () =>
       grantFolder(run.session, folderId, folder.grants),
     );
   }
+  const inFolder = notes.filter((note) => note.containerId === folderId);
   count.moved += notes.filter(
-    (note) => note.containerId !== target?.id && note.additions.length > 0,
+    (note) => note.containerId !== folderId && note.additions.length > 0,
   ).length;
   count.additions += await addMemberLines(run, roster, inFolder);
 }
@@ -258,10 +271,10 @@ async function seedFolder(
 /**
  * Makes each dataset folder under the root and writes its notes. With the
  * roster, it also grants the folder's groups their access and has each
- * member append their lines. Idempotent: a rerun finds the folder through
- * its notes, keeps held grants, and skips lines the note already has. Only
- * the seed's own folder is shared: a note the user moved elsewhere stays
- * private to them, so its missing lines are skipped and counted.
+ * member append their lines. Idempotent: a rerun finds the folder by the
+ * seed's id for it, keeps held grants, and skips lines the note already has.
+ * Only the seed's own folder is shared: a note the user moved elsewhere
+ * stays private to them, so its missing lines are skipped and counted.
  */
 export async function seedFolders(
   run: SeedRun,

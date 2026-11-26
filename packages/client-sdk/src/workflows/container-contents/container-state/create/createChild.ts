@@ -288,6 +288,8 @@ async function persistCreatedChildContainer(input: {
 }
 
 export async function createChildContainerState(input: {
+  /** A caller's stable id for an idempotent create; else derived or random. */
+  childId?: string | undefined;
   systemSlot?: ContainerSystemSlot | null | undefined;
   createRemote: boolean;
   icon?: string | null | undefined;
@@ -316,10 +318,9 @@ export async function createChildContainerState(input: {
   }
 
   const icon = input.icon?.trim() || null;
-  const childId = await createChildContainerId(
-    parentState.container.id,
-    systemSlot,
-  );
+  const childId =
+    input.childId ??
+    (await createChildContainerId(parentState.container.id, systemSlot));
   const { doc, initialUpdate } =
     await createInitializedContainerMetadataDocument(childId, {
       icon,

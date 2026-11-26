@@ -1,20 +1,21 @@
 import { expect, test } from "bun:test";
-import { isSeedFolderName } from "./seedFolderTarget";
+import { seedFolderId } from "./seedFolderTarget";
 
-test("a seed folder name is the dataset's, or it numbered past a clash", () => {
-  expect(isSeedFolderName("Family", "Family")).toBe(true);
-  expect(isSeedFolderName("Family (2)", "Family")).toBe(true);
-  expect(isSeedFolderName("Family (12)", "Family")).toBe(true);
-  for (const name of [
-    "Family (1)",
-    "Family (02)",
-    "Family ()",
-    "Family (2) ",
-    "Family photos",
-    "Family (x)",
-    "family",
-    "Other",
+const UUID_V4 =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const isUuidV4String = (value: string) => UUID_V4.test(value);
+
+test("a seed folder id is stable per key, root, and name, and v4-shaped", () => {
+  const key = new Uint8Array(32).fill(7);
+  const id = seedFolderId(key, "root", "Family");
+  expect(isUuidV4String(id)).toBe(true);
+  expect(seedFolderId(key, "root", "Family")).toBe(id);
+  for (const other of [
+    seedFolderId(new Uint8Array(32).fill(8), "root", "Family"),
+    seedFolderId(key, "other-root", "Family"),
+    seedFolderId(key, "root", "Friends"),
   ]) {
-    expect(isSeedFolderName(name, "Family")).toBe(false);
+    expect(isUuidV4String(other)).toBe(true);
+    expect(other).not.toBe(id);
   }
 });

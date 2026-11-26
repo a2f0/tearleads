@@ -154,14 +154,10 @@ test("seed folders grant seeded groups and take additions only from writers", ()
   });
   expect(() => validateSeedSpec(withFolders([folder]))).not.toThrow();
   expect(() =>
-    validateSeedSpec(
-      withFolders([{ name: "Plain", notes: [{ text: "Plan" }] }]),
-    ),
+    validateSeedSpec(withFolders([{ name: "Plain" }])),
   ).not.toThrow();
   for (const folders of [
     {},
-    [{ name: "Plain" }],
-    [{ ...folder, notes: [] }],
     [{ ...folder, name: "" }],
     [{ ...folder, name: "a/b" }],
     [{ ...folder, name: " Family" }],

@@ -129,6 +129,26 @@ function syncIdle(sdk: Tearleads) {
   ).waitForIdle({ timeoutMs: 30_000 });
 }
 
+/** Moves a folder's note into another folder, as its owner would. */
+async function moveFolderNote(
+  sdk: Tearleads,
+  row: Awaited<ReturnType<typeof readFolderNote>>["row"],
+  toId: string,
+) {
+  const moved = await sdk.containerContents
+    .documentLinks()
+    .moveDocumentToContainer({
+      note: row,
+      targetContainerId: toId,
+      replaceLinkedContainers: true,
+      expandNode: () => {},
+      mergeDocumentSummary: () => {},
+      setLinkedContainerIdsForDocument: () => {},
+    });
+  expect(moved.note?.containerId).toBe(toId);
+  expect(await syncIdle(sdk)).toBe(true);
+}
+
 /** The access levels the named group holds on the folder. */
 async function groupAccess(sdk: Tearleads, name: string, folderId: string) {
   const state = await sdk.organizations.loadDirectoryAndGroups();
@@ -216,8 +236,6 @@ test("a note the owner moved out of its folder stays unshared, without lines", a
   const elsewhereId = await asOwner(seedPhrase, async (session) => {
     const { sdk } = session;
     const { nodes } = await loadFolderTree(session);
-    const familyId = rootFolder(session, nodes, family.name);
-    const { row } = await readFolderNote(sdk, familyId);
     const rootId = sdk.runtime.input().auth.rootContainerId;
     if (!rootId) throw new Error("Missing the personal root.");
     const elsewhere = await sdk.containerContents
@@ -225,27 +243,20 @@ test("a note the owner moved out of its folder stays unshared, without lines", a
       .createChild(rootId, "Elsewhere");
     if (!elsewhere) throw new Error("Could not create the target folder.");
     expect(await syncIdle(sdk)).toBe(true);
-    const moved = await sdk.containerContents
-      .documentLinks()
-      .moveDocumentToContainer({
-        note: row,
-        targetContainerId: elsewhere.id,
-        replaceLinkedContainers: true,
-        expandNode: () => {},
-        mergeDocumentSummary: () => {},
-        setLinkedContainerIdsForDocument: () => {},
-      });
-    expect(moved.note?.containerId).toBe(elsewhere.id);
-    expect(await syncIdle(sdk)).toBe(true);
+    const { row } = await readFolderNote(
+      sdk,
+      rootFolder(session, nodes, family.name),
+    );
+    await moveFolderNote(sdk, row, elsewhere.id);
     return elsewhere.id;
   });
 
-  // The seed keeps the note where the owner put it and shares nothing, so no
-  // member signs in to add a line to the moved note.
+  // The seed shares its own folder but keeps the note where the owner put
+  // it, so no member signs in to add a line to the moved note.
   expect(await seedFamily(seedPhrase)).toEqual({
-    folders: 0,
+    folders: 1,
     notes: 1,
-    grants: 0,
+    grants: family.grants.length,
     additions: 0,
     moved: 1,
     signIns: 0,
@@ -315,6 +326,21 @@ test("a folder of the user's own by the dataset's name is left alone", async () 
     expect(await groupAccess(sdk, family.name, mineId)).toEqual([]);
     const seededId = rootFolder(session, nodes, `${family.name} (2)`);
     expect(await groupAccess(sdk, family.name, seededId)).toEqual(["write"]);
-    expect((await readFolderNote(sdk, seededId)).text).toBe(expectedText);
+    const { row, text } = await readFolderNote(sdk, seededId);
+    expect(text).toBe(expectedText);
+    // The owner moves the seeded note into their own folder of that name.
+    await moveFolderNote(sdk, row, mineId);
+  });
+  // The seed knows its folder by id, not by name or by where its note is, so
+  // the user's folder stays unshared.
+  expect(await seedFamily(seedPhrase)).toMatchObject({
+    folders: 1,
+    grants: 0,
+    additions: 0,
+    signIns: 0,
+  });
+  await asOwner(seedPhrase, async (session) => {
+    await loadFolderTree(session);
+    expect(await groupAccess(session.sdk, family.name, mineId)).toEqual([]);
   });
 }, 300_000);

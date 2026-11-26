@@ -1,4 +1,5 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { isUuidV4String } from "@tearleads/validators/util";
 import { canWriteEffectiveAccessLevel } from "../../../data/keying/accessLevel";
 import { createChildContainerState } from "../../../workflows/container-contents/container-state/create/createChild";
 import { deleteContainerState } from "../../../workflows/container-contents/container-state/delete";
@@ -42,18 +43,30 @@ import type {
 } from "../types";
 import { isContainerInSubtree, toContainerNode } from "../utils";
 
+/** How `createChild` names the new container. */
+export interface CreateChildContainerOptions {
+  /**
+   * A stable UUID v4-shaped id, so a caller that makes the same container
+   * again, such as a seed on its rerun, can find it by id. Random otherwise.
+   */
+  readonly id?: string | undefined;
+}
+
 export async function createChildContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
   parentId: string,
   name: string,
   isCurrent: ContainerWriteGuard = () => true,
+  options: CreateChildContainerOptions = {},
 ) {
   const trimmedName = name.trim();
   if (
     state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
-    !trimmedName
+    !trimmedName ||
+    (options.id !== undefined &&
+      (!isUuidV4String(options.id) || state.containersById.has(options.id)))
   ) {
     return null;
   }
@@ -65,6 +78,7 @@ export async function createChildContainer(
   assertLocalChildPathFits(state.containersById, parentId);
 
   const created = await createChildContainerState({
+    childId: options.id,
     createRemote: false,
     name: trimmedName,
     parentState,

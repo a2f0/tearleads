@@ -1,105 +1,73 @@
+import { createHmac } from "node:crypto";
 import {
   type ContinuityFolder,
   captureContinuityScope,
   openReadyContainerTree,
 } from "app/continuity";
 import { waitForFoldersSynced } from "./folderSync";
-import { loadFolderTree } from "./folderTree";
-import { uniqueFolderName } from "./keepass/restoreFolders";
-import { type SeedRun, seedDocumentIds } from "./seedDocument";
-
-/** The folder the seed writes a dataset folder's notes into and shares. */
-export interface SeedFolderTarget {
-  readonly id: string;
-  /** Made by this run, so removable while it holds nothing. */
-  readonly created: boolean;
-}
+import { loadFolderTree, uniqueFolderName } from "./folderTree";
+import type { SeedRun } from "./seedDocument";
 
 /**
- * Whether a root folder carries a name the seed gives this dataset folder:
- * the name itself, or the name numbered past a folder of the user's own.
+ * The seed's own id for a dataset folder in this account, the same in every
+ * run and dataset version, shaped as the UUID v4 that folder ids use. Only
+ * the holder of the signing key can derive it, so no folder of the user's
+ * own carries it.
  */
-export function isSeedFolderName(name: string, datasetName: string): boolean {
-  if (name === datasetName) return true;
-  const prefix = `${datasetName} (`;
-  if (!name.startsWith(prefix) || !name.endsWith(")")) return false;
-  const suffix = name.slice(prefix.length, -1);
-  return /^[1-9]\d*$/u.test(suffix) && Number(suffix) >= 2;
-}
-
-/** The server's placement of each note the dataset folder seeds. */
-async function notePlacements(run: SeedRun, folder: ContinuityFolder) {
-  const { session } = run;
-  const linked = new Set<string>();
-  let missing = 0;
-  for (const { document } of folder.notes) {
-    const { documentId } = await seedDocumentIds(run, document.key);
-    const head = await run.lookup(documentId, undefined, session.userId);
-    if (head === "not-found") {
-      session.recordExpectedSeedFailure("missing head");
-      missing += 1;
-      continue;
-    }
-    if (!head) throw new Error(`Could not find the seeded ${document.key}.`);
-    for (const id of head.linkedContainerIds) linked.add(id);
-  }
-  return { linked, missing };
+export function seedFolderId(
+  signingPrivateKey: Uint8Array,
+  rootId: string,
+  name: string,
+): string {
+  const bytes = createHmac("sha256", signingPrivateKey)
+    .update(`tearleads.continuity/${rootId}/folder/${name}`)
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20),
+  ].join("-");
 }
 
 /**
- * The seed's folder for this dataset folder: the root folder of a seed name
- * that holds one of its notes, as the server links them. When none does and
- * a note is still to be written, a new folder is made, numbered past any
- * folder of the user's own, so a user's folder is never written to or
- * shared. Null when every note already exists outside such a folder: the
- * user moved it, and where it is stays private to them.
+ * The seed's folder for a dataset folder: the folder with the seed's id,
+ * made under the root when the account has none, and named past any folder
+ * of the user's own by that name. Null when the user moved it out of the
+ * root or deleted it to Trash: the seed leaves it where it is. A folder
+ * emptied from Trash keeps its id on the server, so it cannot be made again.
  */
 export async function resolveSeedFolder(
   run: SeedRun,
   folder: ContinuityFolder,
-): Promise<SeedFolderTarget | null> {
+): Promise<string | null> {
   const { session, rootId } = run;
   const { sdk } = session;
+  const id = seedFolderId(run.signingPrivateKey, rootId, folder.name);
   const { nodes } = await loadFolderTree(session);
-  const rootFolders = nodes.filter(
-    (node) =>
-      node.parentId === rootId &&
-      node.organizationId === sdk.session.organizationId,
-  );
-  const { linked, missing } = await notePlacements(run, folder);
-  const held = rootFolders.find(
-    (node) =>
-      !node.systemSlot &&
-      linked.has(node.id) &&
-      isSeedFolderName(node.name, folder.name),
-  );
-  if (held) return { id: held.id, created: false };
-  if (missing === 0) return null;
+  const existing = nodes.find((node) => node.id === id);
+  if (existing) return existing.parentId === rootId ? id : null;
   const name = uniqueFolderName(
     folder.name,
-    new Set(rootFolders.map((node) => node.name)),
+    new Set(
+      nodes.filter((node) => node.parentId === rootId).map((node) => node.name),
+    ),
   );
   const tree = await openReadyContainerTree(sdk, captureContinuityScope(sdk));
-  const node = await tree.createChild(rootId, name);
+  const node = await tree.createChild(rootId, name, { id });
   if (!node) throw new Error(`Could not create the ${name} folder.`);
-  await waitForFoldersSynced(session, () => tree.getSnapshot().nodes, [
-    node.id,
-  ]);
-  return { id: node.id, created: true };
-}
-
-/**
- * Removes a folder this run made when none of its notes landed in it, as
- * when the user permanently deleted them, so a rerun does not leave another
- * empty folder behind.
- */
-export async function removeEmptySeedFolder(
-  run: SeedRun,
-  folderId: string,
-): Promise<void> {
-  const { sdk } = run.session;
-  const tree = await openReadyContainerTree(sdk, captureContinuityScope(sdk));
-  if (!(await tree.deleteContainer(folderId)))
-    throw new Error("Could not remove an empty folder the seed made.");
-  run.folders.delete(folderId);
+  try {
+    await waitForFoldersSynced(session, () => tree.getSnapshot().nodes, [id]);
+  } catch (error) {
+    throw new Error(
+      `Could not create the ${name} folder. If you emptied the seed's ${folder.name} folder from Trash, the seed cannot make it again in this account.`,
+      { cause: error },
+    );
+  }
+  return id;
 }

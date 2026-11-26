@@ -10,18 +10,6 @@ export interface RestoredGroup {
   readonly group: KeepassGroup;
 }
 
-/** `name`, or `name (2)`, `name (3)`, ... when a sibling already has it. */
-export function uniqueFolderName(
-  name: string,
-  siblingNames: ReadonlySet<string>,
-): string {
-  if (!siblingNames.has(name)) return name;
-  for (let suffix = 2; ; suffix++) {
-    const candidate = `${name} (${suffix})`;
-    if (!siblingNames.has(candidate)) return candidate;
-  }
-}
-
 /** A failure after the restore folder may exist, naming it for deletion. */
 export function partialRestoreError(error: unknown, folderName: string): Error {
   const reason = error instanceof Error ? error.message : String(error);

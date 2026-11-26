@@ -103,9 +103,15 @@ export type ContainerGroupRewrapPreparation =
  * and access-control operations retain their explicit remote-authority gates.
  */
 export interface ContainerContentsStore {
+  /**
+   * Makes a child folder. `options.id` gives it a stable UUID v4-shaped id,
+   * so a caller can find it again by id; null when that id is malformed or
+   * already in the tree.
+   */
   createChild: (
     parentId: string,
     name: string,
+    options?: { readonly id?: string | undefined } | undefined,
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
   ensureSystemContainer: (
