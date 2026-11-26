@@ -7,6 +7,7 @@ function memoryRecoveryKeyStore(): RecoveryKeyStore & {
   const items = new Map<string, string>();
   return {
     items,
+    label: "the Keychain",
     read: async (target) => items.get(target) ?? null,
     remove: async (target) => items.delete(target),
     save: async (target, recoveryKey) => {

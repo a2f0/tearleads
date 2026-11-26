@@ -2,6 +2,8 @@ import type { TargetName } from "./targets";
 
 /** Where the CLI keeps one recovery key per target. */
 export interface RecoveryKeyStore {
+  /** The store as messages name it, such as "the Keychain". */
+  readonly label: string;
   read(target: TargetName): Promise<string | null>;
   remove(target: TargetName): Promise<boolean>;
   save(target: TargetName, recoveryKey: string): Promise<void>;
@@ -19,11 +21,12 @@ export type CommandRunner = (
   stdin?: string,
 ) => Promise<CommandResult>;
 
-const KEYCHAIN_SERVICE = "com.tearleads.cli.recovery-key";
+/** The service every saved recovery key is filed under, one item per target. */
+export const RECOVERY_KEY_SERVICE = "com.tearleads.cli.recovery-key";
 // `security` exits 44 when no item matches.
 const KEYCHAIN_ITEM_NOT_FOUND = 44;
-// A non-secret value for the diagnostic write a failed save runs.
-const PROBE_PASSWORD = "tearleads-cli-probe";
+/** A non-secret value for diagnostic writes, which run under `<target>.probe`. */
+export const PROBE_PASSWORD = "tearleads-cli-probe";
 
 const runCommand: CommandRunner = async (command, stdin) => {
   const child = Bun.spawn([...command], {
@@ -62,7 +65,12 @@ function describeFailure(result: CommandResult, secret?: string): string {
 export function createKeychainRecoveryKeyStore(
   run: CommandRunner = runCommand,
 ): RecoveryKeyStore {
-  const item = (target: TargetName) => ["-s", KEYCHAIN_SERVICE, "-a", target];
+  const item = (target: TargetName) => [
+    "-s",
+    RECOVERY_KEY_SERVICE,
+    "-a",
+    target,
+  ];
 
   async function diagnoseSaveFailure(
     target: TargetName,
@@ -75,7 +83,7 @@ export function createKeychainRecoveryKeyStore(
       "add-generic-password",
       "-U",
       "-s",
-      KEYCHAIN_SERVICE,
+      RECOVERY_KEY_SERVICE,
       "-a",
       probeAccount,
       "-w",
@@ -85,7 +93,7 @@ export function createKeychainRecoveryKeyStore(
       "security",
       "delete-generic-password",
       "-s",
-      KEYCHAIN_SERVICE,
+      RECOVERY_KEY_SERVICE,
       "-a",
       probeAccount,
     ]);
@@ -99,6 +107,7 @@ export function createKeychainRecoveryKeyStore(
   }
 
   return {
+    label: "the Keychain",
     async read(target) {
       const result = await run([
         "security",
@@ -133,7 +142,7 @@ export function createKeychainRecoveryKeyStore(
       // double quotes delimit them safely.
       const result = await run(
         ["security", "-i"],
-        `add-generic-password -U -s ${KEYCHAIN_SERVICE} -a ${target} -w "${recoveryKey}"\n`,
+        `add-generic-password -U -s ${RECOVERY_KEY_SERVICE} -a ${target} -w "${recoveryKey}"\n`,
       );
       const saved = await this.read(target).catch(() => null);
       if (result.exitCode === 0 && saved === recoveryKey) return;
