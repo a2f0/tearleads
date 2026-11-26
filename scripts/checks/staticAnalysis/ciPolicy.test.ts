@@ -305,7 +305,7 @@ test("the required gate always evaluates all jobs and platform workflows are cal
   // The push gate runs no tests, so the browser suite runs only here.
   expect(e2e?.if).toBeUndefined();
   expect(windows?.if).toBeUndefined();
-  for (const job of ["windows", "native"]) {
+  for (const job of ["windows", "native", "models"]) {
     const path = ci.jobs[job]?.uses;
     expect(path).toBeDefined();
     const platform = Bun.YAML.parse(

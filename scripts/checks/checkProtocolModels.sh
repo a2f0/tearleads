@@ -10,6 +10,25 @@ fail() {
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) ||
   fail "could not resolve the protocol check script directory."
 
+# --list prints the runs to check, in launch order, without resolving Java.
+LIST_ONLY=
+case "$#:${1:-}" in
+  0:) ;;
+  1:--list) LIST_ONLY=1 ;;
+  *) fail "usage: checkProtocolModels.sh [--list]" ;;
+esac
+
+# CI splits the registry across runners: PROTOCOL_MODEL_SHARD=<index>/<count>
+# checks only the runs assigned to that shard. Unset, it checks them all.
+MODEL_SHARD=${PROTOCOL_MODEL_SHARD:-1/1}
+shard_index=${MODEL_SHARD%%/*}
+shard_count=${MODEL_SHARD#*/}
+shard_usage="PROTOCOL_MODEL_SHARD must read <index>/<count>, such as 1/2."
+case "$MODEL_SHARD" in [1-9]*/[1-9]*) ;; *) fail "$shard_usage" ;; esac
+case "$shard_index$shard_count" in *[!0-9]*) fail "$shard_usage" ;; esac
+[ "$shard_index" -le "$shard_count" ] ||
+  fail "PROTOCOL_MODEL_SHARD $MODEL_SHARD names a shard past its count."
+
 for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 REPO_ROOT=$(CDPATH='' cd -P -- "$SCRIPT_DIR/../.." && pwd -P) ||
   fail "Protocol model checks must run inside a Git repository."
@@ -154,11 +173,11 @@ mv "$SORTED_MODELS" "$REGISTERED_MODELS" ||
 # Longest first: a long model that starts late stretches the check past every
 # other run, so runs start in descending order of the seconds each took,
 # recorded in $DURATIONS_PATH. A model with no recorded duration starts first,
-# since it may be long, and ties keep registry order. The order decides only
-# when the check finishes, never what it checks. The durations are only a hint:
-# an entry for a pair the registry no longer lists, left by a renamed or
-# removed model, is ignored with a note naming it. A malformed or repeated
-# entry still fails, since it means the file was edited by hand.
+# since it may be long, and ties keep registry order. The durations decide only
+# when a check finishes and which shard checks a run, never whether it is
+# checked. They are only a hint: an entry for a pair the registry no longer
+# lists, left by a renamed or removed model, is ignored with a note naming it,
+# and weighs nothing in the shards. A malformed or repeated entry still fails.
 DURATIONS_PATH=formal/protocol-model-durations.txt
 RECORDED_DURATIONS=$CHECK_ROOT/recorded-durations.txt
 DURATION_PAIRS=$CHECK_ROOT/duration-pairs.txt
@@ -198,9 +217,10 @@ if [ -f "$DURATIONS_PATH" ]; then
   done <"$DURATIONS_PATH"
 fi
 if [ -s "$STALE_DURATIONS" ]; then
-  # Best effort, like every report line; see report_line below.
+  # Best effort, like every report line (see report_line), and on stderr so
+  # --list prints only runs.
   printf 'Note: %s lists runs %s does not register, ignored: %s. Regenerate it with bun run generate:protocol-durations <log>...\n' \
-    "$DURATIONS_PATH" "$REGISTRY_PATH" "$(tr '\n' ' ' <"$STALE_DURATIONS" | sed 's/ $//')" | cat || :
+    "$DURATIONS_PATH" "$REGISTRY_PATH" "$(tr '\n' ' ' <"$STALE_DURATIONS" | sed 's/ $//')" | cat >&2 || :
 fi
 # Each line becomes "unrecorded seconds registry-position pair" for sorting.
 awk -v durations="$RECORDED_DURATIONS" '
@@ -213,13 +233,41 @@ awk -v durations="$RECORDED_DURATIONS" '
   $0 in seconds { print 0, seconds[$0], NR, $0; next }
   { print 1, 0, NR, $0 }' "$REGISTERED_MODELS" >"$RANKED_MODELS" ||
   fail "could not rank the registered models."
-LC_ALL=C sort -k1,1nr -k2,2nr -k3,3n "$RANKED_MODELS" | cut -d ' ' -f 4- \
-  >"$SCHEDULED_MODELS" || fail "could not order the registered models."
+# Sharding deals the runs, in that order, to the shard with the least recorded
+# work so far (the lowest-numbered on a tie). A run weighs its seconds plus one;
+# an unrecorded run weighs as much as the longest recorded one. Every shard
+# computes the same assignment, so each run lands in exactly one shard.
+ASSIGNED_MODELS=$CHECK_ROOT/assigned-models.txt
+LC_ALL=C sort -k1,1nr -k2,2nr -k3,3n "$RANKED_MODELS" |
+  awk -v shards="$shard_count" '
+    {
+      unrecorded[NR] = $1
+      seconds[NR] = $2
+      pair[NR] = $4
+      if (!$1 && $2 > longest) longest = $2
+    }
+    END {
+      for (shard = 1; shard <= shards; shard++) work[shard] = 0
+      for (run = 1; run <= NR; run++) {
+        lightest = 1
+        for (shard = 2; shard <= shards; shard++)
+          if (work[shard] < work[lightest]) lightest = shard
+        work[lightest] += (unrecorded[run] ? longest : seconds[run]) + 1
+        print lightest, pair[run]
+      }
+    }' >"$ASSIGNED_MODELS" || fail "could not order the registered models."
 # Scheduling reorders the registry and must never drop a model from it.
-[ "$(wc -l <"$SCHEDULED_MODELS")" -eq "$(wc -l <"$REGISTERED_MODELS")" ] ||
+[ "$(wc -l <"$ASSIGNED_MODELS")" -eq "$(wc -l <"$REGISTERED_MODELS")" ] ||
   fail "scheduling the registered models lost some of them."
+awk -v shard="$shard_index" '$1 == shard { print $2 }' "$ASSIGNED_MODELS" \
+  >"$SCHEDULED_MODELS" || fail "could not select shard $MODEL_SHARD."
 mv "$SCHEDULED_MODELS" "$REGISTERED_MODELS" ||
   fail "could not schedule the registered models."
+
+if [ -n "$LIST_ONLY" ]; then
+  cat "$REGISTERED_MODELS"
+  exit 0
+fi
 
 TLC_PARALLELISM=${PROTOCOL_TLC_PARALLELISM:-2}
 case "$TLC_PARALLELISM" in
@@ -419,4 +467,8 @@ if [ -n "$failed_index" ]; then
   exit "$failed_status"
 fi
 
-report_line "Checked $model_count protocol model configuration(s)."
+if [ "$shard_count" -gt 1 ]; then
+  report_line "Checked $model_count protocol model configuration(s) in shard $MODEL_SHARD."
+else
+  report_line "Checked $model_count protocol model configuration(s)."
+fi
