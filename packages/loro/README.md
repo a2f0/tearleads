@@ -30,6 +30,89 @@ placed before one it depends on, so every prefix is a real version whatever the
 clocks recorded. The viewer keeps its document detached, so it cannot be
 edited; never hand it a document that is being edited.
 
+## History segments
+
+`exportHistorySegments` splits the whole history a document holds into
+ordinary update blobs, its segments, that rebuild the document when a reader
+imports them in order through `importUpdates`. It returns a generator that
+exports each segment when the caller asks for it, so a caller that hands each
+one on never holds the history twice. Each segment carries its index and the
+vectors `getUpdateVersionVectors` reads from it. An empty document has no
+segments. Nothing calls it yet: it is the first step toward a rotation
+baseline that is a run of updates instead of one snapshot.
+
+- **Cuts.** A segment may start and end at any counter of any peer: between
+  changes, inside a change, or inside one long text or list insert. The
+  [history identity](#history-identity) depends only on a history's units, so
+  a reader of the segments computes the writer's `exportFullHistoryIdentity`
+  however Loro regroups the pieces, and `updateMatchesDocumentHistory` holds
+  for every segment on every holder of the same history.
+- **Order.** Changes are taken by Lamport time, then peer, and a segment is a
+  stretch of their counters. A change's Lamport time is past that of every
+  operation it depends on, so every change comes after what it depends on. A
+  cut inside a change leaves its head at the end of one segment and its rest
+  at the start of the next, and the rest depends only on the counter before
+  it. So each segment extends a real version: per peer the segments are
+  gapless from zero, each peer's share of a segment is one span, and a
+  segment depends only on the segments before it. The order does not rest on
+  Lamport times being honest: a change is never placed before one it depends
+  on. `historySegmentsImportInOrder` checks both properties from the declared
+  vectors of any list of segments. It cannot tell that a tail is missing.
+- **Size.** A segment aims for `targetBytes` and never exceeds `maxBytes`,
+  both measured on the plaintext blob: 4 MiB and 16 MiB unless the caller
+  says otherwise (`DEFAULT_HISTORY_SEGMENT_TARGET_BYTES`,
+  `DEFAULT_HISTORY_SEGMENT_MAX_BYTES`). A size is known only after an export,
+  and a counter is one code point, one list element or one whole operation,
+  not a number of bytes. So a candidate is a number of counters, sized from
+  the bytes per counter of the last export, and kept when it fits the cap. A
+  candidate over the cap is exported again with at most half its counters,
+  sized by what the first export measured.
+- **Exports.** A segment whose first candidate held `n` counters takes at most
+  `1 + ceil(log2(n))` exports. A second export happens only where the bytes
+  per counter rise by more than the cap is of the target, so a history of
+  even density takes one export per segment. An export reads only its own
+  range, so cutting one long insert does not read the insert again for each
+  piece. The first candidate assumes one byte per counter, so a history of
+  large values is exported whole once before its first segment is sized.
+- **One counter.** A counter is the smallest thing an update carries. One
+  whose own update is larger than the cap, such as one map value or one list
+  element, cannot be cut. The generator throws
+  `HistorySegmentCounterTooLargeError`, with the peer and counter, when it
+  reaches that counter; it has handed over the segments before it by then.
+  The value is the author's own data, so the error is final for that cap: a
+  caller reports that the history cannot be segmented and does not retry.
+
+Segmenting one document twice gives the same bytes, and a holder restored
+from its snapshot gives them too. `exportHistorySegmentRange` gives a
+segment's bytes again from its declared range, and goes on giving them while
+the document gains history, so a caller can check a segment it kept against
+the document before relying on it. Loro's encoding of a range depends on the
+order its spans are given in, so both functions give them in peer order.
+
+Another holder of the same history cuts elsewhere when it groups operations
+into other changes. A reader of the segments holds a cut change in parts, so
+its own segments have other ranges and other bytes; they carry the same
+history, and each matches every holder.
+
+`updateMatchesDocumentHistory` first compares a blob with the holder's own
+export of the same range, and expands operations only when the bytes differ.
+It gives that export its spans in the order the blob's vectors list them. On
+the document a segment came from, that finds a segment of one peer equal at
+once. For a segment of several peers the two orders can differ, and on
+another holder the changes can; it then compares canonical forms, which
+gives the same answer at more cost.
+
+A reader pays for each import against the state it already holds. Importing
+the 13 segments of a 51 MiB history one at a time into an attached document
+took 7.7 s; one `importUpdates` call with all of them, or imports into a
+detached document followed by one `checkoutToLatest`, took about 0.5 s, the
+time of the one whole update.
+
+[`historySegments.test.ts`](./src/historySegments.test.ts) checks all of this
+at small sizes: generated histories of two or three writers, one commit cut
+inside its text and list inserts, one insert many times the cap, and one
+counter over it.
+
 ## History identity
 
 `exportFullHistoryIdentity` is the canonical form of a document's operations,

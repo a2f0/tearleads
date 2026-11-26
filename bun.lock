@@ -226,7 +226,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.26",
+      "version": "0.1.27",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -242,7 +242,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.330",
+      "version": "0.1.331",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -303,7 +303,7 @@
     },
     "packages/loro": {
       "name": "@tearleads/loro",
-      "version": "0.1.23",
+      "version": "0.1.24",
       "dependencies": {
         "@tearleads/encoding": "workspace:*",
         "drizzle-orm": "0.45.4",
@@ -315,7 +315,7 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "dependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/api-shared": "workspace:*",
