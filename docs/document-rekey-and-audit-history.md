@@ -161,6 +161,21 @@ baseline can use [raw recovery](./raw-document-history-recovery.md) to
 reconstruct from retained ordinary updates without redirection. Inner author
 signatures remain the stronger mitigation.
 
+A reader can check what it already holds.
+[History verification](./developer/client-sdk/document-history.md#verifying-history)
+(`documents.verifyHistory`) rebuilds the document from raw history and
+compares the rebuild with the device's durable history, operation for
+operation. A device that started from a baseline with fabricated plaintext
+gets `mismatch` and can show the rebuilt history instead. The check is on
+demand and changes nothing on the device. It has these limits:
+
+- it needs the genuine ordinary updates still served, and every historical
+  epoch key reachable; otherwise it reports the epoch it could not reach
+- operations that only a baseline ever carried stay asserted by its signer.
+  Verification marks them `baseline` rather than vouching for them
+- a server that withholds updates is
+  [not detected](#what-signed-headers-do-not-detect)
+
 ### There Must Be Only One Canonical Bundle Per Epoch
 
 Once a current-epoch document bundle exists, later writes for that same epoch

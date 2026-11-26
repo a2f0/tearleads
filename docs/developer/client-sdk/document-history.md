@@ -117,17 +117,131 @@ earlier run created. The current fingerprint cannot show when it was written:
 any writer can copy it into a later edit. The order is the server's commit
 order, which this device trusts as it does for every sync page.
 
+## Verifying history
+
+`documents.verifyHistory(localId, options?)` checks the document's durable
+local history against the signed updates the server retains. It resolves to a
+`DocumentHistoryVerification`, or to `null` while the database is not ready.
+Hosts that hold a workflow runtime can call the documents facade's
+`verifyDocumentHistory` directly.
+
+It needs the network. It pulls the document's whole
+[raw history](../../raw-document-history-recovery.md#read-only-consumers) from
+a null version, a page at a time. For every update it checks what a sync pass
+checks: the ciphertext and metadata hashes the write header signed, the
+header's signature, that its signer was authorized, and the content key's
+commitment. It judges each page in server order, rebuilds the accepted
+updates in a scratch document, and compares the rebuild with the local
+history.
+
+| `status` | Meaning |
+| --- | --- |
+| `verified` | Every operation both histories hold is the same operation, with the same commit time, in both. |
+| `mismatch` | Some operation both hold differs. `signed` is a `DocumentHistory` over the rebuild, to show in place of the local replay. The caller must `close()` it. |
+| `unavailable` | No verdict was reached, for `reason`. |
+
+The comparison covers the operations both histories hold. An edit this device
+has not sent is outside it. So is an update the device has not pulled, which
+`serverAhead` reports.
+
+`verified` and `mismatch` also carry:
+
+- `localVersion`: the version of the durable history that was compared, as
+  `versionAt` reports one, with its entries in no set order. A replay ends at
+  this version only if it was opened from the same durable history, so
+  compare it with `versionAt(stops.length - 1)` before applying a result to
+  an open replay.
+- `ranges`: `DocumentHistoryVerifiedRange` items, in the shape of
+  [edit-attribution](../../advisory-op-spans.md#edit-attribution) ranges but
+  built on this device from verified write headers. Each credits a run of one
+  peer's counters to the first accepted update that carried it.
+  `authorityKind` is `direct` when that update was an ordinary signed upload,
+  and `baseline` when only a rotation baseline carried the operations. An
+  operation no range covers is not in the server's history: this device has
+  not sent it, or the server no longer serves it. The result does not say
+  which.
+- `serverAhead`: the server's history holds operations the local one does
+  not.
+- `voidUpdateCount`: served updates left out of the rebuild as
+  [void](../../glossary/content.md#void-update).
+
+| `reason` | Cause |
+| --- | --- |
+| `offline` | The device is offline, or has no keys or signed-in author. |
+| `not_synced` | The document has no remote record, or the server holds no update of it. |
+| `epoch_key_unreachable` | An older content key cannot be reached from this device. The result carries `contentKeyEpoch` and the `DocumentRawHistoryUnavailableError`. |
+| `rejected` | A served page failed a signature or integrity check, or the server repeated a page cursor. |
+| `unsettled` | This device could not finish reading: a Loro runtime failure, an update the judge held behind one or deferred past its rebuild budget, or a document already reading suspect updates one a page. |
+| `too_large` | The server holds more than 20,000 updates of the document ([limits](../../limits.md#loro-runtime)). |
+| `interrupted` | `options.signal` aborted, the session's scope changed, or a request, or material a check needed, did not arrive. |
+
+`options.signal` stops a verification between pages. `options.onProgress`
+receives `updatesRead` and `updatesTotal` after each page. Every outcome
+above is returned, never thrown; a failure that is none of them, such as a
+database error, is thrown.
+
+Verification reads beside the open document store, never through it. It
+takes no sync lane and no write chain, so editing and sync go on while it
+waits for the server. It records no void, attempt, cursor, or sync failure.
+The only rows it writes are
+[read-window](../../glossary/sync.md#loro-read-window) rows: its own, one a
+page, each removed before the next page is requested. As with every window,
+while one is open no other window of the same process counts a death. A
+process that dies while verifying leaves one such row: it counts toward no
+update and no rotation, and the document's next sync pass removes it.
+
+A void this device recorded while importing is judged again from the raw
+history, because the device may have reached it from a rotation baseline. A
+void the payload alone decides, and one this device's runtime failed for
+good, stay void.
+
+It is on-demand work, not a background check:
+
+- It makes one request for every 64 updates or 48 MiB of history, and
+  downloads every rotation baseline ever committed, each a full snapshot.
+- The judging, the rebuild, and the final comparison run on the main thread,
+  a page at a time.
+- Memory holds the local history, the rebuild, and one page, beside the live
+  document and any open replay.
+- The judge keeps its 32 MiB rebuild budget for each page. A void whose
+  import changed the scratch document costs a rebuild of the history so far,
+  so past that size a page with such a void, and an update after it, ends
+  `unsettled` every time.
+
 ## Trust limits
 
-The limits are those of the history itself.
+A replay shows this device's copy of the history. Until it is verified it is
+unchecked: history that reached the device through a rotation baseline is
+what that baseline's writer
+[asserted](../../document-rekey-and-audit-history.md#declared-coverage-is-trusted-not-verified).
 
-- Times are
+`verified` means this device's copy is, operation for operation and commit
+time for commit time, what a fresh reader builds from the signed updates the
+server serves, each authenticated on this device. A device that started from
+a forged baseline gets `mismatch`, as long as the server still serves the
+genuine updates and the device can reach their keys.
+
+It does not mean any of these:
+
+- That the server served everything. A server can leave updates out. One
+  this device holds then has no range, the same as an edit it has not sent;
+  one it never held is not missed at all.
+- That operations only a rotation baseline carried are genuine. Their range
+  says `baseline`: they are what the baseline's signer asserted.
+- That a time is true. Change times and `signedAt` are
   [self-reported](../../document-rekey-and-audit-history.md#change-times) by
-  each writing device. A stop's upload time bounds its time from above, for a
-  change that has been uploaded; nothing bounds it from below.
-- History that reached this device through a rotation baseline is what that
-  baseline's writer
-  [asserted](../../document-rekey-and-audit-history.md#declared-coverage-is-trusted-not-verified).
+  the writing device, and `createdAt` is the server's own, unsigned. A stop's
+  upload time bounds its time from above, for a change that has been
+  uploaded; nothing bounds it from below.
+- Who typed a change. A range names the member whose device signed the
+  upload, and an upload can carry another member's operations.
+- That each peer's operations came from its owner. Only the server enforces
+  [peer ownership](../../advisory-op-spans.md#peer-ownership).
+- That another reader leaves out the same updates. A void is this reader's
+  own judgement, under its Loro decoder.
+
+Two limits are the history's own, verified or not:
+
 - Attachment bytes that were later detached are
   [not retained](../../attachment-retention.md): a view lists the attachment a
   version referenced, not necessarily bytes this device still has.
