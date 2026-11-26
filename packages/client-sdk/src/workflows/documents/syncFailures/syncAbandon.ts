@@ -1,5 +1,6 @@
 import type { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
+import type { DocumentRotationBaselineStageError } from "../baselineStage/rotationBaselineErrors";
 import type { RemoteDocumentSyncPass } from "../sync/remoteDocumentSyncPass";
 import { traceAncestorRepairAbandoned } from "../sync/syncTrace";
 import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
@@ -103,6 +104,13 @@ export function abandonAfterRetryableConflicts(
   return null;
 }
 
+/**
+ * The plan cannot be sent however often it is built: one queued update, or
+ * one operation of the history a heal's rotation baseline carries, is larger
+ * than a request, or that history needs more segments than a staged
+ * baseline holds. A baseline that is merely larger than one request is
+ * staged and never ends here.
+ */
 export async function abandonOversizedSyncPlan(
   input: AbandonedSyncInput,
   error: Error,
@@ -116,7 +124,32 @@ export async function abandonOversizedSyncPlan(
   };
   await input.onTerminalSubmitFailure?.(failure);
   input.onSyncAbandoned?.(
-    "a queued update or rotation baseline cannot fit within the document sync request limit",
+    "one queued update or operation cannot fit a document sync request, or the history needs more segments than a staged rotation baseline holds",
   );
+  return null;
+}
+
+/**
+ * A heal's rotation baseline could not be staged: the API refused a stage
+ * request for a reason that says nothing about the stage (access, billing,
+ * an outage), or the stage was lost more than once in one pass. The writes
+ * stay queued and the failure is recorded as a refused submit is, with the
+ * refusal's own status and code. Nothing is retried in this pass; a later
+ * one reads the stage and goes on from where it stands.
+ */
+export async function abandonRefusedBaselineStage(
+  input: AbandonedSyncInput & Pick<RemoteDocumentSyncPass, "stillCurrent">,
+  error: DocumentRotationBaselineStageError,
+): Promise<null> {
+  // A pass that ended while its baseline uploaded records nothing.
+  if (input.stillCurrent?.() === false) return null;
+  await input.onTerminalSubmitFailure?.({
+    code: error.code,
+    message: error.message,
+    ok: false,
+    report: () => undefined,
+    status: error.status,
+  });
+  input.onSyncAbandoned?.("the rotation baseline could not be staged");
   return null;
 }

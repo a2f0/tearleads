@@ -9,9 +9,7 @@ import type {
   ListContainerParentLanesRequest,
 } from "@tearleads/validators/request";
 import type {
-  DocumentPeerFrontier,
   DocumentWriterProjectionResponse,
-  ReferencedPrincipalStateResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
 import {
@@ -22,7 +20,9 @@ import {
 } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import {
+  baselineStageFields,
   peerFrontiersField,
+  type RequestFailureHints,
   stalePrincipalHeadsField,
 } from "./failureResponseHints";
 import type { RequestBody } from "./types";
@@ -91,15 +91,10 @@ export async function evictWriterProjectionIfSyncChanged(
   }
 }
 
-export interface ErrorResponseDescription {
+export interface ErrorResponseDescription extends RequestFailureHints {
   readonly code: string | null;
   readonly detail: string;
   readonly error: string | null;
-  readonly stalePrincipalHeads?: ReferencedPrincipalStateResponse[] | undefined;
-  /** With `document_sync_peer_owned`: each refused peer's committed frontier. */
-  readonly peerFrontiers?: readonly DocumentPeerFrontier[] | undefined;
-  /** Descendant rekeys a refused rotation must carry, parent-first. */
-  readonly requiredContainerIds?: readonly string[] | undefined;
   /** Set on a 402 body — the organization whose billing blocked the sync write. */
   readonly paymentRequiredOrganizationId?: string | undefined;
 }
@@ -162,6 +157,7 @@ function parsedErrorResponseDescription(
     error: error.length === 0 ? null : error,
     ...stalePrincipalHeadsField(value, schema),
     ...peerFrontiersField(value, schema),
+    ...baselineStageFields(value, schema),
     ...((code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
       code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysInaccessible) &&
     "requiredContainerIds" in value &&

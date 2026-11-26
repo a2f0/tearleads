@@ -10,6 +10,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { documentKekTargetsFromContentKeyBundle } from "@tearleads/validators/response";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { assertDocumentKekPathsCurrent } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import {
   assertDocumentWriterProjectionConsistent,
@@ -23,7 +24,11 @@ import {
 import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { assertDocumentManifestBundleConsistent } from "../../../data/documents/shared/readers";
-import { selectDocumentSyncOutgoingBatch } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
+import type { DocumentBaselineStageApi } from "../../../data/documents/shared/sync/baselineStageApi";
+import {
+  isDocumentSyncRequestLimitError,
+  selectDocumentSyncOutgoingBatch,
+} from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
 import type {
   BuildDocumentSyncPlanInput,
   MaterializedDocumentSyncPlan,
@@ -32,6 +37,8 @@ import type { DocumentCreateAuthor } from "../../../data/documents/shared/types"
 import type { DocumentWriterProjectionAuthorization } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { rotationBaselineSigner } from "../baselineStage/rotationBaselineSigner";
+import { heldStagedBaselinePlan } from "../baselineStage/rotationBaselineWriter";
 import {
   type DocumentSyncTraceEmitter,
   traceHealBlocked,
@@ -40,10 +47,9 @@ import {
   traceStaleRead,
 } from "../sync/syncTrace";
 import {
-  type DocumentRotationBaselineHistory,
-  rotationBaselineDataCharacters,
-} from "./rotationBaselineGroup";
-import { buildStaleRecoveryBaseline } from "./staleRecoveryBaseline";
+  type StaleRecoveryBaseline,
+  writeStaleRecoveryBaseline,
+} from "./staleRecoveryBaseline";
 import { prepareDocumentOutgoingUpdates } from "./syncContentKeys";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import { finalizeMaterializedDocumentSyncPlan } from "./syncPlanProjection";
@@ -91,17 +97,40 @@ interface ResolvedSyncPlanContentMaterial {
   healedStaleContentKeyBundle: boolean;
   pendingUpdates: readonly PendingUpdateRecord[];
   /** The baseline a heal sends ahead of its pending updates. */
-  rotationBaseline?: DocumentRotationBaselineHistory;
+  rotationBaseline?: StaleRecoveryBaseline;
+}
+
+/** What a plan fixes before it resolves the content it carries. */
+interface SyncPlanSigning {
+  /** The payload characters a heal's baseline may total to travel whole. */
+  readonly inlineBaselineCharacters: number;
+  readonly organizationId: string;
+  readonly signedAt: string;
 }
 
 async function resolveStaleHealMaterial(
   input: Parameters<typeof buildMaterializedDocumentSyncPlan>[0],
   containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
   pendingUpdates: readonly PendingUpdateRecord[],
+  signing: SyncPlanSigning,
 ): Promise<ResolvedSyncPlanContentMaterial> {
-  const contentKey = crypto.getRandomValues(new Uint8Array(32));
+  const staleEpoch = input.writerProjection.contentKeyBundle.contentKeyEpoch;
+  // A baseline part way through a stage was encrypted under a key: the heal
+  // that goes on with it wraps that key, not a new one.
+  const contentKey =
+    heldStagedBaselinePlan(
+      input.execSql,
+      input.writerProjection.documentId,
+      staleEpoch + 1,
+    )?.contentKey ?? crypto.getRandomValues(new Uint8Array(32));
+  const contentKeyBundle = await buildRotatedDocumentContentKeyBundle({
+    containerKeksByEpochId,
+    contentKey,
+    writerProjection: input.writerProjection,
+  });
   // The heal's baseline is the local document's whole history, cut into
-  // segments and sent ahead of the pending updates in the same request.
+  // segments and sent ahead of the pending updates in the same request, or
+  // staged ahead of it when the history does not fit.
   //
   // A heal whose baseline does not cover the committed frontier is rejected
   // by the server's covering-baseline gate and surfaces as a terminal queue
@@ -110,25 +139,48 @@ async function resolveStaleHealMaterial(
   // KEKs on a read-only pass, then retry with a covering baseline. The
   // coverage proof prevents a partial local view from becoming the redirect
   // baseline.
-  const rotationBaseline = await buildStaleRecoveryBaseline(
-    input.buildRotationSnapshot,
-    input.rotationBaselineSegmentSizes,
-  );
-  // The baseline goes whole or the heal does not go: the pending updates
-  // take what room the request has left.
+  const rotationBaseline = await writeStaleRecoveryBaseline({
+    api: input.baselineStageApi ?? {},
+    buildRotationSnapshot: input.buildRotationSnapshot,
+    contentKey,
+    contentKeyBundle,
+    execSql: input.execSql,
+    inlineCharacters: signing.inlineBaselineCharacters,
+    onSyncTrace: input.onSyncTrace,
+    organizationId: signing.organizationId,
+    segmentSizes: input.rotationBaselineSegmentSizes,
+    signedAt: signing.signedAt,
+    signer: rotationBaselineSigner({
+      author: { ...input.author, organizationId: signing.organizationId },
+      authorizingContainerPathRefs: authorizingContainerPathRefs(
+        input.writerProjection,
+      ),
+      contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
+      documentId: contentKeyBundle.documentId,
+      expectedLinkSetManifestHash: contentKeyBundle.linkSetManifestHash,
+      expectedTargetHash: contentKeyBundle.targetHash,
+      organizationId: signing.organizationId,
+      signedAt: signing.signedAt,
+    }),
+    stillCurrent: input.stillCurrent,
+  });
+  // What the request carries of the baseline goes whole or the heal does
+  // not go: the pending updates take what room the request has left.
   const selectedPendingUpdates = selectDocumentSyncOutgoingBatch(
     pendingUpdates,
     {
-      reservedDataCharacters: rotationBaselineDataCharacters(rotationBaseline),
+      // A group measured to fit before it was encrypted may be a little
+      // over once it is; the request's exact byte check decides that.
+      reservedDataCharacters: Math.min(
+        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+        rotationBaseline.segments.reduce(
+          (sum, segment) => sum + segment.encryptedData.length,
+          0,
+        ),
+      ),
       reservedUpdateCount: rotationBaseline.segments.length,
     },
   );
-  const staleEpoch = input.writerProjection.contentKeyBundle.contentKeyEpoch;
-  const contentKeyBundle = await buildRotatedDocumentContentKeyBundle({
-    containerKeksByEpochId,
-    contentKey,
-    writerProjection: input.writerProjection,
-  });
   traceHealPlanned(input.onSyncTrace, {
     documentId: input.writerProjection.documentId,
     fromEpoch: staleEpoch,
@@ -152,6 +204,7 @@ async function resolveSyncPlanContentMaterial(
   collectedKeks: Awaited<
     ReturnType<typeof collectContainerKeksForDocumentSync>
   >,
+  signing: SyncPlanSigning,
 ): Promise<ResolvedSyncPlanContentMaterial> {
   const allPendingUpdates = input.pendingUpdates ?? [];
   if (allPendingUpdates.length > 0) {
@@ -170,6 +223,7 @@ async function resolveSyncPlanContentMaterial(
       input,
       collectedKeks.keksByEpochId,
       allPendingUpdates,
+      signing,
     );
   }
 
@@ -237,6 +291,11 @@ export async function buildMaterializedDocumentSyncPlan(
   input: {
     author: DocumentCreateAuthor;
     /**
+     * The API port's stage routes, through which a heal uploads a baseline
+     * that does not fit its request. Without them such a heal cannot go.
+     */
+    baselineStageApi?: Partial<DocumentBaselineStageApi> | undefined;
+    /**
      * Supplies a full-history Loro snapshot of the local document when a
      * stale content-key bundle must be healed. Without it that pass fails
      * with a descriptive error instead.
@@ -290,14 +349,62 @@ export async function buildMaterializedDocumentSyncPlan(
     writerProjection: input.writerProjection,
     ...projectionVerificationOptions(input),
   });
-  const documentId = input.writerProjection.documentId;
   const manifestIdentity = await assertDocumentManifestBundleConsistent({
     bundle: input.writerProjection.documentManifest,
     label: "Document sync manifest",
   });
+  const signing = {
+    inlineBaselineCharacters: MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+    organizationId: manifestIdentity.organizationId,
+    signedAt: input.signedAt ?? new Date().toISOString(),
+  };
+  const context = { collectedKeks, signing, writerAuthorization };
+  const planned = await planResolvedSyncContent(input, context);
+  if (planned.kind === "planned") return planned.plan;
+  // The heal's baseline was cut to travel whole, and the request it leads
+  // cannot carry all of it: stage it, so the request carries only its final
+  // segment.
+  const staged = await planResolvedSyncContent(input, {
+    ...context,
+    signing: { ...signing, inlineBaselineCharacters: 0 },
+  });
+  if (staged.kind === "planned") return staged.plan;
+  throw staged.error;
+}
+
+/** What `buildMaterializedDocumentSyncPlan` verified before it plans. */
+interface SyncPlanContext {
+  readonly collectedKeks: Awaited<
+    ReturnType<typeof collectContainerKeksForDocumentSync>
+  >;
+  readonly signing: SyncPlanSigning;
+  readonly writerAuthorization:
+    | DocumentWriterProjectionAuthorization
+    | undefined;
+}
+
+/**
+ * Resolve what the plan carries, encrypt and sign it, and hold the request
+ * to its byte ceiling. `oversized` is the one failure the caller answers: a
+ * heal's baseline sent whole that the request cannot carry beside the rest
+ * of what it holds.
+ */
+async function planResolvedSyncContent(
+  input: Parameters<typeof buildMaterializedDocumentSyncPlan>[0],
+  context: SyncPlanContext,
+): Promise<
+  | { readonly kind: "planned"; readonly plan: MaterializedDocumentSyncPlan }
+  | { readonly error: unknown; readonly kind: "oversized" }
+> {
+  const { collectedKeks, signing } = context;
+  const documentId = input.writerProjection.documentId;
   let material: ResolvedSyncPlanContentMaterial;
   try {
-    material = await resolveSyncPlanContentMaterial(input, collectedKeks);
+    material = await resolveSyncPlanContentMaterial(
+      input,
+      collectedKeks,
+      signing,
+    );
   } catch (error) {
     // Only a stale-bundle HEAL (write-bearing) counts as a blocked recovery;
     // an ordinary pass or a stale READ failing here must not read as one in
@@ -321,23 +428,21 @@ export async function buildMaterializedDocumentSyncPlan(
     documentManifest,
     pendingUpdates,
   } = material;
+  const { rotationBaseline } = material;
   const outgoingUpdates = await prepareDocumentOutgoingUpdates({
+    baselineSegments: rotationBaseline?.segments,
     contentKey,
     contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
     documentId,
-    execSql: input.execSql,
-    organizationId: manifestIdentity.organizationId,
+    organizationId: signing.organizationId,
     pendingUpdates,
-    rotationBaseline: material.rotationBaseline,
   });
   const basePlan = await buildDocumentSyncPlan({
-    author: {
-      ...input.author,
-      organizationId: manifestIdentity.organizationId,
-    },
+    author: { ...input.author, organizationId: signing.organizationId },
     authorizingContainerPathRefs: authorizingContainerPathRefs(
       input.writerProjection,
     ),
+    baselineStageId: rotationBaseline?.baselineStageId,
     containerRekeys: input.containerRekeys,
     contentKeyBundle,
     documentId,
@@ -351,12 +456,22 @@ export async function buildMaterializedDocumentSyncPlan(
     outgoingUpdates,
     processedThroughUpdateId: input.processedThroughUpdateId,
     pullCursor: input.pullCursor,
-    signedAt: input.signedAt,
+    signedAt: signing.signedAt,
   });
-  return finalizeMaterializedDocumentSyncPlan({
-    basePlan,
-    material,
-    writerAuthorization,
-    writerProjection: input.writerProjection,
-  });
+  try {
+    const plan = finalizeMaterializedDocumentSyncPlan({
+      basePlan,
+      material,
+      writerAuthorization: context.writerAuthorization,
+      writerProjection: input.writerProjection,
+    });
+    return { kind: "planned", plan };
+  } catch (error) {
+    const sentWhole =
+      rotationBaseline !== undefined &&
+      rotationBaseline.baselineStageId === undefined &&
+      signing.inlineBaselineCharacters > 0;
+    if (!sentWhole || !isDocumentSyncRequestLimitError(error)) throw error;
+    return { error, kind: "oversized" };
+  }
 }

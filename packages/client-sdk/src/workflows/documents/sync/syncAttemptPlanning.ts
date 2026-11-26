@@ -9,12 +9,14 @@ import {
 } from "../../../data/documents/shared/sync/syncPagination";
 import { checkWithHeldBundleRecovery } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
+import { isDocumentRotationBaselineStageError } from "../baselineStage/rotationBaselineErrors";
 import { retrySyncPlanOrAbandon } from "../syncFailures";
 import {
   abandonAncestorRepair,
   abandonBlockedSync,
   abandonInaccessibleAncestorRepair,
   abandonOversizedSyncPlan,
+  abandonRefusedBaselineStage,
   isPullUnderWay,
 } from "../syncFailures/syncAbandon";
 import type { TerminalSubmitFailureHandler } from "../syncFailures/syncFailureClassification";
@@ -139,6 +141,9 @@ export async function planDocumentSyncAttempt(input: {
     }
     if (error instanceof ContainerKekRepairInaccessibleError) {
       return abandonInaccessibleAncestorRepair(input.sync, error);
+    }
+    if (isDocumentRotationBaselineStageError(error)) {
+      return abandonRefusedBaselineStage(input.sync, error);
     }
     if (!isDocumentSyncRequestLimitError(error)) {
       throw error;

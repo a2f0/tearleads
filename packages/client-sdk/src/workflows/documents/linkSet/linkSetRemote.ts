@@ -1,9 +1,9 @@
 import type {
+  AccessEvent,
   DocumentContentKeyTarget,
   DocumentLinkAccessEventBody,
 } from "@tearleads/crypto";
 import type { HistorySegmentSizes } from "@tearleads/loro";
-import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentLinkSetMutationResponse,
@@ -33,7 +33,7 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
 import type { SubtreePurgeRoot } from "../purge/subtreePurgeScope";
 import type { RemoteDocumentCollaborators } from "../remote/remoteDocumentCollaborators";
-import { completeLinkSetMutationRequest } from "../rotationBaseline";
+import type { DocumentSyncTraceEmitter } from "../sync/syncTrace";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
 import {
   type LinkSetAttachmentReuse,
@@ -52,42 +52,7 @@ import {
   transitionLinkSetLeg,
 } from "./linkSetLegMachine";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
-
-async function submitLinkSetMutation(input: {
-  apiClient: DocumentLinkSetMutationApi;
-  documentId: string;
-  expectedOrganizationId: string;
-  onFailure: (failure: LinkSetSubmitFailure) => void;
-  operation: DocumentLinkSetMutationOperation;
-  request: DocumentLinkSetMutationRequest;
-  stillCurrent?: (() => boolean) | undefined;
-}): Promise<DocumentLinkSetMutationResponse | null> {
-  if (input.stillCurrent?.() === false) return null;
-  const { apiClient } = input;
-  // Preserve the HTTP failure for the durable move-intent queue. Its host
-  // report waits until the leg knows the refusal is not one it recovers from.
-  const resultFn =
-    input.operation === "link"
-      ? apiClient.linkDocumentResult.bind(apiClient)
-      : apiClient.unlinkDocumentResult.bind(apiClient);
-  const result = await resultFn(input.documentId, input.request, {
-    expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
-    reportErrors: false,
-  });
-  if (result.ok) {
-    return result.data;
-  }
-  // A refusal the operation no longer waits for is neither retried nor
-  // reported.
-  if (input.stillCurrent?.() === false) return null;
-  input.onFailure({
-    code: result.code,
-    message: result.message,
-    report: result.report,
-    status: result.status,
-  });
-  return null;
-}
+import { fixedLinkSetPlan, submitLinkSetLeg } from "./linkSetSubmit";
 
 /** Hand a refusal the leg does not recover from to its host and caller. */
 function reportLinkSetFailure(
@@ -219,6 +184,8 @@ export interface RelinkRemoteDocumentRequest {
   documentId: string;
   expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
   eventId?: string | undefined;
+  /** Progress of an unlink baseline that goes through a stage. */
+  onBaselineStageTrace?: DocumentSyncTraceEmitter | undefined;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   operation: DocumentLinkSetMutationOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -335,37 +302,22 @@ async function relinkRemoteDocumentOnce(
   const targetContainerProjection = targetContainerFetch.projection;
   if (input.stillCurrent?.() === false) return null;
 
-  const signedAt = input.signedAt ?? new Date().toISOString();
+  const fixed = fixedLinkSetPlan(input, writerProjection);
   const materializedPlan = await prepareRemoteLinkSetMutation(
-    { ...input, resolveProjectionUserKey, signedAt },
+    { ...input, ...fixed, resolveProjectionUserKey },
     writerProjection,
     targetContainerProjection,
     attempt,
   );
   if (!materializedPlan) return null;
-  const request = await completeLinkSetMutationRequest({
-    author: input.author,
-    execSql: input.execSql,
+  const submitted = await submitLinkSetLeg(
+    input,
     materializedPlan,
-    operation: input.operation,
-    rotationBaselineSegmentSizes: input.rotationBaselineSegmentSizes,
-    rotationSnapshot: input.rotationSnapshot,
-    signedAt,
-  });
-  const completedPlan = { ...materializedPlan.plan, request };
-  if (input.beforeSubmit && !(await input.beforeSubmit())) return null;
-  const response = await submitLinkSetMutation({
-    apiClient: input.apiClient,
-    documentId: completedPlan.documentId,
-    expectedOrganizationId: completedPlan.state.organizationId,
-    onFailure: onSubmitFailure,
-    operation: input.operation,
-    request: completedPlan.request,
-    stillCurrent: input.stillCurrent,
-  });
-  if (!response) {
-    return null;
-  }
+    fixed,
+    onSubmitFailure,
+  );
+  if (!submitted) return null;
+  const { completedPlan, response } = submitted;
   if (input.stillCurrent?.() === false) return null;
   return completeRemoteDocumentLinkSet({
     apiClient: input.apiClient,
@@ -433,6 +385,7 @@ function prepareRemoteLinkSetMutation(
   input: RelinkRemoteDocumentInput & {
     resolveProjectionUserKey: ProjectionUserKeyResolver;
     signedAt: string;
+    signedEvent: AccessEvent | undefined;
   },
   writerProjection: DocumentWriterProjectionResponse,
   targetContainerProjection: ContainerWriterProjectionResponse,
@@ -470,6 +423,7 @@ function prepareRemoteLinkSetMutation(
           operation: input.operation,
           resolveProjectionUserKey: input.resolveProjectionUserKey,
           signedAt: input.signedAt,
+          signedEvent: input.signedEvent,
           stillCurrent: input.stillCurrent,
           targetContainerProjection,
           targetSecretKey: input.targetSecretKey,

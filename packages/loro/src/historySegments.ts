@@ -1,4 +1,4 @@
-import type { LoroDoc, PeerID } from "loro-crdt";
+import type { LoroDoc, PeerID, VersionVector } from "loro-crdt";
 import {
   decodeVersionVector,
   encodeVersionVector,
@@ -122,32 +122,65 @@ function resolveSizes(sizes: HistorySegmentSizes): Sizes {
 }
 
 /**
- * The document's changes in segment order, and how many counters they hold.
- * Every peer's changes must run from counter zero to the document's version
- * without a gap, or segments could not rebuild the document from nothing.
+ * The document's changes in segment order, without the counters `after`
+ * holds, and how many counters are left. Every peer's changes must run from
+ * counter zero to the document's version without a gap, or segments could
+ * not rebuild the document from nothing; and the document must hold all of
+ * `after`, or the segments would not start where it ends.
  */
-function orderedChanges(doc: LoroDoc): {
+function orderedChanges(
+  doc: LoroDoc,
+  after: VersionVector | null,
+): {
   changes: HistoryStop[];
   counters: number;
 } {
-  const changes = orderHistoryStopsByLamport(doc.getAllChanges());
+  const changes: HistoryStop[] = [];
   const held = new Map<PeerID, number>();
   let counters = 0;
-  for (const change of changes) {
+  for (const change of orderHistoryStopsByLamport(doc.getAllChanges())) {
     if (change.startCounter !== (held.get(change.peerId) ?? 0)) {
       throw new Error(
         "Document history does not run unbroken from its first operation.",
       );
     }
     held.set(change.peerId, change.endCounter);
-    counters += change.endCounter - change.startCounter;
+    const left = changeAfter(change, after);
+    if (!left) continue;
+    changes.push(left);
+    counters += left.endCounter - left.startCounter;
   }
   for (const [peerId, counter] of doc.oplogVersion().toJSON()) {
     if (counter !== (held.get(peerId) ?? 0)) {
       throw new Error("Document changes do not cover its version.");
     }
   }
+  for (const [peerId, counter] of after?.toJSON() ?? []) {
+    if (counter > (held.get(peerId) ?? 0)) {
+      throw new Error(
+        "Document does not hold the version its segments follow.",
+      );
+    }
+  }
   return { changes, counters };
+}
+
+/**
+ * What `change` holds past `after`: the change, its tail from the first
+ * counter `after` lacks, or null when `after` holds all of it.
+ */
+function changeAfter(
+  change: HistoryStop,
+  after: VersionVector | null,
+): HistoryStop | null {
+  const startCounter = Math.max(
+    change.startCounter,
+    after?.get(change.peerId) ?? 0,
+  );
+  if (startCounter >= change.endCounter) return null;
+  return startCounter === change.startCounter
+    ? change
+    : { ...change, startCounter };
 }
 
 /**
@@ -264,14 +297,25 @@ function* packSegments(
  * only when the returned generator is asked for it, so a caller that hands
  * each one on holds one segment at a time. Operations the document gains
  * meanwhile are left out.
+ *
+ * With `after`, a version the document holds, the segments carry only the
+ * operations past it, in the same order, and rebuild the document when
+ * imported in order into one that holds exactly `after`. Their indexes
+ * still count from zero. A writer that handed on a run of segments
+ * continues it this way once the document has gained history: the earlier
+ * segments stand, and these follow them.
  */
 export function exportHistorySegments(
   doc: LoroDoc,
   sizes: HistorySegmentSizes = {},
+  after?: string,
 ): Generator<HistorySegment, void, undefined> {
   const resolvedSizes = resolveSizes(sizes);
   doc.commit();
-  const { changes, counters } = orderedChanges(doc);
+  const { changes, counters } = orderedChanges(
+    doc,
+    after === undefined ? null : decodeVersionVector(after),
+  );
   return packSegments({
     doc,
     ...resolvedSizes,

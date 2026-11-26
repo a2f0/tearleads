@@ -1,7 +1,11 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
 import {
   ContainerMutationFailureResponseSchema,
+  DocumentBaselineStageConflictErrorResponseSchema,
+  DocumentMutationFailureResponseSchema,
   DocumentSyncErrorResponseSchema,
+  isDocumentBaselineStageConflictErrorResponse,
+  isDocumentBaselineStageErrorCode,
   isDocumentPeerRebaseErrorCode,
   isDocumentSyncErrorResponse,
   isDocumentSyncStateStaleErrorResponse,
@@ -13,9 +17,13 @@ type FailureResponseSchema = NonNullable<
   HttpOperation["failureResponses"]
 >[number];
 
-type RequestFailureHints = Pick<
+export type RequestFailureHints = Pick<
   RequestFailure,
-  "peerFrontiers" | "requiredContainerIds" | "stalePrincipalHeads"
+  | "baselineStageCode"
+  | "nextSegmentIndex"
+  | "peerFrontiers"
+  | "requiredContainerIds"
+  | "stalePrincipalHeads"
 >;
 
 // Container mutations and document sync with inline container rekeys can
@@ -49,6 +57,29 @@ export function peerFrontiersField(
     : {};
 }
 
+// A sync or unlink that commits a staged rotation baseline names what the
+// refusal means for the stage beside its own code, and a stage route that
+// refuses a segment out of order names the index it expects, so the writer
+// knows whether to re-sign, resume, append or start over.
+export function baselineStageFields(
+  value: object,
+  schema?: FailureResponseSchema,
+): Pick<RequestFailureHints, "baselineStageCode" | "nextSegmentIndex"> {
+  if (
+    (schema === DocumentSyncErrorResponseSchema ||
+      schema === DocumentMutationFailureResponseSchema) &&
+    "baselineStageCode" in value &&
+    isDocumentBaselineStageErrorCode(value.baselineStageCode)
+  ) {
+    return { baselineStageCode: value.baselineStageCode };
+  }
+  return schema === DocumentBaselineStageConflictErrorResponseSchema &&
+    isDocumentBaselineStageConflictErrorResponse(value) &&
+    value.nextSegmentIndex !== undefined
+    ? { nextSegmentIndex: value.nextSegmentIndex }
+    : {};
+}
+
 /** A failure's recovery hints, each set only when its body carried it. */
 export function requestFailureHints(
   input: RequestFailureHints,
@@ -61,5 +92,11 @@ export function requestFailureHints(
       ? { requiredContainerIds: input.requiredContainerIds }
       : {}),
     ...(input.peerFrontiers ? { peerFrontiers: input.peerFrontiers } : {}),
+    ...(input.baselineStageCode
+      ? { baselineStageCode: input.baselineStageCode }
+      : {}),
+    ...(input.nextSegmentIndex === undefined
+      ? {}
+      : { nextSegmentIndex: input.nextSegmentIndex }),
   };
 }

@@ -25,6 +25,16 @@ import { ensureDocumentTables } from "../../data/persistence/documents/records";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { buildDocumentRotationBaseline } from "./rotationBaseline";
 
+/** The segments the unlink request would carry, with nothing staged. */
+async function buildBaselineSegments(
+  input: Parameters<typeof buildDocumentRotationBaseline>[0],
+) {
+  const baseline = await buildDocumentRotationBaseline(input);
+  if (baseline === "cancelled") throw new Error("Unexpected cancellation");
+  expect(baseline?.staged ?? null).toBeNull();
+  return baseline?.segments ?? null;
+}
+
 type Author = Awaited<ReturnType<typeof createAuthor>>["author"];
 
 function headerOf(update: DocumentOutgoingUpdate): WriteHeader {
@@ -85,7 +95,7 @@ test("an unlink baseline signs the processed cursor its history covers", async (
   try {
     await ensureDocumentTables(execSql);
     const build = async (snapshot: Uint8Array) =>
-      buildDocumentRotationBaseline({
+      buildBaselineSegments({
         authorizingContainerPathRefs: [],
         author,
         contentKey: crypto.getRandomValues(new Uint8Array(32)),
@@ -162,7 +172,7 @@ test("an empty document's unlink baseline signs the cursor alone", async () => {
   try {
     await ensureDocumentTables(execSql);
     const build = async () =>
-      buildDocumentRotationBaseline({
+      buildBaselineSegments({
         authorizingContainerPathRefs: [],
         author,
         contentKey,

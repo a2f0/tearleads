@@ -1,6 +1,9 @@
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { createSessionMetadataReader } from "./boundedMetadataResponse";
-import { requestFailureHints } from "./failureResponseHints";
+import {
+  type RequestFailureHints,
+  requestFailureHints,
+} from "./failureResponseHints";
 import { measureApiRequest } from "./measureApiRequest";
 import {
   type ApiNetworkError,
@@ -181,11 +184,9 @@ export class ApiRequestRuntime {
     networkError?: ApiNetworkError | undefined;
     path: string;
     reportErrors: boolean;
-    peerFrontiers?: RequestFailure["peerFrontiers"];
-    requiredContainerIds?: RequestFailure["requiredContainerIds"];
-    stalePrincipalHeads: RequestFailure["stalePrincipalHeads"];
     status: number | null;
     statusText: string;
+    hints?: RequestFailureHints | undefined;
   }): RequestFailure {
     const failure: RequestFailure = {
       ...(input.code === undefined ? {} : { code: input.code }),
@@ -200,7 +201,7 @@ export class ApiRequestRuntime {
       },
       status: input.status,
       statusText: input.statusText,
-      ...requestFailureHints(input),
+      ...requestFailureHints(input.hints ?? {}),
     };
     if (!input.isolated)
       this.requestFailuresByKey.set(
@@ -262,7 +263,6 @@ export class ApiRequestRuntime {
         method,
         path,
         reportErrors,
-        stalePrincipalHeads: undefined,
         status: response.status,
         statusText: response.statusText,
       });
@@ -420,7 +420,6 @@ export class ApiRequestRuntime {
         networkError,
         path,
         reportErrors: !cancelled && (options.reportErrors ?? true),
-        stalePrincipalHeads: undefined,
         status: null,
         statusText: "",
       });
@@ -472,9 +471,7 @@ export class ApiRequestRuntime {
       method: input.method,
       path: input.path,
       reportErrors: !cancelled && reportErrors,
-      peerFrontiers: input.errorDescription.peerFrontiers,
-      requiredContainerIds: input.errorDescription.requiredContainerIds,
-      stalePrincipalHeads: input.errorDescription.stalePrincipalHeads,
+      hints: input.errorDescription,
       status: input.response.status,
       statusText: input.response.statusText,
     });
@@ -492,7 +489,6 @@ export class ApiRequestRuntime {
       ...input,
       isolated: input.options?.[privateRead],
       reportErrors: input.options?.reportErrors ?? true,
-      stalePrincipalHeads: undefined,
     });
   }
 }

@@ -5,6 +5,7 @@ import { BillingArea } from "./billing";
 import { BlobArea } from "./blobs";
 import { ContainerMutationArea } from "./containerMutations";
 import { ContainerReadArea } from "./containerReads";
+import { DocumentBaselineStageArea } from "./documentBaselineStages";
 import { DocumentArea } from "./documents";
 import { IdentityArea } from "./identities";
 import { OrganizationArea } from "./organizations";
@@ -42,6 +43,7 @@ export abstract class ApiClientAreas implements ApiClientSelf {
   protected readonly containerWrites: ContainerMutationArea;
   protected readonly containerReads: ContainerReadArea;
   protected readonly documents: DocumentArea;
+  protected readonly baselineStages: DocumentBaselineStageArea;
   protected readonly blobs: BlobArea;
   protected readonly projections: WriterProjectionArea;
 
@@ -61,6 +63,7 @@ export abstract class ApiClientAreas implements ApiClientSelf {
     this.containerWrites = new ContainerMutationArea(context, this);
     this.containerReads = new ContainerReadArea(context);
     this.documents = new DocumentArea(context, this);
+    this.baselineStages = new DocumentBaselineStageArea(context);
     this.blobs = new BlobArea(context);
     this.projections = new WriterProjectionArea(context);
   }

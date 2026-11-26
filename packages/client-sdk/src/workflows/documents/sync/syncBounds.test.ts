@@ -26,16 +26,16 @@ import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument 
 import { createLoroPendingUpdate } from "../../../../test/helpers/workflows/documentSyncFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import {
+  rotationBaselineDataCharacters,
+  segmentRotationSnapshot,
+} from "../../../../test/helpers/workflows/rotationBaselineGroup";
+import {
   createInterleavedHistoryDocument,
   createStaleBundleSyncFixture,
 } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import {
-  rotationBaselineDataCharacters,
-  segmentRotationSnapshot,
-} from "../syncPlan/rotationBaselineGroup";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 

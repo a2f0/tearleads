@@ -23,6 +23,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { ContainerMutationAuthor } from "../../containers/shared/types";
 import type { DocumentRecord } from "../../persistence/documents/records";
+import type { DocumentBaselineStageApi } from "./sync/baselineStageApi";
 import type { DocumentSyncSubmitFailure } from "./sync/syncSubmitFailure";
 
 export { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "@tearleads/crypto";
@@ -148,6 +149,11 @@ export interface BuildDocumentLinkSetMutationPlanInput {
   eventId?: string | undefined;
   operation: DocumentLinkSetMutationOperation;
   signedAt?: string | undefined;
+  /**
+   * The event an earlier attempt of this mutation signed. It is kept when
+   * this plan would sign exactly the same event, so both write one manifest.
+   */
+  signedEvent?: AccessEvent | undefined;
   targetContainerProjection: ContainerWriterProjectionResponse;
   targetEnvelopes: readonly DocumentContentKeyTargetEnvelope[];
   writerProjection: DocumentWriterProjectionResponse;
@@ -207,12 +213,15 @@ export type DocumentRotationProofMode = "prove" | "reuse";
 type DocumentLinkSetMutationResult =
   | { readonly data: DocumentLinkSetMutationResponse; readonly ok: true }
   | (DocumentLinkSetMutationFailure & {
+      /** What a refused commit of a staged baseline means for its stage. */
+      readonly baselineStageCode?: string | undefined;
       readonly ok: false;
       /** The host report a `reportErrors: false` request withheld. */
       readonly report?: (() => void) | undefined;
     });
 
-export interface DocumentLinkSetMutationApi {
+export interface DocumentLinkSetMutationApi
+  extends Partial<DocumentBaselineStageApi> {
   getBlobBytes(
     blobId: string,
     options?: { readonly stillCurrent?: (() => boolean) | undefined },

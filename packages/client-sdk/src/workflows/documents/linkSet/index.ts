@@ -1,4 +1,5 @@
 import {
+  type AccessEvent,
   computeAccessManifestHash,
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
@@ -240,6 +241,7 @@ async function buildDocumentLinkSetMutationPlan({
   eventId = crypto.randomUUID(),
   operation,
   signedAt = new Date().toISOString(),
+  signedEvent,
   targetContainerProjection,
   targetEnvelopes,
   writerProjection,
@@ -267,6 +269,7 @@ async function buildDocumentLinkSetMutationPlan({
     operation,
     organizationId,
     signedAt,
+    signedEvent,
     targetContainerPathRefs,
     targetState,
     writerProjection,
@@ -329,6 +332,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     execSql?: ExecSql | undefined;
     operation: DocumentLinkSetMutationOperation;
     signedAt?: string | undefined;
+    signedEvent?: AccessEvent | undefined;
     targetContainerProjection: ContainerWriterProjectionResponse;
     targetSecretKey: Uint8Array;
     writerProjection: DocumentWriterProjectionResponse;
@@ -401,6 +405,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     eventId: input.eventId,
     operation: input.operation,
     signedAt: input.signedAt,
+    signedEvent: input.signedEvent,
     targetContainerProjection: input.targetContainerProjection,
     targetEnvelopes,
     writerProjection: input.writerProjection,

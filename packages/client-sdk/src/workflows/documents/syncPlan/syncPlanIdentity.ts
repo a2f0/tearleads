@@ -226,11 +226,21 @@ function assertDocumentSyncRequestMode(
   }
 }
 
-/** The pull's page limit and consistency floor, when it sends them. */
-function pullBounds(
-  input: Pick<BuildDocumentSyncPlanInput, "maxPageUpdates" | "minLsn">,
+/**
+ * What a request sends only when it has it: the pull's page limit and
+ * consistency floor, and the stage that holds the earlier segments of the
+ * rotation baseline whose final segment leads its updates.
+ */
+function optionalRequestFields(
+  input: Pick<
+    BuildDocumentSyncPlanInput,
+    "baselineStageId" | "maxPageUpdates" | "minLsn"
+  >,
 ) {
   return {
+    ...(input.baselineStageId === undefined
+      ? {}
+      : { baselineStageId: input.baselineStageId }),
     ...(input.maxPageUpdates === undefined
       ? {}
       : { maxPageUpdates: input.maxPageUpdates }),
@@ -304,7 +314,7 @@ export async function buildDocumentSyncPlan(
       ? {}
       : { inlineRekeyCommitId: input.inlineRekeyCommitId }),
     localVersionVector: input.localVersionVector,
-    ...pullBounds(input),
+    ...optionalRequestFields(input),
     outgoingUpdates,
     ...(input.processedThroughUpdateId === undefined ||
     input.localVersionVector === null ||
