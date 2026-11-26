@@ -2,7 +2,7 @@
 
 An executable SDK host for small, repeatable experiments against staging and
 production. It imports public SDK, SQLite, and PostgreSQL transport entry
-points, plus the API's test runtime for the local realtime hub probe. The app,
+points, plus the API's test runtime for the local realtime hub probes. The app,
 SDK, and API do not depend on it.
 
 Measured runs live in [results](results/README.md), one dated file per run.
@@ -14,7 +14,13 @@ the API's existing Hyperdrive binding. Run it with `bun run perf:database`.
 
 The [realtime hub interest probe](#realtime-hub-interest-authorization) times
 the hub's folder authorization against a local database. Run it with
-`bun run perf:realtime`.
+`bun run perf:realtime`. The [contention probe](#realtime-hub-contention)
+times how long that work makes other sockets wait. Run it with
+`bun run perf:realtime-contention`.
+
+The [document reload probe](#document-reload) counts the requests a returning
+client makes when it reloads, as its account grows. Run it with
+`bun run perf:reload`.
 
 ## Continuity seed round trip
 
@@ -94,7 +100,14 @@ and counts statements, exchanges, rows and bytes in each direction.
 | `productionBudgetMs` | The deadline production gives a declaration of this many ids |
 
 Statement, row and byte counts depend only on the tree, so they match
-production for the same shape. Durations and CPU do not. Bun's JavaScriptCore
+production for the same shape, once manifests carry verification markers the
+process accepts. Without `DOCUMENT_SYNC_CURSOR_HMAC_KEY`, markers are keyed to
+the process, so with `--reuse` the first declaration covering a folder
+verifies it in full: 111 statements instead of 9 at 100 folders. So with
+`--reuse`, compare a size's second and later samples, not its first. The
+[contention probe](#realtime-hub-contention) measures that pass on purpose.
+
+Durations and CPU do not match production. Bun's JavaScriptCore
 runs the hub code here instead of workerd's V8, and a local PostgreSQL answers
 in well under a millisecond, where the deployed hub waits about 5 ms per warm
 exchange through Hyperdrive
@@ -108,6 +121,127 @@ relay work, about 0.75 ms per MB returned on an M2 Pro. Reports are saved as
 `.test_files/performance/realtime-<run>.json`. See the
 [2026-11-25 results](results/2026-11-25-realtime-hub-interest.md) at 100,
 1,000 and 10,000 folders.
+
+## Realtime hub contention
+
+The interest probe times one socket alone. #3272's concern is what that work
+does to everything else on the hub. Every socket shares one global hub object,
+which is single-threaded, so while it parses and checks one account's
+bundles, other sockets' events wait, and two tabs on a large account run two
+full passes. This probe measures both against the same local tree.
+
+```sh
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_realtime_probe" \
+  bun run perf:realtime-contention --reuse --samples 3
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_realtime_probe" \
+  bun run perf:realtime-contention --reuse --sizes 1000,10000 --sockets 1,2,4
+```
+
+It boots the API as the interest probe does and reuses the account that
+`perf:realtime` seeded in the same database (`--reuse`), or seeds one with
+the same `--fanout`.
+
+With `--reuse`, the first pass declares the largest size on one socket with
+no verification marker the process accepts, so every manifest is verified in
+full (`unmarked`). Production keys markers with
+`DOCUMENT_SYNC_CURSOR_HMAC_KEY`. The probe unsets it, so the API keys them to
+the process and the markers earlier runs stored never match. That pass is
+what a hub pays after a secret rotation or a verification revision bump
+retires every marker. The same secret also keys principal-history
+protection and projection policy-history grants, which fall back to
+process keys too. It runs once per process, whatever `--samples` says,
+and also warms up the hub's code. Later passes use the markers it recorded.
+Without `--reuse` there is no such pass: seeding marks each folder under the
+process's key as it is written.
+
+Then an idle control of one second runs once per sample, with only an
+observing socket open.
+After that, each size, socket count and sample gets a fresh gateway from
+`createRealtimeGateway`. An observing socket for the same account declares the
+tree's root alone. Then `--sockets` more sockets each declare the first
+`--sizes` folders at the same moment, as tabs reconnecting together do. Once
+every acknowledgement has arrived, every armed revalidation tick fires at
+once, the worst alignment of their jittered timers. The observer's own
+one-folder tick runs in that pass too.
+
+Throughout each pass, the probe publishes a `document_update_created` hint for
+the observer's folder through the gateway's `publish` every
+`--hint-interval-ms` (default 10), and times each one until the observer's
+socket receives it. A hint stands in for any event that reaches the hub while
+it is busy: its timer cannot fire, nor its routing run, until the thread is
+free, so its lag is how long another socket's work waited. Deadlines missed
+during a stall are skipped, so one stall delays one hint. A hint already due
+when the pass ends counts its wait so far, though it was never published.
+
+| Field | What it measures |
+| --- | --- |
+| `durationMs` | From starting every socket's pass until the last one completed |
+| `authorizationMs` | Each socket's authorization call, fastest first |
+| `hints.p50Ms` to `hints.maxMs` | Hint lag: delivery time minus the time the hint was due |
+| `hints.blockedMs` | Lag above one interval, summed: time hints spent queued behind the hub |
+| `hints.sent`, `hints.delivered` | Hints published and received, plus one still due when the pass ended; they must match |
+| `database`, `resources` | As in the interest probe, for the whole pass |
+
+The interest probe's measurement boundary applies. Hint lag tracks the
+longest synchronous stretch between two awaits, which depends on the engine:
+Bun's JavaScriptCore here, workerd's V8 in production. Lag is clamped at zero,
+since a timer can fire a fraction of a millisecond early. Reports are saved
+as `.test_files/performance/realtime-contention-<run>.json`. See the
+[2026-11-25 results](results/2026-11-25-realtime-hub-contention.md).
+
+## Document reload
+
+Issue #3256 found that every full page load re-synced every document. Its
+phase 1 stopped that, and the
+[pane canaries](../../docs/request-budgets.md#restart-and-reconnect) pin a
+reload's requests at two and eight notes. This probe asks the same question at
+sizes those fixtures do not reach: which of a reload's requests still grow,
+and with what.
+
+```sh
+createdb tearleads_reload_probe
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_reload_probe" \
+  bun run perf:reload
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_reload_probe" \
+  bun run perf:reload --documents 100,1000 --per-folder 1000
+```
+
+It boots the API in this process, as the realtime probes do, and registers a
+new account through the SDK on every run. For each `--documents` size, the
+account grows to that many notes, `--per-folder` (default 10) to a folder
+under its root. Folders and notes are created the way the app creates them,
+through the device-first container store and `documentLinks().openDocument`,
+in batches of 25, each note synced before the next batch starts.
+
+A reload keeps what a browser profile keeps: the local SQLite database and
+the key the app derives from its keyring for stored principal history. It
+disposes the SDK and builds a new one over that database, restores the
+identity and session, binds the device-first view to the root, as the
+explorer does, and marks the server-events connection acknowledged, which
+starts the HTTP catch-up. No socket is opened. The reload is counted until
+the SDK's sync coordinator is idle and no request has started or finished for
+`--quiet-ms` (default 1000).
+
+Each size gets one `first` reload, the first after its notes were created,
+then `--samples` (default 3) `settled` reloads with nothing changed. Growing
+ends with the same quiet window, so no work the creates started is counted
+against the first reload.
+
+| Field | What it measures |
+| --- | --- |
+| `requests`, `byRoute` | The SDK's API requests, by route template, from `ApiRequestMetrics` |
+| `settledMs` | From building the SDK until a request was last seen starting, running or finishing; the probe looks 25 ms after each time the sync coordinator is idle |
+| `database` | PostgreSQL traffic through the counting proxy, as in the realtime probes |
+| `localSql` | Statements the client ran against its local SQLite database |
+
+Request counts should repeat on any machine; times will not, and against a
+local API with no network they are lower bounds. The app shell's own startup
+requests (`POST /auth/ws-ticket`, `GET /organization-memberships` and the
+billing read) are not made. The account has no Contacts folder, which the
+app's system bootstrap creates after sign-in, so nothing the app requests for
+that folder is counted. Reports are saved as
+`.test_files/performance/reload-<run>.json`. See the
+[2026-11-26 results](results/2026-11-26-document-reload.md).
 
 ## Account provisioning
 
