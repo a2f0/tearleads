@@ -24,7 +24,9 @@ client makes when it reloads, as its account grows. Run it with
 
 The [request-volume canaries](#request-volume-canaries) record what the app's
 canary tests send to the API, per phase and endpoint. Run them with
-`bun run perf:canaries`.
+`bun run perf:canaries`. The [statement capture](#statement-capture) records
+every statement the API sends while tests run. Run it with
+`bun run perf:statements`, or add `--statements` to the canaries.
 
 ## Skills that use these tasks
 
@@ -36,7 +38,7 @@ as this README describes, and record a run that supports a shipped change in
 | Skill | Tasks |
 | --- | --- |
 | `protocol-efficiency-audit` | `perf:canaries` for its request and byte baseline; `perf:reload` for the requests a reload makes at sizes the canaries do not reach; `perf:realtime` and `perf:realtime-contention` for the hub; `perf:provision`, `perf:seed` and `perf:database` results for deployed costs |
-| `database-efficiency-audit` | `perf:realtime` and `perf:realtime-contention` for the hub's statements and stalls; `perf:reload` for a reload's statements on the API and in the client's SQLite; `perf:database` and `perf:provision` results for deployed costs |
+| `database-efficiency-audit` | `perf:canaries --statements` and `perf:statements` for its statement baseline and probes; `perf:realtime` and `perf:realtime-contention` for the hub's statements and stalls; `perf:reload` for a reload's statements on the API and in the client's SQLite; `perf:database` and `perf:provision` results for deployed costs |
 
 The audits run local tasks themselves. A task that touches a deployed tier
 (`perf:provision`, `perf:seed`, `perf:database`) creates accounts or a
@@ -290,9 +292,9 @@ way its suite runs it. A file that fails, hangs past ten minutes, or passes
 without printing a phase fails the run. `--canary` keeps the canaries whose
 name contains the text, ignoring case; a filter that matches nothing is an
 error. `--samples` repeats every file, since body bytes can vary between runs.
-The report gives each phase's lowest and highest value across samples.
-Phases are matched by canary, label and position, so a label printed twice
-is two phases.
+The report gives each phase's lowest and highest value across the samples
+that passed. Phases are matched by canary, label and position, so a label
+printed twice is two phases.
 
 | Field | What it measures |
 | --- | --- |
@@ -308,9 +310,61 @@ panes, so a path counted twice may be one read per device. Reports are saved
 as `.test_files/performance/canaries-<run>.json` and `.md`. Each file's
 complete output is kept in `canaries-<run>/` beside them. `--baseline` adds a
 comparison with an earlier report to the Markdown, and `--compare` prints one
-without running anything. Relative report paths resolve from the repository
-root. The canaries still assert their ceilings, so a count above one fails
-that canary's run.
+without running anything. Both refuse a saved report that did not complete;
+a failed new run is compared, with its status beside its name. Relative
+report paths resolve from the repository root. The canaries still assert
+their ceilings, so a count above one fails that canary's run.
+
+## Statement capture
+
+```sh
+bun run perf:statements --package api \
+  --file src/routes/auth/verifyStatementBudget.test.ts --param-hash
+bun run perf:statements --summarize .test_files/performance/<capture>.jsonl
+bun run perf:canaries --statements --param-hash
+```
+
+Every API database sends its statements through one ORM logger, which also
+hands each one to any observer registered with
+`@tearleads/api-shared/statement-observer`. The
+[capture preload](src/statements/capturePreload.ts) registers one inside a
+`bun test` process and appends a JSON line per statement to
+`PERF_STATEMENTS_OUT`. `perf:statements` runs the named test files from
+`packages/<package>` with the package's own preloads first, then the capture.
+API tests default to `API_DATABASE=memory`. `--name` passes Bun's `-t`
+pattern.
+
+| Record | Fields |
+| --- | --- |
+| Statement | `label`, `sql`, `params` (bind value count), `request` (see below), and with `--param-hash` a 12-character `paramHash`, keyed per capture |
+| Phase end | `phaseEnd` (a canary phase label) and `requests` |
+| Truncation | `truncated`: the record limit (`--limit`, default 1,000,000) was reached |
+
+A statement's label is `globalThis.sqlCaptureLabel` when a probe set it
+around the work it measures, and `test-<n>` otherwise. The preload clears
+the label before each test. Labels are global, not async-context scoped:
+work that outlives a test is counted under the next test's label. Bind values
+are never written. `paramHash` is an HMAC under a random key each capture
+makes, so hashes match only within one capture file and cannot confirm a
+guessed value. `request` numbers the outermost statement-counter scope
+a statement ran in, in order of first use. The API's request-cost middleware
+opens one around every request, so unless a test wraps requests in a counter
+of its own, it identifies the request; it is absent outside every scope. Two
+statements with the same text and `paramHash` in one request read the same
+key twice; the summary counts those extra sends as same-key repeats, and
+counts the requests under each label.
+PGlite runs transactions outside the ORM, so a capture on PGlite has no
+`begin` or `commit`; on `API_DATABASE=postgres` it does.
+
+The summary ranks normalized statements, with whitespace collapsed and
+placeholder lists folded, per label and per canary phase. A phase counts the
+statements since the previous phase ended. The first phase therefore includes
+the canary's setup, and a phase whose window spans earlier ones, such as
+`test total`, counts only what came after the previous marker. The capture,
+its summary as JSON and Markdown, and the test output are saved under
+`.test_files/performance/statements-<run>.*`. With `perf:canaries
+--statements`, each canary's capture is kept beside its log and the report
+adds statements per phase. Summarize one in detail with `--summarize`.
 
 ## Account provisioning
 

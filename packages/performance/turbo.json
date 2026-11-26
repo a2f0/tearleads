@@ -8,7 +8,9 @@
         "$TURBO_ROOT$/packages/app/src/stores/systemContainers.ts",
         "$TURBO_ROOT$/packages/api/wrangler.jsonc",
         "$TURBO_ROOT$/packages/app/test/helpers/proxiedApiRequestBudget.ts",
-        "$TURBO_ROOT$/packages/app/test/helpers/workflowRequestBudget.ts"
+        "$TURBO_ROOT$/packages/app/test/helpers/workflowRequestBudget.ts",
+        "$TURBO_ROOT$/packages/api/bunfig.toml",
+        "$TURBO_ROOT$/packages/app/bunfig.toml"
       ],
       "dependsOn": [
         "$TURBO_EXTENDS$",
@@ -36,6 +38,9 @@
       "cache": false
     },
     "canaries": {
+      "cache": false
+    },
+    "statements": {
       "cache": false
     }
   }

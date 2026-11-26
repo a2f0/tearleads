@@ -7,6 +7,8 @@ test("runs every canary once by default", () => {
     canaries: [],
     samples: 1,
     baseline: null,
+    statements: false,
+    paramHash: false,
   });
   expect(parseCanaryOptions(["--help"])).toBeNull();
   expect(
@@ -25,7 +27,14 @@ test("runs every canary once by default", () => {
     canaries: ["Group", "Upload"],
     samples: 3,
     baseline: "before.json",
+    statements: false,
+    paramHash: false,
   });
+  expect(parseCanaryOptions(["--statements", "--param-hash"])).toMatchObject({
+    statements: true,
+    paramHash: true,
+  });
+  expect(() => parseCanaryOptions(["--param-hash"])).toThrow(/--statements/);
 });
 
 test("compares exactly two reports and runs nothing", () => {

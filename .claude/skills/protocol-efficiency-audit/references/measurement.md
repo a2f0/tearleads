@@ -84,8 +84,8 @@ non-zero unless every run passed and printed a profile, and the report names
 each canary that failed, timed out, or printed none. Copy the report's JSON,
 Markdown, and log directory into `measurements/`, and the per-endpoint
 tables into `measurements/baseline.md`; the issue reproduces them. When the
-database audit runs at the same revision, run the canaries once for both as
-the
+database audit runs at the same revision, run the canaries once for both with
+`--statements --param-hash`, as the
 [combined audits guide](../../../../docs/developer/combined-efficiency-audits.md)
 describes.
 
@@ -116,7 +116,8 @@ The recorder already keeps every proxied request with its URL, method,
 status, authorization header, and full request and response bodies:
 `listProxiedApiRequests()` in `packages/app/test/helpers/msw/server.ts`. A
 preload outside the checkout can read them without changing repository code.
-Wrap `console.info` as the database audit's capture preload does; at each
+Wrap `console.info` as `packages/performance/src/statements/capturePreload.ts`
+does; at each
 `[dual-pane-request-metrics]` line, take the last `total` requests from
 `listProxiedApiRequests()` (import it by absolute path) and append one JSON
 line per request to a file named by an environment variable, with:
