@@ -145,7 +145,8 @@ The stored shapes enforce:
   is refused at startup with the obsolete-schema error, and edits it had not
   synced are discarded with the reset. No queued row is a rotation baseline,
   so local schema step 15 (`drop_queued_baseline_source_version`) drops the
-  `source_version_vector` column that marked one.
+  `source_version_vector` column that marked one. No shipped writer set it;
+  a database that holds a row with one is refused and needs a reset.
 - Login challenges are signed for the API origin
   (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`,
   so clients and the API release together.

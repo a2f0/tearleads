@@ -273,9 +273,13 @@ writer waiting on another authorized member:
   served rotation baseline that breaks a
   [group rule](./document-link-and-sync-protocol.md#reader-checks), instead
   of voiding segments for good. A server or API fault that withholds or
-  reorders a segment then blocks that device's pulls of the document, and,
-  past a pull's first page, its queued writes, until the server serves the
-  group whole. No other member can clear it.
+  reorders a segment then blocks that device's pulls of the document until
+  the server serves the group whole, and its queued writes with them. A
+  pass that fails on its first page has already sent its writes: the server
+  commits them and other members receive them, but the device settles
+  nothing from a failed page, keeps them queued, and sends them again each
+  pass. Past the first page a pull's continuation stands, and the device
+  sends no writes while it does. No other member can clear either.
 - **Rotation deaths past either limit.** A device whose rotation of a
   document is [unavailable](./rotation-deaths.md#unavailable-rotation) leaves
   that document's rotations, unlinks, moves, and purge-unlinks to other

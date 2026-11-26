@@ -268,9 +268,9 @@ rotates. Imported in order they rebuild the whole history at the new epoch.
 
 - An unlink's `rotationBaseline` is an array of 1 to 64 segments in index
   order.
-- A sync sends a group's segments as entries of `outgoingUpdates`, contiguous
-  and in index order. Ordinary updates may precede or follow the group but
-  never sit between its segments, and a request carries at most one group.
+- A sync sends a group's segments first in `outgoingUpdates`, contiguous and
+  in index order. Ordinary updates may follow the group, never precede it or
+  sit between its segments, and a request carries at most one group.
 
 `MAX_DOCUMENT_BASELINE_SEGMENTS` is 64, the most updates one sync carries.
 
@@ -313,9 +313,9 @@ the request's group to these rules (`judgeDocumentBaselineGroup`):
 2. The segments are in index order from zero, with none missing.
 3. Only the final segment carries the count, the digest, and the cursor, and
    its count is the number of segments.
-4. Each segment starts every peer its vectors name exactly where the earlier
-   segments left that peer, from zero, with or without a span of its own,
-   and depends only on operations they carry.
+4. A segment's start and end vectors name only peers it carries operations
+   of, each starting exactly where the earlier segments left that peer, from
+   zero, and it depends only on operations they carry.
 5. A segment with no operations (no span) is allowed only as the whole of an
    empty baseline: one segment with `baselineSegmentCount` 1 that signs a
    cursor. Its author voided every update through that cursor.
@@ -326,13 +326,13 @@ The API then weighs coverage. What a group covers is derived, not signed: for
 each peer, the counter the walk of rule 4 reached, never a vector a segment
 declares. That version must hold the frontier of the updates committed after
 the group's signed cursor; with no cursor, or one that names no update of the
-document, every committed update. A cursor may not name an update of the
-same request: the gate would not know it yet, and every later redirect
-would skip that update unweighed.
+document, every committed update. The group comes first in its request, so
+the gate has weighed every update committed ahead of it, whatever a cursor
+comes to name later.
 
 | Refused group | Response |
 | --- | --- |
-| It breaks a group rule; it holds an update that is no segment; its cursor names an update of the same request; a sync puts other updates between its segments; or only some of a sync group's update ids are already committed. | `409 document_sync_baseline_group_invalid`, on both routes |
+| It breaks a group rule; it holds an update that is no segment; a sync puts other updates ahead of its segments or between them; or only some of a sync group's update ids are already committed. | `409 document_sync_baseline_group_invalid`, on both routes |
 | A sync's group does not cover the committed frontier after its cursor. | `409 document_sync_checkpoint_coverage_conflict` |
 | An unlink's group does not cover it. | `409 document_unlink_rotation_baseline_stale` |
 | A segment's declared fields are not the ones its write header signs. | `400`, the metadata hash mismatch of any update |
@@ -394,13 +394,13 @@ The reader also holds the groups a server serves to their rules
 (`judgeServedBaselineGroups`), by what the page was requested with:
 
 - **Cold page.** A page requested with no version is served every update in
-  its range; a pull's first page is cold when it also names no processed
-  cursor. A group on it starts at index 0 and is followed whole: each next
-  served update is the group's next index, and the final segment's count is
-  its index plus one and its digest the digest of the served segments. A
-  group that starts past index 0, another update in between, a skipped or
-  repeated index, and a pull that ends before the final segment each break
-  the group.
+  its range: a pull's first page that names no processed cursor, and every
+  page of a raw-history pull. A group on it starts at index 0 and is
+  followed whole: each next served update is the group's next index, and
+  the final segment's count is its index plus one and its digest the digest
+  of the served segments. A start past index 0, another update in between,
+  a skipped or repeated index, and a pull that ends before the final
+  segment each break the group.
 - **A whole group across pages.** The pull continuation carries the baseline
   id, the next index, and the digest so far
   (`readPullContinuation(response, baselineGroupRun)`). The page that
@@ -411,20 +411,20 @@ The reader also holds the groups a server serves to their rules
 - **Any other page.** Indices only rise within a group, across pages too, a
   final count is its index plus one, and a lone segment signs the start.
 
-On every page a segment must be able to join the reader's history. The API
-keeps a group's dependencies inside it and leaves a segment out only when the
-reader holds it, so a segment that starts after an operation the reader
-lacks, or depends on one, was served without the segments it builds on, and
-breaks the group. The exception is its writer's doing: after an earlier
-segment of the group in the same pull was not accepted, those that build on
-it are void. The run carries that across pages, so a host must pass it on.
+On every page the reader must hold what a segment signs that it builds on.
+The API keeps a group's dependencies inside it and omits a segment only when
+the reader holds it, so a segment whose signed start or dependencies name an
+operation the reader lacks was served without the segments it builds on, and
+breaks the group. Two cases are its writer's doing and void instead: a
+payload that leaves a gap inside its own range, and a segment that builds on
+an earlier one of the group not accepted in the same pull. The run carries
+the second across pages, so a host must pass it on.
 
 A broken group fails the pass at stage `baseline_group`. It is never a void:
 the reader imports nothing from the page and records no void, which would
 outlast the server's correction. The page is refused on each pass until the
-server serves the group whole, and while a pull's continuation stands the
-device sends no queued writes
-([a liveness trade](./limits.md#limits-that-trade-write-liveness)).
+server serves the group whole, and the device's queued writes do not settle
+meanwhile ([a liveness trade](./limits.md#limits-that-trade-write-liveness)).
 
 ## Document Sync Conflict Codes
 

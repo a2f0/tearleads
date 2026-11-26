@@ -45,7 +45,7 @@ whole group.
 | `Write` | a writer's update committed with its signed span by `appendDocumentUpdates` |
 | `Judged` | `validateDocumentSyncUpdateImports`, which voids an update whose span is false |
 | `Rotate` signing rule | `readProcessedCursorForVersion`, called by `buildDocumentRotationBaseline` and `prepareDocumentOutgoingUpdates` with the version the baseline's segments reach; a container metadata baseline signs the cursor its metadata pulls record |
-| `Gate` / `CoversAfter` | `committedFrontierAfterBaselineCursor` in `assertSyncRotationBaselinesSound` and `assertAtomicRotationBaselineCoversCommittedFrontier`, against the coverage `judgeDocumentBaselineGroup` reads from the segments' spans |
+| `Gate` / `CoversAfter` | `committedFrontierAfterBaselineCursor` in `assertSyncRotationBaselinesSound` and `assertAtomicRotationBaselineCoversCommittedFrontier`, against the coverage `judgeDocumentBaselineGroup` reads from the segments' spans. A sync's group comes first in its request (`selectOutgoingBaselineSegments`), so no update commits ahead of it that the gate did not weigh |
 | `Gate`'s empty-snapshot rule | `judgeDocumentBaselineGroup`, which admits a segment with no operations only as the whole of a baseline that signs a cursor, and `assertOutgoingSpanOrEmptyBaseline`, which refuses an empty span on any other update |
 | `Rotate`'s empty-snapshot rule | `buildDocumentRotationBaseline`, which builds an empty baseline only when `readProcessedCursorForVersion` yields a cursor |
 | `RedirectJumps` | `resolveBaselineRedirectAfterSequence`, which jumps to just before the group's first segment, over `listMissingDocumentUpdateCandidates`, which never counts an empty baseline as missing |
