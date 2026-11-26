@@ -226,7 +226,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.28",
+      "version": "0.1.29",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
