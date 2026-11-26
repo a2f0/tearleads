@@ -23,17 +23,19 @@ makes a proposal Measured.
 | `bun run perf:canaries` | Requests and body bytes per phase and endpoint for every app request-volume canary | Every slice: the [request and byte baseline](#request-and-byte-baselines) |
 | `bun run perf:realtime` | Statements, rows, bytes, CPU, and memory per `known_containers` declaration and revalidation pass, by tree size, against a local database | `discovery-and-hints` and `bootstrap-and-session`: what interest declaration costs the hub per declared container |
 | `bun run perf:realtime-contention` | How long other sockets' hints wait while those passes run | `discovery-and-hints` and `bootstrap-and-session`: whether a declaration or revalidation change shortens the hub's stalls |
+| `bun run perf:reload` | Requests by route, settle time, PostgreSQL traffic, and local SQLite statements for a returning client's reload, by account size, against a local database | `bootstrap-and-session` and `discovery-and-hints`: which of a reload's requests still grow with the account, at sizes the restart canary does not reach |
 | `bun run perf:database` | One warm driver exchange through Hyperdrive, against the same statements batched | Turning statements per request into production latency |
 
-`perf:canaries` and the realtime probes are local. They write git-ignored
-reports under the measured checkout's `.test_files/performance/`, and the
-realtime probes create a scratch database; the audit request authorizes
-both. Copy every report the audit cites into `measurements/`. Seeding a
-10,000-folder tree takes over an hour; reuse a seeded scratch database with
-`--reuse` when one exists, and record which. `perf:provision` and `perf:seed`
-create persistent accounts and `perf:database` deploys a temporary Worker on
-a deployed tier, so run them only with the user's approval; otherwise cite
-the latest result and its date.
+`perf:canaries`, `perf:reload`, and the realtime probes are local. They
+write git-ignored reports under the measured checkout's
+`.test_files/performance/`, and all but the canaries need a scratch
+database; the audit request authorizes both. Copy every report the audit
+cites into `measurements/`. Seeding a 10,000-folder tree takes over an hour;
+reuse a seeded scratch database with `--reuse` when one exists, and record
+which. `perf:provision` and `perf:seed` create persistent accounts and
+`perf:database` deploys a temporary Worker on a deployed tier, so run them
+only with the user's approval; otherwise cite the latest result and its
+date.
 
 ## Request and byte baselines
 

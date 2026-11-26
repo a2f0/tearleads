@@ -20,14 +20,16 @@ revision makes a proposal Measured.
 | --- | --- | --- |
 | `bun run perf:realtime` | Statements, round trips, rows, and bytes per realtime hub interest pass, counted at the PostgreSQL wire of a local database | The hub's container-interest reads (`realtime/containerInterest*`) in `api-access-and-projections`. They never reach `api.request.cost` or the canaries |
 | `bun run perf:realtime-contention` | How long other sockets wait while those passes run | Whether a statement or row saving there also shortens the hub's stalls |
+| `bun run perf:reload` | PostgreSQL traffic and the client's local SQLite statements for one returning client's reload, by account size, against a local database | `client-sync-persistence` and `api-listings-and-sync-reads`: how a reload's statements on both sides grow with the account. The app canaries have no client statement hook |
 | `bun run perf:database` | One warm driver exchange through Hyperdrive, against the same statements batched in one exchange | Turning a serial round-trip saving into production latency |
 | `bun run perf:provision --cloudflare` | Statements and database wait per registration and login request on a deployed tier | Production statements per request in `api-auth-and-registration`, beside the PGlite capture |
 
-The realtime probes are local. They create a scratch database and write
-git-ignored reports under the measured checkout's `.test_files/performance/`;
-the audit request authorizes both. Copy every report the audit cites into
-`measurements/`. Seeding a 10,000-folder tree takes over an hour; reuse a
-seeded scratch database with `--reuse` when one exists, and record which.
+The realtime probes and `perf:reload` are local. They create a scratch
+database and write git-ignored reports under the measured checkout's
+`.test_files/performance/`; the audit request authorizes both. Copy every
+report the audit cites into `measurements/`. Seeding a 10,000-folder tree
+takes over an hour; reuse a seeded scratch database with `--reuse` when one
+exists, and record which.
 `perf:database` deploys a temporary Worker and `perf:provision` creates
 persistent accounts on a deployed tier, so run them only with the user's
 approval; otherwise cite the latest result and its date.
