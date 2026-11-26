@@ -2,6 +2,7 @@ import { z } from "zod";
 import { containerParentLaneResponseUniqueIdsRefinement } from "../containerReadRefinements";
 import {
   ContainerReadLaneIdSchema,
+  MAX_CONTAINER_PARENT_LANES,
   refineContainerReadLaneResults,
 } from "../containerReadSchemas";
 import {
@@ -17,7 +18,10 @@ const ContainerParentLaneResultSchema = z.strictObject({
 });
 
 const ListContainerParentLanesResponseViewSchema = z.strictObject({
-  results: boundedNonEmptyArraySchema(ContainerParentLaneResultSchema, 4),
+  results: boundedNonEmptyArraySchema(
+    ContainerParentLaneResultSchema,
+    MAX_CONTAINER_PARENT_LANES,
+  ),
 });
 
 export const ListContainerParentLanesResponseSchema =

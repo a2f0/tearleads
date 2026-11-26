@@ -311,3 +311,26 @@ test("OpenAPI declares each container read runtime-only invariant", () => {
     ).success,
   ).toBe(false);
 });
+
+test("lane batches with malformed entries are rejected, not thrown", () => {
+  // The duplicate-id and page-total refinements run over an array whose
+  // entries the lane schema already rejected.
+  for (const schema of [
+    ListContainerDocumentLanesRequestSchema,
+    ListContainerParentLanesRequestSchema,
+  ]) {
+    for (const lanes of [[null], [7, "lane"], [undefined, {}]]) {
+      expect(() => schema.safeParse({ lanes })).not.toThrow();
+      expect(schema.safeParse({ lanes }).success).toBe(false);
+    }
+  }
+  for (const schema of [
+    ListContainerDocumentLanesResponseSchema,
+    ListContainerParentLanesResponseSchema,
+  ]) {
+    for (const results of [[null], [7, "lane"]]) {
+      expect(() => schema.safeParse({ results })).not.toThrow();
+      expect(schema.safeParse({ results }).success).toBe(false);
+    }
+  }
+});
