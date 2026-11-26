@@ -21,6 +21,10 @@ import { buildDocumentCreatePlan } from "../../../src/data/documents/shared/even
 import { deriveDocumentCreateTargets } from "../../../src/data/documents/shared/projection";
 import { targetEnvelopeReference } from "../../../src/data/documents/shared/readers";
 import type { AcknowledgedDocumentMutation } from "../../../src/data/documents/shared/responses";
+import {
+  type DocumentBaselineSegmentFields,
+  documentBaselineSegmentFields,
+} from "../../../src/data/documents/shared/sync/baselineSegment";
 import type { DocumentCreatePlan } from "../../../src/data/documents/shared/types";
 import type { buildDocumentSyncPlan } from "../../../src/workflows/documents/syncPlan/syncPlanIdentity";
 import {
@@ -266,8 +270,8 @@ export async function createSyncFixture() {
 
 export async function createPreparedUpdate(
   overrides: {
-    checkpointKind?: "rotate_baseline" | undefined;
-    checkpointPayloadKind?: "full_history_snapshot" | undefined;
+    /** Marks the update as a segment of a rotation baseline. */
+    baseline?: DocumentBaselineSegmentFields | undefined;
     ciphertextHash?: string | undefined;
     contentRecordId?: string | undefined;
     dependencyVersionVector?: string | undefined;
@@ -278,12 +282,12 @@ export async function createPreparedUpdate(
     partialStartVersionVector?: string | undefined;
     plaintextHash?: string | undefined;
     signedAt?: string | undefined;
-    sourceVersionVector?: string | undefined;
   } = {},
 ) {
   const partialEndVersionVector =
     overrides.partialEndVersionVector ?? '{"actor":1}';
   return {
+    ...documentBaselineSegmentFields(overrides.baseline ?? {}),
     id: overrides.id ?? "550e8400-e29b-41d4-a716-446655440111",
     dependencyVersionVector: overrides.dependencyVersionVector ?? "{}",
     encryptedData: overrides.encryptedData ?? "encrypted-update",
@@ -294,28 +298,12 @@ export async function createPreparedUpdate(
     metadataHash: overrides.metadataHash ?? (await fixtureHash("metadata")),
     ciphertextHash:
       overrides.ciphertextHash ?? (await fixtureHash("ciphertext")),
-    ...(overrides.checkpointKind === undefined
-      ? {}
-      : { checkpointKind: overrides.checkpointKind }),
-    ...(overrides.checkpointKind === undefined
-      ? {}
-      : {
-          checkpointPayloadKind:
-            overrides.checkpointPayloadKind ?? "full_history_snapshot",
-        }),
     ...(overrides.contentRecordId === undefined
       ? {}
       : { contentRecordId: overrides.contentRecordId }),
     ...(overrides.signedAt === undefined
       ? {}
       : { signedAt: overrides.signedAt }),
-    ...(overrides.checkpointKind === undefined &&
-    overrides.sourceVersionVector === undefined
-      ? {}
-      : {
-          sourceVersionVector:
-            overrides.sourceVersionVector ?? partialEndVersionVector,
-        }),
   };
 }
 
@@ -329,7 +317,6 @@ export function createPendingUpdateRecord(
     id?: string | undefined;
     partialEndVersionVector?: string | undefined;
     partialStartVersionVector?: string | undefined;
-    sourceVersionVector?: string | null | undefined;
     updateData?: string | undefined;
   } = {},
 ) {
@@ -342,7 +329,6 @@ export function createPendingUpdateRecord(
     partialEndVersionVector:
       overrides.partialEndVersionVector ??
       FIXTURE_LORO_UPDATE_END_VERSION_VECTOR,
-    sourceVersionVector: overrides.sourceVersionVector ?? null,
   };
 }
 
@@ -369,12 +355,7 @@ export async function createSyncResponse(
         authorizationTargets: plan.sourceContentKeyBundle.targets.map(
           targetEnvelopeReference,
         ),
-        ...(update.checkpointKind === undefined
-          ? {}
-          : { checkpointKind: update.checkpointKind }),
-        ...(update.checkpointPayloadKind === undefined
-          ? {}
-          : { checkpointPayloadKind: update.checkpointPayloadKind }),
+        ...documentBaselineSegmentFields(update),
         id: update.id,
         documentId: plan.documentId,
         authorFingerprint: writeHeader.writerKeyFingerprint,
@@ -383,9 +364,6 @@ export async function createSyncResponse(
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,
         plaintextHash: update.plaintextHash,
-        ...(update.sourceVersionVector === undefined
-          ? {}
-          : { sourceVersionVector: update.sourceVersionVector }),
         createdAt: "2026-04-27T00:00:00.000Z",
         writeHeader: update.writeHeader,
       };

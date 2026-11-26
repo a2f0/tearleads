@@ -10,6 +10,8 @@ import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
 } from "../../../data/documents/shared/responses";
+import type { BaselineGroupRun } from "../../../data/documents/shared/sync/baselineGroupMachine";
+import { judgeServedBaselineGroups } from "../../../data/documents/shared/sync/baselineGroupProgress";
 import type {
   IncomingDocumentSyncUpdateValidator,
   MaterializedDocumentSyncPlan,
@@ -30,10 +32,7 @@ import type { PendingUpdateRecord } from "../../../data/persistence/documents/re
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TerminalSubmitFailureHandler } from "../syncFailures/syncFailureClassification";
 import { unwrapDocumentSyncResponseContentKeys } from "../syncPlan/syncContentKeys";
-import {
-  acceptedHeldBackPendingUpdateIds,
-  responseAcceptedRecoveryBaseline,
-} from "../syncPlan/syncPlanRequestBounds";
+import { responseAcceptedRecoveryBaseline } from "../syncPlan/syncPlanRequestBounds";
 import {
   type RekeyPendingUpdate,
   rekeyAndReportUnsettledRecoveryPendingUpdates,
@@ -59,6 +58,11 @@ function isolateContentKeyResponseFailure(
 }
 
 type SyncRemoteDocumentResultInput = {
+  /**
+   * The rotation baseline the pull's page before this one ended inside,
+   * from the continuation the request was sent with; null on a first page.
+   */
+  baselineGroupRun: BaselineGroupRun | null;
   execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
@@ -158,9 +162,30 @@ function inServerOrder(
 }
 
 /**
+ * The run a page leaves for the pull's next one, after holding the rotation
+ * baselines among its served updates to their group rules; it throws on a
+ * group that breaks one. The served updates must be authenticated already.
+ */
+export function baselineGroupRunAfterPage(input: {
+  readonly baselineGroupRun: BaselineGroupRun | null;
+  readonly plan: MaterializedDocumentSyncPlan["plan"];
+  readonly response: DocumentSyncResponse;
+}): Promise<BaselineGroupRun | null> {
+  return judgeServedBaselineGroups({
+    documentId: input.plan.documentId,
+    localVersionVector: input.plan.request.localVersionVector,
+    pullComplete: (input.response.pullPage?.nextCursor ?? null) === null,
+    run: input.baselineGroupRun,
+    updates: input.response.updates,
+  });
+}
+
+/**
  * Decrypts and judges the served updates in server order: a payload that is
  * not its declared update is void before import, and the import verdicts run
  * over what remains, so a writer's follow-up to a void update is void too.
+ * Between the two, the rotation baselines among the served updates are held
+ * to their group rules, which fail the pass before any update is imported.
  */
 async function judgeDocumentSyncResponseUpdates(
   input: SyncRemoteDocumentResultInput,
@@ -173,6 +198,11 @@ async function judgeDocumentSyncResponseUpdates(
     organizationId: plan.organizationId,
     updates: input.response.updates,
   });
+  const baselineGroupRun = await baselineGroupRunAfterPage({
+    baselineGroupRun: input.baselineGroupRun,
+    plan,
+    response: input.response,
+  });
   const importVerdicts = requireDocumentSyncImportVerdicts(
     await input.validateIncomingUpdates({
       decryptedUpdates: decrypted.accepted,
@@ -180,6 +210,7 @@ async function judgeDocumentSyncResponseUpdates(
     }),
   );
   return {
+    baselineGroupRun,
     decryptedUpdates: withoutVoidedUpdates(decrypted.accepted, importVerdicts),
     deferred: importVerdicts.deferredUpdateIds.length > 0,
     held: importVerdicts.heldUpdateIds.length > 0,
@@ -212,33 +243,27 @@ export async function syncRemoteDocumentResultFromResponse(
   const { plan } = input.materializedPlan;
   const { contentKeysByEpoch, persistedState } =
     await resolveVerifiedResponseState(input);
-  const { decryptedUpdates, deferred, held, voidedUpdates } =
+  const { baselineGroupRun, decryptedUpdates, deferred, held, voidedUpdates } =
     await judgeDocumentSyncResponseUpdates(input, contentKeysByEpoch);
   const pageOutcome = documentPullOutcome({
     deferred,
     held,
     pullComplete: true,
   });
-  const recoveryBaselineId =
-    input.materializedPlan.staleRecoveryBaselineUpdateId;
   const acceptedRecoveryBaseline = responseAcceptedRecoveryBaseline(
     input.materializedPlan,
     input.response,
   );
-  // Two heal-specific corrections: the synthetic heal baseline matches no
-  // pending-queue row, so its ack must not count as a settled pending update;
-  // and checkpoints the heal held back ARE settled by it — the committed
-  // covering baseline subsumes their full-history content, and resubmitting
-  // them post-heal could become the LATEST baseline at the healed epoch and
-  // shrink the redirect's coverage below the pre-heal frontier.
-  const settledPendingUpdateIds = [
-    ...settledPendingUpdateIdsFromSync({
-      decryptedUpdates,
-      recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
-      response: input.response,
-    }).filter((updateId) => updateId !== recoveryBaselineId),
-    ...acceptedHeldBackPendingUpdateIds(input.materializedPlan, input.response),
-  ];
+  // A heal's rotation baseline is built for the request and matches no
+  // pending-queue row, so an acknowledged segment settles none.
+  const rotationBaselineUpdateIds = new Set(
+    input.materializedPlan.rotationBaselineUpdateIds,
+  );
+  const settledPendingUpdateIds = settledPendingUpdateIdsFromSync({
+    decryptedUpdates,
+    recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
+    response: input.response,
+  }).filter((updateId) => !rotationBaselineUpdateIds.has(updateId));
   const { exhaustedPendingUpdateCount, rekeyedPendingUpdateIds } =
     await rekeyAndReportUnsettledRecoveryPendingUpdates({
       execSql: input.execSql,
@@ -250,6 +275,8 @@ export async function syncRemoteDocumentResultFromResponse(
     });
 
   return {
+    // A pass that restarts its pull follows every group from its start again.
+    baselineGroupRun: deferred || held ? null : baselineGroupRun,
     exhaustedPendingUpdateCount,
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,

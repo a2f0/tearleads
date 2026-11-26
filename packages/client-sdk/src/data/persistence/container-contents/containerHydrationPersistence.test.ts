@@ -372,7 +372,6 @@ test("a tombstone transaction refuses a newer pane's container state", async () 
       containerId: container.id,
       partialEndVersionVector: "newer-end",
       partialStartVersionVector: "newer-start",
-      sourceVersionVector: null,
       updateData: "newer-update",
     });
 

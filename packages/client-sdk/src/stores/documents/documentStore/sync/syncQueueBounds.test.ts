@@ -4,24 +4,20 @@ import type { DocumentStoreState } from "../state";
 import { preRegisterMaterializedDocumentSyncUpdateIds } from "./syncAcceptedUpdateIds";
 import { prepareDocumentStoreSyncQueue } from "./syncDocumentState";
 
-test("store sync keeps a tail checkpoint visible to stale-heal planning", () => {
-  const ordinaryUpdates = Array.from({ length: 64 }, (_, index) =>
+test("store sync keeps a queue past one batch visible to planning", () => {
+  const firstBatch = Array.from({ length: 64 }, (_, index) =>
     createPendingUpdateRecord({
       id: `550e8400-e29b-41d4-a716-${String(index).padStart(12, "0")}`,
     }),
   );
-  const tailCheckpoint = createPendingUpdateRecord({
+  const tailUpdate = createPendingUpdateRecord({
     id: "550e8400-e29b-41d4-a716-446655440999",
-    sourceVersionVector: "{}",
   });
 
-  const selected = prepareDocumentStoreSyncQueue([
-    ...ordinaryUpdates,
-    tailCheckpoint,
-  ]);
+  const selected = prepareDocumentStoreSyncQueue([...firstBatch, tailUpdate]);
 
   expect(selected.planningUpdates).toHaveLength(65);
-  expect(selected.planningUpdates.at(-1)).toBe(tailCheckpoint);
+  expect(selected.planningUpdates.at(-1)).toBe(tailUpdate);
   expect(selected.queuedUpdateCount).toBe(65);
 });
 

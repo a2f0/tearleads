@@ -3,6 +3,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import type { BaselineGroupRun } from "../../../data/documents/shared/sync/baselineGroupMachine";
 import type {
   MaterializedDocumentSyncPlan,
   SyncRemoteDocumentResult,
@@ -26,6 +27,8 @@ import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 import { traceHealed } from "./syncTrace";
 
 type SubmittedDocumentSyncResultInput = {
+  /** The run the request's pull cursor carried, if it had one. */
+  baselineGroupRun: BaselineGroupRun | null;
   materializedPlan: MaterializedDocumentSyncPlan;
   pendingUpdateIds: readonly string[];
   pullComplete: boolean;
@@ -68,6 +71,7 @@ async function submittedDocumentSyncResult(
 ): Promise<SyncRemoteDocumentResult> {
   const result = await syncRemoteDocumentResultFromResponse({
     ...projectionVerificationOptions(input.sync),
+    baselineGroupRun: input.baselineGroupRun,
     execSql: input.sync.execSql,
     materializedPlan: input.materializedPlan,
     onTerminalSubmitFailure: input.sync.onTerminalSubmitFailure,

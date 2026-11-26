@@ -47,10 +47,6 @@ const HEAL_BLOCKED_REASONS: ReadonlyArray<readonly [string, string]> = [
     "snapshot-not-full-history",
   ],
   ["Document stale-bundle recovery snapshot is empty", "snapshot-empty"],
-  [
-    "Document stale-bundle recovery snapshot does not cover a queued rotation checkpoint",
-    "checkpoint-uncovered",
-  ],
   ["Document content-key re-wrap KEK is unavailable", "rewrap-kek-unavailable"],
   [
     "Document stale bundle manifest is missing from the projection history",
@@ -73,14 +69,12 @@ const SAFE_FAILURE_CODES: ReadonlySet<string> = new Set([
 type DocumentSyncTraceAction =
   | "rebase-peer"
   | "recover-update-ids"
-  | "regenerate-checkpoints"
   | "retry"
   | "stop";
 
 const TRACE_ACTIONS: ReadonlyArray<DocumentSyncTraceAction> = [
   "rebase-peer",
   "recover-update-ids",
-  "regenerate-checkpoints",
   "retry",
   "stop",
 ];
@@ -104,9 +98,8 @@ const CODE_FRAGMENT = [...SAFE_FAILURE_CODES, "none", "other"].join("|");
 export const DOCUMENT_SYNC_TRACE_FRAGMENT = [
   `document sync blocked document=${UUID_FRAGMENT}`,
   `document sync stale bundle document=${UUID_FRAGMENT} epoch=\\d+ pending=\\d+`,
-  `document sync heal planned document=${UUID_FRAGMENT} fromEpoch=\\d+ toEpoch=\\d+ updates=\\d+ heldBack=\\d+`,
+  `document sync heal planned document=${UUID_FRAGMENT} fromEpoch=\\d+ toEpoch=\\d+ updates=\\d+ segments=\\d+`,
   `document sync stale read document=${UUID_FRAGMENT} epoch=\\d+`,
-  `document sync checkpoint regeneration document=${UUID_FRAGMENT} checkpoints=\\d+ updates=\\d+`,
   `document sync heal blocked document=${UUID_FRAGMENT} reason=(?:${REASON_FRAGMENT})`,
   `document sync submit failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT}) action=(?:${ACTION_FRAGMENT})`,
   `document sync projection failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT})`,
@@ -164,13 +157,14 @@ export function traceHealPlanned(
   input: {
     documentId: string;
     fromEpoch: number;
-    heldBack: number;
+    /** How many segments the heal's rotation baseline has. */
+    segments: number;
     toEpoch: number;
     updates: number;
   },
 ): void {
   emit?.(
-    `document sync heal planned document=${input.documentId} fromEpoch=${input.fromEpoch} toEpoch=${input.toEpoch} updates=${input.updates} heldBack=${input.heldBack}`,
+    `document sync heal planned document=${input.documentId} fromEpoch=${input.fromEpoch} toEpoch=${input.toEpoch} updates=${input.updates} segments=${input.segments}`,
   );
 }
 
@@ -180,15 +174,6 @@ export function traceStaleRead(
 ): void {
   emit?.(
     `document sync stale read document=${input.documentId} epoch=${input.epoch}`,
-  );
-}
-
-export function traceCheckpointRegeneration(
-  emit: DocumentSyncTraceEmitter | undefined,
-  input: { checkpoints: number; documentId: string; updates: number },
-): void {
-  emit?.(
-    `document sync checkpoint regeneration document=${input.documentId} checkpoints=${input.checkpoints} updates=${input.updates}`,
   );
 }
 

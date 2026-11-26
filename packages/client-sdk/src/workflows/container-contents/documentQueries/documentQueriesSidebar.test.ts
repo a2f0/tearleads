@@ -199,7 +199,6 @@ test("loadDocumentSyncState summarizes pending document work", async () => {
       localId: "song-1",
       partialEndVersionVector: "{}",
       partialStartVersionVector: "{}",
-      sourceVersionVector: null,
       updateData: "update",
     });
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {

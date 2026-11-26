@@ -84,7 +84,6 @@ export async function planDocumentSyncAttempt(input: {
   /** The processed cursor the request may carry; see `processedCursor.ts`. */
   processedThroughUpdateId?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
-  regenerateQueuedCheckpoints: boolean;
   sync: RemoteDocumentSyncPass;
   failureBlocksQueuedWrites: boolean;
   writerProjection: DocumentWriterProjectionResponse;
@@ -119,7 +118,6 @@ export async function planDocumentSyncAttempt(input: {
           processedThroughUpdateId: input.processedThroughUpdateId,
           pullCursor: input.pullContinuation?.cursor,
           projection,
-          regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
           sync: input.sync,
         }),
       documentId: input.sync.documentId,

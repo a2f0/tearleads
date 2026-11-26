@@ -89,6 +89,7 @@ async function judgePage(
     await run({
       response,
       result: syncRemoteDocumentResultFromResponse({
+        baselineGroupRun: null,
         execSql,
         materializedPlan,
         recoveryPendingUpdatesById: new Map(),

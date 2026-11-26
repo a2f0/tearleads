@@ -470,7 +470,10 @@ async function saveContainerMetadataPage(
           metadataState.record.lastCommitLsn ??
           null,
         metadataDocumentId: input.documentId,
-        pullContinuation: readPullContinuation(synced.response),
+        pullContinuation: readPullContinuation(
+          synced.response,
+          synced.baselineGroupRun,
+        ),
       },
       persistence: input.persistence,
       runtime: input.runtime,

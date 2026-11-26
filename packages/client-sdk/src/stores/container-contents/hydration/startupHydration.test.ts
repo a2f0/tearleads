@@ -248,7 +248,6 @@ test("hasStartupContainerSyncWork detects durable pending document updates", asy
       localId: "updated-doc",
       partialEndVersionVector: "{}",
       partialStartVersionVector: "{}",
-      sourceVersionVector: null,
       updateData: "queued-update",
     });
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);

@@ -77,6 +77,7 @@ for (const historyMode of [undefined, "raw"] as const) {
         });
         let authenticated = false;
         const result = syncRemoteDocumentResultFromResponse({
+          baselineGroupRun: null,
           execSql,
           materializedPlan,
           recoveryPendingUpdatesById: new Map(),

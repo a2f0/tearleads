@@ -12,9 +12,14 @@ import {
   createSyncResponse,
 } from "../../../../test/helpers/data/documentFixtures";
 import { replaceEncryptedPlaintext } from "../../../../test/helpers/data/replaceEncryptedPlaintext";
+import { servedUpdateFromOutgoing } from "../../../../test/helpers/data/rotationBaselineFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { decryptDocumentSyncUpdates } from "../../../data/documents/shared/crypto";
+import { authorizingContainerPathRefs } from "../../../data/documents/shared/projection";
+import { openDocumentContentKey } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { encryptRotationBaselineGroup } from "./rotationBaselineGroup";
+import { signDocumentOutgoingUpdate } from "./syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 function errorCauseTree(error: unknown): unknown[] {
@@ -230,65 +235,120 @@ test("decryptDocumentSyncUpdates keeps multiple poison updates anonymous", async
   );
 });
 
-test("decryptDocumentSyncUpdates rejects a dependency-bearing update labeled as a rotation baseline", async () => {
+/** A full-history snapshot as the one payload of a pending update. */
+async function snapshotPendingUpdate(name: string) {
+  const document = await createDocument(name);
+  document.getText("text").update("snapshot state");
+  document.commit();
+  const snapshot = exportFullHistorySnapshot(document);
+  document.free();
+  return createPendingUpdateRecord({
+    updateData: bytesToBase64(snapshot),
+    ...getUpdateVersionVectors(snapshot),
+  });
+}
+
+// A rotation baseline is its history as update blobs. A whole-history
+// snapshot signed as a baseline's one segment earns no exemption: the label
+// does not change what a payload must be.
+test("decryptDocumentSyncUpdates rejects a snapshot labeled as a rotation baseline segment", async () => {
   const { author, contentKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
-  const ordinaryUpdate = createPendingUpdateRecord();
-  const materialized = await buildMaterializedDocumentSyncPlan({
+  const { plan } = await buildMaterializedDocumentSyncPlan({
     author,
     localVersionVector: null,
-    pendingUpdates: [
-      {
-        ...ordinaryUpdate,
-        sourceVersionVector: ordinaryUpdate.partialEndVersionVector,
-      },
-    ],
+    pendingUpdates: [],
     targetSecretKey: secretKey,
     trustedLocalProjection: true,
     writerProjection,
   });
-
-  await expect(
-    decryptDocumentSyncUpdates({
+  const baselineId = crypto.randomUUID();
+  const [prepared] = await encryptRotationBaselineGroup({
+    baselineId,
+    contentKey: await openDocumentContentKey({
       contentKey,
-      contentKeyEpoch: materialized.plan.contentKeyEpoch,
-      documentId: materialized.plan.documentId,
-      organizationId: materialized.plan.organizationId,
-      updates: (await createSyncResponse(materialized.plan)).updates,
+      contentKeyEpoch: plan.contentKeyEpoch,
+      documentId: plan.documentId,
     }),
-  ).rejects.toThrow("rotation baseline is not a full-history snapshot");
+    contentKeyEpoch: plan.contentKeyEpoch,
+    documentId: plan.documentId,
+    organizationId: plan.organizationId,
+    segments: [await snapshotPendingUpdate("baseline-snapshot-payload")],
+  });
+  if (!prepared) throw new Error("Expected an encrypted baseline segment");
+  expect(prepared.baselineId).toBe(baselineId);
+  expect(prepared.baselineSegmentCount).toBe(1);
+  const served = servedUpdateFromOutgoing({
+    author,
+    documentId: plan.documentId,
+    update: await signDocumentOutgoingUpdate({
+      author,
+      authorizingContainerPathRefs:
+        authorizingContainerPathRefs(writerProjection),
+      contentKeyEpoch: plan.contentKeyEpoch,
+      documentId: plan.documentId,
+      expectedLinkSetManifestHash: plan.expectedLinkSetManifestHash,
+      expectedTargetHash: plan.expectedTargetHash,
+      organizationId: plan.organizationId,
+      signedAt: "2026-04-27T00:00:00.000Z",
+      update: prepared,
+    }),
+    writerProjection,
+  });
+
+  let isolated: unknown;
+  try {
+    await decryptDocumentSyncUpdates({
+      contentKey,
+      contentKeyEpoch: plan.contentKeyEpoch,
+      documentId: plan.documentId,
+      organizationId: plan.organizationId,
+      updates: [served],
+    });
+  } catch (error) {
+    isolated = error;
+  }
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.stage).toBe("loro_metadata");
+  expect(isolated.updateId).toBe(served.id);
+  expect(isolated.baselineId).toBe(baselineId);
+  expect(isolated.message).toContain(
+    "Document update payload is not an update blob",
+  );
 });
 
 test("decryptDocumentSyncUpdates rejects a snapshot labeled as an ordinary update", async () => {
   const { author, contentKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
-  const document = await createDocument("ordinary-snapshot-payload");
-  document.getText("text").update("snapshot state");
-  document.commit();
-  const snapshot = exportFullHistorySnapshot(document);
   const materialized = await buildMaterializedDocumentSyncPlan({
     author,
     localVersionVector: null,
-    pendingUpdates: [
-      createPendingUpdateRecord({
-        updateData: bytesToBase64(snapshot),
-        ...getUpdateVersionVectors(snapshot),
-      }),
-    ],
+    pendingUpdates: [await snapshotPendingUpdate("ordinary-snapshot-payload")],
     targetSecretKey: secretKey,
     trustedLocalProjection: true,
     writerProjection,
   });
 
-  await expect(
-    decryptDocumentSyncUpdates({
+  let isolated: unknown;
+  try {
+    await decryptDocumentSyncUpdates({
       contentKey,
       contentKeyEpoch: materialized.plan.contentKeyEpoch,
       documentId: materialized.plan.documentId,
       organizationId: materialized.plan.organizationId,
       updates: (await createSyncResponse(materialized.plan)).updates,
-    }),
-  ).rejects.toThrow("ordinary update payload is not an update blob");
+    });
+  } catch (error) {
+    isolated = error;
+  }
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.stage).toBe("loro_metadata");
+  expect(isolated.baselineId).toBeNull();
+  expect(isolated.message).toContain(
+    "Document update payload is not an update blob",
+  );
 });
 
 // Sync voids such an update; this strict path, which a host can still call,

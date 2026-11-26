@@ -84,22 +84,6 @@ export function isRecoverableDocumentUpdateIdConflict(
 }
 
 /**
- * The server's covering-baseline gate refused a queued rotation checkpoint
- * (e.g. a leftover from an interrupted recovery or a lost heal ack) because
- * it no longer covers the committed frontier. The pass can repair itself by
- * regenerating a fresh covering baseline from the live document instead of
- * resubmitting the stale payload — which would fail terminally forever.
- */
-export function isCheckpointCoverageConflict(
-  failure: DocumentSyncSubmitFailure,
-): boolean {
-  return (
-    failure.status === 409 &&
-    failure.code === DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict
-  );
-}
-
-/**
  * A create submitted with a stable documentId whose first attempt already
  * committed server-side comes back as this 409 (see the server's
  * `assertCreateCanAdvanceDocumentHead`). It is not a failure — the caller adopts

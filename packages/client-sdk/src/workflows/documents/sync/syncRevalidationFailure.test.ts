@@ -110,7 +110,6 @@ test("a write-bearing pass does not use the read-only handler", async () => {
           id: crypto.randomUUID(),
           partialEndVersionVector: "end",
           partialStartVersionVector: "start",
-          sourceVersionVector: null,
           updateData: "queued",
         },
       ],

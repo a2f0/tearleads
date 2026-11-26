@@ -6,16 +6,24 @@ import type { PendingUpdateRecord } from "../../../data/persistence/documents/re
 interface SyncPlanMaterial {
   readonly contentKey: Uint8Array;
   readonly healedStaleContentKeyBundle: boolean;
-  readonly heldBackPendingUpdateIds: readonly string[];
-  readonly staleRecoveryBaselineUpdateId?: string | undefined;
+  readonly rotationBaseline?:
+    | { readonly segments: readonly { readonly id: string }[] }
+    | undefined;
+}
+
+/** The update ids of the baseline a plan's material carries, in order. */
+export function rotationBaselineUpdateIdsOf(
+  material: Pick<SyncPlanMaterial, "rotationBaseline">,
+): readonly string[] | undefined {
+  return material.rotationBaseline?.segments.map((segment) => segment.id);
 }
 
 export function boundDocumentSyncPlanRequest(
   plan: MaterializedDocumentSyncPlan["plan"],
-  requiredOutgoingUpdateId: string | undefined,
+  requiredOutgoingUpdateIds: readonly string[] | undefined,
 ): MaterializedDocumentSyncPlan["plan"] {
   const request = limitDocumentSyncRequestBytes(plan.request, {
-    requiredOutgoingUpdateId,
+    requiredOutgoingUpdateIds,
   });
   return request === plan.request ? plan : { ...plan, request };
 }
@@ -25,17 +33,15 @@ export function materializedDocumentSyncPlan(
   plan: MaterializedDocumentSyncPlan["plan"],
   writerProjection: MaterializedDocumentSyncPlan["writerProjection"],
 ): MaterializedDocumentSyncPlan {
+  const rotationBaselineUpdateIds = rotationBaselineUpdateIdsOf(material);
   return {
     contentKey: material.contentKey,
     healedStaleContentKeyBundle: material.healedStaleContentKeyBundle,
-    heldBackPendingUpdateIds: material.heldBackPendingUpdateIds,
     plan,
     writerProjection,
-    ...(material.staleRecoveryBaselineUpdateId === undefined
+    ...(rotationBaselineUpdateIds === undefined
       ? {}
-      : {
-          staleRecoveryBaselineUpdateId: material.staleRecoveryBaselineUpdateId,
-        }),
+      : { rotationBaselineUpdateIds }),
   };
 }
 
@@ -46,11 +52,7 @@ export function recoverablePendingUpdates(
   const submittedIds = new Set(
     materializedPlan.plan.request.outgoingUpdates.map((update) => update.id),
   );
-  const recoverableIds = new Set([
-    ...submittedIds,
-    ...materializedPlan.heldBackPendingUpdateIds,
-  ]);
-  return pendingUpdates.filter((update) => recoverableIds.has(update.id));
+  return pendingUpdates.filter((update) => submittedIds.has(update.id));
 }
 
 export function hasDeferredPendingUpdatesAfterSubmit(input: {
@@ -81,22 +83,16 @@ export function hasDeferredPendingUpdatesAfterSubmit(input: {
   );
 }
 
+/**
+ * Whether the server accepted the plan's rotation baseline. The API commits
+ * a baseline whole or refuses the request, so it acknowledges every segment
+ * or none; anything else is not an accepted baseline.
+ */
 export function responseAcceptedRecoveryBaseline(
   materializedPlan: MaterializedDocumentSyncPlan,
   response: DocumentSyncResponse,
 ): boolean {
-  const recoveryBaselineId = materializedPlan.staleRecoveryBaselineUpdateId;
-  return (
-    recoveryBaselineId !== undefined &&
-    response.acceptedOutgoingUpdateIds.includes(recoveryBaselineId)
-  );
-}
-
-export function acceptedHeldBackPendingUpdateIds(
-  materializedPlan: MaterializedDocumentSyncPlan,
-  response: DocumentSyncResponse,
-): readonly string[] {
-  return responseAcceptedRecoveryBaseline(materializedPlan, response)
-    ? materializedPlan.heldBackPendingUpdateIds
-    : [];
+  const segmentIds = materializedPlan.rotationBaselineUpdateIds ?? [];
+  const accepted = new Set(response.acceptedOutgoingUpdateIds);
+  return segmentIds.length > 0 && segmentIds.every((id) => accepted.has(id));
 }

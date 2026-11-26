@@ -49,7 +49,8 @@ export class DocumentSyncUpdateIsolationError extends Error {
   readonly attribution: "batch" | "update";
   readonly authorFingerprint: string | null;
   readonly batchUpdateIds: readonly string[];
-  readonly checkpointKind: "rotate_baseline" | null;
+  /** The rotation baseline the update is a segment of, if it is one. */
+  readonly baselineId: string | null;
   readonly ciphertextHash: string | null;
   readonly contentKeyEpoch: number | null;
   readonly documentId: string | null;
@@ -88,10 +89,7 @@ export class DocumentSyncUpdateIsolationError extends Error {
     this.attribution = input.updateId === null ? "batch" : "update";
     this.authorFingerprint = input.responseUpdate?.authorFingerprint ?? null;
     this.batchUpdateIds = [...batchUpdateIds];
-    this.checkpointKind =
-      input.responseUpdate?.checkpointKind === "rotate_baseline"
-        ? "rotate_baseline"
-        : null;
+    this.baselineId = input.responseUpdate?.baselineId ?? null;
     this.ciphertextHash = optionalHeaderString(
       input.responseUpdate,
       "ciphertextHash",

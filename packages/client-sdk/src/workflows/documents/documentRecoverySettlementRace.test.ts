@@ -157,7 +157,6 @@ test("a stale response cannot settle pending rows across the fence", async () =>
       localId: recoveredDocument.id,
       partialEndVersionVector: "pending-end",
       partialStartVersionVector: "pending-start",
-      sourceVersionVector: null,
       updateData: "pending-update",
     });
     const pendingUpdates = await sqlDocumentsPersistence.listPendingUpdates(

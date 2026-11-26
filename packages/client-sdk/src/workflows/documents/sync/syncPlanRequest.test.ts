@@ -9,6 +9,7 @@ import {
   createDeepNonCanonicalRecord,
   createPreparedUpdate,
   createSyncFixture,
+  fixtureHash,
   projectionPathRefs,
 } from "../../../../test/helpers/data/documentFixtures";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
@@ -16,6 +17,13 @@ import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 test("buildDocumentSyncPlan signs document write headers with the current access boundary", async () => {
   const { author, createResponse, projection, signingPublicKey } =
     await createSyncFixture();
+  // The update is the one segment of a rotation baseline.
+  const baseline = {
+    baselineId: "550e8400-e29b-41d4-a716-446655440b01",
+    baselineSegmentCount: 1,
+    baselineSegmentIndex: 0,
+    baselineSegmentsDigest: await fixtureHash("no-earlier-segments"),
+  };
   const plan = await buildDocumentSyncPlan({
     author,
     authorizingContainerPathRefs: [projectionPathRefs(projection)],
@@ -26,7 +34,7 @@ test("buildDocumentSyncPlan signs document write headers with the current access
     minLsn: "0/16B6C50",
     outgoingUpdates: [
       await createPreparedUpdate({
-        checkpointKind: "rotate_baseline",
+        baseline,
         signedAt: "2026-04-27T00:00:01.000Z",
       }),
     ],
@@ -34,6 +42,8 @@ test("buildDocumentSyncPlan signs document write headers with the current access
   });
 
   expect(isDocumentSyncRequest(plan.request)).toBe(true);
+  // The request sends the segment's group fields as the plan was given them.
+  expect(plan.request.outgoingUpdates[0]).toMatchObject(baseline);
   // The server resolves the signed manifest bundle by hash.
   expect(plan.request.expectedLinkSetManifestHash).toBe(
     createResponse.accessManifest.manifestHash,

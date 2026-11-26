@@ -7,7 +7,6 @@ export interface QueuedDocumentUpdate {
   readonly origin: string;
   readonly partialEndVersionVector: string;
   readonly partialStartVersionVector: string;
-  readonly sourceVersionVector: string | null;
   readonly updateData: string;
 }
 
@@ -24,8 +23,7 @@ export async function readQueuedDocumentUpdates(
   const rows = await execSql(
     `SELECT h.update_data AS updateData, h.origin AS origin,
             h.partial_start_version_vector AS startVersion,
-            h.partial_end_version_vector AS endVersion,
-            h.source_version_vector AS sourceVersion
+            h.partial_end_version_vector AS endVersion
        FROM document_history_updates h
        JOIN documents d
          ON d.app_kind = h.app_kind AND d.local_id = h.local_id
@@ -34,16 +32,12 @@ export async function readQueuedDocumentUpdates(
       ORDER BY h.created_at, h.rowid`,
     [documentId],
   );
-  return rows.map(
-    ({ endVersion, origin, sourceVersion, startVersion, updateData }) => ({
-      origin: text(origin, "origin"),
-      partialEndVersionVector: text(endVersion, "end version"),
-      partialStartVersionVector: text(startVersion, "start version"),
-      sourceVersionVector:
-        typeof sourceVersion === "string" ? sourceVersion : null,
-      updateData: text(updateData, "update data"),
-    }),
-  );
+  return rows.map(({ endVersion, origin, startVersion, updateData }) => ({
+    origin: text(origin, "origin"),
+    partialEndVersionVector: text(endVersion, "end version"),
+    partialStartVersionVector: text(startVersion, "start version"),
+    updateData: text(updateData, "update data"),
+  }));
 }
 
 /**
@@ -64,9 +58,8 @@ export async function queueRelayedDocumentUpdate(
   await execSql(
     `INSERT INTO document_history_updates
        (id, app_kind, local_id, update_data, origin, created_at, update_id,
-        partial_start_version_vector, partial_end_version_vector,
-        source_version_vector)
-     VALUES (?, 'documents', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        partial_start_version_vector, partial_end_version_vector)
+     VALUES (?, 'documents', ?, ?, ?, ?, ?, ?, ?)`,
     [
       crypto.randomUUID(),
       text(localId, "local id"),
@@ -76,7 +69,6 @@ export async function queueRelayedDocumentUpdate(
       crypto.randomUUID(),
       update.partialStartVersionVector,
       update.partialEndVersionVector,
-      update.sourceVersionVector,
     ],
   );
 }

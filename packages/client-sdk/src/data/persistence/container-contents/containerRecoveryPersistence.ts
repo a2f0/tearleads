@@ -26,7 +26,7 @@ const RECOVERY_METADATA_TABLES = [
   ["document_history_checkpoints", "snapshot, end_version_vector"],
   [
     "document_history_updates",
-    "id, update_data, origin, update_id, partial_start_version_vector, partial_end_version_vector, source_version_vector",
+    "id, update_data, origin, update_id, partial_start_version_vector, partial_end_version_vector",
   ],
 ] as const;
 const CREATE_COLUMNS =

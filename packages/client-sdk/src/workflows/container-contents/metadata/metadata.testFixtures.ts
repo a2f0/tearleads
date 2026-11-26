@@ -245,14 +245,10 @@ export async function enqueuePendingContainerUpdate(
   persistence: ContainerContentsPersistence,
   params: {
     containerId: string;
-    sourceVersionVector?: string | null | undefined;
     update: Uint8Array;
   },
 ): Promise<string | null> {
-  const pendingUpdateFields = createPendingUpdateFields(
-    params.update,
-    params.sourceVersionVector,
-  );
+  const pendingUpdateFields = createPendingUpdateFields(params.update);
   if (!pendingUpdateFields) {
     return null;
   }

@@ -103,16 +103,29 @@ function withoutLocalVersionVector(
   const { processedThroughUpdateId: _cursor, ...rest } = request;
   return { ...rest, localVersionVector: null };
 }
+/** Whether `updates` begins with exactly the updates `ids` name, in order. */
+function startsWithUpdates(
+  updates: DocumentSyncRequest["outgoingUpdates"],
+  ids: readonly string[],
+): boolean {
+  return ids.every((id, index) => updates[index]?.id === id);
+}
+
+/**
+ * Trim a request's outgoing updates to what fits its byte ceiling.
+ * `requiredOutgoingUpdateIds` names the updates the request cannot go
+ * without, a heal's rotation baseline, which lead it in order: a request
+ * that cannot carry them all throws `DocumentSyncRequestLimitError`.
+ */
 export function limitDocumentSyncRequestBytes(
   request: DocumentSyncRequest,
-  options: { readonly requiredOutgoingUpdateId?: string | undefined } = {},
+  options: {
+    readonly requiredOutgoingUpdateIds?: readonly string[] | undefined;
+  } = {},
 ): DocumentSyncRequest {
-  const requiredUpdateId = options.requiredOutgoingUpdateId;
-  if (
-    requiredUpdateId !== undefined &&
-    request.outgoingUpdates[0]?.id !== requiredUpdateId
-  ) {
-    throw new Error("Document sync required update is not first in its batch");
+  const requiredUpdateIds = options.requiredOutgoingUpdateIds ?? [];
+  if (!startsWithUpdates(request.outgoingUpdates, requiredUpdateIds)) {
+    throw new Error("Document sync required updates do not lead their batch");
   }
 
   const fitRequest = (
@@ -153,12 +166,9 @@ export function limitDocumentSyncRequestBytes(
       "Document sync update cannot fit within the request limit",
     );
   }
-  if (
-    requiredUpdateId !== undefined &&
-    bounded.outgoingUpdates[0]?.id !== requiredUpdateId
-  ) {
+  if (!startsWithUpdates(bounded.outgoingUpdates, requiredUpdateIds)) {
     throw new DocumentSyncRequestLimitError(
-      "Document sync required update exceeds the request limit",
+      "Document sync required updates exceed the request limit",
     );
   }
 

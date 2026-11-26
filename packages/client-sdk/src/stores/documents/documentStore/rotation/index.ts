@@ -249,9 +249,9 @@ async function recoverFullHistoryForRotation(
   // rotation-baseline redirects, drains every retained page in memory, and
   // publishes nothing until all response updates have validated. It rebuilds
   // what an honest sync pass applied, no more and no less: every ordinary
-  // update, so no checkpoint's coverage stands in for one, and every served
-  // checkpoint the judge accepted, which can only add its writer's signed
-  // operations. A checkpoint queued or installed locally is never an input.
+  // update, so no rotation baseline's coverage stands in for one, and every
+  // served baseline segment the judge accepted, which can only add its
+  // writer's signed operations. Nothing installed locally is ever an input.
   let collection = await collectVerifiedRawHistoryForRotation({
     ...recovery,
     currentRecord,
@@ -267,7 +267,7 @@ async function recoverFullHistoryForRotation(
       pendingUpdates,
       rebuiltDocument: collection.rebuiltDocument,
     });
-    if (pendingUpdates.some((update) => update.sourceVersionVector == null)) {
+    if (pendingUpdates.length > 0) {
       // The first raw pass proves the exact ordinary frontier before any local
       // row can be published. Pull raw history again after settlement so the
       // installed snapshot also includes remote work that raced that submit.

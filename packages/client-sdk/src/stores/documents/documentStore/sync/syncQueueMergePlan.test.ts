@@ -82,48 +82,28 @@ test("consecutive local rows form one group with their union and max rekey", asy
   ).toBe(true);
 });
 
-test("checkpoint, outbox, unproven and oversized rows cut runs", async () => {
-  const { doc, rows } = await queuedRows(6, "merge-plan-cuts");
-  const [r0, r1, r2, r3, r4, r5] = rows;
-  if (!r0 || !r1 || !r2 || !r3 || !r4 || !r5) {
-    throw new Error("expected six rows");
-  }
+test("outbox, unproven and oversized rows cut runs", async () => {
+  const { doc, rows } = await queuedRows(4, "merge-plan-cuts");
+  const [r0, r1, r2, r3] = rows;
+  if (!r0 || !r1 || !r2 || !r3) throw new Error("expected four rows");
   const bigBefore = encodeVersionVector(doc);
   doc.getText("text").insert(0, "large paste ".repeat(400));
   doc.commit();
   const big = rowFromUpdate("big", exportUpdatesSince(doc, bigBefore));
-  const r6 = commitRow(doc, "row-6");
-  const r7 = commitRow(doc, "row-7");
-  // Each cut row would otherwise connect: it repeats a proven local range.
-  const checkpoint: QueuedPendingUpdateRecord = {
-    ...r1,
-    id: "checkpoint",
-    sourceVersionVector: r1.partialEndVersionVector,
-  };
+  const r4 = commitRow(doc, "row-4");
+  const r5 = commitRow(doc, "row-5");
+  // The outbox row would otherwise connect: it repeats a proven local range.
   const outbox: QueuedPendingUpdateRecord = {
-    ...r3,
+    ...r1,
     id: "outbox",
     origin: "outbox",
   };
   const stranger = await createDocument("merge-plan-stranger");
   const unproven = commitRow(stranger, "unproven");
   const maxDataCharacters =
-    4 * Math.max(...[...rows, r6, r7].map((row) => row.updateData.length));
+    4 * Math.max(...[...rows, r4, r5].map((row) => row.updateData.length));
   expect(big.updateData.length).toBeGreaterThan(maxDataCharacters);
-  const queue = [
-    r0,
-    r1,
-    checkpoint,
-    r2,
-    r3,
-    outbox,
-    r4,
-    r5,
-    unproven,
-    big,
-    r6,
-    r7,
-  ];
+  const queue = [r0, r1, outbox, r2, r3, unproven, big, r4, r5];
 
   const groups = planQueuedUpdateMerge({
     doc,
@@ -135,11 +115,10 @@ test("checkpoint, outbox, unproven and oversized rows cut runs", async () => {
     ["row-0", "row-1"],
     ["row-2", "row-3"],
     ["row-4", "row-5"],
-    ["row-6", "row-7"],
   ]);
   // Under the default cap the large row merges with its neighbours.
   expect(memberIds(planQueuedUpdateMerge({ doc, rows: queue })).at(-1)).toEqual(
-    ["big", "row-6", "row-7"],
+    ["big", "row-4", "row-5"],
   );
 });
 

@@ -6,9 +6,9 @@ import {
 } from "@tearleads/loro";
 
 /**
- * Import durable-history tail rows into a document. Rotation baselines travel
- * through the tail as snapshot-mode blobs, which importUpdates would silently
- * ignore — import them individually.
+ * Import durable-history tail rows into a document. importUpdates would
+ * silently ignore a snapshot-mode blob, so a row that holds one is imported
+ * on its own.
  */
 export function importDocumentHistoryTailUpdates(
   doc: Parameters<typeof importSnapshot>[0],

@@ -1,6 +1,4 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
-import { getUpdateVersionVectors } from "@tearleads/loro";
 import {
   createMockApiClient,
   createMockRequestFailure,
@@ -9,11 +7,11 @@ import {
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
-  createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
+import { createLoroPendingUpdate } from "../../../../test/helpers/workflows/documentSyncFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
@@ -21,7 +19,11 @@ import { ensureDocumentTables } from "../../../data/persistence/documents/record
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 
-test("lost inline rekey recovery retains a held-back checkpoint", async () => {
+// An inline rekey moves the document's key target, so the request that
+// carries it heals the content-key bundle: a fresh rotation baseline goes
+// ahead of the queued update. The baseline is built for each request and is
+// no queue row, so recovery re-keys the queued update alone.
+test("lost inline rekey recovery re-keys the queued update its heal carried", async () => {
   const {
     author,
     resolveProjectionUserKey,
@@ -30,19 +32,15 @@ test("lost inline rekey recovery retains a held-back checkpoint", async () => {
     writerProjection,
   } = await createMaterializedSyncFixture();
   const rotationSnapshot = await createFullHistoryRotationSnapshot();
-  const rotationVectors = getUpdateVersionVectors(rotationSnapshot);
-  const heldBackCheckpoint = createPendingUpdateRecord({
-    id: "550e8400-e29b-41d4-a716-446655440777",
-    partialEndVersionVector: rotationVectors.partialEndVersionVector,
-    partialStartVersionVector: "{}",
-    sourceVersionVector: rotationVectors.partialEndVersionVector,
-    updateData: bytesToBase64(rotationSnapshot),
-  });
+  const queuedUpdate = await createLoroPendingUpdate(
+    "queued behind the inline rekey",
+    "550e8400-e29b-41d4-a716-446655440777",
+  );
   const submittedRequests: DocumentSyncRequest[] = [];
   const rekeyedInputIds: string[] = [];
   const replacementId = "550e8400-e29b-41d4-a716-446655440888";
   const { close, execSql } = await createTestExecSql(
-    `sync-inline-rekey-held-back-${crypto.randomUUID()}`,
+    `sync-inline-rekey-recovery-${crypto.randomUUID()}`,
   );
   await ensureDocumentTables(execSql);
 
@@ -109,7 +107,7 @@ test("lost inline rekey recovery retains a held-back checkpoint", async () => {
         documentId: writerProjection.documentId,
         execSql,
         localVersionVector: null,
-        pendingUpdates: [heldBackCheckpoint],
+        pendingUpdates: [queuedUpdate],
         rekeyPendingUpdate: async (_lockedExecSql, id) => {
           rekeyedInputIds.push(id);
           return replacementId;
@@ -133,15 +131,22 @@ test("lost inline rekey recovery retains a held-back checkpoint", async () => {
     expect(
       submittedRequests.map((request) => request.inlineRekeyCommitId),
     ).toEqual([firstCommitId, firstCommitId, undefined]);
+    // Both write-bearing requests send a one-segment baseline, then the
+    // queued update under its own id. The recovery pull sends nothing.
+    const writeRequests = submittedRequests.slice(0, 2);
     expect(
-      submittedRequests
-        .slice(0, 2)
-        .map((request) => request.outgoingUpdates.map((update) => update.id)),
+      writeRequests.map((request) =>
+        request.outgoingUpdates.map((update) => update.baselineSegmentCount),
+      ),
     ).toEqual([
-      [expect.not.stringContaining(heldBackCheckpoint.id)],
-      [expect.not.stringContaining(heldBackCheckpoint.id)],
+      [1, undefined],
+      [1, undefined],
     ]);
-    expect(rekeyedInputIds).toEqual([heldBackCheckpoint.id]);
+    expect(
+      writeRequests.map((request) => request.outgoingUpdates.at(-1)?.id),
+    ).toEqual([queuedUpdate.id, queuedUpdate.id]);
+    expect(submittedRequests[2]?.outgoingUpdates).toEqual([]);
+    expect(rekeyedInputIds).toEqual([queuedUpdate.id]);
     expect(synced?.rekeyedPendingUpdateIds).toEqual([replacementId]);
   } finally {
     close();

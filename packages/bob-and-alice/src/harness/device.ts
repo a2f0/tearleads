@@ -10,7 +10,6 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { forgeFirstQueuedRowAsCheckpoint } from "./forgedCheckpoint";
 import {
   type QueuedDocumentUpdate,
   queueRelayedDocumentUpdate,
@@ -40,11 +39,10 @@ interface DeviceStorage {
 
 /**
  * One installed client: its own SQLite database and a full `Tearleads`
- * runtime. Apart from `forgeQueuedUpdateSpans`, `forgeQueuedCheckpoint`, and
- * `relayQueuedUpdate`, which play a modified client, and
- * `queuedDocumentUpdates`, which reads what it would send, nothing here
- * reaches past the SDK's public surface, so a device can only do and see what
- * a real host could.
+ * runtime. Apart from `forgeQueuedUpdateSpans` and `relayQueuedUpdate`, which
+ * play a modified client, and `queuedDocumentUpdates`, which reads what it
+ * would send, nothing here reaches past the SDK's public surface, so a device
+ * can only do and see what a real host could.
  */
 export class Device {
   private treeStore: ContainerContentsStore | null = null;
@@ -279,17 +277,6 @@ export class Device {
       );
     }
     return rows.length;
-  }
-
-  /**
-   * Plays a writer whose signed checkpoint is the only update carrying one of
-   * its edits: rewrites this install's first queued document update into a
-   * full-history rotation checkpoint, as a modified client could. Like
-   * `forgeQueuedUpdateSpans`, it reaches only into this device's own outgoing
-   * queue. Returns how many queued updates follow the checkpoint.
-   */
-  forgeQueuedCheckpoint(): Promise<number> {
-    return forgeFirstQueuedRowAsCheckpoint(this.storage.database.execSql);
   }
 
   /**

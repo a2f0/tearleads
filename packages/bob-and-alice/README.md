@@ -14,15 +14,13 @@ can only do and observe what a deployed client could.
   a full `Tearleads` runtime. `Device.login` is a fresh install of an existing
   identity, with the same keys and an empty database. `Device.restart` reopens
   the runtime with the same database, blob store, identity, and trust pins.
-  `Device.forgeQueuedUpdateSpans` and `Device.forgeQueuedCheckpoint` play a
-  dishonest or broken writer: the first rewrites the declared spans of the
-  device's own queued updates before they are signed, and the second rewrites
-  its first queued update into a full-history rotation checkpoint.
-  `Device.relayQueuedUpdate` plays a client that relays another writer's
-  operations: it queues an update, copied with `Device.queuedDocumentUpdates`
-  from another device's outbox, in this device's own outbox under a fresh
-  update id. They are the only reaches past the SDK's surface; the forgeries
-  write only into the device's own outgoing queue, and
+  `Device.forgeQueuedUpdateSpans` plays a dishonest or broken writer: it
+  rewrites the declared spans of the device's own queued updates before they
+  are signed. `Device.relayQueuedUpdate` plays a client that relays another
+  writer's operations: it queues an update, copied with
+  `Device.queuedDocumentUpdates` from another device's outbox, in this
+  device's own outbox under a fresh update id. They are the only reaches past
+  the SDK's surface; both write only into the device's own outgoing queue, and
   `queuedDocumentUpdates` only reads one.
 - [`src/harness/transport.ts`](src/harness/transport.ts) puts a device-local
   HTTP proxy in front of the real
@@ -85,10 +83,9 @@ request the API refuses with its error body.
 | `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
 | `falseSpanUpdate` | A writer signs an update whose declared op span claims operations its payload does not carry. Each reader, including a fresh install, voids it once, reports it once, and keeps syncing: the other writer's edits settle and reach every device. |
 | `falseSpanAttachment` | After a writer signs a false-span update, a reader that voided it attaches a file and then removes it. The bind and the detach both land: each carries the reader's processed cursor, so the API skips the update no version can hold. |
-| `checkpointCarriedEdit` | A writer signs a rotation checkpoint that is the only update carrying one of its edits, then an ordinary update built on that edit. A reader that synced both unlinks the document: its rotation rebuilds what sync applied, the accepted checkpoint included, so the proof holds and the baseline keeps the edit. A fresh install starts from that baseline. |
 | `falseSpanUnlink` | After a writer signs a false-span update, a reader that voided it unlinks the document: its rotation leaves the void out of the history it proves, and its baseline signs the reader's processed cursor, so the API asks it to cover only later updates. A fresh install starts from the baseline and never meets the update. |
 | `peerOwnershipRebase` | Another user commits a writer's first queued update as his own, which claims the writer's record peer up to its end. The writer's queue extends that peer past it, so the API refuses it once with `document_sync_peer_owned`; the writer moves its unsent operations onto a fresh peer and the retry lands. Fresh installs read both edits exactly once. |
-| `allVoidUnlink` | After a writer signs only false-span updates, a reader that voided all of them holds an empty document and unlinks it: its baseline is the empty snapshot signing its processed cursor, so the API asks it to cover only later updates. A fresh install is redirected past the voids and never meets them, and after a second rotation a new device starts from the new baseline. |
+| `allVoidUnlink` | After a writer signs only false-span updates, a reader that voided all of them holds an empty document and unlinks it: its baseline is one empty segment signing its processed cursor, so the API asks it to cover only later updates. A fresh install is redirected past the voids and never meets them, and after a second rotation a new device starts from the new baseline. |
 
 Pin a reproducible open issue in a scenario file as a `test.failing` case.
 It passes while the bug stands and fails once it is

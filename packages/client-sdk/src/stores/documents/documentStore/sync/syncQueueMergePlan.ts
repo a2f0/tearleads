@@ -73,7 +73,6 @@ function isMergeableRow(
 ): boolean {
   return (
     row.origin === "local" &&
-    row.sourceVersionVector == null &&
     row.updateData.length <= limits.maxDataCharacters &&
     provenOrdinaryUpdateBytes(doc, row) !== null
   );

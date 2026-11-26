@@ -17,10 +17,12 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../../../test/helpers/data/documentFixtures";
+import { SMALL_BASELINE_SEGMENTS } from "../../../../../test/helpers/data/rotationBaselineFixtures";
 import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
 } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
+import { createServedRotationBaseline } from "../../../../../test/helpers/workflows/servedRotationBaseline";
 import { documentVerdictJudge } from "../../../../data/documents/shared/sync/documentUpdateVerdict";
 import { MAX_LORO_RUNTIME_ATTEMPTS } from "../../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
@@ -194,33 +196,61 @@ test("rotation keeps an update this device voided out of the rebuild", async () 
 });
 
 /**
- * When the writer commits: its served history, the checkpoint's own edit,
+ * A rotation baseline of `document` as the server serves it: its whole
+ * history, cut into several segments when `segmentSizes` is small.
+ */
+async function servedBaseline(
+  fixture: Fixture,
+  document: LiveDocument,
+  segmentSizes?: typeof SMALL_BASELINE_SEGMENTS,
+): Promise<DocumentSyncUpdateResponse[]> {
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author: fixture.author,
+    localVersionVector: null,
+    pendingUpdates: [],
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.writerProjection,
+  });
+  const baseline = await createServedRotationBaseline({
+    author: fixture.author,
+    contentKey: materialized.contentKey,
+    document,
+    plan: materialized.plan,
+    segmentSizes,
+    writerProjection: fixture.writerProjection,
+  });
+  return baseline.updates;
+}
+
+/**
+ * When the writer commits: its served history, the baseline's own edit,
  * then the child. Loro merges a peer's commits within its change-merge
  * interval into one change stamped with its first commit's time, in whole
  * seconds. These give one change, one change spanning a second boundary, a
- * merged checkpoint edit with a separate child, and three changes.
+ * merged baseline edit with a separate child, and three changes.
  */
 const writerClocks = [
   {
-    checkpoint: "00:00:00.500",
+    baseline: "00:00:00.500",
     child: "00:00:00.500",
     name: "one instant",
     served: "00:00:00.500",
   },
   {
-    checkpoint: "00:00:01.400",
+    baseline: "00:00:01.400",
     child: "00:00:01.400",
     name: "merged across a second",
     served: "00:00:00.400",
   },
   {
-    checkpoint: "00:00:00.900",
+    baseline: "00:00:00.900",
     child: "00:00:01.700",
     name: "child apart",
     served: "00:00:00.100",
   },
   {
-    checkpoint: "00:00:05.000",
+    baseline: "00:00:05.000",
     child: "00:00:10.000",
     name: "far apart",
     served: "00:00:00.500",
@@ -238,35 +268,31 @@ async function withClock<T>(time: string, run: () => T): Promise<Awaited<T>> {
 }
 
 /**
- * A writer's checkpoint carrying one edit, then an ordinary child of it. The
+ * A writer's rotation baseline carrying one edit no ordinary update carries,
+ * long enough to take several segments, then an ordinary child of it. The
  * writer continues the history it served, as an honest writer does, so every
  * holder of an operation holds it with the same commit time.
  */
-async function checkpointAndChild(
+async function baselineAndChild(
   fixture: Fixture,
   clock: (typeof writerClocks)[number],
 ) {
   const writer = fixture.remoteDocument;
-  const checkpointEnd = await withClock(clock.checkpoint, () => {
-    writer.getText("text").update("then more");
+  const baselineEnd = await withClock(clock.baseline, () => {
+    writer.getText("text").update("then more ".repeat(200));
     writer.commit();
     return encodeVersionVector(writer);
   });
-  const snapshot = exportFullHistorySnapshot(writer);
-  const vectors = getUpdateVersionVectors(snapshot);
+  const baselineUpdates = await servedBaseline(
+    fixture,
+    writer,
+    SMALL_BASELINE_SEGMENTS,
+  );
   await withClock(clock.child, () => {
-    writer.getText("text").update("a child of the checkpoint");
+    writer.getText("text").update("a child of the baseline");
     writer.commit();
   });
-  const child = exportUpdatesSince(writer, checkpointEnd);
-  const [checkpointUpdate] = await signedUpdates(fixture, [
-    createPendingUpdateRecord({
-      id: "550e8400-e29b-41d4-a716-446655440452",
-      sourceVersionVector: vectors.partialEndVersionVector,
-      updateData: bytesToBase64(snapshot),
-      ...vectors,
-    }),
-  ]);
+  const child = exportUpdatesSince(writer, baselineEnd);
   const [childUpdate] = await signedUpdates(fixture, [
     createPendingUpdateRecord({
       id: "550e8400-e29b-41d4-a716-446655440453",
@@ -274,70 +300,71 @@ async function checkpointAndChild(
       ...getUpdateVersionVectors(child),
     }),
   ]);
-  if (!checkpointUpdate || !childUpdate) throw new Error("Expected updates");
+  if (!childUpdate) throw new Error("Expected the child update");
   // Every holder of these operations, a reader that synced them included.
-  return { checkpointUpdate, childUpdate, synced: writer };
+  return { baselineUpdates, childUpdate, synced: writer };
 }
 
-// A sync pass accepts a writer's checkpoint and the ordinary update that
-// depends on it, so the live document holds both. The rebuild must hold them
-// too: otherwise the proof fails on every attempt, and no rotation or unlink
-// of the document completes, or a baseline drops the writer's edits.
+// A sync pass accepts a writer's rotation baseline and the ordinary update
+// that depends on it, so the live document holds both. The rebuild must hold
+// them too: otherwise the proof fails on every attempt, and no rotation or
+// unlink of the document completes, or the next baseline drops the writer's
+// edits. Split, the baseline's segments straddle the page boundary.
 for (const split of [false, true]) {
   for (const [index, clock] of writerClocks.entries()) {
     const pages = split ? "pages split" : "one page";
-    test(`rotation keeps a synced checkpoint's operations (${pages}, ${clock.name})`, async () => {
-      const name = `rotation-synced-checkpoint-${split}-${index}`;
+    test(`rotation keeps a synced baseline's operations (${pages}, ${clock.name})`, async () => {
+      const name = `rotation-synced-baseline-${split}-${index}`;
       await withDatabase(name, async (execSql) => {
         const localId = `${name}-local`;
         const fixture = await withClock(
           clock.served,
           createRemoteHistoryFixture,
         );
-        const { checkpointUpdate, childUpdate, synced } =
-          await checkpointAndChild(fixture, clock);
+        const { baselineUpdates, childUpdate, synced } = await baselineAndChild(
+          fixture,
+          clock,
+        );
+        expect(baselineUpdates.length).toBeGreaterThan(1);
+        const firstPageSegments = Math.ceil(baselineUpdates.length / 2);
         const state = await rotationState({
           execSql,
           extraUpdates: split
-            ? [checkpointUpdate]
-            : [checkpointUpdate, childUpdate],
+            ? baselineUpdates.slice(0, firstPageSegments)
+            : [...baselineUpdates, childUpdate],
           fixture,
           liveDocument: synced,
           localId,
-          secondPage: split ? [childUpdate] : undefined,
+          secondPage: split
+            ? [...baselineUpdates.slice(firstPageSegments), childUpdate]
+            : undefined,
         });
 
         const snapshot = await assertDocumentStoreCanRotateContentKey(state);
-        const baseline = await createDocument(
-          "rotation-synced-checkpoint-read",
-        );
-        importSnapshot(baseline, snapshot);
-        expect(getTextValue(baseline)).toBe("a child of the checkpoint");
-        expect(encodeVersionVector(baseline)).toBe(encodeVersionVector(synced));
+        const rebuilt = await createDocument("rotation-synced-baseline-read");
+        importSnapshot(rebuilt, snapshot);
+        expect(getTextValue(rebuilt)).toBe("a child of the baseline");
+        expect(encodeVersionVector(rebuilt)).toBe(encodeVersionVector(synced));
         expect(await voidRows(execSql, localId)).toEqual([]);
-        baseline.free();
+        rebuilt.free();
         synced.free();
       });
     });
   }
 }
 
-// A checkpoint can only add operations: the rebuild still imports every
-// ordinary update, including one a later checkpoint served on the page does
+// A baseline can only add operations: the rebuild still imports every
+// ordinary update, including one a later baseline served on the page does
 // not carry.
-test("rotation imports ordinary updates a later checkpoint lacks", async () => {
-  await withDatabase("rotation-behind-checkpoint", async (execSql) => {
+test("rotation imports ordinary updates a later baseline lacks", async () => {
+  await withDatabase("rotation-behind-baseline", async (execSql) => {
     const fixture = await createRemoteHistoryFixture();
-    const localId = "rotation-behind-checkpoint-local";
-    const vectors = getUpdateVersionVectors(fixture.behindSnapshot);
-    const extraUpdates = await signedUpdates(fixture, [
-      createPendingUpdateRecord({
-        id: "550e8400-e29b-41d4-a716-446655440455",
-        sourceVersionVector: vectors.partialEndVersionVector,
-        updateData: bytesToBase64(fixture.behindSnapshot),
-        ...vectors,
-      }),
-    ]);
+    const localId = "rotation-behind-baseline-local";
+    const behind = await createDocument("rotation-behind-baseline-writer");
+    importSnapshot(behind, fixture.behindSnapshot);
+    const extraUpdates = await servedBaseline(fixture, behind);
+    behind.free();
+    expect(extraUpdates).toHaveLength(1);
     const state = await rotationState({
       execSql,
       extraUpdates,
@@ -347,11 +374,11 @@ test("rotation imports ordinary updates a later checkpoint lacks", async () => {
     });
 
     const snapshot = await assertDocumentStoreCanRotateContentKey(state);
-    const baseline = await createDocument("rotation-behind-checkpoint-read");
-    importSnapshot(baseline, snapshot);
-    expect(getTextValue(baseline)).toBe("survives key rotation");
+    const rebuilt = await createDocument("rotation-behind-baseline-read");
+    importSnapshot(rebuilt, snapshot);
+    expect(getTextValue(rebuilt)).toBe("survives key rotation");
     expect(await voidRows(execSql, localId)).toEqual([]);
-    baseline.free();
+    rebuilt.free();
   });
 });
 

@@ -27,7 +27,7 @@ interface DocumentCharacterBlame {
   characterCount: number;
   /** Live characters credited through ordinary incremental updates. */
   directCharacterCount: number;
-  /** Live characters credited through rotate_baseline re-assertions. */
+  /** Live characters credited through rotation baseline segments. */
   baselineCharacterCount: number;
   hasDirectAuthority: boolean;
   hasBaselineAuthority: boolean;

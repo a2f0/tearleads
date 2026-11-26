@@ -4,6 +4,7 @@ import {
   isLoroRuntimeFailure,
 } from "@tearleads/loro";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
+import { isDocumentBaselineSegment } from "../../../data/documents/shared/sync/baselineSegment";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { importLiveDocumentSyncUpdates } from "../../../data/documents/shared/sync/documentSyncUpdateImport";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
@@ -217,8 +218,9 @@ function creditedPageUpdates(
     );
     return [
       {
-        authorityKind:
-          update.checkpointKind === "rotate_baseline" ? "baseline" : "direct",
+        authorityKind: isDocumentBaselineSegment(update)
+          ? "baseline"
+          : "direct",
         createdAt: response.createdAt,
         partialEndVersionVector: update.partialEndVersionVector,
         partialStartVersionVector: update.partialStartVersionVector,
@@ -341,7 +343,7 @@ function nextHistoryPage(
   synced: SyncRemoteDocumentResult,
 ): DocumentSyncPullContinuation | null {
   try {
-    return readPullContinuation(synced.response);
+    return readPullContinuation(synced.response, synced.baselineGroupRun);
   } catch {
     return null;
   }

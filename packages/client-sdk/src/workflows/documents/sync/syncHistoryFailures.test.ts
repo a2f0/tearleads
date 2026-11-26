@@ -286,6 +286,7 @@ test("authenticated raw history reports a retained epoch with no predecessor key
     });
 
     const syncInput = {
+      baselineGroupRun: null,
       execSql,
       materializedPlan,
       recoveryPendingUpdatesById: new Map(),

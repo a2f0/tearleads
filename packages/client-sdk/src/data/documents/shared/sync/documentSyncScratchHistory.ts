@@ -74,13 +74,6 @@ function freeQuietly(document: SyncDocument): void {
   }
 }
 
-function isRotationBaseline(update: DecryptedDocumentSyncUpdate): boolean {
-  return (
-    update.checkpointKind === "rotate_baseline" &&
-    update.checkpointPayloadKind === "full_history_snapshot"
-  );
-}
-
 function totalBytes(updates: readonly DecryptedDocumentSyncUpdate[]): number {
   return updates.reduce((sum, update) => sum + update.updateData.byteLength, 0);
 }
@@ -95,7 +88,6 @@ function startsPastHeldCounters(
   held: string,
   update: DecryptedDocumentSyncUpdate,
 ): boolean {
-  if (isRotationBaseline(update)) return false;
   let start: string;
   try {
     start = getImportBlobMetadata(update.updateData).partialStartVersionVector;
@@ -174,11 +166,7 @@ function judgeOnScratch(
   const changed = () =>
     !versionVectorsEqual(encodeVersionVector(document), held);
   try {
-    if (isRotationBaseline(update)) {
-      importSnapshot(document, update.updateData);
-    } else {
-      importUpdates(document, [update.updateData]);
-    }
+    importUpdates(document, [update.updateData]);
   } catch (error) {
     if (isLoroRuntimeFailure(error)) throw error;
     if (error instanceof LoroImportUnresolvedDependenciesError) {

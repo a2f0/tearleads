@@ -183,7 +183,6 @@ test("a plain document edit commits in seven statements", async () => {
           pendingUpdate: {
             partialEndVersionVector: `end-${sequence}`,
             partialStartVersionVector: `start-${sequence}`,
-            sourceVersionVector: null,
             updateData: btoa(`update-${sequence}`),
           },
           settleAcceptedPendingOnConflict: false,

@@ -53,7 +53,6 @@ async function createStoredDocument(
 async function enqueueEdit(
   execSql: TestExecSql,
   doc: DocumentState,
-  sourceVersionVector?: string,
 ): Promise<string> {
   const before = encodeVersionVector(doc);
   const text = doc.getText("text");
@@ -64,7 +63,6 @@ async function enqueueEdit(
   await persistence.enqueuePendingUpdate(execSql, {
     localId: LOCAL_ID,
     ...fields,
-    ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
   });
   const queued = await persistence.listPendingUpdates(execSql, LOCAL_ID);
   return queued.at(-1)?.id ?? "";
@@ -224,7 +222,6 @@ const PRECONDITION_MISSES: {
     a: string;
     b: string;
     c: string;
-    checkpoint: string;
     outbox: string;
     d: string;
   }) => {
@@ -253,10 +250,6 @@ const PRECONDITION_MISSES: {
     input: (q) => ({ members: [q.a, q.b] }),
     settleB: true,
   },
-  {
-    name: "checkpoint member",
-    input: (q) => ({ members: [q.c, q.checkpoint] }),
-  },
   { name: "outbox member", input: (q) => ({ members: [q.outbox, q.d] }) },
   { name: "non-contiguous members", input: (q) => ({ members: [q.a, q.c] }) },
   { name: "wrong first member", input: (q) => ({ members: [q.b, q.a] }) },
@@ -273,25 +266,13 @@ for (const miss of PRECONDITION_MISSES) {
       const a = await enqueueEdit(execSql, doc);
       const b = await enqueueEdit(execSql, doc);
       const c = await enqueueEdit(execSql, doc);
-      const checkpoint = await enqueueEdit(
-        execSql,
-        doc,
-        encodeVersionVector(doc),
-      );
       const outboxFields = await mergedFields(execSql, doc, [a, c]);
       const outbox = await new DocumentRecordRepository(
         execSql,
       ).enqueueDocumentPendingUpdate(getDocumentScope(LOCAL_ID), outboxFields);
       const d = await enqueueEdit(execSql, doc);
       if (miss.settleB) await persistence.deletePendingUpdate(execSql, b);
-      const { members, overrides } = miss.input({
-        a,
-        b,
-        c,
-        checkpoint,
-        d,
-        outbox,
-      });
+      const { members, overrides } = miss.input({ a, b, c, d, outbox });
       const before = await readRows(execSql);
 
       await expect(

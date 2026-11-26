@@ -287,7 +287,7 @@ test("report retains document sync trace lines and drops decorated ones", () => 
         message: `Documents: document sync stale bundle document=${documentId} epoch=1 pending=3`,
       }),
       createLogEntry(2, {
-        message: `Documents: document sync heal planned document=${documentId} fromEpoch=1 toEpoch=2 updates=3 heldBack=0`,
+        message: `Documents: document sync heal planned document=${documentId} fromEpoch=1 toEpoch=2 updates=3 segments=1`,
       }),
       createLogEntry(3, {
         message: `Documents: document sync heal blocked document=${documentId} reason=snapshot-unavailable`,
@@ -304,17 +304,14 @@ test("report retains document sync trace lines and drops decorated ones", () => 
       createLogEntry(7, {
         message: `Container contents: document sync stale read document=${documentId} epoch=1`,
       }),
-      createLogEntry(8, {
-        message: `Documents: document sync checkpoint regeneration document=${documentId} checkpoints=1 updates=2`,
-      }),
       // A trace-shaped line with free-form decoration must still fail closed.
-      createLogEntry(9, {
+      createLogEntry(8, {
         message: `Documents: document sync healed document=${documentId} epoch=2 accepted=4 title=PRIVATE cardiology scan.pdf`,
       }),
       // Smuggled tokens inside the enumerated slots must fail closed too —
       // the pattern enumerates the emitted vocabulary rather than accepting
       // anything token-shaped.
-      createLogEntry(10, {
+      createLogEntry(9, {
         message: `Documents: document sync submit failed document=${documentId} status=409 code=private_patient_field action=stop`,
       }),
     ],
@@ -325,7 +322,7 @@ test("report retains document sync trace lines and drops decorated ones", () => 
     `document sync stale bundle document=${documentId} epoch=1 pending=3`,
   );
   expect(report).toContain(
-    `document sync heal planned document=${documentId} fromEpoch=1 toEpoch=2 updates=3 heldBack=0`,
+    `document sync heal planned document=${documentId} fromEpoch=1 toEpoch=2 updates=3 segments=1`,
   );
   expect(report).toContain(
     `document sync heal blocked document=${documentId} reason=snapshot-unavailable`,
@@ -341,9 +338,6 @@ test("report retains document sync trace lines and drops decorated ones", () => 
   );
   expect(report).toContain(
     `document sync stale read document=${documentId} epoch=1`,
-  );
-  expect(report).toContain(
-    `document sync checkpoint regeneration document=${documentId} checkpoints=1 updates=2`,
   );
   expect(report).not.toContain("PRIVATE");
   expect(report).not.toContain("private_patient_field");

@@ -125,16 +125,16 @@ export async function buildDocumentCreateSeedRequest(input: {
 }
 
 /**
- * The queued row that may seed a create: the only row, a plain update (not a
- * rotation baseline) that holds the document's whole content. Anything else
- * syncs after the create as before.
+ * The queued row that may seed a create: the only row, an update that holds
+ * the document's whole content. Anything else syncs after the create as
+ * before.
  */
 export function documentCreateSeedCandidate(input: {
   readonly documentVersion: string;
   readonly pendingUpdates: readonly PendingUpdateRecord[];
 }): PendingUpdateRecord | null {
   const [row, ...rest] = input.pendingUpdates;
-  if (!row || rest.length > 0 || row.sourceVersionVector != null) return null;
+  if (!row || rest.length > 0) return null;
   // The start may name peers at counter zero; the server checks it the same way.
   return satisfiesVersionVector(
     emptyVersionVector(),

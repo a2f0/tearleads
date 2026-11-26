@@ -13,14 +13,12 @@ export interface RemoteDocumentSyncAttemptState {
   pendingUpdates: readonly PendingUpdateRecord[];
   pullContinuation: DocumentSyncPullContinuation | undefined;
   recoveryPendingUpdatesById: Map<string, PendingUpdateRecord>;
-  regenerateQueuedCheckpoints: boolean;
   reusableWriterProjection: DocumentWriterProjectionResponse | null;
 }
 
 export type RemoteDocumentSyncAttemptOutcome =
   | { kind: "complete"; result: SyncRemoteDocumentResult | null }
   | { kind: "recover"; updates: Map<string, PendingUpdateRecord> }
-  | { kind: "regenerate" }
   | {
       kind: "retry";
       pullContinuation: DocumentSyncPullContinuation | undefined;

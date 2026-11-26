@@ -3,7 +3,6 @@ import {
   ANCESTOR_REPAIR_ABANDON_REASONS,
   DOCUMENT_SYNC_TRACE_PATTERN,
   traceAncestorRepairAbandoned,
-  traceCheckpointRegeneration,
   traceHealBlocked,
   traceHealed,
   traceHealPlanned,
@@ -27,16 +26,11 @@ test("every emitted trace line matches the clipboard-safe pattern", () => {
     traceHealPlanned(emit, {
       documentId: DOCUMENT_ID,
       fromEpoch: 1,
-      heldBack: 1,
+      segments: 4,
       toEpoch: 2,
       updates: 3,
     });
     traceStaleRead(emit, { documentId: DOCUMENT_ID, epoch: 1 });
-    traceCheckpointRegeneration(emit, {
-      checkpoints: 1,
-      documentId: DOCUMENT_ID,
-      updates: 2,
-    });
     traceHealBlocked(emit, {
       documentId: DOCUMENT_ID,
       error: new Error(
@@ -44,8 +38,21 @@ test("every emitted trace line matches the clipboard-safe pattern", () => {
       ),
     });
     traceSubmitFailed(emit, {
-      action: "regenerate-checkpoints",
+      action: "retry",
       code: "document_sync_state_stale",
+      documentId: DOCUMENT_ID,
+      status: 409,
+    });
+    // A refused rotation baseline is reported under its own code and stops.
+    traceSubmitFailed(emit, {
+      action: "stop",
+      code: "document_sync_checkpoint_coverage_conflict",
+      documentId: DOCUMENT_ID,
+      status: 409,
+    });
+    traceSubmitFailed(emit, {
+      action: "stop",
+      code: "document_sync_baseline_group_invalid",
       documentId: DOCUMENT_ID,
       status: 409,
     });
@@ -72,10 +79,19 @@ test("every emitted trace line matches the clipboard-safe pattern", () => {
     }
   });
 
-  expect(lines).toHaveLength(11 + ANCESTOR_REPAIR_ABANDON_REASONS.length);
+  expect(lines).toHaveLength(12 + ANCESTOR_REPAIR_ABANDON_REASONS.length);
   for (const line of lines) {
     expect(line).toMatch(DOCUMENT_SYNC_TRACE_PATTERN);
   }
+  expect(lines).toContain(
+    `document sync heal planned document=${DOCUMENT_ID} fromEpoch=1 toEpoch=2 updates=3 segments=4`,
+  );
+  expect(lines).toContain(
+    `document sync submit failed document=${DOCUMENT_ID} status=409 code=document_sync_checkpoint_coverage_conflict action=stop`,
+  );
+  expect(lines).toContain(
+    `document sync submit failed document=${DOCUMENT_ID} status=409 code=document_sync_baseline_group_invalid action=stop`,
+  );
 });
 
 test("the validator is anchored and rejects tokens outside the vocabulary", () => {
@@ -92,6 +108,10 @@ test("the validator is anchored and rejects tokens outside the vocabulary", () =
     `document sync projection failed document=${DOCUMENT_ID} status=409 code=patient_name`,
     // Non-UUID document ids must fail the strict shape.
     "document sync healed document=a epoch=2 accepted=4",
+    // A heal names its baseline's segments and nothing else after its updates.
+    `document sync heal planned document=${DOCUMENT_ID} fromEpoch=1 toEpoch=2 updates=3`,
+    `document sync heal planned document=${DOCUMENT_ID} fromEpoch=1 toEpoch=2 updates=3 segments=many`,
+    `document sync heal planned document=${DOCUMENT_ID} fromEpoch=1 toEpoch=2 updates=3 heldBack=1`,
   ];
   for (const line of rejected) {
     expect(line).not.toMatch(DOCUMENT_SYNC_TRACE_PATTERN);
@@ -119,10 +139,6 @@ test("every fixed heal failure emits its enumerated reason line", () => {
       "snapshot-not-full-history",
     ],
     ["Document stale-bundle recovery snapshot is empty", "snapshot-empty"],
-    [
-      "Document stale-bundle recovery snapshot does not cover a queued rotation checkpoint",
-      "checkpoint-uncovered",
-    ],
     [
       "Document content-key re-wrap KEK is unavailable for container x epoch y",
       "rewrap-kek-unavailable",

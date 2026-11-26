@@ -295,6 +295,7 @@ test("a forged old-epoch header cannot bypass poison isolation through a missing
     });
 
     const error = await syncRemoteDocumentResultFromResponse({
+      baselineGroupRun: null,
       execSql,
       materializedPlan,
       recoveryPendingUpdatesById: new Map(),
@@ -452,6 +453,7 @@ test("raw response validation poison-isolates a future content-key epoch", async
     });
 
     const error = await syncRemoteDocumentResultFromResponse({
+      baselineGroupRun: null,
       execSql,
       materializedPlan,
       recoveryPendingUpdatesById: new Map(),

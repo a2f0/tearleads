@@ -1,15 +1,10 @@
-import {
-  emptyVersionVector,
-  getImportBlobMetadata,
-  versionVectorsEqual,
-} from "@tearleads/loro";
+import { getImportBlobMetadata, versionVectorsEqual } from "@tearleads/loro";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 
 export function assertDecryptedDocumentUpdateMetadata(
   updateData: Uint8Array,
   update: Pick<
     DocumentSyncResponse["updates"][number],
-    | "checkpointKind"
     | "dependencyVersionVector"
     | "partialEndVersionVector"
     | "partialStartVersionVector"
@@ -41,22 +36,9 @@ export function assertDecryptedDocumentUpdateMetadata(
   ) {
     throw new Error("Document decrypted update dependency mismatch");
   }
-  if (
-    update.checkpointKind === "rotate_baseline" &&
-    (decodedMetadata.mode !== "snapshot" ||
-      !versionVectorsEqual(
-        decodedMetadata.partialStartVersionVector,
-        emptyVersionVector(),
-      ))
-  ) {
-    throw new Error(
-      "Document rotation baseline is not a full-history snapshot",
-    );
-  }
-  if (
-    update.checkpointKind === undefined &&
-    decodedMetadata.mode !== "update"
-  ) {
-    throw new Error("Document ordinary update payload is not an update blob");
+  // Every served update is an update blob, a rotation baseline's segments
+  // included: a baseline is its history cut into updates, never a snapshot.
+  if (decodedMetadata.mode !== "update") {
+    throw new Error("Document update payload is not an update blob");
   }
 }

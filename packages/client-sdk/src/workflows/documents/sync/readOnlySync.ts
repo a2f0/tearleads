@@ -22,6 +22,7 @@ import type {
   IncomingDocumentSyncUpdateValidator,
   SyncRemoteDocumentResult,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
+import { continuedBaselineGroupRun } from "../../../data/documents/shared/sync/pullContinuation";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
@@ -60,7 +61,10 @@ import {
   REFRESH_CACHED_PROJECTION,
 } from "./readOnlyProjectionFailure";
 import type { RemoteDocumentSyncPass } from "./remoteDocumentSyncPass";
-import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
+import {
+  baselineGroupRunAfterPage,
+  syncRemoteDocumentResultFromResponse,
+} from "./syncResponseResult";
 import { type DocumentSyncTraceEmitter, traceSubmitFailed } from "./syncTrace";
 
 async function completeReadOnlyRemoteDocumentSyncWithProjection(
@@ -87,6 +91,10 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
 
   const result = await syncRemoteDocumentResultFromResponse({
     ...projectionVerificationOptions(input),
+    baselineGroupRun: continuedBaselineGroupRun(
+      input.pullContinuation,
+      materializedPlan.plan.request.pullCursor,
+    ),
     execSql: input.execSql,
     materializedPlan,
     recoveryPendingUpdatesById: new Map(),
@@ -330,6 +338,40 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     ? { kind: "completed", result: freshResult }
     : { kind: "not_completed" };
 }
+/** The result of a read-only page that served no update. */
+async function emptyPageSyncResult(input: {
+  readonly persistedState: SyncRemoteDocumentResult["persistedState"];
+  readonly plan: DocumentSyncPlan;
+  readonly pullComplete: boolean;
+  readonly pullContinuation: DocumentSyncPullContinuation | undefined;
+  readonly response: DocumentSyncResponse;
+}): Promise<SyncRemoteDocumentResult> {
+  return {
+    // A page with no updates still ends a pull, or carries its run on.
+    baselineGroupRun: await baselineGroupRunAfterPage({
+      baselineGroupRun: continuedBaselineGroupRun(
+        input.pullContinuation,
+        input.plan.request.pullCursor,
+      ),
+      plan: input.plan,
+      response: input.response,
+    }),
+    contentKey: new Uint8Array(),
+    decryptedUpdates: [],
+    exhaustedPendingUpdateCount: 0,
+    hasDeferredPendingUpdates: false,
+    hasHeldPull: false,
+    hasIncompletePull: !input.pullComplete,
+    persistedState: input.persistedState,
+    plan: input.plan,
+    rekeyedPendingUpdateIds: [],
+    response: input.response,
+    settledPendingUpdateIds: [],
+    acceptedRecoveryBaseline: false,
+    voidedUpdates: [],
+  };
+}
+
 async function syncReadOnlyRemoteDocumentFromPersistedState(
   input: Omit<
     ReadOnlyDocumentSyncCompletionInput,
@@ -420,21 +462,13 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
 
     return {
       kind: "completed",
-      result: {
-        contentKey: new Uint8Array(),
-        decryptedUpdates: [],
-        exhaustedPendingUpdateCount: 0,
-        hasDeferredPendingUpdates: false,
-        hasHeldPull: false,
-        hasIncompletePull: !submitted.pullComplete,
+      result: await emptyPageSyncResult({
         persistedState,
         plan,
-        rekeyedPendingUpdateIds: [],
+        pullComplete: submitted.pullComplete,
+        pullContinuation: input.pullContinuation,
         response: submitted.response,
-        settledPendingUpdateIds: [],
-        acceptedRecoveryBaseline: false,
-        voidedUpdates: [],
-      },
+      }),
     };
   } catch (error) {
     if (input.historyMode === "raw") {

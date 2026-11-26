@@ -17,15 +17,14 @@ export interface QueuedUpdateReplacement {
   expectedRecoveryGeneration: number;
   /** Members' current update ids, in queue order; at least two. */
   memberUpdateIds: readonly string[];
-  /** The merged update. It is never a rotation checkpoint. */
-  merged: Omit<PendingUpdateFields, "sourceVersionVector">;
+  /** The merged update. */
+  merged: PendingUpdateFields;
   rekeyCount: number;
 }
 
 /**
  * The row ids of the members when they are still exactly a contiguous run of
- * ordinary local queued rows, starting with the first listed member;
- * otherwise null.
+ * local queued rows, starting with the first listed member; otherwise null.
  */
 async function contiguousMemberRowIds(
   tx: ClientSQLiteTransactionScope,
@@ -36,7 +35,6 @@ async function contiguousMemberRowIds(
     .select({
       id: documentHistoryUpdates.id,
       origin: documentHistoryUpdates.origin,
-      sourceVersionVector: documentHistoryUpdates.sourceVersionVector,
       updateId: documentHistoryUpdates.updateId,
     })
     .from(documentHistoryUpdates)
@@ -50,8 +48,7 @@ async function contiguousMemberRowIds(
     if (
       row.id === null ||
       row.updateId !== memberUpdateIds[index] ||
-      row.origin !== "local" ||
-      row.sourceVersionVector !== null
+      row.origin !== "local"
     ) {
       return null;
     }
@@ -87,7 +84,6 @@ export async function replaceDocumentQueuedUpdatesInTransaction(
       updateData: replacement.merged.updateData,
       partialStartVersionVector: replacement.merged.partialStartVersionVector,
       partialEndVersionVector: replacement.merged.partialEndVersionVector,
-      sourceVersionVector: null,
       rekeyCount: replacement.rekeyCount,
     })
     .where(eq(documentHistoryUpdates.id, firstRowId))

@@ -350,18 +350,17 @@ test("each poison update is voided on its own and the valid sibling is kept", as
   expect(voidedIds(voided)).toEqual(poisonIds);
 });
 
-test("poison checkpoints and deltas are each voided", async () => {
+test("a poison baseline segment and a poison delta are each voided", async () => {
   const current = await createDocument("isolation-mixed-poison-current");
-  const checkpointId = "550e8400-e29b-41d4-a716-4466554400e1";
+  const segmentId = "550e8400-e29b-41d4-a716-4466554400e1";
   const deltaId = "550e8400-e29b-41d4-a716-4466554400e2";
 
   const { voided } = await validateDocumentSyncUpdateImports({
     currentDocument: current,
     decryptedUpdates: [
       {
-        checkpointKind: "rotate_baseline",
-        checkpointPayloadKind: "full_history_snapshot",
-        id: checkpointId,
+        baselineId: "550e8400-e29b-41d4-a716-4466554400e0",
+        id: segmentId,
         dependencyVersionVector: "AA==",
         partialEndVersionVector: "AA==",
         partialStartVersionVector: "AA==",
@@ -377,5 +376,5 @@ test("poison checkpoints and deltas are each voided", async () => {
     ],
   });
 
-  expect(voidedIds(voided)).toEqual([checkpointId, deltaId]);
+  expect(voidedIds(voided)).toEqual([segmentId, deltaId]);
 });

@@ -182,7 +182,6 @@ test("the writer repairs its own leaf once the intermediate is repaired", async 
     const write = await buildRemoteDocumentSyncPlan({
       pendingUpdates: [createPendingUpdateRecord()],
       projection: repaired,
-      regenerateQueuedCheckpoints: false,
       sync: {
         ...writer,
         apiClient: createMockApiClient(),

@@ -98,7 +98,6 @@ test("an update persist refuses to resurrect a deleted row", async () => {
         localId: "victim",
         partialEndVersionVector: "end",
         partialStartVersionVector: "start",
-        sourceVersionVector: null,
         updateData: "b3JwaGFuZWQtc2lkZS13cml0ZQ==",
       },
     );
@@ -206,7 +205,6 @@ test("stale text, row, and attachment enqueues cannot cross a relink", async () 
           localId: "relinked-local-id",
           partialEndVersionVector: `${kind}-end`,
           partialStartVersionVector: `${kind}-start`,
-          sourceVersionVector: null,
           updateData: btoa(`${kind}-update`),
         },
         {

@@ -20,7 +20,6 @@ type EnqueuePendingDocumentUpdateInput = {
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
-  sourceVersionVector?: string | null;
   /**
    * Queue nothing when a queued local row already holds these exact bytes,
    * checked under the mutation lock that inserts. Equal bytes are equal
@@ -58,10 +57,7 @@ function expectedIdentityHolds(
 export async function enqueuePendingDocumentUpdate(
   input: EnqueuePendingDocumentUpdateInput,
 ): Promise<boolean> {
-  const pendingUpdateFields = createPendingUpdateFields(
-    input.update,
-    input.sourceVersionVector,
-  );
+  const pendingUpdateFields = createPendingUpdateFields(input.update);
   if (!pendingUpdateFields) {
     return expectedIdentityHolds(input, input.execSql);
   }

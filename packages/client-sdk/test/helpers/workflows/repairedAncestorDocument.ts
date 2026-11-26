@@ -37,7 +37,6 @@ export async function repairedAncestorDocument() {
     const healed = await buildRemoteDocumentSyncPlan({
       pendingUpdates: [createPendingUpdateRecord()],
       projection,
-      regenerateQueuedCheckpoints: false,
       sync: {
         ...input,
         apiClient: createMockApiClient(),

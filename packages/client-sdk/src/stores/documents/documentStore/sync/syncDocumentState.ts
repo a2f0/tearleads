@@ -88,7 +88,7 @@ async function requestOutgoingDocumentBatch(input: {
 }
 
 /**
- * Keep the full durable queue visible to stale-heal/checkpoint classification.
+ * Keep the full durable queue visible to stale-heal planning.
  * The workflow planner owns the final count and byte bounds, and the exact
  * materialized batch is pre-registered immediately before each submit.
  */

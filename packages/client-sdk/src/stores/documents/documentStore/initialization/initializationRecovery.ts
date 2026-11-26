@@ -103,12 +103,7 @@ export async function recoverDroppedAttachmentSlots(
   // local-edits discard) racing this recovery cannot see it re-enqueue or
   // re-persist the state the teardown just removed.
   if (update.byteLength > 0) {
-    const enqueued = await enqueuePendingUpdate(
-      state,
-      update,
-      undefined,
-      writeGeneration,
-    );
+    const enqueued = await enqueuePendingUpdate(state, update, writeGeneration);
     if (!enqueued) {
       const rebased = await rebaseDocumentAfterPendingUpdateRefusal(
         state,

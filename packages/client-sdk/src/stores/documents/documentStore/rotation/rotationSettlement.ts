@@ -29,14 +29,6 @@ import { extendDocumentVersionCoverage } from "../sync/versionCoverage";
 
 export class RotationPendingUpdatesChangedError extends Error {}
 
-function ordinaryPendingUpdates(
-  pendingUpdates: readonly PendingUpdateRecord[],
-): PendingUpdateRecord[] {
-  return pendingUpdates.filter(
-    (pendingUpdate) => pendingUpdate.sourceVersionVector == null,
-  );
-}
-
 function pendingUpdateSetKey(pendingUpdates: readonly PendingUpdateRecord[]) {
   return pendingUpdates
     .map((pendingUpdate) => pendingUpdate.id)
@@ -54,8 +46,7 @@ function pendingUpdateMatchesProvenRow(
     pendingUpdate.partialStartVersionVector ===
       provenUpdate.partialStartVersionVector &&
     pendingUpdate.partialEndVersionVector ===
-      provenUpdate.partialEndVersionVector &&
-    pendingUpdate.sourceVersionVector === provenUpdate.sourceVersionVector
+      provenUpdate.partialEndVersionVector
   );
 }
 
@@ -63,7 +54,7 @@ function assertOrdinaryRowsWereProven(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
   provenUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
 }): void {
-  for (const pendingUpdate of ordinaryPendingUpdates(input.pendingUpdates)) {
+  for (const pendingUpdate of input.pendingUpdates) {
     const provenUpdate = input.provenUpdatesById.get(pendingUpdate.id);
     if (
       !provenUpdate ||
@@ -81,7 +72,7 @@ function ordinaryPendingUpdatesWithProvenCoverage(input: {
   pendingUpdates: PendingUpdateRecord[];
   verifiedBaseVersion: string;
 }): { coverage: string; pendingUpdates: PendingUpdateRecord[] } {
-  const ordinaryUpdates = ordinaryPendingUpdates(input.pendingUpdates);
+  const ordinaryUpdates = input.pendingUpdates;
   const documentVersion = encodeVersionVector(input.currentDocument);
   const ordinaryCoverage = extendDocumentVersionCoverage({
     baseVersion: input.verifiedBaseVersion,
@@ -90,7 +81,7 @@ function ordinaryPendingUpdatesWithProvenCoverage(input: {
   });
   if (!satisfiesVersionVector(ordinaryCoverage, documentVersion)) {
     throw new Error(
-      "Document rotation cannot settle uncovered local history because it may be checkpoint-derived",
+      "Document rotation cannot settle uncovered local history: no queued update carries it",
     );
   }
   return { coverage: ordinaryCoverage, pendingUpdates: ordinaryUpdates };
@@ -255,9 +246,7 @@ async function settleOrdinaryUpdatePass(input: {
       "Document changed while local updates were settling for key rotation",
     );
   }
-  const preparedPendingUpdates = ordinaryPendingUpdates(
-    prepared.pendingUpdates,
-  );
+  const preparedPendingUpdates = [...prepared.pendingUpdates];
   if (preparedPendingUpdates.length === 0) return proven.coverage;
 
   const sentUpdateIds: string[] = [];
@@ -326,10 +315,7 @@ export async function settleOrdinaryDocumentUpdatesBeforeRotation(
   const stalledQueueStates = new Set<string>();
   let verifiedCoverage = verifiedBaseVersion;
   const provenUpdatesById = new Map(
-    ordinaryPendingUpdates(provenPendingUpdates).map((update) => [
-      update.id,
-      update,
-    ]),
+    provenPendingUpdates.map((update) => [update.id, update]),
   );
 
   while (true) {
@@ -342,7 +328,7 @@ export async function settleOrdinaryDocumentUpdatesBeforeRotation(
       pendingUpdates: allPendingUpdates,
       provenUpdatesById,
     });
-    const pendingUpdates = ordinaryPendingUpdates(allPendingUpdates);
+    const pendingUpdates = allPendingUpdates;
     if (
       pendingUpdates.length === 0 &&
       satisfiesVersionVector(verifiedCoverage, encodeVersionVector(currentDoc))

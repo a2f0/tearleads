@@ -21,9 +21,9 @@ function voidReports(device: { errors: readonly { message: unknown }[] }) {
 
 // Every committed update of the document declares an operation its payload
 // does not carry, so a reader voids all of them and holds an empty document.
-// Its snapshot encodes no history, and before #3194 that meant no baseline:
+// Its history holds no operation, and before #3194 that meant no baseline:
 // the unlink went without one, and the API refused it while any update was
-// committed. The reader's baseline is now an empty snapshot that signs its
+// committed. The reader's baseline is now one empty segment that signs its
 // processed cursor, so the API weighs only the updates after it. A fresh
 // install is redirected past the voids and never meets them.
 test("a reader unlinks a document whose every update it voided", async () => {

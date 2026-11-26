@@ -88,7 +88,10 @@ export async function pullVerifiedRawHistoryForRotation(input: {
     });
     if (!synced.hasIncompletePull) return synced;
 
-    const nextContinuation = readPullContinuation(synced.response);
+    const nextContinuation = readPullContinuation(
+      synced.response,
+      synced.baselineGroupRun,
+    );
     if (!nextContinuation) {
       throw new Error(
         "Rotation raw-history recovery ended before the retained history was complete",

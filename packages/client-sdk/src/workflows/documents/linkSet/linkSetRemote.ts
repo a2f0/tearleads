@@ -2,6 +2,7 @@ import type {
   DocumentContentKeyTarget,
   DocumentLinkAccessEventBody,
 } from "@tearleads/crypto";
+import type { HistorySegmentSizes } from "@tearleads/loro";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
@@ -221,6 +222,8 @@ export interface RelinkRemoteDocumentRequest {
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   operation: DocumentLinkSetMutationOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  /** The sizes an unlink cuts its baseline at; the defaults when absent. */
+  rotationBaselineSegmentSizes?: HistorySegmentSizes | undefined;
   rotationSnapshot?: Uint8Array | undefined;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
@@ -345,6 +348,7 @@ async function relinkRemoteDocumentOnce(
     execSql: input.execSql,
     materializedPlan,
     operation: input.operation,
+    rotationBaselineSegmentSizes: input.rotationBaselineSegmentSizes,
     rotationSnapshot: input.rotationSnapshot,
     signedAt,
   });

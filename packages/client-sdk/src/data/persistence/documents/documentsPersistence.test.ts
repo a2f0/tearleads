@@ -29,7 +29,6 @@ test("document creation rolls back rows and queue when its projection fails", as
     pendingUpdate: {
       partialEndVersionVector: "end-version-1",
       partialStartVersionVector: "start-version-1",
-      sourceVersionVector: null,
       updateData: "update-1",
     },
   };
@@ -100,14 +99,12 @@ test("saveDocumentAndDeletePendingUpdates saves document rows and clears accepte
       localId: "local-document-1",
       partialEndVersionVector: "end-1",
       partialStartVersionVector: "start-1",
-      sourceVersionVector: null,
       updateData: "update-1",
     });
     await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
       localId: "local-document-1",
       partialEndVersionVector: "end-2",
       partialStartVersionVector: "start-2",
-      sourceVersionVector: null,
       updateData: "update-2",
     });
     const pendingUpdates = await sqlDocumentsPersistence.listPendingUpdates(
@@ -195,7 +192,6 @@ test("commitDocumentMutation aborts a stale generation before durable writes", a
           pendingUpdate: {
             partialEndVersionVector: "after",
             partialStartVersionVector: "before",
-            sourceVersionVector: null,
             updateData: "c3RhbGUtdXBkYXRl",
           },
           settleAcceptedPendingOnConflict: false,
@@ -321,14 +317,12 @@ test("commitDocumentMutation settles accepted ids only in its document scope", a
       localId: "local-a",
       partialEndVersionVector: "end-a",
       partialStartVersionVector: "start-a",
-      sourceVersionVector: null,
       updateData: "update-a",
     });
     await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
       localId: "local-b",
       partialEndVersionVector: "end-b",
       partialStartVersionVector: "start-b",
-      sourceVersionVector: null,
       updateData: "update-b",
     });
     const storedA = await sqlDocumentsPersistence.loadDocument(

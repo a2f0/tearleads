@@ -61,7 +61,6 @@ function mapSelectedPendingUpdate(
     updateData: row.updateData,
     partialStartVersionVector: row.partialStartVersionVector,
     partialEndVersionVector: row.partialEndVersionVector,
-    sourceVersionVector: row.sourceVersionVector,
     rekeyCount: row.rekeyCount,
   };
 }
@@ -110,7 +109,6 @@ export async function selectDocumentPendingUpdates(
       partialStartVersionVector:
         documentHistoryUpdates.partialStartVersionVector,
       partialEndVersionVector: documentHistoryUpdates.partialEndVersionVector,
-      sourceVersionVector: documentHistoryUpdates.sourceVersionVector,
       rekeyCount: documentHistoryUpdates.rekeyCount,
     })
     .from(documentHistoryUpdates)
@@ -170,7 +168,6 @@ export function queuedUpdateRow(input: {
     updateId: input.updateId,
     partialStartVersionVector: input.pendingUpdate.partialStartVersionVector,
     partialEndVersionVector: input.pendingUpdate.partialEndVersionVector,
-    sourceVersionVector: input.pendingUpdate.sourceVersionVector ?? null,
   };
 }
 
@@ -293,7 +290,6 @@ async function unqueueSelectedUpdates(
       updateId: null,
       partialStartVersionVector: null,
       partialEndVersionVector: null,
-      sourceVersionVector: null,
       rekeyCount: 0,
     })
     .where(selected)

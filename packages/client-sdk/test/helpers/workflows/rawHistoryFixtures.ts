@@ -1,12 +1,7 @@
 import { expect } from "bun:test";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  createDocument,
-  encodeVersionVector,
-  exportFullHistorySnapshot,
-  getUpdateVersionVectors,
-} from "@tearleads/loro";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { asContainerMutationFixture } from "@tearleads/test-utils";
 import {
   buildRotatedDocumentContentKeyBundle,
@@ -17,12 +12,10 @@ import type { ExecSql } from "../../../src/data/sqlite/sqlSchema";
 import type { createRemoteHistoryFixture } from "../../../src/stores/documents/documentStore/documentStore.testFixtures";
 import { buildMaterializedDocumentSyncPlan } from "../../../src/workflows/documents/syncPlan/syncPlanMaterial";
 import { createMutationResponseFromRequest } from "../data/containerFixtures";
-import {
-  createPendingUpdateRecord,
-  createSyncResponse,
-} from "../data/documentFixtures";
+import { createSyncResponse } from "../data/documentFixtures";
 import { createContainerMutationServiceFixture } from "./containerMutationServiceFixture";
 import { persistFullHistoryDocument } from "./rotationRecoveryRuntime";
+import { createServedRotationBaseline } from "./servedRotationBaseline";
 
 type RemoteHistoryFixture = Awaited<
   ReturnType<typeof createRemoteHistoryFixture>
@@ -30,42 +23,40 @@ type RemoteHistoryFixture = Awaited<
 type FixtureDocument = Awaited<ReturnType<typeof createDocument>>;
 
 /**
- * A `rotate_baseline` checkpoint of `document`, signed by the fixture's
- * author, as the server would serve it.
+ * A rotation baseline of `document` in one segment, signed by the fixture's
+ * author, as the server would serve it. `updateId` names the segment.
  */
 export async function createRotationBaselineUpdate(
   fixture: RemoteHistoryFixture,
   updateId: string,
   document: FixtureDocument,
 ) {
-  const snapshot = exportFullHistorySnapshot(document);
-  const vectors = getUpdateVersionVectors(snapshot);
   const plan = await buildMaterializedDocumentSyncPlan({
     author: fixture.author,
     localVersionVector: null,
-    pendingUpdates: [
-      createPendingUpdateRecord({
-        id: updateId,
-        sourceVersionVector: vectors.partialEndVersionVector,
-        updateData: bytesToBase64(snapshot),
-        ...vectors,
-      }),
-    ],
+    pendingUpdates: [],
     targetSecretKey: fixture.secretKey,
     trustedLocalProjection: true,
+    writerProjection: fixture.writerProjection,
+  });
+  const baseline = await createServedRotationBaseline({
+    author: fixture.author,
+    contentKey: plan.contentKey,
+    document,
+    plan: plan.plan,
+    segmentIds: [updateId],
     writerProjection: fixture.writerProjection,
   });
   return {
     response: await createSyncResponse(plan.plan, {
       acceptedOutgoingUpdateIds: [],
+      updates: baseline.updates,
     }),
-    snapshot,
-    vectors,
   };
 }
 
 /**
- * A rotation baseline whose snapshot reuses the honest writer's operation
+ * A rotation baseline whose history reuses the honest writer's operation
  * ids, at the honest history's version, with other content.
  */
 export async function createForgedRotationBaseline(

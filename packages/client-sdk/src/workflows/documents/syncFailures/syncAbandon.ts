@@ -116,7 +116,7 @@ export async function abandonOversizedSyncPlan(
   };
   await input.onTerminalSubmitFailure?.(failure);
   input.onSyncAbandoned?.(
-    "a queued update cannot fit within the document sync request limit",
+    "a queued update or rotation baseline cannot fit within the document sync request limit",
   );
   return null;
 }

@@ -105,7 +105,6 @@ test("a relink between byte staging and the attachment mutation leaves no old-id
           pendingUpdate: {
             partialEndVersionVector: "end",
             partialStartVersionVector: "start",
-            sourceVersionVector: null,
             updateData: "dXBkYXRl",
           },
           settleAcceptedPendingOnConflict: false,
@@ -191,7 +190,6 @@ test("a queue insertion failure rolls back every staged attachment row", async (
           pendingUpdate: {
             partialEndVersionVector: "end",
             partialStartVersionVector: "start",
-            sourceVersionVector: null,
             updateData: "dXBkYXRl",
           },
           settleAcceptedPendingOnConflict: false,

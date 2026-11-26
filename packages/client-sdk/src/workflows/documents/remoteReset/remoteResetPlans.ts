@@ -25,7 +25,6 @@ export interface ResetDocumentUpdate {
   readonly updateData: string;
   readonly partialStartVersionVector: string;
   readonly partialEndVersionVector: string;
-  readonly sourceVersionVector: string | null;
 }
 
 export interface ResetAttachmentUpload {
@@ -64,7 +63,6 @@ function buildResetUpdate(input: {
     updateData: fields.updateData,
     partialStartVersionVector: fields.partialStartVersionVector,
     partialEndVersionVector: fields.partialEndVersionVector,
-    sourceVersionVector: fields.sourceVersionVector ?? null,
   };
 }
 

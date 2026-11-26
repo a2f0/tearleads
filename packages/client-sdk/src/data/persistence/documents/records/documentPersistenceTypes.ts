@@ -46,7 +46,6 @@ export interface PendingUpdateFields {
   updateData: string;
   partialStartVersionVector: string;
   partialEndVersionVector: string;
-  sourceVersionVector?: string | null;
 }
 
 /**
@@ -100,6 +99,5 @@ export interface SelectedPendingUpdateRow {
   updateData: string;
   partialStartVersionVector: string | null;
   partialEndVersionVector: string | null;
-  sourceVersionVector: string | null;
   rekeyCount: number;
 }

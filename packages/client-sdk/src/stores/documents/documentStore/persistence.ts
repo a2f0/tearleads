@@ -442,7 +442,6 @@ export async function withGenerationGuardedMutation(
 export async function enqueuePendingUpdate(
   state: DocumentStoreState,
   update: Uint8Array,
-  sourceVersionVector?: string | null,
   expectedGeneration?: DocumentStoreSyncGeneration,
   options: { readonly unlessQueued?: boolean } = {},
 ): Promise<boolean> {
@@ -462,7 +461,6 @@ export async function enqueuePendingUpdate(
         expectedRecoveryGeneration,
         localId: state.localId,
         persistence: state.persistence,
-        ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
         ...(options.unlessQueued ? { unlessQueued: true } : {}),
         update,
       });

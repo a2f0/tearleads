@@ -1,11 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  createDocument,
-  exportFullHistorySnapshot,
-  getTextValue,
-  getUpdateVersionVectors,
-  importSnapshot,
-} from "@tearleads/loro";
+import { createDocument, getTextValue, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createForgedRotationBaseline,
@@ -31,7 +25,7 @@ import {
 } from "../documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "../initialization";
 import { setDocumentText } from "../mutations";
-import { enqueuePendingUpdate, listPendingUpdates } from "../persistence";
+import { listPendingUpdates } from "../persistence";
 import { createDocumentStoreState } from "../state";
 import { assertDocumentStoreCanRotateContentKey } from "./index";
 
@@ -39,9 +33,9 @@ const hasTerminalFailures = (
   execSql: ConstructorParameters<typeof DocumentRecordRepository>[0],
 ) => new DocumentRecordRepository(execSql).hasRecordedTerminalSyncFailures();
 
-// A checkpoint whose snapshot reuses the honest writer's operation ids with
-// other content is void, as an ordinary pull judges it: the rotation keeps it
-// out of the history it proves and goes on.
+// A rotation baseline whose history reuses the honest writer's operation ids
+// with other content is void, as an ordinary pull judges it: the rotation
+// keeps it out of the history it proves and goes on.
 test("raw recovery voids a same-page forged rotation baseline", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-forged-baseline",
@@ -108,6 +102,9 @@ test("raw recovery voids a same-page forged rotation baseline", async () => {
   }
 });
 
+// The live document holds operations no served update carries and no queued
+// update accounts for: nothing vouches for them, so the rotation stops
+// before it submits or installs anything.
 test("raw recovery does not launder preinstalled unverified history", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-preinstalled-unverified",
@@ -121,8 +118,6 @@ test("raw recovery does not launder preinstalled unverified history", async () =
     );
     forged.document.getText("text").update("preinstalled forged history");
     forged.document.commit();
-    const forgedSnapshot = exportFullHistorySnapshot(forged.document);
-    const forgedVectors = getUpdateVersionVectors(forgedSnapshot);
     const localId = "rotation-recovery-preinstalled-unverified-local";
     await persistFullHistoryDocument({
       doc: forged.document,
@@ -153,15 +148,7 @@ test("raw recovery does not launder preinstalled unverified history", async () =
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
-    expect(
-      await enqueuePendingUpdate(
-        state,
-        forgedSnapshot,
-        forgedVectors.partialEndVersionVector,
-      ),
-    ).toBe(true);
-    const queuedCheckpoint = (await listPendingUpdates(state))[0];
-    if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
+    expect(await listPendingUpdates(state)).toEqual([]);
     const historyBefore = await sqlDocumentsPersistence.loadHistoryRestoreState(
       execSql,
       localId,
@@ -172,9 +159,7 @@ test("raw recovery does not launder preinstalled unverified history", async () =
     );
 
     expect(requests).toEqual([{ historyMode: "raw", outgoing: 0 }]);
-    expect(
-      (await listPendingUpdates(state)).map((update) => update.id),
-    ).toEqual([queuedCheckpoint.id]);
+    expect(await listPendingUpdates(state)).toEqual([]);
     expect(
       await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId),
     ).toEqual(historyBefore);

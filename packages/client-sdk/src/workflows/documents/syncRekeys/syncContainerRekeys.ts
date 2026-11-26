@@ -20,7 +20,6 @@ export async function buildRemoteDocumentSyncPlan(input: {
   processedThroughUpdateId?: string | undefined;
   pullCursor?: string | undefined;
   projection: DocumentWriterProjectionResponse;
-  regenerateQueuedCheckpoints: boolean;
   sync: RemoteDocumentSyncPass;
 }) {
   // Repairing this document's own container moves its key target hash, which
@@ -91,7 +90,7 @@ export async function buildRemoteDocumentSyncPlan(input: {
     persistVerificationCheckpoints: rekeyPlans?.length ? false : undefined,
     processedThroughUpdateId: input.processedThroughUpdateId,
     pullCursor: input.pullCursor,
-    regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
+    rotationBaselineSegmentSizes: input.sync.rotationBaselineSegmentSizes,
     signedAt: input.sync.signedAt,
     targetSecretKey: input.sync.targetSecretKey,
     writerProjection,

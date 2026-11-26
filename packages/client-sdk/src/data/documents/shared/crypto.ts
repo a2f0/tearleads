@@ -18,6 +18,10 @@ import {
 } from "./contentRecordKeys";
 import { asWebCryptoBytes, readWriteHeader } from "./readers";
 import {
+  type DocumentBaselineSegmentFields,
+  documentBaselineSegmentFields,
+} from "./sync/baselineSegment";
+import {
   type DocumentContentKey,
   openDocumentContentKey,
 } from "./sync/contentKeyCommitment";
@@ -39,23 +43,14 @@ import { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "./types";
 
 /** The content-record metadata a pending update signs and readers recompute. */
 function pendingUpdateMetadataHash(input: {
-  coversThroughUpdateId?: string | undefined;
+  baseline?: DocumentBaselineSegmentFields | undefined;
   dependencyVersionVector: string;
   documentId: string;
   plaintextHash: string;
   update: PendingUpdateRecord;
 }): Promise<string> {
   return computeDocumentContentRecordMetadataHash({
-    ...(input.update.sourceVersionVector
-      ? {
-          checkpointKind: "rotate_baseline" as const,
-          checkpointPayloadKind: "full_history_snapshot" as const,
-          sourceVersionVector: input.update.sourceVersionVector,
-          ...(input.coversThroughUpdateId === undefined
-            ? {}
-            : { coversThroughUpdateId: input.coversThroughUpdateId }),
-        }
-      : {}),
+    ...documentBaselineSegmentFields(input.baseline ?? {}),
     dependencyVersionVector: input.dependencyVersionVector,
     documentId: input.documentId,
     partialEndVersionVector: input.update.partialEndVersionVector,
@@ -72,8 +67,8 @@ export async function encryptDocumentPendingUpdate(input: {
   documentId: string;
   organizationId: string;
   update: PendingUpdateRecord;
-  /** A queued rotation baseline's signed processed cursor, if it has one. */
-  coversThroughUpdateId?: string | undefined;
+  /** The update's place in a rotation baseline, when it is a segment of one. */
+  baseline?: DocumentBaselineSegmentFields | undefined;
 }): Promise<DocumentEncryptedPendingUpdate> {
   const plaintext = base64ToBytes(input.update.updateData);
   // Declared as Loro decodes the bytes sent, so every reader finds it equal.

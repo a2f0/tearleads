@@ -1,17 +1,16 @@
 import { expect, test } from "bun:test";
 import { computeDocumentContentRecordMetadataHash } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
-  emptyVersionVector,
   encodeVersionVector,
   exportFullHistorySnapshot,
-  getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DocumentSyncRequestSchema } from "@tearleads/validators/request";
 import { createPendingUpdateRecord } from "../../../../test/helpers/data/documentResponseFixtures";
+import { SMALL_BASELINE_SEGMENTS } from "../../../../test/helpers/data/rotationBaselineFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { createInterleavedHistoryDocument } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
@@ -60,23 +59,22 @@ test("a plan carries the processed cursor only with the version it was recorded 
 });
 
 // The API weighs only updates committed after a baseline's signed cursor. A
-// queued baseline signs the cursor its source covers the recorded frontier
-// of, and none when that frontier holds operations its snapshot lacks.
-test("a queued rotation baseline signs the processed cursor its source covers", async () => {
+// heal's baseline signs the cursor whose recorded frontier its history
+// covers, on its final segment alone, and none when that frontier holds
+// operations the history lacks.
+test("a heal's rotation baseline signs the processed cursor its history covers", async () => {
   const fixture = await createMaterializedSyncFixture();
-  const { documentId } = fixture.writerProjection;
-  const document = await createDocument("plan-cursor-baseline");
-  document.getText("text").insert(0, "baseline");
-  document.commit();
+  // The server marks the bundle stale, so a plan with a queued update heals.
+  const staleProjection = {
+    ...fixture.writerProjection,
+    contentKeyBundleStale: true as const,
+  };
+  const { documentId } = staleProjection;
+  const document = await createInterleavedHistoryDocument("plan-cursor-heal");
+  const version = encodeVersionVector(document);
   const snapshot = exportFullHistorySnapshot(document);
-  const vectors = getUpdateVersionVectors(snapshot);
-  const baseline = createPendingUpdateRecord({
-    id: "550e8400-e29b-41d4-a716-446655440e12",
-    partialEndVersionVector: vectors.partialEndVersionVector,
-    partialStartVersionVector: emptyVersionVector(),
-    sourceVersionVector: vectors.partialEndVersionVector,
-    updateData: bytesToBase64(snapshot),
-  });
+  document.free();
+  const queued = createPendingUpdateRecord();
   const { close, execSql } = await createTestExecSql("plan-cursor-baseline");
   try {
     await ensureDocumentTables(execSql);
@@ -87,44 +85,61 @@ test("a queued rotation baseline signs the processed cursor its source covers", 
          VALUES ('documents', 'local', ?, ?, ?, ?)`,
         [documentId, CURSOR, throughVersion, documentVerdictJudge()],
       );
+    // The request's updates: the baseline's segments, then the queued one.
     const outgoing = async () => {
       const { request } = (
         await buildMaterializedDocumentSyncPlan({
           author: fixture.author,
+          buildRotationSnapshot: async () => snapshot,
           execSql,
           localVersionVector: null,
-          pendingUpdates: [baseline, createPendingUpdateRecord()],
+          pendingUpdates: [queued],
+          rotationBaselineSegmentSizes: SMALL_BASELINE_SEGMENTS,
           targetSecretKey: fixture.secretKey,
           trustedLocalProjection: true,
-          writerProjection: fixture.writerProjection,
+          writerProjection: staleProjection,
         })
       ).plan;
       expect(DocumentSyncRequestSchema.safeParse(request).success).toBe(true);
+      expect(request.outgoingUpdates.at(-1)?.id).toBe(queued.id);
+      expect(request.outgoingUpdates.length).toBeGreaterThan(3);
       return request.outgoingUpdates;
     };
+    const cursors = (updates: Awaited<ReturnType<typeof outgoing>>) =>
+      updates.map((update) => update.coversThroughUpdateId);
 
-    await recordCursor(vectors.partialEndVersionVector);
-    const [signed, ordinary] = await outgoing();
-    expect(signed?.coversThroughUpdateId).toBe(CURSOR);
-    expect(ordinary && "coversThroughUpdateId" in ordinary).toBe(false);
-    expect(Reflect.get(signed?.writeHeader ?? {}, "metadataHash")).toBe(
+    // With no cursor recorded, the baseline signs none.
+    expect(new Set(cursors(await outgoing()))).toEqual(new Set([undefined]));
+
+    await recordCursor(version);
+    const signed = await outgoing();
+    const segments = signed.slice(0, -1);
+    const final = segments.at(-1);
+    if (!final) throw new Error("Expected a final baseline segment");
+    expect(cursors(signed)).toEqual([
+      ...segments.slice(0, -1).map(() => undefined),
+      CURSOR,
+      undefined,
+    ]);
+    expect(Reflect.get(final.writeHeader, "metadataHash")).toBe(
       await computeDocumentContentRecordMetadataHash({
-        checkpointKind: "rotate_baseline",
-        checkpointPayloadKind: "full_history_snapshot",
+        baselineId: final.baselineId,
+        baselineSegmentCount: segments.length,
+        baselineSegmentIndex: segments.length - 1,
+        baselineSegmentsDigest: final.baselineSegmentsDigest,
         coversThroughUpdateId: CURSOR,
-        dependencyVersionVector: emptyVersionVector(),
+        dependencyVersionVector: final.dependencyVersionVector,
         documentId,
-        partialEndVersionVector: vectors.partialEndVersionVector,
-        partialStartVersionVector: emptyVersionVector(),
-        plaintextHash: signed?.plaintextHash ?? "",
-        sourceVersionVector: vectors.partialEndVersionVector,
-        updateId: baseline.id,
+        partialEndVersionVector: final.partialEndVersionVector,
+        partialStartVersionVector: final.partialStartVersionVector,
+        plaintextHash: final.plaintextHash,
+        updateId: final.id,
       }),
     );
 
+    // A cursor recorded at a version the history lacks is not signed.
     await recordCursor(await heldVersion());
-    const [unsigned] = await outgoing();
-    expect(unsigned && "coversThroughUpdateId" in unsigned).toBe(false);
+    expect(new Set(cursors(await outgoing()))).toEqual(new Set([undefined]));
   } finally {
     close();
   }

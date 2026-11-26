@@ -1,3 +1,4 @@
+import type { HistorySegmentSizes } from "@tearleads/loro";
 import type {
   DocumentPeerFrontier,
   DocumentWriterProjectionResponse,
@@ -57,6 +58,11 @@ export interface SyncRemoteDocumentRequest {
    * fresh content key anchored by a rotation baseline.
    */
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
+  /**
+   * The sizes a heal cuts its rotation baseline's segments at; Loro's
+   * defaults when absent.
+   */
+  rotationBaselineSegmentSizes?: HistorySegmentSizes | undefined;
   /** Overrides automatic ancestor repair for each submission's current projection. */
   buildContainerRekeys?: DocumentSyncContainerRekeyBuilder;
   documentId: string;

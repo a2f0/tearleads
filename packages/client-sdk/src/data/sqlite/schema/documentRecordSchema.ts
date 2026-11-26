@@ -164,7 +164,6 @@ export const documentHistoryCheckpoints = sqliteTable(
  *   fresh id when queued rows merge. An id never names two payloads.
  * - `partialStartVersionVector` / `partialEndVersionVector`: Version vectors
  *   around a queued partial update.
- * - `sourceVersionVector`: Present on a queued rotation baseline checkpoint.
  * - `rekeyCount`: Durable bound on rekeys of a queued row; a merged row takes
  *   the largest count among the rows it replaces.
  *
@@ -183,7 +182,6 @@ export const documentHistoryUpdates = sqliteTable(
     updateId: text("update_id"),
     partialStartVersionVector: text("partial_start_version_vector"),
     partialEndVersionVector: text("partial_end_version_vector"),
-    sourceVersionVector: text("source_version_vector"),
     rekeyCount: integer("rekey_count").notNull().default(0),
   },
   (table) => [

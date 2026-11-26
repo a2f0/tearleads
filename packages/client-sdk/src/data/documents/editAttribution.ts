@@ -24,11 +24,11 @@ export interface DocumentContributor {
   opCount: number;
   /** Ordinary (incremental) op counters attributed to this signing identity. */
   directOpCount: number;
-  /** Op counters credited via a rotate_baseline re-assertion. */
+  /** Op counters credited via a rotation baseline segment. */
   baselineOpCount: number;
   /** This writer has at least one ordinary (incremental) attributed range. */
   hasDirectAuthority: boolean;
-  /** This identity has at least one rotate_baseline re-asserted range. */
+  /** This identity has at least one range a rotation baseline segment carried. */
   hasBaselineAuthority: boolean;
 }
 
