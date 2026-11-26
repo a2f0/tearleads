@@ -4,12 +4,14 @@ import {
   containerTableSchemas,
 } from "../../sqlite/schema/containerSchema";
 import {
+  containerSyncWatermarks,
   containerSyncWatermarkTables,
   documentLaneRevalidations,
 } from "../../sqlite/schema/containerSyncWatermarkSchema";
 import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { CONTAINER_DOCUMENTS_LANE } from "./containerSyncWatermarkPersistence";
 
 /** A container's document lane owed a listing, and the request's revision. */
 export interface DocumentLaneRevalidation {
@@ -101,11 +103,14 @@ export class DocumentLaneRevalidationRepository {
   }
 
   /**
-   * Forgets the requests of containers this device does not store. A tree
-   * listing owes a lane before its row is applied, so a row that was then
-   * refused, or one that never verified, leaves a request nothing lists.
-   * Dropping it loses nothing: a container that is stored later has no
-   * settled lane, which owes it a listing by itself.
+   * Forgets the document-lane state of containers this device does not
+   * store: their requests, and their lane rows. A tree listing owes a lane
+   * before its row is applied, so a row that was then refused, or one that
+   * never verified, leaves a request nothing lists. Dropping it loses
+   * nothing as long as a container stored later has no settled lane, which
+   * owes it a listing by itself. The delete cascade clears a deleted
+   * container's lane row, but a listing that was in flight across the delete
+   * writes one afterwards, so those rows go in the same mutation.
    */
   async forgetUnheld(): Promise<void> {
     await ensureSqlTables(this.execSql, [
@@ -114,6 +119,20 @@ export class DocumentLaneRevalidationRepository {
     ]);
     await getClientSQLitePersistenceRuntime(this.execSql).runMutation(
       async (db) => {
+        await db
+          .delete(containerSyncWatermarks)
+          .where(
+            and(
+              eq(containerSyncWatermarks.laneKind, CONTAINER_DOCUMENTS_LANE),
+              notExists(
+                db
+                  .select({ id: containers.id })
+                  .from(containers)
+                  .where(eq(containers.id, containerSyncWatermarks.laneId)),
+              ),
+            ),
+          )
+          .run();
         await db
           .delete(documentLaneRevalidations)
           .where(

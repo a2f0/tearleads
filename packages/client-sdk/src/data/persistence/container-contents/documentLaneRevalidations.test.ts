@@ -3,6 +3,10 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { containerTableSchemas } from "../../sqlite/schema/containerSchema";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
+import {
+  ContainerSyncWatermarkRepository,
+  containerContentsSyncLane,
+} from "./containerSyncWatermarkPersistence";
 import { DocumentLaneRevalidationRepository } from "./documentLaneRevalidations";
 
 let close: () => void = () => undefined;
@@ -69,11 +73,22 @@ test("requests of containers the device does not store are forgotten", async () 
     [],
   );
   await repository.request(["stored", "refused"]);
+  // A listing in flight across its container's delete settled the lane
+  // after the cascade cleared it.
+  const watermarks = new ContainerSyncWatermarkRepository(execSql);
+  for (const containerId of ["stored", "deleted"]) {
+    await watermarks.markChecked(containerContentsSyncLane(containerId));
+  }
 
   await repository.forgetUnheld();
 
   // A refused row was owed before it could be stored and nothing lists it.
   expect(await repository.listOwedContainerIds()).toEqual(new Set(["stored"]));
+  // A container stored later must owe its first listing, so no settled lane
+  // may outlive the container it was listed for.
+  expect(await watermarks.listSettledContainerDocumentLaneIds()).toEqual(
+    new Set(["stored"]),
+  );
 });
 
 test("deleting a container clears the listing its lane was owed", async () => {

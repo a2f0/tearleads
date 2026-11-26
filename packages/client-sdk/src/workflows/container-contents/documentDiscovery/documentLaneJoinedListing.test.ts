@@ -101,9 +101,14 @@ test("a listing that settles a request never joins one sent before it", async ()
   // listing, which the catch-up sends from the same watermark.
   await requestDocumentLaneListings(execSql, [CONTAINER_ID]);
   const catchUp = discover();
-  await catchUp;
+  // Joined to the older request, the catch-up would wait on its answer.
+  const settledAlone = await Promise.race([
+    catchUp.then(() => true),
+    Bun.sleep(1_000).then(() => false),
+  ]);
   api.answerFirst();
-  await older;
+  await Promise.all([older, catchUp]);
+  expect(settledAlone).toBe(true);
 
   // The catch-up's listing was its own request, sent after the row was
   // served, so it may settle. Joined to the older one it would have settled
