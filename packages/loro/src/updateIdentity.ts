@@ -15,6 +15,7 @@ import {
   versionVectorsEqual,
 } from "./document";
 import { serializeCanonicalHistory } from "./historyCanonicalization";
+import { comparePeerIds } from "./historyTimeline";
 import { runLoroImport } from "./importRefusal";
 import { isLoroRuntimeFailure } from "./runtimeFailure";
 import { type OperationSpan, operationSpans } from "./versionRange";
@@ -98,6 +99,39 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
   return left.every((value, index) => value === right[index]);
 }
 
+/** `spans` in peer order, or null when they are in it already. */
+function reorderedByPeer(
+  spans: readonly OperationSpan[],
+): OperationSpan[] | null {
+  const ordered = [...spans].sort((left, right) =>
+    comparePeerIds(left.id.peer, right.id.peer),
+  );
+  return ordered.every((span, index) => span === spans[index]) ? null : ordered;
+}
+
+/**
+ * Whether `update` is byte for byte what `doc` exports for `spans`. Loro's
+ * encoding of a range depends on the order its spans are given in. A blob
+ * exported from a version range lists them as its vectors do, and a history
+ * segment lists them in peer order (`exportHistorySegments`), so both orders
+ * are tried: the second export runs only when the first differs and the two
+ * orders are not the same.
+ */
+function updateIsExportedRange(
+  doc: LoroDoc,
+  update: Uint8Array,
+  spans: OperationSpan[],
+): boolean {
+  if (bytesEqual(update, doc.export({ mode: "updates-in-range", spans }))) {
+    return true;
+  }
+  const byPeer = reorderedByPeer(spans);
+  return (
+    byPeer !== null &&
+    bytesEqual(update, doc.export({ mode: "updates-in-range", spans: byPeer }))
+  );
+}
+
 /**
  * Prove that an update or snapshot blob contains the document's exact
  * operations for its declared version-vector range. The blob is imported
@@ -142,9 +176,7 @@ export function updateMatchesDocumentHistory(
     // Most durable tails use that current encoding, so prove them without
     // expanding large text operations through JSON. Alternate encodings fall
     // through to the canonical operation comparison below.
-    if (bytesEqual(update, doc.export({ mode: "updates-in-range", spans }))) {
-      return true;
-    }
+    if (updateIsExportedRange(doc, update, spans)) return true;
     const expectedRange = doc.exportJsonUpdates(
       startVersion,
       endVersion,

@@ -96,11 +96,14 @@ history, and each matches every holder.
 
 `updateMatchesDocumentHistory` first compares a blob with the holder's own
 export of the same range, and expands operations only when the bytes differ.
-It gives that export its spans in the order the blob's vectors list them. On
-the document a segment came from, that finds a segment of one peer equal at
-once. For a segment of several peers the two orders can differ, and on
-another holder the changes can; it then compares canonical forms, which
-gives the same answer at more cost.
+It gives that export its spans in the order the blob's vectors list them,
+and when those bytes differ and peer order is another order, once more in
+peer order, the order a segment was exported in. So the document a segment
+came from finds it equal in one export or two, whether it holds one peer or
+several. On another holder the changes can differ; the comparison then
+falls back to canonical forms, which give the same answer at more cost.
+[`updateIdentityFastPath.test.ts`](./src/updateIdentityFastPath.test.ts)
+counts the expansions.
 
 A reader pays for each import against the state it already holds. Importing
 the 13 segments of a 51 MiB history one at a time into an attached document
