@@ -32,7 +32,7 @@ export interface RemoteHydrationRequestInput {
    */
   yieldsToReconnectCrawl?: (() => boolean) | undefined;
   /** Set once the request has waited for its connect attempt. */
-  connectAttemptSettled?: true;
+  connectAttemptSettled?: true | undefined;
   ownsTreeReset?: () => boolean;
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
