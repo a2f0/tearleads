@@ -18,9 +18,9 @@ gates, rules, batching limits, and
    checkout outside the repository tree, set up once: `bun install`, the
    Electrobun devkit prepare step, and the client SDK build. Neither audit
    installs, rebuilds, edits, or removes that checkout.
-2. Run the eight request-volume canaries once for both audits, with the
-   profile variables from the protocol skill's measurement reference and the
-   SQL capture preload from the database skill's. Extract the preload from
+2. Run the request-volume canaries once for both audits, with the profile
+   variables from the protocol skill's measurement reference and the SQL
+   capture preload from the database skill's. Extract the preload from
    the audited revision's copy of the skill: it changes between revisions.
    Set `SQL_CAPTURE_PARAM_HASH=1` so either audit can tell a repeated key
    from a different one; the hashes stay in the private directory.

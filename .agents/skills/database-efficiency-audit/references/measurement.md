@@ -23,12 +23,14 @@ revision makes a proposal Measured.
 | `bun run perf:database` | One warm driver exchange through Hyperdrive, against the same statements batched in one exchange | Turning a serial round-trip saving into production latency |
 | `bun run perf:provision --cloudflare` | Statements and database wait per registration and login request on a deployed tier | Production statements per request in `api-auth-and-registration`, beside the PGlite capture |
 
-The realtime probes need only a scratch database the audit creates, which
-the audit request authorizes. Seeding a 10,000-folder tree takes over an
-hour; reuse a seeded scratch database with `--reuse` when one exists, and
-record which. `perf:database` deploys a temporary Worker and `perf:provision`
-creates persistent accounts on a deployed tier, so run them only with the
-user's approval; otherwise cite the latest result and its date.
+The realtime probes are local. They create a scratch database and write
+git-ignored reports under the measured checkout's `.test_files/performance/`;
+the audit request authorizes both. Copy every report the audit cites into
+`measurements/`. Seeding a 10,000-folder tree takes over an hour; reuse a
+seeded scratch database with `--reuse` when one exists, and record which.
+`perf:database` deploys a temporary Worker and `perf:provision` creates
+persistent accounts on a deployed tier, so run them only with the user's
+approval; otherwise cite the latest result and its date.
 
 Statements inside one transaction run serially, so each one removed there
 saves one exchange. Multiply by the warm exchange cost in the latest

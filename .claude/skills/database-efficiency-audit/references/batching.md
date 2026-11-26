@@ -91,7 +91,8 @@ and in the final response. A concise `checkpoint.md` indexes:
   command, observed numbers, impact, risk, rule notes, and pending
   verification. Keep refuted candidates and protocol leads with a reason.
 - `measurements/`: capture logs, per-scenario tables, plans, inventories,
-  exit codes, and the revision and dist timestamp they were taken at.
+  `harness.md` and the realtime probe reports, exit codes, and the revision
+  and dist timestamp they were taken at.
 - Per-work-item directories: reports, probes, and test logs. Workers write
   only their own probes and evidence, and return their report as their
   final message; the coordinator saves it as `report.md` there and
