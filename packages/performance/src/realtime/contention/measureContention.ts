@@ -39,7 +39,7 @@ export interface ContentionMeasurement {
 
 type ProbeHub = ReturnType<typeof createProbeHub>;
 
-// Long enough for a few hundred hints at the default interval.
+// About a hundred hints at the default interval.
 const IDLE_MS = 1_000;
 
 const round = (value: number) => Math.round(value * 10) / 10;
@@ -119,13 +119,18 @@ function socketCalls(
 
 /** A hub with one observing socket that holds the tree's root. */
 async function openObservedHub(api: InProcessApi, seed: SeededTree) {
-  const hub = createProbeHub(api);
-  const observer = hub.openSocket(seed.userId);
   const containerId = seed.containerIds[0];
   if (!containerId) throw new Error("The seeded tree is empty.");
-  if ((await observer.declare([containerId])).authorized !== 1)
-    throw new Error("The observing socket's folder was not authorized.");
-  return { hub, observer, containerId };
+  const hub = createProbeHub(api);
+  try {
+    const observer = hub.openSocket(seed.userId);
+    if ((await observer.declare([containerId])).authorized !== 1)
+      throw new Error("The observing socket's folder was not authorized.");
+    return { hub, observer, containerId };
+  } catch (error) {
+    hub.stop();
+    throw error;
+  }
 }
 
 async function measureIdle(

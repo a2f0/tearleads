@@ -108,8 +108,9 @@ export async function runRealtimeProbe(input: {
       "In-process API on Bun and local PostgreSQL through a counting proxy; not workerd, Hyperdrive, or the hub Durable Object",
   };
   let seed: SeededTree | null = null;
-  const save = (status: "running" | "complete" | "failed") =>
-    saveJson(reportName, {
+  const save = (status: "running" | "complete" | "failed") => {
+    const { summary, measurements } = input.results();
+    return saveJson(reportName, {
       ...metadata,
       updatedAt: new Date().toISOString(),
       status,
@@ -120,9 +121,10 @@ export async function runRealtimeProbe(input: {
         seedMs: seed.seedMs,
         reused: input.options.reuse,
       },
-      summary: input.results().summary,
-      measurements: input.results().measurements,
+      summary,
+      measurements,
     });
+  };
   const api = await startInProcessApi();
   let status: "complete" | "failed" = "failed";
   try {

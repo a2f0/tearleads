@@ -123,6 +123,14 @@ export function startHintMonitor<Timer>(
       stopped = true;
       clock.clearTimeout(timer);
       stopListening();
+      // A hint already due when the pass ends has waited since its deadline
+      // without its timer firing; count that wait, or a stall at the very
+      // end of a pass would go unmeasured.
+      const now = clock.now();
+      if (now > next) {
+        sent++;
+        lags.push(now - next);
+      }
       if (failures.length > 0)
         throw new Error(`${failures.length} hints failed to publish.`);
       return summarizeLags(lags, sent, input.intervalMs);

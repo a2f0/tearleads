@@ -99,9 +99,11 @@ Statement, row and byte counts depend only on the tree, so they match
 production for the same shape, once manifests carry verification markers the
 process accepts. Without `DOCUMENT_SYNC_CURSOR_HMAC_KEY`, markers are keyed to
 the process, so with `--reuse` the first declaration covering a folder
-verifies it in full: 111 statements instead of 9 at 100 folders. The
+verifies it in full: 111 statements instead of 9 at 100 folders. So with
+`--reuse`, compare a size's second and later samples, not its first. The
 [contention probe](#realtime-hub-contention) measures that pass on purpose.
-Compare later samples. Durations and CPU do not match production. Bun's JavaScriptCore
+
+Durations and CPU do not match production. Bun's JavaScriptCore
 runs the hub code here instead of workerd's V8, and a local PostgreSQL answers
 in well under a millisecond, where the deployed hub waits about 5 ms per warm
 exchange through Hyperdrive
@@ -141,7 +143,9 @@ full (`unmarked`). Production keys markers with
 `DOCUMENT_SYNC_CURSOR_HMAC_KEY`. The probe unsets it, so the API keys them to
 the process and the markers earlier runs stored never match. That pass is
 what a hub pays after a secret rotation or a verification revision bump
-retires every marker. It runs once per process, whatever `--samples` says,
+retires every marker. The same secret also keys principal-history
+protection and projection policy-history grants, which fall back to
+process keys too. It runs once per process, whatever `--samples` says,
 and also warms up the hub's code. Later passes use the markers it recorded.
 Without `--reuse` there is no such pass: seeding marks each folder under the
 process's key as it is written.

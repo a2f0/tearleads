@@ -32,6 +32,10 @@ function manualClock() {
       timer.run();
     },
     pendingAt: () => pending?.at,
+    /** Moves time on while the thread is busy, so no timer fires. */
+    stallUntil(at: number) {
+      now = at;
+    },
   };
 }
 
@@ -82,6 +86,41 @@ test("lag is delivery time minus the hint's due time", () => {
     containerIds: ["root"],
   });
   expect(pendingAt()).toBeUndefined();
+});
+
+test("a stall at the end of a pass counts though its hint never fired", () => {
+  const { clock, fireAt, stallUntil } = manualClock();
+  const hub = echoingHub();
+  const monitor = startHintMonitor(
+    {
+      intervalMs: 10,
+      containerId: "root",
+      observer: hub.observer,
+      publish: hub.publish,
+    },
+    clock,
+  );
+  fireAt(10);
+  // The hint due at 20 is still waiting when the pass ends at 55.
+  stallUntil(55);
+  expect(monitor.stop()).toMatchObject({ sent: 2, delivered: 2, maxMs: 35 });
+  expect(hub.published).toHaveLength(1);
+});
+
+test("stopping on time adds no hint", () => {
+  const { clock, fireAt } = manualClock();
+  const hub = echoingHub();
+  const monitor = startHintMonitor(
+    {
+      intervalMs: 10,
+      containerId: "root",
+      observer: hub.observer,
+      publish: hub.publish,
+    },
+    clock,
+  );
+  fireAt(10);
+  expect(monitor.stop()).toMatchObject({ sent: 1, delivered: 1, maxMs: 0 });
 });
 
 test("hints that never reach the observer are counted as undelivered", () => {
