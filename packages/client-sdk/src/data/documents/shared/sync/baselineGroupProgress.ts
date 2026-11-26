@@ -14,8 +14,17 @@ import {
   baselineGroupRunOf,
   baselineGroupStateFromRun,
   baselineGroupTransition,
+  continuesWholeBaselineGroup,
 } from "./baselineGroupMachine";
+import {
+  type UnappliedOperations,
+  unappliedOperationSpans,
+  unappliedOperationsOf,
+  unappliedSegmentsDeclared,
+  withUnappliedSegment,
+} from "./baselineGroupUnapplied";
 import { isolateDocumentSyncBatchError } from "./documentSyncUpdateIsolation";
+import type { VoidedDocumentSyncUpdate } from "./documentUpdateVerdict";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
 
@@ -50,10 +59,12 @@ function isEmptyVersion(localVersionVector: string | null): boolean {
  * no update in its range out. A pull's first page is cold when it also
  * names no processed cursor. A later page is cold only as the continuation
  * of a group followed whole, which the pass requests with no version
- * (`pullPageVersion`); what a host put in a later page's version is not
- * taken as a reason to hold the server to a whole group. Every page of a
- * raw-history pull is cold: the pass sends none of them a version or a
- * processed cursor, so each group it reaches is served whole.
+ * (`pullPageRequest`); what a host put in a later page's version is not
+ * taken as a reason to hold the server to a whole group. Whether `run` is
+ * such a group is the machine's to say (`continuesWholeBaselineGroup`), as
+ * it is for the request. Every page of a raw-history pull is cold: the pass
+ * sends none of them a version or a processed cursor, so each group it
+ * reaches is served whole.
  */
 export function isColdPullPage(input: {
   readonly historyMode?: "raw" | undefined;
@@ -66,7 +77,7 @@ export function isColdPullPage(input: {
   if (input.historyMode === "raw") return true;
   return input.pullCursor === undefined
     ? input.processedThroughUpdateId === undefined
-    : input.run != null && input.run.digest !== null;
+    : continuesWholeBaselineGroup(baselineGroupStateFromRun(input.run));
 }
 
 /** The fault message a failed pass reports. */
@@ -201,10 +212,8 @@ export async function judgeServedBaselineGroups(input: {
   const next = baselineGroupRunOf(state);
   // A page that goes on inside the group it began in keeps what the pull
   // already knows of it; the page's own verdicts are added once judged.
-  return next &&
-    input.run?.unapplied &&
-    input.run.baselineId === next.baselineId
-    ? { ...next, unapplied: true }
+  return next && input.run && input.run.baselineId === next.baselineId
+    ? { ...next, unapplied: input.run.unapplied }
     : next;
 }
 
@@ -221,41 +230,63 @@ export async function judgeServedBaselineGroups(input: {
  * the server's doing and fails the pass; recording it void would outlast the
  * server's correction.
  *
- * Unless a segment of the same group, served earlier in this pull, was not
- * accepted. Then its writer signed a segment no reader takes, the ones
- * after it build on nothing for every reader alike, and they are void as
- * any update that follows a void one is. `run.unapplied` carries that across
- * pages.
+ * Unless every operation it lacks is one that a segment of the same group,
+ * served earlier in this pull and not accepted, declared. Then its writer
+ * signed a segment no reader takes, this one builds on nothing for every
+ * reader alike, and it is void as any update that follows a void one is.
+ * What it declares is unapplied in turn. An unapplied segment excuses no
+ * other operation: a server that leaves out a segment the reader lacks does
+ * not turn the omission into a void by serving a void segment first.
+ * `run.unapplied` carries the declared operations across pages.
  */
 export function settleBaselineGroupVerdicts(input: {
   /** The served updates the page applies. */
   readonly appliedUpdateIds: ReadonlySet<string>;
-  /** The voids this page judged for want of a held operation. */
-  readonly missingDependencyUpdateIds: ReadonlySet<string>;
   /** The run the machine left for the next page. */
   readonly nextRun: BaselineGroupRun | null;
   /** The run the page began with. */
   readonly run: BaselineGroupRun | null | undefined;
   readonly updates: readonly SyncResponseUpdate[];
+  /**
+   * The page's voids. One judged for want of a held operation names the
+   * operations it lacked (`missingOperations`).
+   */
+  readonly voided: readonly Pick<
+    VoidedDocumentSyncUpdate,
+    "missingOperations" | "updateId"
+  >[];
 }): BaselineGroupRun | null {
-  const unapplied = new Set<string>(
-    input.run?.unapplied ? [input.run.baselineId] : [],
+  const none: UnappliedOperations = new Map();
+  const missingById = new Map(
+    input.voided.map((entry) => [entry.updateId, entry.missingOperations]),
   );
-  for (const { baselineId, id } of input.updates) {
+  const unapplied = new Map<string, UnappliedOperations>(
+    input.run
+      ? [[input.run.baselineId, unappliedOperationsOf(input.run.unapplied)]]
+      : [],
+  );
+  for (const update of input.updates) {
+    const { baselineId, id } = update;
     if (baselineId === undefined) continue;
-    if (
-      input.missingDependencyUpdateIds.has(id) &&
-      !unapplied.has(baselineId)
-    ) {
+    const declared = unapplied.get(baselineId) ?? none;
+    const missing = missingById.get(id);
+    if (missing && !unappliedSegmentsDeclared(declared, missing)) {
       throw servedBaselineGroupError(
         "a rotation baseline's segment was served without the segments it builds on",
-        input.updates.map((update) => update.id),
+        input.updates.map((served) => served.id),
       );
     }
-    if (!input.appliedUpdateIds.has(id)) unapplied.add(baselineId);
+    if (!input.appliedUpdateIds.has(id)) {
+      unapplied.set(baselineId, withUnappliedSegment(declared, update));
+    }
   }
   const { nextRun } = input;
   return nextRun
-    ? { ...nextRun, unapplied: unapplied.has(nextRun.baselineId) }
+    ? {
+        ...nextRun,
+        unapplied: unappliedOperationSpans(
+          unapplied.get(nextRun.baselineId) ?? none,
+        ),
+      }
     : null;
 }

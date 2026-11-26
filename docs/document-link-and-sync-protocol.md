@@ -416,9 +416,9 @@ The API keeps a group's dependencies inside it and omits a segment only when
 the reader holds it, so a segment whose signed start or dependencies name an
 operation the reader lacks was served without the segments it builds on, and
 breaks the group. Two cases are its writer's doing and void instead: a
-payload that leaves a gap inside its own range, and a segment that builds on
-an earlier one of the group not accepted in the same pull. The run carries
-the second across pages, so a host must pass it on.
+payload that leaves a gap inside its own range, and a segment lacking only
+operations that unapplied segments of its group, served earlier in the pull,
+declare. The run carries those spans, one a peer; a host must pass it on.
 
 A broken group fails the pass at stage `baseline_group`. It is never a void:
 the reader imports nothing from the page and records no void, which would

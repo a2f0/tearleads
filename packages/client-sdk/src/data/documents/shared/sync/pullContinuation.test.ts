@@ -1,18 +1,31 @@
 import { expect, test } from "bun:test";
 import { MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH } from "@tearleads/validators/util";
+import type { BaselineGroupRun } from "./baselineGroupMachine";
+import { isColdPullPage } from "./baselineGroupProgress";
 import {
   continuedBaselineGroupRun,
+  type DocumentSyncPullContinuation,
   deserializeDocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
+  pullPageRequest,
   serializeDocumentSyncPullContinuation,
 } from "./pullContinuation";
 
-const RUN = {
+const RUN: BaselineGroupRun = {
   baselineId: "baseline-1",
   digest: "ab".repeat(32),
   nextIndex: 3,
-  unapplied: false,
+  unapplied: [],
 };
+
+/** What two unapplied segments declared: one span a peer, in peer order. */
+const FIRST_UNAPPLIED = {
+  endCounter: 12,
+  peerId: "18446744073709551615",
+  startCounter: 4,
+};
+const SECOND_UNAPPLIED = { endCounter: 9, peerId: "7", startCounter: 0 };
+const UNAPPLIED = [FIRST_UNAPPLIED, SECOND_UNAPPLIED];
 
 test("document pull continuations round-trip through durable storage", () => {
   const continuation = {
@@ -58,16 +71,16 @@ test("a continuation carries the rotation baseline its page ended inside", () =>
       "tracked",
       "0/2A",
       "page-2",
-      ["baseline-1", 3, RUN.digest, 0],
+      ["baseline-1", 3, RUN.digest, []],
     ]),
   );
   expect(deserializeDocumentSyncPullContinuation(stored)).toEqual(continuation);
-  // A group followed in part has no digest, and either kind remembers that
-  // one of its segments went unapplied.
+  // A group followed in part has no digest, and either kind remembers the
+  // operations its unapplied segments declared.
   for (const run of [
     { ...RUN, digest: null },
-    { ...RUN, unapplied: true },
-    { ...RUN, digest: null, unapplied: true },
+    { ...RUN, unapplied: UNAPPLIED },
+    { ...RUN, digest: null, unapplied: UNAPPLIED },
   ]) {
     const carried = { ...continuation, baselineGroupRun: run };
     expect(
@@ -76,6 +89,28 @@ test("a continuation carries the rotation baseline its page ended inside", () =>
       ),
     ).toEqual(carried);
   }
+  expect(
+    serializeDocumentSyncPullContinuation({
+      ...continuation,
+      baselineGroupRun: { ...RUN, unapplied: UNAPPLIED },
+    }),
+  ).toBe(
+    JSON.stringify([
+      2,
+      "tracked",
+      "0/2A",
+      "page-2",
+      [
+        "baseline-1",
+        3,
+        RUN.digest,
+        [
+          ["18446744073709551615", 4, 12],
+          ["7", 0, 9],
+        ],
+      ],
+    ]),
+  );
   // No run is stored as null, and read back as no run.
   for (const baselineGroupRun of [null, undefined]) {
     const without = serializeDocumentSyncPullContinuation({
@@ -111,12 +146,75 @@ test("continuations with different runs are different continuations", () => {
   ).toBe(true);
   for (const other of [
     base,
-    { ...base, baselineGroupRun: { ...RUN, nextIndex: 4, unapplied: false } },
+    { ...base, baselineGroupRun: { ...RUN, nextIndex: 4 } },
+    { ...base, baselineGroupRun: { ...RUN, unapplied: UNAPPLIED } },
     { ...base, baselineGroupRun: { ...RUN, digest: "cd".repeat(32) } },
     { ...base, baselineGroupRun: { ...RUN, baselineId: "baseline-2" } },
   ]) {
     expect(documentSyncPullContinuationsEqual(withRun, other)).toBe(false);
   }
+  // The unapplied operations are part of the run: each span counts.
+  const marked = {
+    ...base,
+    baselineGroupRun: { ...RUN, unapplied: UNAPPLIED },
+  };
+  expect(
+    documentSyncPullContinuationsEqual(marked, {
+      ...base,
+      baselineGroupRun: { ...RUN, unapplied: [...UNAPPLIED] },
+    }),
+  ).toBe(true);
+  for (const unapplied of [
+    [FIRST_UNAPPLIED],
+    [FIRST_UNAPPLIED, { ...SECOND_UNAPPLIED, endCounter: 10 }],
+    [FIRST_UNAPPLIED, { ...SECOND_UNAPPLIED, startCounter: 1 }],
+    [FIRST_UNAPPLIED, { ...SECOND_UNAPPLIED, peerId: "8" }],
+  ]) {
+    expect(
+      documentSyncPullContinuationsEqual(marked, {
+        ...base,
+        baselineGroupRun: { ...RUN, unapplied },
+      }),
+    ).toBe(false);
+  }
+});
+
+// The pass asks for a page and judges it from one state: the run its own
+// cursor continues, read by the machine. A page asked for with no version is
+// one the judge holds to a whole group, and no other is.
+test("a page is judged as it was asked for", () => {
+  const WARM = "AQEAAQ==";
+  const base = {
+    commitLsn: "0/2A",
+    commitLsnMode: "tracked" as const,
+    cursor: "page-2",
+  };
+  const cases: [DocumentSyncPullContinuation | null, boolean][] = [
+    [null, false],
+    [base, false],
+    [{ ...base, baselineGroupRun: null }, false],
+    [{ ...base, baselineGroupRun: { ...RUN, digest: null } }, false],
+    [{ ...base, baselineGroupRun: RUN }, true],
+    [{ ...base, baselineGroupRun: { ...RUN, unapplied: UNAPPLIED } }, true],
+  ];
+  for (const [continuation, whole] of cases) {
+    const request = pullPageRequest(WARM, continuation);
+    expect(request).toEqual({
+      localVersionVector: whole ? null : WARM,
+      pullCursor: continuation?.cursor,
+    });
+    expect(
+      isColdPullPage({
+        ...request,
+        run: continuedBaselineGroupRun(continuation, request.pullCursor),
+      }),
+    ).toBe(whole);
+  }
+  // A reader with no version asks for every page with none.
+  expect(pullPageRequest(null, base)).toEqual({
+    localVersionVector: null,
+    pullCursor: "page-2",
+  });
 });
 
 test("a run continues only on the cursor it was recorded with", () => {
@@ -165,6 +263,35 @@ test("malformed durable pull progress safely restarts from page one", () => {
     JSON.stringify([2, "tracked", "0/2", "page-2", ["baseline-1", 0, "d"]]),
     JSON.stringify([2, "tracked", "0/2", "page-2", ["baseline-1", 1.5, "d"]]),
     JSON.stringify([2, "tracked", "0/2", "page-2", ["baseline-1", 3, ""]]),
+    // The mark before a run carried what its unapplied segments declared.
+    JSON.stringify([2, "tracked", "0/2", "page-2", ["baseline-1", 3, "d", 1]]),
+    // Unapplied operations that are not spans, one a peer, in peer order.
+    ...[
+      [["7", 0]],
+      [["seven", 0, 9]],
+      [["7", -1, 9]],
+      [["7", 0.5, 9]],
+      [["7", 9, 9]],
+      [["7", 9, 4]],
+      [["7", "0", 9]],
+      ["7"],
+      [
+        ["7", 0, 9],
+        ["7", 9, 12],
+      ],
+      [
+        ["8", 0, 9],
+        ["7", 0, 9],
+      ],
+    ].map((unapplied) =>
+      JSON.stringify([
+        2,
+        "tracked",
+        "0/2",
+        "page-2",
+        ["baseline-1", 3, "d", unapplied],
+      ]),
+    ),
   ]) {
     expect(deserializeDocumentSyncPullContinuation(value)).toBeNull();
   }

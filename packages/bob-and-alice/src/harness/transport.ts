@@ -47,7 +47,7 @@ export class NetworkGate {
   }
 }
 
-interface ResponseRewrite {
+interface BodyRewrite {
   readonly matches: (request: ObservedRequest) => boolean;
   readonly rewrite: (body: unknown) => unknown;
 }
@@ -57,7 +57,8 @@ export class DeviceTransport {
   readonly history: Exchange[] = [];
   private readonly pending: NetworkGate[] = [];
   private readonly gates: NetworkGate[] = [];
-  private readonly rewrites: ResponseRewrite[] = [];
+  private readonly rewrites: BodyRewrite[] = [];
+  private readonly requestRewrites: BodyRewrite[] = [];
   private readonly server: ReturnType<typeof Bun.serve>;
 
   constructor(private readonly upstream: string) {
@@ -88,10 +89,44 @@ export class DeviceTransport {
    * as a dishonest server would serve it. The API itself stays honest.
    */
   rewriteResponses(
-    matches: ResponseRewrite["matches"],
-    rewrite: ResponseRewrite["rewrite"],
+    matches: BodyRewrite["matches"],
+    rewrite: BodyRewrite["rewrite"],
   ): void {
     this.rewrites.push({ matches, rewrite });
+  }
+
+  /**
+   * Replaces the JSON body of every matching request from now on, before the
+   * API sees it, as a client that asks for something else would send it: a
+   * smaller page, as a device isolating an update asks for. Recorded
+   * exchanges keep the body the SDK sent.
+   */
+  rewriteRequests(
+    matches: BodyRewrite["matches"],
+    rewrite: BodyRewrite["rewrite"],
+  ): void {
+    this.requestRewrites.push({ matches, rewrite });
+  }
+
+  /** The request the API is sent: the SDK's, or its rewritten JSON body. */
+  private upstreamRequest(exchange: Exchange, request: Request): Request {
+    const { pathname, search } = new URL(request.url);
+    const url = new URL(pathname + search, this.upstream);
+    const rewrites = this.requestRewrites.filter((entry) =>
+      entry.matches(exchange),
+    );
+    if (rewrites.length === 0 || exchange.body === null) {
+      return new Request(url, request);
+    }
+    let body: unknown = exchange.body;
+    for (const entry of rewrites) body = entry.rewrite(body);
+    const headers = new Headers(request.headers);
+    headers.delete("content-length");
+    return new Request(url, {
+      body: JSON.stringify(body),
+      headers,
+      method: request.method,
+    });
   }
 
   private async rewritten(
@@ -106,7 +141,7 @@ export class DeviceTransport {
   }
 
   private async forward(request: Request): Promise<Response> {
-    const { pathname, search } = new URL(request.url);
+    const { pathname } = new URL(request.url);
     const exchange: Exchange = {
       method: request.method,
       path: pathname,
@@ -129,7 +164,7 @@ export class DeviceTransport {
       return new Response("Request dropped by test proxy", { status: 503 });
     }
     const response = await fetch(
-      new Request(new URL(pathname + search, this.upstream), request),
+      this.upstreamRequest(exchange, request),
       // Preserve wire bytes alongside content-encoding; the SDK decodes them.
       { decompress: false },
     );

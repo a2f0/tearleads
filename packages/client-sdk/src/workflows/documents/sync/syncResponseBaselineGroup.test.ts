@@ -1,34 +1,26 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
   createDocument,
-  encodeVersionVector,
   getTextValue,
   importUpdates,
+  listVersionVectorSpans,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import {
-  createSyncResponse,
-  writerKeyResolver,
-} from "../../../../test/helpers/data/documentFixtures";
-import { SMALL_BASELINE_SEGMENTS } from "../../../../test/helpers/data/rotationBaselineFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
-import { createServedRotationBaseline } from "../../../../test/helpers/workflows/servedRotationBaseline";
-import type { BaselineGroupRun } from "../../../data/documents/shared/sync/baselineGroupMachine";
-import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
-import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+  acceptServedPage as accept,
+  type BaselineFixtureDocument,
+  operationCount,
+  rangeExport,
+  servedBaselineGroup,
+  operationSpan as span,
+} from "../../../../test/helpers/workflows/servedBaselineGroupPass";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
-import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 
 // A served rotation baseline that breaks a group rule is the server's fault,
 // not any update's: the pass fails, nothing from the page is imported, and
 // no void is recorded that would outlast the server's correction. A segment
 // its own writer broke is a void, as any update is, and so are the segments
 // that build on it.
-
-type ServedUpdate = DocumentSyncResponse["updates"][number];
-type Doc = Awaited<ReturnType<typeof createDocument>>;
 
 let execSql: ExecSql;
 let close: () => void;
@@ -41,137 +33,9 @@ beforeEach(async () => {
 
 afterEach(() => close());
 
-/**
- * A baseline of several segments, and a pass over pages of it. `craft`
- * returns the update blobs to sign as its segments in place of the ones an
- * honest writer cuts.
- */
-async function servedGroup(craft?: (document: Doc) => Uint8Array[]) {
-  const fixture = await createMaterializedSyncFixture();
-  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
-    fixture;
-  const planFor = (request: {
-    historyMode?: "raw";
-    localVersionVector: string | null;
-    pullCursor?: string;
-  }) =>
-    buildMaterializedDocumentSyncPlan({
-      author,
-      execSql,
-      pendingUpdates: [],
-      resolveProjectionUserKey,
-      targetSecretKey: secretKey,
-      writerProjection,
-      ...request,
-    });
-  const coldPlan = await planFor({ localVersionVector: null });
-  const document = await createDocument("served-baseline-group");
-  for (let line = 0; line < 30; line += 1) {
-    const text = document.getText("text");
-    text.insert(text.length, `line ${line} of the rotated history\n`);
-    document.commit();
-  }
-  const baseline = await createServedRotationBaseline({
-    author,
-    contentKey: coldPlan.contentKey,
-    document,
-    plan: coldPlan.plan,
-    ...(craft ? { segmentPayloads: craft(document) } : {}),
-    segmentSizes: SMALL_BASELINE_SEGMENTS,
-    writerProjection,
-  });
-  const segments = baseline.updates;
-  if (!craft && segments.length < 5) {
-    throw new Error("Expected five segments or more");
-  }
-
-  /** One page judged against `reader`, as the store's judge does. */
-  const pass = async (input: {
-    knownVoidIds?: readonly string[];
-    more?: boolean;
-    /** A later page of a raw-history pull, which carries no run. */
-    rawLaterPage?: boolean;
-    reader: Doc;
-    run?: BaselineGroupRun | null;
-    updates: readonly ServedUpdate[];
-    warm?: boolean;
-  }) => {
-    const run = input.run ?? null;
-    const materializedPlan = await planFor({
-      // What the pass requests: no version while a group is followed whole.
-      localVersionVector:
-        input.warm || (run && run.digest === null)
-          ? encodeVersionVector(input.reader)
-          : null,
-      ...(run || input.rawLaterPage ? { pullCursor: "page-2" } : {}),
-      ...(input.rawLaterPage ? { historyMode: "raw" } : {}),
-    });
-    const response = await createSyncResponse(materializedPlan.plan, {
-      updates: [...input.updates],
-    });
-    return syncRemoteDocumentResultFromResponse({
-      baselineGroupRun: run,
-      execSql,
-      materializedPlan,
-      recoveryPendingUpdatesById: new Map(),
-      rekeyPendingUpdate: async () => crypto.randomUUID(),
-      resolveProjectionUserKey,
-      resolveWriterPublicKey: writerKeyResolver({
-        author,
-        signingPublicKey: fixture.signingPublicKey,
-      }),
-      response:
-        input.more && response.pullPage
-          ? {
-              ...response,
-              pullPage: {
-                ...response.pullPage,
-                hasMore: true,
-                nextCursor: "page-next",
-              },
-            }
-          : response,
-      stillCurrent: () => true,
-      targetSecretKey: secretKey,
-      validateIncomingUpdates: ({ decryptedUpdates, response: page }) =>
-        validateDocumentSyncUpdateImports({
-          currentDocument: input.reader,
-          decryptedUpdates,
-          knownVoids: new Map(
-            (input.knownVoidIds ?? []).map((id) => [id, "loro_import"]),
-          ),
-          responseUpdates: page.updates,
-        }),
-      writerProjection,
-    });
-  };
-  /** The reason a pass fails for its served baseline. */
-  const refusal = async (input: Parameters<typeof pass>[0]) => {
-    const error = await pass(input).then(
-      (result) => result,
-      (thrown: unknown) => thrown,
-    );
-    if (!isDocumentSyncUpdateIsolationError(error)) {
-      throw new Error("Expected the pass to fail on its served baseline");
-    }
-    expect(error.stage).toBe("baseline_group");
-    expect(error.attribution).toBe("batch");
-    return String(error.cause);
-  };
-  return { document, pass, refusal, segments };
-}
-
-type PassResult = Awaited<
-  ReturnType<Awaited<ReturnType<typeof servedGroup>>["pass"]>
->;
-
-/** What the store does with a page's result. */
-function accept(reader: Doc, result: PassResult) {
-  importUpdates(
-    reader,
-    result.decryptedUpdates.map((update) => update.updateData),
-  );
-}
+const servedGroup = (
+  craft?: (document: BaselineFixtureDocument) => Uint8Array[],
+) => servedBaselineGroup(execSql, craft);
 
 test("a cold pass takes a whole baseline and fails on one served in part", async () => {
   const { document, pass, refusal, segments } = await servedGroup();
@@ -240,7 +104,7 @@ test("segments that build on a void one are void, on this page or a later one", 
     [second, ...rest].map(({ id }) => id),
   );
 
-  // Across a page boundary the run remembers the void.
+  // Across a page boundary the run remembers what the void one declared.
   const paged = await createDocument("paged-reader-of-a-void-segment");
   const firstPage = await pass({
     knownVoidIds,
@@ -248,9 +112,11 @@ test("segments that build on a void one are void, on this page or a later one", 
     reader: paged,
     updates: [first, second],
   });
-  expect(firstPage.baselineGroupRun).toMatchObject({
+  expect(firstPage.baselineGroupRun).toEqual({
+    baselineId: second.baselineId ?? "",
+    digest: expect.any(String),
     nextIndex: 2,
-    unapplied: true,
+    unapplied: listVersionVectorSpans(second),
   });
   accept(paged, firstPage);
   const secondPage = await pass({
@@ -269,24 +135,11 @@ test("segments that build on a void one are void, on this page or a later one", 
   expect(
     await refusal({
       reader: paged,
-      run: { ...run, unapplied: false },
+      run: { ...run, unapplied: [] },
       updates: rest,
     }),
   ).toContain("served without the segments it builds on");
 });
-
-/** The one writer's operations `[start, end)` of `document`, as spans. */
-function span(document: Doc, start: number, end: number) {
-  return { id: { counter: start, peer: document.peerIdStr }, len: end - start };
-}
-
-function rangeExport(document: Doc, ...spans: ReturnType<typeof span>[]) {
-  return document.export({ mode: "updates-in-range", spans });
-}
-
-function operationCount(document: Doc): number {
-  return document.oplogVersion().get(document.peerIdStr) ?? 0;
-}
 
 // A range export of two spans of one peer with a gap between them reads, by
 // its header, as one gapless range with no outside dependency: the API's

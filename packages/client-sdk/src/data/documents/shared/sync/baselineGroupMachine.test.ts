@@ -197,7 +197,7 @@ test("a run crosses pages through its continuation", () => {
     baselineId: A,
     digest: "d2",
     nextIndex: 2,
-    unapplied: false,
+    unapplied: [],
   });
   const nextPage = baselineGroupStateFromRun(carried);
   expect(run(nextPage, [segment(2), segment(3, { final: true })])).toEqual(
@@ -214,15 +214,15 @@ test("a run crosses pages through its continuation", () => {
   });
 
   // A group followed in part is carried too, with no digest: the next page
-  // still holds it to rising indices, and the pass keeps on it whether a
-  // segment of the group went unapplied.
+  // still holds it to rising indices, and the pass keeps on it what the
+  // group's unapplied segments declared.
   const inPart = run(OUTSIDE, [segment(1, { chain: null, cold: false })]);
   const carriedInPart = baselineGroupRunOf(inPart);
   expect(carriedInPart).toEqual({
     baselineId: A,
     digest: null,
     nextIndex: 2,
-    unapplied: false,
+    unapplied: [],
   });
   expect(baselineGroupStateFromRun(carriedInPart)).toEqual(inPart);
   // No run starts outside a group or after a failure.
