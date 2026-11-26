@@ -228,7 +228,8 @@ record to adopt progress written by another pane before retrying from page one.
 `expectedSnapshotEndVersion` with the canonical document row for
 `attachment.localId`, inside one immediate transaction. Either mismatch returns
 `false` without replacing the slot. A `null` expected version means no canonical
-row is expected; it does not disable the document-version check. Its synchronous
+row is expected; it does not disable the document-version check. A container
+metadata record that shares the local id is not that row. Its synchronous
 `stillCurrent` guard runs immediately before commit dispatch; refusal rolls back
 the replacement. Replaced or refused byte copies enter the reference-checked
 orphan reclaim queue. `deleteLocalAttachment(...)` and the discard teardown

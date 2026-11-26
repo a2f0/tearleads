@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { documentAttachmentBlobProjection } from "../../../sqlite/schema";
 import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
@@ -12,10 +13,17 @@ export const saveHydratedAttachment: DocumentsPersistence["saveHydratedAttachmen
       execSql,
     ).guardedTransaction(
       async (tx) => {
+        // Attachment rows carry a document's local id and no app kind, so
+        // the full primary key names the one row this guard is about.
         const [document] = await tx
           .select({ snapshotEndVersion: documents.snapshotEndVersion })
           .from(documents)
-          .where(eq(documents.localId, attachment.localId))
+          .where(
+            and(
+              eq(documents.appKind, DOCUMENTS_APP_KIND),
+              eq(documents.localId, attachment.localId),
+            ),
+          )
           .limit(1);
         if (
           (document?.snapshotEndVersion ?? null) !==
