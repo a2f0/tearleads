@@ -247,6 +247,11 @@ function joinsPendingRefresh(
   freshListing: boolean,
 ): boolean {
   if (pending.stopping) return false;
+  // Each catch-up plans from its own crawl's verdict, so one never joins
+  // another's sweep: the earlier one may vouch for what the later may not.
+  if (scope === "acknowledged" && pending.scope === "acknowledged") {
+    return false;
+  }
   return (
     (pending.scope === "full" || pending.scope === scope) &&
     !(freshListing && pending.started)

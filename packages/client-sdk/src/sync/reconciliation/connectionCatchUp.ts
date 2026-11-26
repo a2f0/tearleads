@@ -121,8 +121,9 @@ async function catchUpAfterCrawl(
       // The container store lists the tree itself on the acknowledgement.
       refreshTree: () => Promise.resolve(),
       planSweep: async () => {
-        // The service stopped while this sweep awaited its turn: its crawl
-        // says nothing to the session that runs now.
+        // The service stopped, or a later acknowledgement superseded this
+        // catch-up, while its sweep awaited its turn: its crawl says nothing
+        // about the session or the connection that is current now.
         if (stop.aborted) return { containerIds: [] };
         try {
           return await planCatchUp(host, state, crawlVouches);
@@ -162,7 +163,9 @@ function wakeLaneForDeferredWork(
 /**
  * Catches up after an acknowledged connection; see `catchUpMachine.ts`. An
  * acknowledgement that arrives while a catch-up still waits on its crawl
- * shares that wait: the crawl it waits on is the newest one owed.
+ * shares that wait: the crawl it waits on is the newest one owed. One that
+ * arrives after that crawl settled supersedes the catch-up, so at most one
+ * catch-up ever plans a sweep from a crawl's verdict.
  */
 export function requestAcknowledgedConnectionSweep(
   host: ReconciliationHost,
@@ -171,6 +174,10 @@ export function requestAcknowledgedConnectionSweep(
   if (state.catchUp.status === "awaitingCrawl") {
     return state.catchUp.wait.promise;
   }
+  // A catch-up still awaiting its turn is superseded: its crawl settled
+  // before this acknowledgement, so its verdict is about an earlier
+  // connection. Its sweep lists and vouches for nothing when its turn comes.
+  if (state.catchUp.status === "awaitingTurn") state.catchUp.wait.cancel();
   const stop = new AbortController();
   // The wait names its own promise, so the work starts once it exists.
   let start: () => void = () => undefined;

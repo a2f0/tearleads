@@ -30,8 +30,9 @@
  * Every other pair leaves the state unchanged. An acknowledgement while a
  * catch-up awaits its turn starts a wait of its own: that catch-up's crawl
  * settled before this acknowledgement, so it says nothing about what moved
- * since. The earlier catch-up still takes its turn; its `turnTaken` names an
- * older wait and changes nothing.
+ * since. The caller cancels the earlier wait, whose sweep then lists and
+ * vouches for nothing; its `turnTaken` names an older wait and changes
+ * nothing here.
  */
 export interface CatchUpWait {
   /** Ends the wait at once, as when the service stops. */

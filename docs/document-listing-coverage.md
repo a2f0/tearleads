@@ -105,13 +105,14 @@ crawl that the same acknowledgement starts already says which folders moved.
   work is deferred, not sent: a lane queued for an idle listing stays queued
   for the catch-up's sweep, and a root refresh (Explorer opening, a share
   hint) lists the root lane and leaves the document lanes that were known at
-  the acknowledgement to the catch-up. A hint's lane and the open folder's
-  are listed at once. The wait takes no turn among the sweeps, so a root or
-  full refresh runs beside it and does not end it. The deferral lasts until
-  the catch-up's sweep takes its turn, so a sweep ahead of it in line lists
-  none of its lanes either. An acknowledgement that arrives during the wait
-  shares it; one that arrives after the crawl settled waits on a crawl of
-  its own.
+  the acknowledgement to the catch-up. A hint's lane, and a folder the user
+  opens during the wait, are listed at once. The wait takes no turn among
+  the sweeps, so a root or full refresh runs beside it and does not end it.
+  The deferral lasts until the catch-up's sweep takes its turn, so a sweep
+  ahead of it in line lists none of its lanes either. An acknowledgement
+  that arrives during the wait shares it. One that arrives after the crawl
+  settled supersedes the catch-up and waits on a crawl of its own: the
+  earlier sweep then lists nothing and counts nothing as reconciled.
 - Settling. A listing reads its lane's request before it is sent and settles
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been

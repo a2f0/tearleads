@@ -318,6 +318,65 @@ test("a catch-up queued across a restart vouches for nothing in the new session"
   service.stop();
 });
 
+/**
+ * A service whose first catch-up awaits its turn behind a root refresh that
+ * the test releases, with its crawl settled complete, and whose second
+ * acknowledgement's crawl is the test's to settle.
+ */
+async function supersededCatchUp(secondCrawl: Promise<boolean>) {
+  const rootTree = createGate();
+  let crawls = 0;
+  const fixture = awaitingCrawl({
+    overrides: {
+      refreshRootTree: () => rootTree.wait,
+      whenTreeCrawlSettles: () => {
+        crawls += 1;
+        return crawls === 1 ? Promise.resolve(true) : secondCrawl;
+      },
+    },
+  });
+  const { service } = fixture;
+  const rootRefresh = service.reconcileRootContainersNow().catch(() => {});
+  await settle();
+  const first = service.reconcileAcknowledgedConnection().catch(() => {});
+  await settle();
+  const second = service.reconcileAcknowledgedConnection().catch(() => {});
+  await settle();
+  return { ...fixture, first, rootRefresh, rootTree, second };
+}
+
+test("a later catch-up never plans from an earlier crawl's verdict", async () => {
+  // The second acknowledgement's crawl does not complete: nothing vouches.
+  const { first, listings, rootRefresh, rootTree, second, service } =
+    await supersededCatchUp(Promise.resolve(false));
+
+  rootTree.open();
+  await Promise.all([rootRefresh, first, second]);
+
+  // The first crawl vouched for every lane, but that was another
+  // connection: the superseded sweep lists nothing and vouches for nothing.
+  expect(listings).toEqual([[...KNOWN]]);
+  service.stop();
+});
+
+test("a superseded catch-up is dropped with the session too", async () => {
+  const { first, listings, rootRefresh, rootTree, second, service } =
+    await supersededCatchUp(new Promise<boolean>(() => undefined));
+
+  service.stop();
+  service.start();
+  rootTree.open();
+  await Promise.all([rootRefresh, first, second]);
+  await settle();
+
+  // Neither catch-up's crawl is the new session's knowledge.
+  service.enqueueContainer("a", "idle");
+  await settle();
+  await settle();
+  expect(listings).toEqual([["a"]]);
+  service.stop();
+});
+
 test("a root refresh during the wait still lists a lane found since", async () => {
   let known: ReadonlyArray<string> = [...KNOWN];
   const { listings, service } = awaitingCrawl({
