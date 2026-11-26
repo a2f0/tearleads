@@ -74,15 +74,6 @@
       "passThroughEnv": ["ANDROID_HOME", "ANDROID_SDK_ROOT", "JAVA_HOME"],
       "outputs": []
     },
-    "//#test:native-ios-ci": {
-      "dependsOn": ["app-capacitor#native-ios-sources"],
-      "inputs": [
-        "scripts/checks/testNativePurchaseBridge.sh",
-        ".github/workflows/native-purchase-bridges.yml"
-      ],
-      "env": ["ImageOS", "ImageVersion", "DEVELOPER_DIR"],
-      "outputs": []
-    },
     "//#test:postgres-concurrency": {
       "dependsOn": [
         "@tearleads/api#sources",

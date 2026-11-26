@@ -32,8 +32,9 @@ workflow calls the entire CI workflow with `force: true`, including Postgres,
 Windows, native bridge compiles, and [protocol models](../../formal/README.md).
 Manual workflow dispatches also bypass the cache.
 
-CI runs the Postgres concurrency probe, Windows CEF persistence probe, and native
-purchase bridge compiles as dedicated root Turbo tasks. Each caches a successful
+CI runs the Postgres concurrency probe, Windows CEF persistence probe, and
+Android purchase bridge compile as dedicated root Turbo tasks, and the iOS
+compile as `app-capacitor#test:native-ios-ci`. Each caches a successful
 verification without build artifacts, keyed on its workspace source dependencies
 and external scripts. Windows and native tasks also hash the hosted
 runner image version; Postgres hashes the service image. The native release tests
@@ -41,10 +42,12 @@ in `Lint` reuse the same `app-capacitor#test` task as `Build and test`.
 
 The iOS compile syncs a placeholder page instead of the web build, which only
 the Android check builds and syncs. Its key therefore covers app-capacitor's
-iOS project, Capacitor configuration, and locked plugin versions, but not the
-web sources, workspace dependencies, or the app-capacitor manifest. It keeps no
-Xcode build state between runs: restoring DerivedData from the Actions cache
-still rebuilt every object file under the runner's Xcode 16.4.
+manifest, iOS project, Capacitor configuration, and locked plugin versions, but
+not the web sources or workspace dependencies. It is a package task because
+Turbo hashes the root manifest into every root task; app-capacitor's manifest
+stays in, since it holds the check's command and Capacitor's sync hooks. It
+keeps no Xcode build state between runs: restoring DerivedData from the Actions
+cache still rebuilt every object file under the runner's Xcode 16.4.
 
 The two pure TLC model passes run in the `Protocol models (...)` jobs, one per
 pass, with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them

@@ -3,11 +3,19 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cacheFixture } from "./turboCache.testUtils";
 
+interface Manifest {
+  scripts: Record<string, string>;
+  dependencies: Record<string, string>;
+}
+
 const models = "//#check:protocol-models";
 const negative = "//#check:protocol-negative-controls";
 const postgres = "//#test:postgres-concurrency";
 const windows = "//#test:windows-ci";
-const native = ["//#test:native-android-ci", "//#test:native-ios-ci"] as const;
+const native = [
+  "//#test:native-android-ci",
+  "app-capacitor#test:native-ios-ci",
+] as const;
 const [android, ios] = native;
 
 test("website source and its version bump preserve unrelated task hashes", () => {
@@ -32,30 +40,36 @@ test("website source and its version bump preserve unrelated task hashes", () =>
   }
 });
 
-// The iOS compile leaves app-capacitor's manifest out of its hash: Capacitor
-// finds plugins through the package's locked dependencies, which Turbo hashes.
-test("an app-capacitor version bump keeps the iOS pass; a plugin upgrade misses it", () => {
+// The iOS compile is an app-capacitor task, so the root manifest, which Turbo
+// forces into every root task's hash, stays out of its key. app-capacitor's
+// manifest stays in: it holds the check's command and Capacitor's sync hooks.
+// Capacitor finds plugins through the package's locked dependencies.
+test("the iOS compile keys on app-capacitor's manifest and plugins, not the root's", () => {
   const repo = cacheFixture();
   try {
     const read = (path: string) => readFileSync(join(repo.cwd, path), "utf8");
     const path = "packages/app-capacitor/package.json";
-    const manifest = JSON.parse(read(path));
-    const lock = read("bun.lock");
-    const bumped = lock.replace(
-      `"name": "app-capacitor",\n      "version": "${manifest.version}"`,
-      '"name": "app-capacitor",\n      "version": "0.0.999"',
-    );
-    expect(bumped).not.toBe(lock);
-    repo.write(path, JSON.stringify({ ...manifest, version: "0.0.999" }));
-    repo.write("bun.lock", bumped);
-    expect(repo.changed()).toContain(android);
+    const original = read(path);
+    const manifest = JSON.parse(original) as Manifest;
+    const rootManifest = JSON.parse(read("package.json")) as Manifest;
+    rootManifest.scripts["fixture:root"] = "true";
+    repo.write("package.json", JSON.stringify(rootManifest));
+    const root = repo.changed();
+    expect(root).toContain(android);
+    expect(root).not.toContain(ios);
+
+    const scripts = { ...manifest.scripts, "capacitor:sync:before": "true" };
+    repo.write(path, JSON.stringify({ ...manifest, scripts }));
+    expect(repo.changed()).toContain(ios);
+    repo.write(path, original);
     expect(repo.changed()).not.toContain(ios);
 
     const plugin = manifest.dependencies["@capacitor/app"];
-    const upgraded = bumped
+    const lock = read("bun.lock");
+    const upgraded = lock
       .replaceAll(`"@capacitor/app": "${plugin}"`, '"@capacitor/app": "99.0.0"')
       .replaceAll(`"@capacitor/app@${plugin}"`, '"@capacitor/app@99.0.0"');
-    expect(upgraded).not.toBe(bumped);
+    expect(upgraded).not.toBe(lock);
     repo.write("bun.lock", upgraded);
     expect(repo.changed()).toContain(ios);
   } finally {
@@ -137,6 +151,11 @@ test.each([
   ["packages/app-capacitor/capacitor.config.ts", native, [postgres, windows]],
   ["scripts/checks/testNativePurchaseBridge.sh", native, [postgres, windows]],
   [
+    ".github/workflows/native-purchase-bridges.yml",
+    native,
+    [postgres, windows],
+  ],
+  [
     "packages/app-capacitor/src/index.tsx",
     ["app-capacitor#test", android],
     [postgres, windows, ios],
@@ -164,6 +183,7 @@ test.each([
 test.each([
   ["CI_POSTGRES_IMAGE", [postgres]],
   ["ImageVersion", [windows, ...native]],
+  ["DEVELOPER_DIR", [ios]],
   ["TLC_JAVA_RUNTIME", [models, negative]],
 ])("cache inputs include %s", (name, required) => {
   const repo = cacheFixture();

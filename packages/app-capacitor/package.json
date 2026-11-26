@@ -40,6 +40,7 @@
     "store:build-numbers:staging": "NATIVE_RELEASE_TIER=staging bundle exec fastlane store_build_numbers",
     "lint:rubocop": "bundle exec rubocop",
     "test": "cd src && bun test . ../tests ../fastlane/test --isolate --pass-with-no-tests",
+    "test:native-ios-ci": "sh ../../scripts/checks/testNativePurchaseBridge.sh ios",
     "build:release": "bun scripts/buildNativeRelease.ts",
     "sentry:cli": "sentry-cli"
   },
