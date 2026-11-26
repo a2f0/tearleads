@@ -43,10 +43,10 @@ aggregate timings do not identify which statements are slow or prove that
 878 statements equal 878 network round trips.
 
 The current
-[registration budget test](../api/src/services/auth/registration.batching.test.ts)
+[registration budget test](../../api/src/services/auth/registration.batching.test.ts)
 already allows up to 900 statements for a full registration. Its fixture
 contains six initial document updates. The
-[organization provisioning workflow](../api/src/workflows/organizations/provisionOrganization.ts)
+[organization provisioning workflow](../../api/src/workflows/organizations/provisionOrganization.ts)
 builds authority and billing, root metadata, roster/profile metadata,
 organization metadata, and system containers in sequence inside one transaction.
 The live 878-statement count is consistent with that existing budget, rather
@@ -75,5 +75,5 @@ The production artifact includes the requested sample count. The initial staging
 artifact predates that metadata naming adjustment; its sample array and summary
 still identify the one attempt. Both include raw timing measurements, response
 Cloudflare ray IDs, sanitized cost events, and account IDs. Neither contains
-identity secrets, tokens, bodies, or raw logs. See the [runner guide](README.md)
+identity secrets, tokens, bodies, or raw logs. See the [runner guide](../README.md)
 for the scenario and timing boundaries.
