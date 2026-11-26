@@ -284,8 +284,8 @@ Shared branch, hook, validation, release, review, PR, and version helpers come
 from the exact npm-pinned [`@a2f0/agent-tool`](https://github.com/a2f0/agent-tool)
 dev dependency; run it with `bun run agent-tool`. Branch, commit trust, binary,
 hook, push-gate, title, and required-check policy is in `agent-tool.json`. The
-shared `app-store-readiness`, `audit-trails`,
-`cross-agent-review`, `explicit-state-machines`, `open-issue`, `open-pr`,
+shared `app-store-readiness`, `audit-trails`, `cross-agent-review`,
+`explicit-state-machines`, `open-issue`, `open-pr`, `optimize-ci`,
 `performance-pass`, `reset`, `seo-optimization`, `ship-pr`, `space-cleanup`,
 `squash-merge`, `take-screenshots`, and `update-dependencies` skills are managed
 copies in `.agents/skills` and `.claude/skills`, tracked by
