@@ -5,7 +5,18 @@ const DOCUMENT_LISTING_MODULE =
 const DOCUMENT_LISTING_CONFIG =
   "formal/document-sync/DocumentListingConvergence.cfg";
 
+const SHARED_DATABASE_MODULE = "formal/document-sync/SharedDatabaseListing.tla";
+const SHARED_DATABASE_CONFIG = "formal/document-sync/SharedDatabaseListing.cfg";
+
 export const DOCUMENT_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
+  {
+    id: "shared-database-listing-reads-debts-only",
+    module: SHARED_DATABASE_MODULE,
+    config: SHARED_DATABASE_CONFIG,
+    constants: { PullWhenSavedElsewhere: "FALSE" },
+    expect: { kind: "invariant", name: "OpenCopyEvidenceRetained" },
+    why: "Two tabs on one database share the lane watermark and the listing debt. A tab that reconnects after the other one listed the row, read the edit and settled the debt finds nothing owed, and its open copy stays the older one unless the catch-up also compares it with the saved record.",
+  },
   {
     id: "document-listing-watermark-before-debt",
     module: DOCUMENT_LISTING_MODULE,
