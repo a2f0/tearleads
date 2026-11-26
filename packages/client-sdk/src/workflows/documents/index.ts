@@ -20,6 +20,10 @@ export {
   type VoidedDocumentSyncUpdate,
 } from "../../data/documents/shared/sync/documentUpdateVerdict";
 export { processLoroRuntimeFailures } from "../../data/documents/shared/sync/loroRuntimeFailureLedger";
+export type {
+  PeerRefusal,
+  PeerRefusalKind,
+} from "../../data/documents/shared/sync/peerRefusalRecovery";
 export {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
@@ -209,10 +213,18 @@ export {
 } from "./sync/runtimeRestart";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
+  committedUpdateVersions,
+  documentSyncCommittedVersions,
+} from "./sync/syncCommittedVersions";
+export {
   type DocumentSyncLane,
   registerDocumentSyncLane,
   requestDocumentSyncLaneAndWait,
 } from "./sync/syncLane";
+export {
+  peerRebaseChangedQueue,
+  queuedRecoveryUpdate,
+} from "./sync/syncPeerRebase";
 export {
   DOCUMENT_SYNC_TRACE_FRAGMENT,
   DOCUMENT_SYNC_TRACE_PATTERN,

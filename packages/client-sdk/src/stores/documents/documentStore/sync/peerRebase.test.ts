@@ -104,9 +104,10 @@ test("moves the refused edits onto a salted peer the record keeps", async () => 
     ),
   ).toBe(true);
 
-  const outcome = await rebaser(state)([
-    { committedEndCounter: committed, peerId: recordPeer },
-  ]);
+  const outcome = await rebaser(state)({
+    kind: "peer_owned",
+    peerFrontiers: [{ committedEndCounter: committed, peerId: recordPeer }],
+  });
 
   expect(outcome).toBe("rebased");
   const fork = state.doc;
@@ -165,12 +166,15 @@ test("finds nothing to cut when the server committed every refused edit", async 
   const { recordPeer, state } = await refusedNote();
   const liveDoc = state.doc;
 
-  const outcome = await rebaser(state)([
-    {
-      committedEndCounter: counters(state).get(recordPeer) ?? 0,
-      peerId: recordPeer,
-    },
-  ]);
+  const outcome = await rebaser(state)({
+    kind: "peer_owned",
+    peerFrontiers: [
+      {
+        committedEndCounter: counters(state).get(recordPeer) ?? 0,
+        peerId: recordPeer,
+      },
+    ],
+  });
 
   expect(outcome).toBe("nothing_to_cut");
   expect(state.doc).toBe(liveDoc);
@@ -196,9 +200,10 @@ test("carries edits another runtime queued that the live document lacks", async 
     fields,
   );
 
-  const outcome = await rebaser(state)([
-    { committedEndCounter: committed, peerId: recordPeer },
-  ]);
+  const outcome = await rebaser(state)({
+    kind: "peer_owned",
+    peerFrontiers: [{ committedEndCounter: committed, peerId: recordPeer }],
+  });
 
   expect(outcome).toBe("rebased");
   expect(getTextValue(state.doc ?? live)).toBe("base more elsewhere");
@@ -223,9 +228,10 @@ test("installs nothing once another runtime settled the queue the rebase read", 
     },
   };
 
-  const outcome = await rebaser(state)([
-    { committedEndCounter: committed, peerId: recordPeer },
-  ]);
+  const outcome = await rebaser(state)({
+    kind: "peer_owned",
+    peerFrontiers: [{ committedEndCounter: committed, peerId: recordPeer }],
+  });
 
   expect(outcome).toBe("superseded");
   expect(state.doc).toBe(liveDoc);
@@ -264,9 +270,10 @@ test("the store's sync pass hands its own rebase to the refused pass", async () 
     RemoteDocumentService.prototype,
     "syncRemoteDocument",
   ).mockImplementation(async (request) => {
-    outcome = await request.rebaseOntoFreshPeer?.([
-      { committedEndCounter: committed, peerId: recordPeer },
-    ]);
+    outcome = await request.rebaseOntoFreshPeer?.({
+      kind: "peer_owned",
+      peerFrontiers: [{ committedEndCounter: committed, peerId: recordPeer }],
+    });
     return null;
   });
   try {

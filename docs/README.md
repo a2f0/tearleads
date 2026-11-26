@@ -67,6 +67,8 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 - [Loro E2EE sync protocol](loro-e2ee-sync-protocol.md) and
   [advisory op spans](advisory-op-spans.md): void updates and the processed
   cursor.
+- [Peer ownership](peer-ownership.md): who may extend a Loro peer, and how a
+  refused device recovers.
 - [Document link and sync protocol](document-link-and-sync-protocol.md).
 - [Document rekey and write history](document-rekey-and-audit-history.md),
   [raw history recovery](raw-document-history-recovery.md),

@@ -20,6 +20,7 @@ Zod.
 | `@tearleads/validators/util` | Shared wire primitives: UUIDs, hashes, base64, limits, and history wire formats |
 | `@tearleads/validators/billing` | Billing error codes and native subscription store schemas |
 | `@tearleads/validators/containerSystemSlot` | Format and validate container system slot names |
+| `@tearleads/validators/documentPeerSpans` | The server's rule for the peers a document write names: `judgeDocumentPeerSpans` accepts a request or names the refused peers of a `peerFrontiers` body |
 | `@tearleads/validators/isPlainObject` | The plain-object guard |
 
 ## OpenAPI
