@@ -12,6 +12,7 @@ import { genericFileDocumentProjectorDefinition } from "../document-types/generi
 import { imageDocumentProjectorDefinition } from "../document-types/image/imageDocumentDefinition";
 import { insurancePolicyDocumentProjectorDefinition } from "../document-types/insurance-policy/insurancePolicyDocumentDefinition";
 import { jsonFileDocumentProjectorDefinition } from "../document-types/json-file/jsonFileDocumentDefinition";
+import { licenseDocumentProjectorDefinition } from "../document-types/license/licenseDocumentDefinition";
 import { medicationDocumentProjectorDefinition } from "../document-types/medication/medicationDocumentDefinition";
 import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocumentDefinition";
 import { passcodeDocumentProjectorDefinition } from "../document-types/passcode/passcodeDocumentDefinition";
@@ -54,6 +55,7 @@ export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentP
       clientProjection: birthCertificateClientProjection,
     },
     insurancePolicyDocumentProjectorDefinition,
+    licenseDocumentProjectorDefinition,
     envFileDocumentProjectorDefinition,
     passcodeDocumentProjectorDefinition,
     bloodPressureDocumentProjectorDefinition,

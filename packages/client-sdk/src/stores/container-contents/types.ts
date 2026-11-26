@@ -102,10 +102,25 @@ export type ContainerGroupRewrapPreparation =
  * update subscribers before their queued remote sync converges. Destructive
  * and access-control operations retain their explicit remote-authority gates.
  */
+/** How `createChild` names the new container. */
+export interface CreateChildContainerOptions {
+  /**
+   * A stable UUID v4-shaped id, so a caller that makes the same container
+   * again, such as a seed on its rerun, can find it by id. Random otherwise.
+   */
+  readonly id?: string | undefined;
+}
+
 export interface ContainerContentsStore {
+  /**
+   * Makes a child folder. `options.id` gives it a stable UUID v4-shaped id,
+   * so a caller can find it again by id; null when that id is malformed or
+   * already in the tree.
+   */
   createChild: (
     parentId: string,
     name: string,
+    options?: CreateChildContainerOptions | undefined,
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
   ensureSystemContainer: (
