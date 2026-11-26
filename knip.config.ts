@@ -85,6 +85,8 @@ const baseConfig = {
         "e2e/fixtures/diagnostics.ts",
         // Loaded by the SQLite cache fixture HTML on the E2E server.
         "e2e/fixtures/sqliteRuntime.ts",
+        // Named by path in playwright.config.ts's CI reporter list.
+        "scripts/specDurationReporter.ts",
         "screenshots/**/*.spec.ts",
       ],
       project: [

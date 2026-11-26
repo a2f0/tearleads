@@ -7,12 +7,15 @@ import {
   SIGNED_IN_APP_URL,
 } from "./e2e/signedInServer";
 
-const { APP_WEB_PORT = "3100" } = process.env;
+const { APP_WEB_PORT = "3100", CI } = process.env;
 const baseURL = `http://127.0.0.1:${APP_WEB_PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
+  // Playwright's defaults, plus each spec file's summed time on CI: the dot
+  // reporter prints no durations, and balancing the CI shards needs them.
+  reporter: CI ? [["dot"], ["./scripts/specDurationReporter.ts"]] : "list",
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     {
