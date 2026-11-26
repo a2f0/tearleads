@@ -5,16 +5,18 @@
  * A listing covers a store when the scope lists the store's container after
  * every acknowledged connection (`getOrCreateDocumentListingCoverage`), the
  * record has completed a pull, and nothing still obliges a read: no read a
- * listing owes (`document_listing_revalidations`), no pull to continue, no
- * attachment whose bytes are missing, and no hint that named the document
- * before the record loaded. An uncovered store probes as every opened store
- * did before listings owed reads.
+ * listing owes (`document_listing_revalidations`), no processed cursor the
+ * next pull would withhold, no pull to continue, no attachment whose bytes
+ * are missing, and no hint that named the document before the record loaded.
+ * An uncovered store probes as every opened store did before listings owed
+ * reads.
  */
 
 import {
   type DocumentListingRevalidation,
   type DocumentRecord,
   findOwedDocumentListingRead,
+  isDocumentProcessedCursorWithheld,
   settleCoveredDocumentListingRead,
 } from "../../../../workflows/documents";
 import { getOrCreateDocumentListingCoverage } from "../../listingCoverage";
@@ -102,6 +104,20 @@ export async function loadDocumentListingCoverage(
   );
   if (!isCurrent()) return false;
   applyOwedReadEvent(state, { read: owed, type: "observed" });
+  // A listing owes a read only to a row it is served. A record whose cursor
+  // stopped counting since its last pull owes one no listing will ask for.
+  if (owed === null && hasPersistedRemoteDocumentSyncState(record)) {
+    const withheld = await isDocumentProcessedCursorWithheld(
+      state.runtime.infra.execSql,
+      {
+        documentId: record.documentId,
+        frontier: record.snapshotEndVersion,
+        localId: state.localId,
+      },
+    );
+    if (!isCurrent()) return false;
+    if (withheld) applyOwedReadEvent(state, { type: "cursorWithheld" });
+  }
   observeDocumentListingHints(state);
   const hinted = coverage(state).takeHint(record.documentId);
   return !hinted && isDocumentStoreCoveredByListing(state);
@@ -146,17 +162,43 @@ export async function settleOwedListingReadAfterCompletedPull(
   },
 ): Promise<void> {
   if (
-    input.owed === null ||
     input.pull.hasIncompletePull ||
     input.pull.hasHeldPull ||
     !isDocumentStoreSyncGenerationCurrent(state, generation)
   ) {
     return;
   }
+  await settleWithheldCursorAfterPull(state, generation, input.frontier);
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return;
+  if (input.owed === null) return;
   await settleOwedListingReadAfterPull(state, generation, {
     frontier: input.frontier,
     owed: input.owed,
   });
+}
+
+/**
+ * Ends a store's withheld-cursor state once a pull that reached its bound has
+ * left a cursor the next pull would send. The cursor on disk decides, not
+ * the pull: one whose pages ran under more than one judge, or that the
+ * server answered with no bound, completes and leaves the old cursor.
+ */
+async function settleWithheldCursorAfterPull(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncGeneration,
+  frontier: string,
+): Promise<void> {
+  const documentId = state.record?.documentId;
+  if (owedReadStates.get(state)?.status !== "withheld" || !documentId) return;
+  const withheld = await isDocumentProcessedCursorWithheld(generation.execSql, {
+    documentId,
+    frontier,
+    localId: state.localId,
+  });
+  if (withheld || !isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    return;
+  }
+  applyOwedReadEvent(state, { type: "pullCompleted" });
 }
 
 /**

@@ -13,17 +13,19 @@ export function resumeOwedDocumentDiscovery(input: {
   readonly isCurrent: () => boolean;
 }): void {
   const { enqueue, host, isCurrent } = input;
-  void host.listOwedDocumentDiscoveryContainerIds().then(
-    (containerIds) => {
-      if (!isCurrent()) return;
-      for (const containerId of containerIds) enqueue(containerId, "idle");
-    },
-    (error: unknown) => {
-      if (!isCurrent() || host.isIgnorableError(error)) return;
-      return host.logError?.(
-        "Reconciliation: owed discovery lookup failed",
-        error,
-      );
-    },
-  );
+  void host
+    .listOwedDocumentDiscoveryContainerIds(host.listKnownContainerIds())
+    .then(
+      (containerIds) => {
+        if (!isCurrent()) return;
+        for (const containerId of containerIds) enqueue(containerId, "idle");
+      },
+      (error: unknown) => {
+        if (!isCurrent() || host.isIgnorableError(error)) return;
+        return host.logError?.(
+          "Reconciliation: owed discovery lookup failed",
+          error,
+        );
+      },
+    );
 }

@@ -122,10 +122,13 @@ test("a stale query that then overflows refuses its waiting reader", async () =>
 test("a timed-out query is awaited but never reused by a later run", async () => {
   const held = Promise.withResolvers<void>();
   let calls = 0;
+  // The second run below gets the same allowance as the first, which has to
+  // time out. It needs room for a slow runner: at 5 ms the second run timed
+  // out too before the held query settled.
   const queries = new ContainerInterestQueries(async (_user, ids) => {
     if (++calls === 1) await held.promise;
     return proofsFor(ids);
-  }, 5);
+  }, 250);
   const installed: string[] = [];
   await expect(
     queries.run(
