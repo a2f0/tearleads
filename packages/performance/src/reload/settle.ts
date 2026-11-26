@@ -39,15 +39,16 @@ const systemClock: SettleClock = {
  * Waits until `idle` resolves and no request has started, run or finished
  * for `quietMs`, and returns when the probe last saw one, measured from
  * `started`. It looks 25 ms after each time `idle` resolves, so a request
- * shorter than that wait can go unseen until the next look. Some catch-up work re-arms itself on timers the
- * sync coordinator does not track, so idle alone does not show that a reload
- * has finished.
+ * shorter than that wait can go unseen until the next look. Some catch-up
+ * work re-arms itself on timers the sync coordinator does not track, so idle
+ * alone does not show that a reload has finished. `idle` is given the time
+ * left before `timeoutMs`.
  */
 export async function settle(input: {
   readonly started: number;
   readonly quietMs: number;
   readonly timeoutMs: number;
-  readonly idle: () => Promise<void>;
+  readonly idle: (remainingMs: number) => Promise<void>;
   readonly totals: () => Pick<RequestTotals, "total" | "inFlight">;
   readonly clock?: SettleClock | undefined;
 }): Promise<number> {
@@ -57,7 +58,8 @@ export async function settle(input: {
   let lastActivity =
     seen.total > 0 || seen.inFlight > 0 ? clock.now() : input.started;
   for (;;) {
-    await input.idle();
+    const elapsed = clock.now() - input.started;
+    await input.idle(Math.max(1, input.timeoutMs - elapsed));
     await clock.sleep(POLL_MS);
     const now = clock.now();
     if (now - input.started > input.timeoutMs)

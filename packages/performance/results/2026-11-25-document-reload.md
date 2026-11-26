@@ -40,9 +40,12 @@ Parent lanes are `POST /containers/parent-lanes/query`, document listings
 `POST /containers/documents/query`, and document heads
 `GET /documents/{documentId}/writer-projection`. Every settled reload also
 made two folder writer-projection reads, one policy read and one sync of a
-system document. Local statements are the client's SQLite statements. A
-first reload follows the notes created since the previous reload: 10, 90 and
-900 in the first run, 100 and 900 in the second.
+system document. First reloads made two to four folder writer-projection
+reads, two to five policy reads, that sync and, on each run's first reload,
+one principal history read, so their columns do not add up to their totals. Local
+statements are the client's SQLite statements. A first reload follows the
+notes created since the previous reload: 10, 90 and 900 in the first run, 100
+and 900 in the second.
 
 ## Findings
 

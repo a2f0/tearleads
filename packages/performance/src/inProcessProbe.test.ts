@@ -92,6 +92,7 @@ function fakeServices(
         if (failures.startApi) throw failures.startApi;
         return api;
       },
+      sourceIdentity: () => ({ revision: "test", dirty: false }),
       saveReport: async (name: string, report: object) => {
         const { status } = report as { status?: unknown };
         statuses.push(status);

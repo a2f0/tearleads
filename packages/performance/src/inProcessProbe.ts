@@ -57,12 +57,15 @@ interface ProbeServices {
   }>;
   readonly startApi: () => Promise<InProcessApi>;
   readonly saveReport: (name: string, report: object) => Promise<string>;
+  /** The measured checkout's revision and whether it has local changes. */
+  readonly sourceIdentity: () => { revision: string; dirty: boolean };
 }
 
 const services: ProbeServices = {
   startProxy: startPostgresProxy,
   startApi: startInProcessApi,
   saveReport: (name, report) => saveJson(name, report),
+  sourceIdentity,
 };
 
 /** Stops what a run started, each whatever the other does. */
@@ -89,13 +92,18 @@ export async function runInProcessProbe(
     /** The report's own fields, read at every save. */
     readonly results: () => ProbeResults;
   },
-  { startProxy, startApi, saveReport }: ProbeServices = services,
+  {
+    startProxy,
+    startApi,
+    saveReport,
+    sourceIdentity: source,
+  }: ProbeServices = services,
 ): Promise<void> {
   const { DATABASE_URL: databaseUrl } = process.env;
   const target = parseLocalDatabaseUrl(databaseUrl);
   const database = decodeURIComponent(target.pathname.slice(1));
   // Read before anything starts, so a failure here leaves nothing running.
-  const source = sourceIdentity();
+  const identity = source();
   const proxy = await startProxy(target);
   // The API reads its database configuration when it loads.
   Object.assign(process.env, {
@@ -112,7 +120,7 @@ export async function runInProcessProbe(
     database,
     options: input.options,
     boundary: input.boundary,
-    ...source,
+    ...identity,
     runtime: {
       bun: Bun.version,
       platform: process.platform,

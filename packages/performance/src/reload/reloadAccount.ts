@@ -60,9 +60,12 @@ async function waitUntil(check: () => boolean, what: string): Promise<void> {
   }
 }
 
-async function idle(sdk: Tearleads): Promise<void> {
+async function idle(
+  sdk: Tearleads,
+  timeoutMs = SETTLE_TIMEOUT_MS,
+): Promise<void> {
   const coordinator = getOrCreateDomainSyncCoordinator(sdk.domainScope);
-  if (!(await coordinator.waitForIdle({ timeoutMs: SETTLE_TIMEOUT_MS })))
+  if (!(await coordinator.waitForIdle({ timeoutMs })))
     throw new Error("Queued writes did not settle.");
 }
 
@@ -140,7 +143,7 @@ function quiet(
       started,
       quietMs,
       timeoutMs: SETTLE_TIMEOUT_MS,
-      idle: () => idle(sdk),
+      idle: (remainingMs) => idle(sdk, remainingMs),
       totals,
     }),
   };

@@ -25,7 +25,7 @@ function scripted(polls: readonly [total: number, inFlight: number][]) {
   };
 }
 
-const idle = async () => undefined;
+const idle = async (_remainingMs: number) => undefined;
 
 test("settles when no request starts, runs or finishes for the quiet window", async () => {
   // Read at the start, then at 25, 50, 75 ms and on.
@@ -129,4 +129,22 @@ test("request totals merge identity scopes and count a repeated scope once", () 
   ]);
   const anonymous = requestTotals(get, [null, null]);
   expect([anonymous.total, anonymous.endpoints.length]).toEqual([1, 1]);
+});
+
+test("each idle wait is given the time left before the deadline", async () => {
+  const given: number[] = [];
+  let total = 0;
+  await expect(
+    settle({
+      started: 1_000,
+      quietMs: 100,
+      timeoutMs: 60,
+      idle: async (remainingMs) => {
+        given.push(remainingMs);
+      },
+      totals: () => ({ total: ++total, inFlight: 0 }),
+      clock: manualClock(),
+    }),
+  ).rejects.toThrow("The reload did not settle.");
+  expect(given).toEqual([60, 35, 10]);
 });
