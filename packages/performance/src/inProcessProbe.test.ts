@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { probeReport, runInProcessProbe } from "./inProcessProbe";
 import type { InProcessApi } from "./realtime/inProcessApi";
 import { emptyTraffic } from "./realtime/postgresWire";
@@ -42,6 +42,10 @@ const quiet = [
   spyOn(console, "log").mockImplementation(() => undefined),
   spyOn(console, "error").mockImplementation(() => undefined),
 ];
+
+afterAll(() => {
+  for (const spy of quiet) spy.mockRestore();
+});
 
 beforeEach(() => {
   Object.assign(process.env, {

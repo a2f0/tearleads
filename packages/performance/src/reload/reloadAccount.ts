@@ -19,7 +19,7 @@ const POLL_MS = 25;
 export interface ReloadOutcome {
   /**
    * From building the SDK until the probe last saw a request start, run or
-   * finish, to within one 25 ms poll.
+   * finish. It looks 25 ms after each time the sync coordinator is idle.
    */
   readonly settledMs: number;
   readonly requests: number;
@@ -88,7 +88,8 @@ interface Restored {
 }
 
 async function register(profile: Profile, local: { close(): void }) {
-  const { sdk } = openSdk(profile);
+  const opened = openSdk(profile);
+  const { sdk } = opened;
   try {
     await sdk.identity.generate();
     // The operator running the probe agrees to the terms for its accounts.
@@ -117,12 +118,32 @@ async function register(profile: Profile, local: { close(): void }) {
         userId: signedIn.userId,
       },
     };
-    return { sdk, restored };
+    return { opened, restored };
   } catch (error) {
     sdk.dispose();
     local.close();
     throw error;
   }
+}
+
+/** Waits until the SDK is idle and its requests have gone quiet. */
+function quiet(
+  { sdk, metrics }: ReturnType<typeof openSdk>,
+  quietMs: number,
+  started = performance.now(),
+) {
+  const totals = () =>
+    requestTotals(metrics.getSnapshot, [null, sdk.identity.signingFingerprint]);
+  return {
+    totals,
+    settled: settle({
+      started,
+      quietMs,
+      timeoutMs: SETTLE_TIMEOUT_MS,
+      idle: () => idle(sdk),
+      totals,
+    }),
+  };
 }
 
 /**
@@ -135,7 +156,7 @@ async function start(
   quietMs: number,
   started: number,
 ): Promise<ReloadOutcome> {
-  const { sdk, metrics } = opened;
+  const { sdk } = opened;
   await sdk.identity.importKeyPackage(restored.keyPackage);
   sdk.session.setContext(restored.session);
   const { view } = sdk.deviceFirst.open();
@@ -147,15 +168,8 @@ async function start(
   // binds it again when it renders the new state.
   sdk.events.setConnected(true);
   view.updateRuntime(sdk.containerContents.workflowRuntime());
-  const totals = () =>
-    requestTotals(metrics.getSnapshot, [null, sdk.identity.signingFingerprint]);
-  const settledMs = await settle({
-    started,
-    quietMs,
-    timeoutMs: SETTLE_TIMEOUT_MS,
-    idle: () => idle(sdk),
-    totals,
-  });
+  const { totals, settled } = quiet(opened, quietMs, started);
+  const settledMs = await settled;
   const { total, endpoints } = totals();
   return {
     settledMs: Math.round(settledMs),
@@ -223,10 +237,10 @@ export async function openReloadAccount(origin: string, quietMs: number) {
   const registered = await register(profile, local);
   const { restored } = registered;
   // The running SDK; null between disposing one and building the next.
-  let running: Tearleads | null = registered.sdk;
+  let running: ReturnType<typeof openSdk> | null = registered.opened;
   const folders: string[] = [];
   let documents = 0;
-  const current = (): Tearleads => {
+  const current = () => {
     if (!running) throw new Error("No SDK is running.");
     return running;
   };
@@ -240,7 +254,7 @@ export async function openReloadAccount(origin: string, quietMs: number) {
      * until the account holds `count`.
      */
     async grow(count: number, perFolder: number): Promise<void> {
-      const sdk = current();
+      const { sdk } = current();
       await createFolders(
         sdk,
         restored.rootId,
@@ -261,19 +275,21 @@ export async function openReloadAccount(origin: string, quietMs: number) {
         documents += batch;
         await idle(sdk);
       }
+      // Nothing the creates started may spill into the next reload's counts.
+      await quiet(current(), quietMs).settled;
     },
     /** Disposes the running SDK and starts a new one, as a page load does. */
     async reload(): Promise<ReloadOutcome> {
-      current().dispose();
+      current().sdk.dispose();
       running = null;
       const started = performance.now();
       const opened = openSdk(profile);
       // Held before startup, so a failed reload's SDK is the one `close` disposes.
-      running = opened.sdk;
+      running = opened;
       return await start(opened, restored, quietMs, started);
     },
     close(): void {
-      running?.dispose();
+      running?.sdk.dispose();
       running = null;
       local.close();
     },

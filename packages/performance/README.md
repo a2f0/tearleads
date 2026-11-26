@@ -223,12 +223,14 @@ the SDK's sync coordinator is idle and no request has started or finished for
 `--quiet-ms` (default 1000).
 
 Each size gets one `first` reload, the first after its notes were created,
-then `--samples` (default 3) `settled` reloads with nothing changed.
+then `--samples` (default 3) `settled` reloads with nothing changed. Growing
+ends with the same quiet window, so no work the creates started is counted
+against the first reload.
 
 | Field | What it measures |
 | --- | --- |
 | `requests`, `byRoute` | The SDK's API requests, by route template, from `ApiRequestMetrics` |
-| `settledMs` | From building the SDK until a request was last seen starting, running or finishing, polled every 25 ms |
+| `settledMs` | From building the SDK until a request was last seen starting, running or finishing; the probe looks 25 ms after each time the sync coordinator is idle |
 | `database` | PostgreSQL traffic through the counting proxy, as in the realtime probes |
 | `localSql` | Statements the client ran against its local SQLite database |
 

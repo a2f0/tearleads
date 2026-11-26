@@ -37,8 +37,9 @@ const systemClock: SettleClock = {
 
 /**
  * Waits until `idle` resolves and no request has started, run or finished
- * for `quietMs`, polling every 25 ms, and returns when the probe last saw one,
- * measured from `started`. Some catch-up work re-arms itself on timers the
+ * for `quietMs`, and returns when the probe last saw one, measured from
+ * `started`. It looks 25 ms after each time `idle` resolves, so a request
+ * shorter than that wait can go unseen until the next look. Some catch-up work re-arms itself on timers the
  * sync coordinator does not track, so idle alone does not show that a reload
  * has finished.
  */

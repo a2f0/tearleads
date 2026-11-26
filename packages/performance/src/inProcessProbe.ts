@@ -94,6 +94,8 @@ export async function runInProcessProbe(
   const { DATABASE_URL: databaseUrl } = process.env;
   const target = parseLocalDatabaseUrl(databaseUrl);
   const database = decodeURIComponent(target.pathname.slice(1));
+  // Read before anything starts, so a failure here leaves nothing running.
+  const source = sourceIdentity();
   const proxy = await startProxy(target);
   // The API reads its database configuration when it loads.
   Object.assign(process.env, {
@@ -110,7 +112,7 @@ export async function runInProcessProbe(
     database,
     options: input.options,
     boundary: input.boundary,
-    ...sourceIdentity(),
+    ...source,
     runtime: {
       bun: Bun.version,
       platform: process.platform,
