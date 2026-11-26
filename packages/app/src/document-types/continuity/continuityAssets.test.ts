@@ -15,7 +15,7 @@ async function fixture() {
   await mkdir(join(root, "tearleads"));
   const contents = {
     "seed.json": JSON.stringify({
-      schemaVersion: 3,
+      schemaVersion: 4,
       identitySeedPhrase: "fixture",
       contacts: [
         {

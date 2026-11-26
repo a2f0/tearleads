@@ -2,9 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const WEB_API_BASE_URL = "http://127.0.0.1:32001";
 const MOBILE_API_BASE_URL = "http://127.0.0.1:32002";
-const COLLABORATION_API_BASE_URL = "http://127.0.0.1:32003";
 const WEB_APP_BASE_URL = "http://127.0.0.1:32100";
-const COLLABORATION_APP_BASE_URL = "http://127.0.0.1:32101";
 const MOBILE_APP_BASE_URL = "http://127.0.0.1:32102";
 
 // Phones are captured as the whole screen, like an installed app, rather than
@@ -21,7 +19,7 @@ const IPHONE = {
 
 /**
  * Separate Playwright run dedicated to desktop (windowed), iPad and
- * mobile-compact (routed), plus authenticated two-peer blame screenshots. Kept
+ * mobile-compact (routed) screenshots. Kept
  * apart from the e2e behavior suite (playwright.config.ts) so screenshotting
  * never blocks or is blocked by the assertion tests.
  *
@@ -103,38 +101,6 @@ export default defineConfig({
         browserName: "chromium",
       },
     },
-    {
-      // Blame setup still needs the demo host's two authenticated peers, but
-      // its artifacts belong to the ordinary Windowed screenshot collection.
-      name: "blame-web",
-      metadata: { screenshotLayout: "web" },
-      testMatch: "**/blame.spec.ts",
-      use: {
-        baseURL: COLLABORATION_APP_BASE_URL,
-        viewport: { width: 1440, height: 900 },
-        deviceScaleFactor: 2,
-      },
-    },
-    {
-      name: "blame-ipad",
-      metadata: { screenshotLayout: "ipad" },
-      testMatch: "**/blame.spec.ts",
-      use: {
-        ...devices["iPad Pro 11"],
-        baseURL: COLLABORATION_APP_BASE_URL,
-        browserName: "chromium",
-      },
-    },
-    {
-      name: "blame-mobile",
-      metadata: { screenshotLayout: "mobile" },
-      testMatch: "**/blame.spec.ts",
-      use: {
-        ...IPHONE,
-        baseURL: COLLABORATION_APP_BASE_URL,
-        browserName: "chromium",
-      },
-    },
   ],
   webServer: [
     {
@@ -157,26 +123,8 @@ export default defineConfig({
     },
     {
       command:
-        "API_PORT=32003 API_DATABASE=memory BLOB_OBJECT_STORE=memory bun ../api/src/index.ts",
-      url: COLLABORATION_API_BASE_URL,
-      reuseExistingServer: false,
-      stdout: "pipe",
-      stderr: "pipe",
-      timeout: 120_000,
-    },
-    {
-      command:
         "APP_WEB_PORT=32100 BUN_PUBLIC_API_BASE_URL=http://127.0.0.1:32001 BUN_PUBLIC_APP_VARIANT=screenshot bun src/servers/e2eServer.ts",
       url: WEB_APP_BASE_URL,
-      reuseExistingServer: false,
-      stdout: "pipe",
-      stderr: "pipe",
-      timeout: 120_000,
-    },
-    {
-      command:
-        "APP_WEB_PORT=32101 BUN_PUBLIC_API_BASE_URL=http://127.0.0.1:32003 BUN_PUBLIC_APP_VARIANT=demo BUN_PUBLIC_NAVIGATION_MODE=windowed bun src/servers/e2eServer.ts",
-      url: COLLABORATION_APP_BASE_URL,
       reuseExistingServer: false,
       stdout: "pipe",
       stderr: "pipe",

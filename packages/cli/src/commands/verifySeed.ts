@@ -12,6 +12,7 @@ import {
   continuitySeedTag,
   loadContinuityAssets,
   prepareContinuityAttachments,
+  withContinuityAvatar,
 } from "app/continuity";
 import type { CommandInput } from "../cliContext";
 import { resolveSeedAccount, seedLocalId } from "../seedAccount";
@@ -228,7 +229,11 @@ async function readFixture(
       verifyDocument(
         session,
         store,
-        fixture,
+        // Seed wrote the avatar field once the photo's slot was known.
+        {
+          ...fixture,
+          document: withContinuityAvatar(fixture.document, prepared),
+        },
         localId,
         prepared,
         deadline,
