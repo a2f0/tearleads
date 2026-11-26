@@ -6,51 +6,16 @@ import {
   getImportBlobMetadata,
   listVersionVectorSpans,
   mergeVersionVectors,
-  type VersionVectorSpan,
 } from "@tearleads/loro";
-import type { DocumentPeerFrontier } from "@tearleads/validators/response";
+import {
+  type CommittedDocumentPeer,
+  type DocumentPeerVerdict,
+  type DocumentUpdatePeers,
+  judgeDocumentPeerSpans,
+} from "@tearleads/validators/documentPeerSpans";
 import { committedSpansVersion } from "./peerRebase";
 import { documentOnPeer, type TestDocument } from "./peerRebase.testFixtures";
-import {
-  type PeerRefusal,
-  planPeerRefusalRecovery,
-} from "./peerRefusalRecovery";
-
-interface CommittedPeer {
-  readonly committedEndCounter: number;
-  readonly ownerUserId: string | null;
-}
-
-type PeerVerdict =
-  | { readonly kind: "accepted"; readonly claimedPeerIds: readonly string[] }
-  | {
-      readonly kind: PeerRefusal["kind"];
-      readonly peerFrontiers: readonly DocumentPeerFrontier[];
-    };
-
-type JudgePeerSpans = (input: {
-  readonly committedPeers: ReadonlyMap<string, CommittedPeer>;
-  readonly updates: readonly {
-    readonly dependencies: readonly {
-      readonly endCounter: number;
-      readonly peerId: string;
-    }[];
-    readonly spans: readonly VersionVectorSpan[];
-  }[];
-  readonly userId: string;
-}) => PeerVerdict;
-
-// The API's own rule, so these scenarios meet the verdicts production gives.
-// The SDK cannot depend on the API package, and a static import of its source
-// would pull it into this TypeScript project, so the module is read at run
-// time and typed here. `turbo.json` declares the files as test inputs.
-const judgeModule: { readonly judgeDocumentPeerSpans: JudgePeerSpans } =
-  await import(
-    new URL(
-      "../../../../../../api/src/documents/documentPeerOwners.ts",
-      import.meta.url,
-    ).href
-  );
+import { planPeerRefusalRecovery } from "./peerRefusalRecovery";
 
 /** The peer ids and users of the scenarios, as issue #3263 names them. */
 export const MEMBER_PEER = "11";
@@ -73,7 +38,7 @@ export function textOf(doc: TestDocument): string {
   return doc.getText("text").toString();
 }
 
-function updatePeers(update: Uint8Array) {
+function updatePeers(update: Uint8Array): DocumentUpdatePeers {
   const metadata = getImportBlobMetadata(update);
   return {
     dependencies: [
@@ -87,13 +52,13 @@ function updatePeers(update: Uint8Array) {
 
 /** One document's committed peers and update log, judged by the API's rule. */
 export class PeerServer {
-  readonly committed = new Map<string, CommittedPeer>();
+  readonly committed = new Map<string, CommittedDocumentPeer>();
   readonly log: Uint8Array[] = [];
 
   /** One request: every update is committed, or none and the refusal returns. */
-  submit(userId: string, updates: readonly Uint8Array[]): PeerVerdict {
+  submit(userId: string, updates: readonly Uint8Array[]): DocumentPeerVerdict {
     const peers = updates.map(updatePeers);
-    const verdict = judgeModule.judgeDocumentPeerSpans({
+    const verdict = judgeDocumentPeerSpans({
       committedPeers: this.committed,
       updates: peers,
       userId,
@@ -116,7 +81,7 @@ export class PeerServer {
   }
 
   /** A device republishes everything it holds, as a remote reset does. */
-  republish(userId: string, device: TestDocument): PeerVerdict {
+  republish(userId: string, device: TestDocument): DocumentPeerVerdict {
     return this.submit(userId, [exportAllUpdates(device)]);
   }
 

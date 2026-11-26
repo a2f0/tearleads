@@ -145,11 +145,6 @@ test("Node pins and suite wiring invalidate Turbo and CI inputs", async () => {
     "$TURBO_EXTENDS$",
     "$TURBO_ROOT$/.github/workflows/ci.yml",
     "$TURBO_ROOT$/.github/workflows/uncached-tests.yml",
-    // The peer-refusal recovery tests judge with the API's own peer rule,
-    // read from its source, and that source imports the shared schema.
-    "$TURBO_ROOT$/packages/api/src/documents/documentPeerOwners.ts",
-    "$TURBO_ROOT$/packages/api/src/documents/documentPeerRowChunks.ts",
-    "$TURBO_ROOT$/packages/api-shared/src/**",
   ]);
   expect(ciScopes([".nvmrc"])).toEqual({
     native: true,

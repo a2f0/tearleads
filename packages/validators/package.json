@@ -7,6 +7,7 @@
   "exports": {
     "./billing": "./src/billing.ts",
     "./containerSystemSlot": "./src/containerSystemSlot.ts",
+    "./documentPeerSpans": "./src/documentPeerSpans.ts",
     "./isPlainObject": "./src/isPlainObject.ts",
     "./legalTerms": "./src/legalTerms.ts",
     "./util": "./src/util/index.ts",
