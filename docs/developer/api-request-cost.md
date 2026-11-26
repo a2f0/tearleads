@@ -84,7 +84,9 @@ in a temporary Worker whose persisted placement must match the live API.
 The realtime hub authorizes container interest outside this middleware, so
 those statements never reach `api.request.cost`. The
 [realtime hub interest probe](../../packages/performance/README.md#realtime-hub-interest-authorization)
-counts them at the PostgreSQL wire instead, against a local database.
+counts them at the PostgreSQL wire instead, against a local database. The
+[realtime hub contention probe](../../packages/performance/README.md#realtime-hub-contention)
+times how long other sockets' events wait behind those passes.
 
 The [registration artifact batching experiment](registration-artifact-batch.md)
 records a staging baseline/candidate/restored-baseline comparison, including
