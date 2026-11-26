@@ -29,15 +29,23 @@ export function documentBaselineGroupInvalid(
 
 /**
  * The rotation baseline segments among a request's updates, in request
- * order, or null when it carries none. A group travels together: an ordinary
- * update between two segments would be committed inside the group, and a
- * reader pages a group as one run.
+ * order, or null when it carries none. A group travels together and comes
+ * first. An ordinary update between two segments would be committed inside
+ * the group, and a reader pages a group as one run. One ahead of the group
+ * would be committed before it without the coverage gate weighing it: the
+ * gate reads what is committed before the request, and a redirect starts a
+ * new reader at the group's first segment, past that update.
  */
 export function selectOutgoingBaselineSegments(
   updates: readonly DocumentOutgoingUpdate[],
 ): readonly DocumentOutgoingUpdate[] | null {
   const first = updates.findIndex((update) => update.baselineId !== undefined);
   if (first < 0) return null;
+  if (first > 0) {
+    throw documentBaselineGroupInvalid(
+      "other updates come ahead of its segments",
+    );
+  }
   const last = updates.findLastIndex(
     (update) => update.baselineId !== undefined,
   );
@@ -56,17 +64,9 @@ export function selectOutgoingBaselineSegments(
  * the hashes in its write header; the append that follows verifies every
  * header's signature and that the declared fields are the signed ones, so a
  * group that passes here and commits is the group its writer signed.
- *
- * The group's cursor must not name an update of the request that carries it
- * (`requestUpdates`, the segments themselves when absent). A cursor stands
- * for updates its author judged in a pull it completed, which were committed
- * before the request. One that names an update committed with the group is
- * unknown when the coverage gate reads it, so the gate weighs every update,
- * and known once committed, so a redirect would skip that update unweighed.
  */
 export async function requireOutgoingBaselineGroup(input: {
   readonly documentId: string;
-  readonly requestUpdates?: readonly DocumentOutgoingUpdate[] | undefined;
   readonly segments: readonly DocumentOutgoingUpdate[];
 }): Promise<DocumentBaselineGroup> {
   const verdict = await judgeDocumentBaselineGroup({
@@ -94,15 +94,6 @@ export async function requireOutgoingBaselineGroup(input: {
   if (!verdict.ok) {
     throw documentBaselineGroupInvalid(
       documentBaselineGroupFaultMessage(verdict.fault),
-    );
-  }
-  const cursor = verdict.group.coversThroughUpdateId;
-  if (
-    cursor !== undefined &&
-    (input.requestUpdates ?? input.segments).some(({ id }) => id === cursor)
-  ) {
-    throw documentBaselineGroupInvalid(
-      "its cursor names an update of the same request",
     );
   }
   return verdict.group;

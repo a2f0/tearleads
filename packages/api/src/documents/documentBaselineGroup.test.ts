@@ -336,40 +336,55 @@ test("a peer named at a counter the group has not reached is refused", async () 
       ]),
     ),
   ).toBe("history_not_gapless");
-  // Naming a peer exactly where the group stands claims nothing new.
-  const verdict = await judgeDocumentBaselineGroup({
-    documentId: DOCUMENT_ID,
-    segments: await group([
-      first,
-      second,
-      {
-        ...third,
-        partialEndVersionVector: vector({ "7": 5, "9": 6 }),
-        partialStartVersionVector: vector({ "7": 5, "9": 2 }),
-      },
-    ]),
-  });
-  expect(verdict).toMatchObject({
-    group: { coverage: vector({ "7": 5, "9": 6 }) },
-    ok: true,
-  });
+  // Naming a peer exactly where the group stands claims nothing new, and
+  // is refused all the same: an exported update names only the peers it
+  // carries, and entries without a span would let a writer make every
+  // first page weigh thousands of peers.
+  expect(
+    await fault(
+      await group([
+        first,
+        second,
+        {
+          ...third,
+          partialEndVersionVector: vector({ "7": 5, "9": 6 }),
+          partialStartVersionVector: vector({ "7": 5, "9": 2 }),
+        },
+      ]),
+    ),
+  ).toBe("history_not_gapless");
+  // A dependency may name any peer the group has reached.
+  expect(
+    await fault(
+      await group([
+        first,
+        second,
+        { ...third, dependencyVersionVector: vector({ "7": 3, "9": 2 }) },
+      ]),
+    ),
+  ).toBeNull();
 });
 
-// "No operations" means no span, however the vectors spell it, here and in
-// the append that follows (`assertOutgoingSpanOrEmptyBaseline`).
-test("a segment with no span is empty whatever its vectors name", async () => {
-  const zeroStart = {
-    dependencyVersionVector: emptyVersionVector(),
-    partialEndVersionVector: emptyVersionVector(),
-    partialStartVersionVector: vector({ "7": 0 }),
-  };
-  expect(await fault(await group([zeroStart]))).toBe("cursor_missing");
-  expect(await fault(await group([zeroStart], CURSOR))).toBeNull();
-  const [first] = RANGES;
-  if (!first) throw new Error("Expected a range");
-  expect(await fault(await group([first, zeroStart], CURSOR))).toBe(
-    "history_not_gapless",
-  );
+// "No operations" means no span, here and in the append that follows
+// (`assertOutgoingSpanOrEmptyBaseline`), and an empty segment's vectors name
+// no peer: a vector that names one at a counter it does not move is refused
+// before the append could meet it.
+test("an empty segment names no peer", async () => {
+  for (const [start, end] of [
+    [vector({ "7": 0 }), emptyVersionVector()],
+    [emptyVersionVector(), vector({ "7": 0 })],
+    [vector({ "7": 0 }), vector({ "7": 0 })],
+  ] as const) {
+    const zeroLength = {
+      dependencyVersionVector: emptyVersionVector(),
+      partialEndVersionVector: end,
+      partialStartVersionVector: start,
+    };
+    expect(await fault(await group([zeroLength]))).toBe("history_not_gapless");
+    expect(await fault(await group([zeroLength], CURSOR))).toBe(
+      "history_not_gapless",
+    );
+  }
 });
 
 test("an empty baseline is one segment that signs a cursor", async () => {
@@ -404,8 +419,8 @@ test("an empty baseline is one segment that signs a cursor", async () => {
           first,
           {
             dependencyVersionVector: vector({ "7": 3 }),
-            partialEndVersionVector: vector({ "7": 3 }),
-            partialStartVersionVector: vector({ "7": 3 }),
+            partialEndVersionVector: emptyVersionVector(),
+            partialStartVersionVector: emptyVersionVector(),
           },
         ],
         CURSOR,

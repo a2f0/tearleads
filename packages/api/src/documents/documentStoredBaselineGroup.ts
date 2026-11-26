@@ -201,12 +201,17 @@ async function judgeStoredBaselineGroup(
  * is committed whole by one transaction, so an honest database never fails
  * the rules; a row altered or removed afterwards is skipped instead of
  * redirecting a reader past history it does not carry.
+ *
+ * `startsAfterSequence` is where the reader's pull begins. A group whose
+ * first segment is not past it cannot redirect that reader, and neither can
+ * an older one, so the answer is null before any row is hashed.
  */
 export async function loadLatestStoredDocumentBaselineGroup(
   executor: DatabaseSession,
   input: {
     readonly contentKeyEpoch: number;
     readonly documentId: string;
+    readonly startsAfterSequence?: number | undefined;
     readonly upperBoundSequence?: number | undefined;
   },
 ): Promise<StoredDocumentBaselineGroup | null> {
@@ -218,6 +223,12 @@ export async function loadLatestStoredDocumentBaselineGroup(
     });
     const first = rows[0];
     if (!first) return null;
+    if (
+      input.startsAfterSequence !== undefined &&
+      first.sequence - 1 <= input.startsAfterSequence
+    ) {
+      return null;
+    }
     const group = await judgeStoredBaselineGroup(input.documentId, rows);
     if (group) return group;
     // Groups do not interleave, so every older group ends before this one

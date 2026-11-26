@@ -85,25 +85,29 @@ test("a sync refuses a baseline that breaks a group rule and writes nothing", as
   });
   await expectNothingWritten(history);
 
-  // A cursor stands for updates committed before the request. One that
-  // names an update sent ahead of the group in the same request would be
-  // unknown to the coverage gate and known to every later redirect, which
-  // would skip that update unweighed.
+  // The group comes first. An update ahead of it would be committed before
+  // it without the coverage gate weighing it, and a redirect starts a new
+  // reader at the group's first segment, past that update: here the group
+  // does not carry the update's operations, and its cursor is one a later
+  // request could commit an update under.
   const [ahead] = trailing.request.outgoingUpdates;
   if (!ahead) throw new Error("Expected an ordinary update");
-  const sameRequestCursor = await send([
-    ahead,
-    ...(await sign({
-      coversThroughUpdateId: ahead.id,
-      ranges: peerRanges(frontier),
-    })),
-  ]);
-  expect(sameRequestCursor.status).toBe(409);
-  expect(await sameRequestCursor.json()).toEqual({
-    code: GROUP_INVALID,
-    error: `${NOT_WHOLE}its cursor names an update of the same request`,
-  });
-  await expectNothingWritten(history);
+  for (const coversThroughUpdateId of [
+    undefined,
+    ahead.id,
+    "7e7c4d7a-1b2c-4d3e-8f90-a1b2c3d4e5f6",
+  ]) {
+    const led = await send([
+      ahead,
+      ...(await sign({ coversThroughUpdateId, ranges: peerRanges(frontier) })),
+    ]);
+    expect(led.status).toBe(409);
+    expect(await led.json()).toEqual({
+      code: GROUP_INVALID,
+      error: `${NOT_WHOLE}other updates come ahead of its segments`,
+    });
+    await expectNothingWritten(history);
+  }
 
   // A whole group that stops short of the committed frontier is stale, not
   // malformed: the client proves its history again.
@@ -135,6 +139,41 @@ test("a sync refuses a baseline that breaks a group rule and writes nothing", as
     "Document update metadata hash mismatch",
   );
   await expectNothingWritten(history);
+});
+
+// A cursor names an update committed before the request. The same request
+// may send that update again after the group, as a retry whose acknowledgement
+// was lost does: nothing ahead of the group goes unweighed, so it is accepted.
+test("a sync accepts a group whose cursor names a committed update it sends again", async () => {
+  const history = await documentWithHistory();
+  const { committed, created, frontier, owner, root } = history;
+  const sign = signerFor(history, {
+    accessManifestHash: created.manifestHash,
+    contentKeyEpoch: created.contentKeyEpoch,
+    dependencyManifestHashes: [root.bundle.manifestHash],
+    targetHash: created.targetHash,
+  });
+  const trailing = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const retried = committed.at(-1);
+  if (!retried) throw new Error("Expected a committed update");
+  const response = await postDocumentSync(owner, created.id, {
+    ...trailing.request,
+    outgoingUpdates: [
+      ...(await sign({
+        coversThroughUpdateId: retried.id,
+        ranges: peerRanges(frontier),
+      })),
+      retried,
+    ],
+  });
+  expect(response.status).toBe(200);
+  expect(await storedUpdates(created.id)).toHaveLength(
+    committed.length + peerRanges(frontier).length,
+  );
 });
 
 test("a sync refuses a group of which only some segments are committed", async () => {

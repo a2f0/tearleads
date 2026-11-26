@@ -102,6 +102,14 @@ function placementFault(
     : "segment_count_mismatch";
 }
 
+/** How many peers a segment's start and end vectors name between them. */
+function namedPeerCount(segment: DocumentBaselineSegment): number {
+  return new Set([
+    ...decodeVersionVector(segment.partialStartVersionVector).toJSON().keys(),
+    ...decodeVersionVector(segment.partialEndVersionVector).toJSON().keys(),
+  ]).size;
+}
+
 interface GroupHistory {
   /** Whether some segment carries no operations. */
   readonly hasEmptySegment: boolean;
@@ -114,9 +122,13 @@ interface GroupHistory {
  * start every peer it names exactly where the earlier segments left it, from
  * zero, and depend only on operations they carry. What the walk reaches is
  * what the group carries. A segment's vectors are otherwise only claims: one
- * that names a peer at a counter the group has not reached, with or without
- * a span of its own, would stand for operations no segment holds. Returns
- * null when a segment breaks the walk or a vector does not decode.
+ * that names a peer at a counter the group has not reached would stand for
+ * operations no segment holds. So a segment's start and end name only the
+ * peers it carries operations of, as the vectors of an exported update do;
+ * entries without a span would also let a writer make every reader's first
+ * page weigh thousands of peers no segment carries. Dependencies may name
+ * any peer the group has reached. Returns null when a segment breaks the
+ * walk or a vector does not decode.
  */
 function walkGroupHistory(
   segments: readonly DocumentBaselineSegment[],
@@ -127,12 +139,9 @@ function walkGroupHistory(
   try {
     for (const segment of segments) {
       const spans = listVersionVectorSpans(segment);
-      const starts = decodeVersionVector(segment.partialStartVersionVector);
       const dependencies = decodeVersionVector(segment.dependencyVersionVector);
       if (
-        [...starts.toJSON()].some(
-          ([peerId, counter]) => held(peerId) !== counter,
-        ) ||
+        namedPeerCount(segment) !== spans.length ||
         spans.some((span) => held(span.peerId) !== span.startCounter) ||
         [...dependencies.toJSON()].some(
           ([peerId, counter]) => held(peerId) < counter,

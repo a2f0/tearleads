@@ -127,6 +127,7 @@ export async function resolveBaselineRedirectAfterSequence(input: {
   const baseline = await loadLatestStoredDocumentBaselineGroup(input.executor, {
     contentKeyEpoch: input.contentKeyEpoch,
     documentId: input.documentId,
+    startsAfterSequence: input.afterSequence,
     upperBoundSequence: input.upperBoundSequence,
   });
   if (!baseline) return input.afterSequence;

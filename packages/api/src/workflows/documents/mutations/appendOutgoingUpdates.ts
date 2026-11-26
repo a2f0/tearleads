@@ -60,6 +60,32 @@ function acceptedOutgoingUpdateIds(
     .map((update) => update.id);
 }
 
+/**
+ * A request's updates are committed in request order: a pull serves by
+ * `sequence`, a rotation baseline's segments are read back as a group in it,
+ * and a redirect starts at the group's first. One multi-row insert assigns
+ * the identity column in row order in practice, which Postgres does not
+ * promise, so the order is checked from the rows it returned. A request
+ * whose rows came back out of order fails, and its transaction rolls back.
+ */
+export function assertStoredInRequestOrder(
+  updates: readonly Pick<DocumentOutgoingUpdate, "id">[],
+  insertedRows: readonly { readonly id: string; readonly sequence: number }[],
+): void {
+  const sequenceById = new Map(
+    insertedRows.map((row) => [row.id, row.sequence]),
+  );
+  let previous: number | null = null;
+  for (const { id } of updates) {
+    const sequence = sequenceById.get(id);
+    if (sequence === undefined) continue;
+    if (previous !== null && sequence <= previous) {
+      throw new Error("Document updates were not stored in request order");
+    }
+    previous = sequence;
+  }
+}
+
 async function insertNewDocumentUpdates(input: {
   readonly accessEpoch: number;
   readonly documentId: string;
@@ -94,7 +120,8 @@ async function insertNewDocumentUpdates(input: {
       })),
     )
     .onConflictDoNothing({ target: documentUpdates.id })
-    .returning({ id: documentUpdates.id });
+    .returning({ id: documentUpdates.id, sequence: documentUpdates.sequence });
+  assertStoredInRequestOrder(input.updates, insertedRows);
   const insertedUpdateIds = new Set(insertedRows.map((row) => row.id));
   await insertDocumentUpdateSpans(input.executor, {
     documentId: input.documentId,
