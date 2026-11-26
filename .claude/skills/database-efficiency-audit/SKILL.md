@@ -125,9 +125,9 @@ and inspect bounded excerpts with `bun run agent:logs <path>`.
    statement-budget and query-plan tests with their ceilings. Record counts;
    the issue reports them.
 4. Capture the statement baseline once per audited revision: run the
-   scenario set in `references/measurement.md` under the SQL-capture
-   preload, and save per-scenario statement counts and the most repeated
-   normalized statements.
+   scenario set in `references/measurement.md` through `perf:statements` and
+   `perf:canaries --statements`, and save per-scenario statement counts and
+   the most repeated normalized statements.
 5. Read the results index of the
    [performance harness](references/measurement.md#performance-harness) and
    list in `measurements/harness.md` each recorded run that bears on a
