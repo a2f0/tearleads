@@ -217,10 +217,13 @@ under the older judge.
 Outside the model: the rotation-baseline redirect of a pull's first page, which
 skips only updates after the cursor that the baseline covers
 ([`BaselineDominance`](./BaselineDominance.md) checks that gate); the group
-rules a served baseline must meet (index order, one baseline, the signed
-count and digest), which `judgeServedBaselineGroups` checks before `Judge`
-reads a payload and which fail the pass without a verdict, as a duplicate
-update id does; AEAD failures
+rules a served baseline must meet (index order from its first segment on a
+page requested with no version, one baseline, the signed count and digest),
+which `judgeServedBaselineGroups` checks before `Judge` reads a payload, and
+a segment served without the segments it builds on, which
+`settleBaselineGroupVerdicts` tells from a void once `Judge` has read the
+page; both fail the pass without a verdict, as a duplicate update id does;
+AEAD failures
 and content keys, which [`ContentKeyCommitment`](./ContentKeyCommitment.md)
 checks, so no verdict or cursor depends on the key a reader holds; duplicate
 update ids, which still fail a page; a pull's pages beyond the

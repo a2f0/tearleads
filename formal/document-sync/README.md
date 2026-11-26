@@ -18,9 +18,10 @@ normal-mode read may omit an older-epoch update only when a readable
 current-epoch baseline provably dominates it, and raw mode always serves the
 complete retained missing frontier. A baseline is a group of segments, and
 only a whole group is readable. `NoDataLoss` is stated against what the
-stored segments actually carry, and four controls show that the vector
-coverage check, the whole-group rule, raw-mode completeness, and keeping
-current-epoch updates each carry an invariant. Because the other invariants
+stored segments actually carry, and five controls show that the vector
+coverage check, the whole-group rule, coverage read from spans, raw-mode
+completeness, and keeping current-epoch updates each carry an invariant.
+Because the other invariants
 share the `Dominated`/`Older` operators with the serve action, TLC alone cannot
 check the dominance definition itself; the registered
 [`BaselineDominanceTraceExport.tla`](./BaselineDominanceTraceExport.tla)

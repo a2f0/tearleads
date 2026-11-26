@@ -26,7 +26,7 @@ The abstraction maps to production at these seams:
 | `Dominated` | `isDocumentUpdateDominatedByBaseline` |
 | `ReadableBaseline` / `WholeBaseline` | `loadLatestReadableBaselineCoverage`, the coverage of the group `loadLatestStoredDocumentBaselineGroup` returns: the newest one at the epoch whose stored segments all pass `judgeDocumentBaselineGroup` |
 | `storedSegments` | a group's `document_updates` rows whose columns still give the metadata hash their header signs (`storedDocumentUpdateMetadataHash`) |
-| `coverage` | the merged ends of the group's segments, which `judgeDocumentBaselineGroup` returns once their spans run gapless from zero |
+| `coverage` | what the group's spans carry from zero: the counters `judgeDocumentBaselineGroup` reaches walking the segments in order, never a vector a segment declares |
 | `Serve` / `RedirectServed` | `listMissingSyncUpdatesForResponse` through `selectServedSyncUpdates` |
 
 TLC explores the sync serve decision. The checked invariants require that:
@@ -46,7 +46,7 @@ readable for a redirect.
 
 ## Negative controls
 
-Four controls each flip one production rule and require TLC to report the
+Five controls each flip one production rule and require TLC to report the
 named invariant:
 
 - `CheckVectorCovers = FALSE` omits an older update the baseline's coverage
@@ -54,6 +54,9 @@ named invariant:
 - `RequireWholeBaseline = FALSE` redirects through a group that is missing a
   segment, so an update only that segment carries reaches no reader,
   violating `NoDataLoss`.
+- `CoverageFromSpans = FALSE` reads coverage from the vectors the segments
+  declare, which can name operations no span carries, so a whole group
+  covers an update none of its segments holds, violating `NoDataLoss`.
 - `RawModeServesAll = FALSE` redirects a raw-history read, violating
   `RawModeServesCompleteFrontier`.
 - `RedirectKeepsCurrentEpoch = FALSE` drops every covered update rather than
@@ -127,7 +130,8 @@ end-to-end encrypted, so the server cannot verify what a segment carries;
 `ReadableBaseline` is a group whose stored segments each authenticate against
 their signed metadata hash and together pass the group rules
 (`judgeDocumentBaselineGroup`): index order, the signed count and digest, and
-spans that run gapless from zero. The model trusts that an honest writer's
+spans that run gapless from zero, each segment starting every peer it names
+where the ones before it left that peer. The model trusts that an honest writer's
 segments carry what their signed spans declare, exactly as production does; a
 writer that signs a span its payload does not match is outside the boundary,
 and every reader voids that segment. The model commits a group whole, as one

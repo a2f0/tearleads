@@ -5,7 +5,8 @@ CONSTANTS Peers, MaxCounter, MaxEpoch, UpdateCount, SegmentCount,
           CheckVectorCovers,            \* dominance requires the vector to cover the update
           RawModeServesAll,             \* raw history mode never redirects
           RedirectKeepsCurrentEpoch,    \* a redirect drops only older-epoch updates
-          RequireWholeBaseline          \* only a whole signed group redirects
+          RequireWholeBaseline,         \* only a whole signed group redirects
+          CoverageFromSpans             \* coverage is what the segments carry
 
 ASSUME /\ Peers # {}
        /\ MaxCounter \in Nat
@@ -13,7 +14,7 @@ ASSUME /\ Peers # {}
        /\ UpdateCount \in Nat \ {0}
        /\ SegmentCount \in Nat \ {0}
        /\ {CheckVectorCovers, RawModeServesAll, RedirectKeepsCurrentEpoch,
-           RequireWholeBaseline} \subseteq BOOLEAN
+           RequireWholeBaseline, CoverageFromSpans} \subseteq BOOLEAN
 
 Counters == 0..MaxCounter
 Epochs == 1..MaxEpoch
@@ -25,11 +26,14 @@ UpdateRecords == [epoch : Epochs, frontier : VersionVectors]
 UpdateMaps == [UpdateIds -> UpdateRecords]
 
 (* The latest current-epoch baseline is a group of `SegmentCount` signed  *)
-(* segments, each an ordinary update. `coverage` is the version its       *)
-(* segments' signed spans reach together, which run gapless from zero.    *)
-(* `segmentOf` names the segment that carries each update's operations,   *)
-(* or `NoSegment` for an update the group does not hold: a writer's group *)
-(* holds exactly the updates its coverage covers. `storedSegments` are    *)
+(* segments, each an ordinary update. `coverage` is the version the       *)
+(* server reads for the group. `segmentOf` names the segment that carries *)
+(* each update's operations, or `NoSegment` for an update the group does  *)
+(* not hold. The server reads coverage from the spans the segments carry  *)
+(* from zero, so the group holds exactly the updates its coverage covers. *)
+(* CoverageFromSpans = FALSE is a server that reads it from the vectors   *)
+(* the segments declare: a vector can name operations no span carries, so *)
+(* coverage may cover an update no segment holds. `storedSegments` are    *)
 (* the segments the server still holds with the fields their writer       *)
 (* signed. The final segment signs the count and a digest of the others,  *)
 (* so a server can tell a whole group from one missing a segment.         *)
@@ -102,8 +106,11 @@ Init ==
   /\ storedSegments \in SUBSET Segments
   /\ ~hasBaseline => storedSegments = {}
   /\ \A id \in UpdateIds :
-       (segmentOf[id] # NoSegment) <=>
-         (hasBaseline /\ VectorCovers(updates[id].frontier))
+       /\ (segmentOf[id] # NoSegment) =>
+            (hasBaseline /\ VectorCovers(updates[id].frontier))
+       /\ CoverageFromSpans =>
+            ((hasBaseline /\ VectorCovers(updates[id].frontier)) =>
+               segmentOf[id] # NoSegment)
   /\ historyMode \in {"normal", "raw"}
   /\ served = {}
 

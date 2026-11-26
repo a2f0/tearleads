@@ -22,6 +22,14 @@ export const BASELINE_DOMINANCE_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       why: "A baseline is a group of segments whose spans reach its coverage together. Redirecting through a group that is missing a segment omits an update whose operations only that segment carries.",
     },
     {
+      id: "baseline-coverage-from-declared-vectors",
+      module: BASELINE_DOMINANCE_MODULE,
+      config: BASELINE_DOMINANCE_CONFIG,
+      constants: { CoverageFromSpans: "FALSE" },
+      expect: { kind: "invariant", name: "NoDataLoss" },
+      why: "A segment's vectors can name a peer at a counter with no span that carries its operations. Coverage read from them covers updates no segment holds, and a redirect then omits those updates.",
+    },
+    {
       id: "baseline-redirect-raw-mode",
       module: BASELINE_DOMINANCE_MODULE,
       config: BASELINE_DOMINANCE_CONFIG,
