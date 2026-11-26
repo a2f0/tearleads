@@ -18,6 +18,16 @@ import type { DocumentOperationSpan } from "./documentUpdateVerdict";
 
 export type UnappliedOperations = ReadonlyMap<string, DocumentOperationSpan>;
 
+/**
+ * The most unapplied spans a pull carries for one rotation baseline, which
+ * is the most peers its unapplied segments may name. The run is kept in
+ * memory and stored with the pull's continuation, so it is bounded: a group
+ * whose unapplied segments name more peers fails the pass
+ * (`settleBaselineGroupVerdicts`), and a stored run longer than this is not
+ * one this reader wrote.
+ */
+export const MAX_UNAPPLIED_BASELINE_SPANS = 8_192;
+
 interface DeclaredVectors {
   readonly partialEndVersionVector: string;
   readonly partialStartVersionVector: string;

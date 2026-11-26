@@ -17,6 +17,7 @@ import {
   continuesWholeBaselineGroup,
 } from "./baselineGroupMachine";
 import {
+  MAX_UNAPPLIED_BASELINE_SPANS,
   type UnappliedOperations,
   unappliedOperationSpans,
   unappliedOperationsOf,
@@ -281,12 +282,18 @@ export function settleBaselineGroupVerdicts(input: {
     }
   }
   const { nextRun } = input;
-  return nextRun
-    ? {
-        ...nextRun,
-        unapplied: unappliedOperationSpans(
-          unapplied.get(nextRun.baselineId) ?? none,
-        ),
-      }
-    : null;
+  if (!nextRun) return null;
+  const carried = unappliedOperationSpans(
+    unapplied.get(nextRun.baselineId) ?? none,
+  );
+  // The run is carried in memory and stored with the continuation. A group
+  // that would grow it past its bound fails the pass, as a broken group
+  // does: nothing of the page is imported and no void is recorded.
+  if (carried.length > MAX_UNAPPLIED_BASELINE_SPANS) {
+    throw servedBaselineGroupError(
+      "a rotation baseline's unapplied segments name more peers than a pull carries",
+      input.updates.map((served) => served.id),
+    );
+  }
+  return { ...nextRun, unapplied: carried };
 }
