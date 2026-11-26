@@ -166,6 +166,22 @@ test("a record whose cursor another judge reached probes until a pull completes"
   });
   expect(isDocumentStoreCoveredByListing(state)).toBe(false);
 
+  // A pull can reach its bound and still leave the old cursor: one whose
+  // pages ran under more than one judge abandons it. The cursor on disk
+  // decides, so the store keeps probing.
+  await settleOwedListingReadAfterCompletedPull(state, generationOf(state), {
+    frontier: FRONTIER,
+    owed: null,
+    pull: COMPLETE_PULL,
+  });
+  expect(isDocumentStoreCoveredByListing(state)).toBe(false);
+
+  // The pull that judges every update again saves the running judge's.
+  await execSql(
+    `UPDATE document_sync_progress SET judge = ?
+     WHERE app_kind = 'documents' AND local_id = 'local-1'`,
+    [documentVerdictJudge()],
+  );
   await settleOwedListingReadAfterCompletedPull(state, generationOf(state), {
     frontier: FRONTIER,
     owed: null,

@@ -168,14 +168,37 @@ export async function settleOwedListingReadAfterCompletedPull(
   ) {
     return;
   }
-  // The pull reached its bound, so the cursor it saved is the running
-  // judge's: a cursor that was withheld is judged again.
-  applyOwedReadEvent(state, { type: "pullCompleted" });
+  await settleWithheldCursorAfterPull(state, generation, input.frontier);
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return;
   if (input.owed === null) return;
   await settleOwedListingReadAfterPull(state, generation, {
     frontier: input.frontier,
     owed: input.owed,
   });
+}
+
+/**
+ * Ends a store's withheld-cursor state once a pull that reached its bound has
+ * left a cursor the next pull would send. The cursor on disk decides, not
+ * the pull: one whose pages ran under more than one judge, or that the
+ * server answered with no bound, completes and leaves the old cursor.
+ */
+async function settleWithheldCursorAfterPull(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncGeneration,
+  frontier: string,
+): Promise<void> {
+  const documentId = state.record?.documentId;
+  if (owedReadStates.get(state)?.status !== "withheld" || !documentId) return;
+  const withheld = await isDocumentProcessedCursorWithheld(generation.execSql, {
+    documentId,
+    frontier,
+    localId: state.localId,
+  });
+  if (withheld || !isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    return;
+  }
+  applyOwedReadEvent(state, { type: "pullCompleted" });
 }
 
 /**

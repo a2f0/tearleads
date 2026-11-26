@@ -76,8 +76,8 @@ adding an update. The mechanism is the one
   [processed cursor its next pull withholds](./advisory-op-spans.md#the-processed-cursor)
   (the device now runs another judge, or its content was restored to an
   older version) owes the pull that judges its updates again, so its store
-  probes when it loads and after each acknowledged connection until one pull
-  reaches its bound.
+  probes when it loads and after each acknowledged connection until a pull
+  leaves a cursor the next one would send.
 - Attachments. Attachment bytes download after a sync response, so a document
   that names an attachment whose bytes the device does not hold also probes.
 - No-brick. The read is this device's own pull, with its stored commit

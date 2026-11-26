@@ -42,7 +42,7 @@ export type OwedListingReadEvent =
   | { readonly read: DocumentListingRevalidation; readonly type: "unpaid" }
   /** The loaded record holds a cursor its next pull withholds. */
   | { readonly type: "cursorWithheld" }
-  /** A pull reached its bound, so it saved the cursor it judged up to. */
+  /** A pull reached its bound and left a cursor the next pull would send. */
   | { readonly type: "pullCompleted" };
 
 /**
