@@ -114,6 +114,27 @@ test.each([
     ["@tearleads/client-sdk#test"],
     ["@tearleads/api#test", "app#test", "@tearleads/bob-and-alice#test"],
   ],
+  // A refreshed timings table reshuffles only its own package's shards.
+  [
+    "packages/api/test-timings.json",
+    ["@tearleads/api#test"],
+    [
+      "app#test",
+      "@tearleads/bob-and-alice#test",
+      "@tearleads/cli#test",
+      postgres,
+    ],
+  ],
+  [
+    "packages/client-sdk/test-timings.json",
+    ["@tearleads/client-sdk#test"],
+    ["@tearleads/api#test", "app#test", "@tearleads/bob-and-alice#test"],
+  ],
+  [
+    "packages/app/test-timings.json",
+    ["app#test"],
+    ["@tearleads/cli#test", "app-web#test", windows, ...native],
+  ],
   [
     "packages/app-electrobun/scripts/monitor.test.ts",
     ["app-electrobun#test", windows],

@@ -5,7 +5,7 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "test": "bun test src --parallel=4"
+    "test": "bun test src --parallel=4 --timings=test-timings.json"
   },
   "devDependencies": {
     "@tearleads/api": "workspace:*",
