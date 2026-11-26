@@ -58,7 +58,12 @@ pass, with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them
 (`CI_DEFER_PROTOCOL_MODELS=1`). Their inputs include the formal models,
 registry, checker scripts, tool pins, and Java runtime identity. The wrapper
 validates the installed Java version and jar digest before every lookup,
-including cache hits. Implementation projections, conformance tests, and other
+including cache hits. Each job overlaps four TLC runs, one per runner vCPU
+(`PROTOCOL_TLC_PARALLELISM=4`; local runs default to two), with each JVM's
+heap capped so the four fit in the runner's memory, and starts its longest
+runs first from the [recorded durations](../../formal/README.md). The
+parallelism is part of the task hash, so changing it reruns both passes.
+Implementation projections, conformance tests, and other
 static checks still run in `Lint`. Local
 [`check:fast`](./verification.md#before-a-push) and the direct model commands
 still execute TLC.

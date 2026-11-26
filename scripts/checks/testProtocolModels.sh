@@ -160,6 +160,74 @@ metadir_count=$(cut -d '|' -f 3 "$JAVA_LOG" | LC_ALL=C sort -u | wc -l | tr -d '
 tmpdir_count=$(cut -d '|' -f 4 "$JAVA_LOG" | LC_ALL=C sort -u | wc -l | tr -d '[:space:]')
 [ "$tmpdir_count" -eq 3 ] || fail "TLC runs did not receive distinct Java tmpdirs."
 
+# Overlapping JVMs share three quarters of physical memory for their heaps;
+# up to three keep the JVM's default quarter each.
+for heap_case in 1:25 2:25 3:25 4:18 6:12; do
+  install_registry valid.txt
+  # A subshell keeps the assignment from outliving the function call.
+  (PROTOCOL_TLC_PARALLELISM=${heap_case%%:*} run_check >/dev/null)
+  heap_percents=$(cut -d '|' -f 6 "$JAVA_LOG" | LC_ALL=C sort -u)
+  [ "$heap_percents" = "${heap_case#*:}" ] ||
+    fail "parallelism ${heap_case%%:*} gave each TLC run a heap of $heap_percents percent, not ${heap_case#*:}."
+done
+
+# Recorded durations set the launch order: longest first, a model with no
+# recorded duration before every recorded one, and ties in registry order. One
+# run at a time makes the launch log follow that order exactly, and the report
+# follows it at any parallelism.
+DURATIONS_FILE=$TEST_ROOT/formal/protocol-model-durations.txt
+expected_schedule='formal/alpha/Alpha.tla|formal/alpha/AlphaBroad.cfg
+formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg
+formal/alpha/Alpha.tla|formal/alpha/Alpha.cfg'
+for parallelism in 1 2; do
+  install_registry valid.txt
+  printf '%s\n' '# seconds model|config' \
+    '10 formal/alpha/Alpha.tla|formal/alpha/Alpha.cfg' \
+    '30 formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' >"$DURATIONS_FILE"
+  scheduled_output=$(PROTOCOL_TLC_PARALLELISM=$parallelism run_check)
+  if [ "$parallelism" -eq 1 ]; then
+    [ "$(cut -d '|' -f 1,2 "$JAVA_LOG")" = "$expected_schedule" ] ||
+      fail "recorded durations did not start the longest model first."
+  fi
+  reported_schedule=$(printf '%s\n' "$scheduled_output" |
+    sed -n 's/^Checking \(.*\) with \(.*\)\.\.\.$/\1|\2/p')
+  [ "$reported_schedule" = "$expected_schedule" ] ||
+    fail "models were not reported in launch order at parallelism $parallelism."
+done
+
+# A malformed or repeated entry fails before any run starts.
+for durations_lines in \
+  'thirty formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' \
+  '30formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' \
+  '30 formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg trailing' \
+  '30  formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' \
+  '30 formal/zeta/Missing.tla|formal/zeta/Missing.cfg
+20 formal/zeta/Missing.tla|formal/zeta/Missing.cfg'; do
+  install_registry valid.txt
+  printf '%s\n' "$durations_lines" >"$DURATIONS_FILE"
+  if durations_output=$(run_check 2>&1); then
+    fail "the duration entries '$durations_lines' were accepted."
+  fi
+  assert_contains "$durations_output" "formal/protocol-model-durations.txt:"
+  [ ! -e "$JAVA_LOG" ] ||
+    fail "the duration entries '$durations_lines' launched Java anyway."
+done
+
+# Durations only order the runs, so an entry for a pair the registry no longer
+# lists, left by a renamed or removed model, is ignored with a note naming it,
+# and the check still runs every registered model exactly once.
+install_registry valid.txt
+printf '%s\n' \
+  '90 formal/zeta/Missing.tla|formal/zeta/Missing.cfg' \
+  '30 formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' >"$DURATIONS_FILE"
+stale_output=$(run_check 2>&1) ||
+  fail "a stale duration entry failed the check."
+assert_contains "$stale_output" "ignored: formal/zeta/Missing.tla|formal/zeta/Missing.cfg."
+assert_contains "$stale_output" "Checked 3 protocol model configuration(s)."
+[ "$(cut -d '|' -f 1,2 "$JAVA_LOG" | LC_ALL=C sort)" = "$expected_runs" ] ||
+  fail "a stale duration entry changed which models ran."
+rm -f "$DURATIONS_FILE"
+
 # CI's stdout can be non-blocking, so a report write may fail. That must never
 # abort the check: a pass still exits 0 and a failure keeps TLC's status.
 install_registry valid.txt

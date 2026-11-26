@@ -146,8 +146,7 @@ jobs:
           FASTLANE_SKIP_UPDATE_CHECK: "1"
         run: bun scripts/testing/runVerifiedTurbo.ts test --filter=app-capacitor
 
-  # The pure TLC passes, one runner each, so a model change (a Turbo miss) costs
-  # the longer pass rather than lengthening Lint by both.
+  # The pure TLC passes, off Lint, one runner each, four TLC runs per runner.
   models:
     name: Protocol models (${{ matrix.check }})
     runs-on: ubuntu-latest
@@ -183,6 +182,7 @@ jobs:
           CI_TURBO_PROTOCOL_CACHE: "1"
           MODEL_CHECK: ${{ matrix.check }}
           PROTOCOL_TLC_FAILURE_LOG_DIR: ${{ runner.temp }}/tlc-failures
+          PROTOCOL_TLC_PARALLELISM: "4"
         run: bun scripts/checks/runCachedProtocolCheck.ts "$MODEL_CHECK"
 
       # A failing model's full TLC log, which the job's stdout can cut short.
