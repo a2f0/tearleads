@@ -11,6 +11,7 @@ import { settleOutgoingPassAndDecideReArm } from "../../../data/sync/outgoingUpd
 import {
   createDocumentSyncLoroWindow,
   type DocumentSyncLoroWindow,
+  documentSyncCommittedVersions,
   noteDocumentSyncLoroWorkFailed,
   readPullContinuation,
   runDocumentSyncLoroWork,
@@ -456,6 +457,7 @@ async function saveContainerMetadataPage(
         outgoingUpdateCount,
       ),
       commitSideEffect: verdicts.commitSideEffect,
+      committedVersions: documentSyncCommittedVersions(synced),
       expectedSyncState: {
         pullContinuation: syncAttempt.consumedPullContinuation ?? null,
         record: syncAttempt.requestRecord,

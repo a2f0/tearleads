@@ -14,6 +14,7 @@ import {
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
 import { DocumentRecordRepository } from "../records";
+import { settleDocumentSyncResponseInTransaction } from "../records/documentCommittedVersionPersistence";
 import {
   insertDocumentPendingUpdateWithHistoryInTransaction,
   settleQueuedDocumentUpdatesInTransaction,
@@ -77,6 +78,20 @@ async function deleteAcceptedPendingUpdates(
   );
 }
 
+/** `currentRecord` is the record as this transaction read it. */
+function settleSyncResponse(
+  tx: ClientSQLiteTransactionScope,
+  currentRecord: StoredDocumentRecord,
+  response: Parameters<typeof settleDocumentSyncResponseInTransaction>[3],
+): Promise<void> {
+  return settleDocumentSyncResponseInTransaction(
+    tx,
+    { appKind: DOCUMENTS_APP_KIND, localId: currentRecord.id },
+    currentRecord,
+    response,
+  );
+}
+
 async function insertPendingUpdate(
   tx: ClientSQLiteTransactionScope,
   documentId: string,
@@ -107,11 +122,7 @@ async function settleMutationConflict(input: {
     ) &&
     sameRecoveryGeneration(input.currentRecord, input.mutation.expectedRecord)
   ) {
-    await deleteAcceptedPendingUpdates(
-      input.tx,
-      input.mutation.document.id,
-      input.mutation.acceptedPendingUpdateIds,
-    );
+    await settleSyncResponse(input.tx, input.currentRecord, input.mutation);
   }
 }
 
@@ -318,11 +329,7 @@ async function applyStoredDocumentMutation(input: {
   }
   await appendMutationHistory(lockedExecSql, mutation, tx);
   await insertPendingUpdate(tx, mutation.document.id, mutation.pendingUpdate);
-  await deleteAcceptedPendingUpdates(
-    tx,
-    mutation.document.id,
-    mutation.acceptedPendingUpdateIds,
-  );
+  await settleSyncResponse(tx, currentRecord, mutation);
   // Nothing above writes the document or projection rows, so the state read
   // at the top of this transaction still decides the save timestamp.
   const updatedAt =
@@ -409,11 +416,10 @@ export async function settleStoredDocumentPendingUpdates(
           sameDocumentSettlementIdentity(currentRecord, input.expectedRecord) &&
           sameRecoveryGeneration(currentRecord, input.expectedRecord)
         ) {
-          await deleteAcceptedPendingUpdates(
-            tx,
-            input.expectedRecord.id,
-            input.pendingUpdateIds,
-          );
+          await settleSyncResponse(tx, currentRecord, {
+            acceptedPendingUpdateIds: input.pendingUpdateIds,
+            committedVersions: input.committedVersions,
+          });
         }
         return currentRecord;
       },

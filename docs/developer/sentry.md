@@ -250,7 +250,7 @@ died reading did not match this device's history; this device starts no more
 rotations of the document and leaves them to other members` (see
 [rotation deaths](../rotation-deaths.md)). A void that reused operation ids
 under this device's own peer id
-([peer ownership](../advisory-op-spans.md#preemption-notices)) is
+([peer ownership](../peer-ownership.md#preemption-notices)) is
 reported once more, after its `document_peer_preemptions` notice is recorded,
 as `Documents: writer <user> (fingerprint <key>) committed operations under
 this device's peer id <peer>; ...`. The writer's user id, key fingerprint, and

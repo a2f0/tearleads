@@ -54,6 +54,14 @@ const accessLevelColumn = "effective_access_level";
  * - `peerSalt`: Salt that moved this record's writer peer after the server
  *   refused its old one as another user's (`recordPeerSeed`); `null` while
  *   the record writes on its first derived peer.
+ * - `committedVersion`: Encoded version vector of what sync settlements
+ *   showed the server to hold of the record's history: per peer, the highest
+ *   counter of any update a pull served and this device accepted, or of any
+ *   outgoing update the server acknowledged. A settlement and a peer
+ *   recovery's install raise it, by merging; no save, queue change, relay,
+ *   rebase, or rotation lowers it. A remote reset and a discard clear it.
+ *   `null` until the first settlement. A peer refusal is judged against it
+ *   and against where the queue starts (`knownCommittedOf`).
  * - `syncFailureMessage`, `syncFailureAttemptedAt`: The last terminal sync
  *   failure or quarantined incoming update for this scope.
  *   The durable write queue (queued rows of `documentHistoryUpdates`) has no
@@ -89,6 +97,7 @@ export const documents = sqliteTable(
     pendingBaseVersion: text("pending_base_version"),
     pullContinuation: text("pull_continuation"),
     peerSalt: text("peer_salt"),
+    committedVersion: text("committed_version"),
     recoveryGeneration: integer("recovery_generation").notNull().default(0),
     recoveryDocumentId: text("recovery_document_id"),
     snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
@@ -209,6 +218,7 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
     requiredColumns: [
       "pull_continuation",
       "peer_salt",
+      "committed_version",
       "recovery_generation",
       "recovery_document_id",
       "sync_failure_message",

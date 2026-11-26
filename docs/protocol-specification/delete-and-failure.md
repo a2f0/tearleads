@@ -109,6 +109,11 @@ The protocol is fail-closed:
   [dependency frontier](../glossary/sync.md#dependency-frontier) past its
   peer's committed frontier returns `409 document_sync_dependency_uncommitted`
   with the same `peerFrontiers` and commits nothing
+- a client refused either way rebases its unsent operations onto a fresh peer;
+  when a named frontier is below what it has seen committed, it sends the lost
+  operations again under their own peers, or waits where another user owns the
+  peer, and writes nothing again
+  ([peer ownership](../peer-ownership.md#after-a-stale-recreation))
 - missing signed policy material prevents managed-principal key derivation
 - signer/session mismatches return forbidden
 - unavailable policy, key, blob, or document material is an availability
