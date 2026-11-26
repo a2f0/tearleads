@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { readCaptureFile } from "../statements/captureFile";
 import { parseCapture, summarizeCapture } from "../statements/summary";
 import {
   packagePreloads,
@@ -109,13 +110,26 @@ export async function runCanary(input: {
       output && capture && status === "passed"
         ? {
             capture: capture.out,
-            perPhase: phaseStatements(
-              output,
-              await readFile(capture.out, "utf8"),
-            ),
+            perPhase: await capturedPhaseStatements(output, capture.out),
           }
         : null,
   };
+}
+
+/**
+ * Statements per phase, or null when the capture cannot be matched to the
+ * profile: its markers differ, it was never written, or it cannot be read
+ * or parsed. The run keeps its result, and the report names the capture.
+ */
+async function capturedPhaseStatements(
+  output: CanaryOutput,
+  path: string,
+): Promise<number[] | null> {
+  try {
+    return phaseStatements(output, (await readCaptureFile(path)) ?? "");
+  } catch {
+    return null;
+  }
 }
 
 /**

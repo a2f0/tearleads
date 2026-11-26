@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { cpus } from "node:os";
 import { resolve } from "node:path";
 import { sourceIdentity } from "../database/artifacts";
@@ -15,22 +15,26 @@ import {
   runTestProcess,
   testFileArgument,
 } from "../testProcess";
+import { readCaptureFile } from "./captureFile";
 import { formatStatementSummary } from "./markdown";
-import { parseStatementOptions, statementUsage } from "./options";
+import {
+  parseStatementOptions,
+  type StatementOptions,
+  statementUsage,
+} from "./options";
 import { parseCapture, summarizeCapture } from "./summary";
 
 const capturePreload = resolve(import.meta.dir, "capturePreload.ts");
 /** A focused run takes seconds to minutes; this stops one that hangs. */
 const timeoutMs = 30 * 60_000;
 
+/** The capture's summary, or null when no capture was written. */
 async function summarizeFile(path: string) {
-  return summarizeCapture(parseCapture(await readFile(path, "utf8")));
+  const capture = await readCaptureFile(path);
+  return capture === null ? null : summarizeCapture(parseCapture(capture));
 }
 
-type RunOptions = Extract<
-  NonNullable<ReturnType<typeof parseStatementOptions>>,
-  { mode: "run" }
->;
+type RunOptions = Extract<StatementOptions, { mode: "run" }>;
 
 /** Runs the tests under the capture preload and saves what it recorded. */
 async function capture(options: RunOptions): Promise<number> {
@@ -65,7 +69,7 @@ async function capture(options: RunOptions): Promise<number> {
     timeoutMs,
   });
   const passed = result.exitCode === 0 && !result.timedOut;
-  const summary = await summarizeFile(out).catch(() => null);
+  const summary = await summarizeFile(out);
   const source = sourceIdentity();
   const jsonPath = await saveJson(`statements-${runId}.json`, {
     schemaVersion: 1,
@@ -110,9 +114,9 @@ async function main(): Promise<number> {
   }
   if (options.mode === "run") return capture(options);
   const path = resolve(repositoryRoot, options.capture);
-  console.log(
-    formatStatementSummary(await summarizeFile(path), `Capture ${path}.`),
-  );
+  const summary = await summarizeFile(path);
+  if (!summary) throw new Error(`There is no capture at ${path}.`);
+  console.log(formatStatementSummary(summary, `Capture ${path}.`));
   return 0;
 }
 

@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { loadCanaryReport } from "./report";
+import { comparePhases, phaseChanged } from "./summary";
 
 const directories: string[] = [];
 
@@ -47,4 +48,26 @@ test("a report that did not complete is refused", async () => {
       `is a ${status} report; compare only complete ones.`,
     );
   }
+});
+
+test("a report saved before statement capture compares", async () => {
+  const range = { min: 1, max: 1 };
+  const phase = {
+    canary: "Fake",
+    label: "phase",
+    occurrence: 0,
+    samples: 1,
+    requests: range,
+    requestBytes: range,
+    responseBytes: range,
+    byRequest: {},
+  };
+  const before = await loadCanaryReport(
+    await saved({ ...report, summary: [phase] }),
+  );
+  expect(before.summary[0]?.statements).toBeNull();
+  const after = [{ ...phase, statements: { min: 4, max: 4 } }];
+  const [change] = comparePhases(before.summary, after);
+  if (!change) throw new Error("No change was compared.");
+  expect(phaseChanged(change)).toBe(false);
 });

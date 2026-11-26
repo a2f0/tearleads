@@ -53,7 +53,7 @@ function printRun(run: CanaryRun): void {
   }
   if (run.statements?.perPhase === null)
     console.log(
-      `  The statement capture's phase markers do not match the profile; no per-phase statements. Capture: ${run.statements.capture}`,
+      `  The statement capture is missing, unreadable, or its phase markers do not match the profile; no per-phase statements. Capture: ${run.statements.capture}`,
     );
 }
 
@@ -140,8 +140,9 @@ async function main(): Promise<number> {
   const baseline = options.baseline ? await loadReport(options.baseline) : null;
   const canaries = selectCanaries(await discoverCanaries(), options.canaries);
   const final = await measure(canaries, options);
-  const comparison = baseline ? compare(baseline, final) : null;
+  // Save before comparing, so a comparison that throws cannot lose the run.
   const jsonPath = await saveJson(`canaries-${final.runId}.json`, final);
+  const comparison = baseline ? compare(baseline, final) : null;
   const markdownPath = await saveReportFile(
     `canaries-${final.runId}.md`,
     [formatCanaryReport(final), comparison].filter(Boolean).join("\n"),

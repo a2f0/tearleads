@@ -114,6 +114,26 @@ test("prints a bad line", () => {
   expect(await readFile(log, "utf8")).toContain('{"label":"broken"}');
 });
 
+test("a capture that was never written leaves the run's result", async () => {
+  // console.log reaches the profile parser but not the capture's markers,
+  // and the file sends no statement, so the capture is never created.
+  const root = await fakeApp(`
+test("profiles", () => {
+  console.log(${JSON.stringify(`[dual-pane-request-metrics] ${metrics}`)});
+  expect(1).toBe(1);
+});`);
+  const out = resolve(root, "capture.jsonl");
+  const run = await runCanary({
+    canary: { name: "Fake", file: "src/Fake.test.ts" },
+    sample: 1,
+    log: resolve(root, "fake.log"),
+    capture: { out, paramHash: false },
+    root,
+  });
+  expect(run.status).toBe("passed");
+  expect(run.statements).toEqual({ capture: out, perPhase: null });
+});
+
 test("a timeout or a missing tally fails the run", () => {
   const phase = parseCanaryOutput(`[dual-pane-request-metrics] ${metrics}`)
     .phases[0];

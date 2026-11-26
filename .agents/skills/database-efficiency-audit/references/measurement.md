@@ -101,14 +101,15 @@ whichever test runs next. Use per-test totals as evidence only from a run
 of one test (`--name`). A probe sets `globalThis.sqlCaptureLabel` around the
 call it measures, after awaiting any background work its setup started, and
 clears it after, so fixture setup is labelled separately. Bind values are
-never recorded. With `--param-hash` each record also carries a
-short hash of its values, which proves that a repeated statement reads the
-same key rather than a different one; keep the hashes in the scratch
-directory, never in the issue. Transaction controls reach the logger only on
-`API_DATABASE=postgres`: PGlite's native transaction method
-bypasses it, so a PGlite capture (including every canary) has no
-transaction count. For a question the summary does not answer, query the
-capture with `jq`, for example the most repeated statements for one label:
+never recorded. With `--param-hash` each record also carries a short hash
+of its values, keyed afresh for each capture, which proves that a repeated
+statement in that capture reads the same key rather than a different one.
+Hashes from two captures never match; keep them in the scratch directory,
+never in the issue. Transaction controls reach the logger only on
+`API_DATABASE=postgres`: PGlite's native transaction method bypasses it, so
+a PGlite capture (including every canary) has no transaction count. For a
+question the summary does not answer, query the capture with `jq`, for
+example the most repeated statements for one label:
 
 ```sh
 jq -r 'select(.label == "<label>") | .sql | gsub("\\s+"; " ")' <file> \

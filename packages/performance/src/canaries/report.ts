@@ -83,5 +83,12 @@ export async function loadCanaryReport(path: string): Promise<CanaryReport> {
     throw new Error(
       `${path} is a ${value.status} report; compare only complete ones.`,
     );
-  return value;
+  // Reports saved before statement capture have no per-phase statements.
+  return {
+    ...value,
+    summary: value.summary.map((phase) => ({
+      ...phase,
+      statements: phase.statements ?? null,
+    })),
+  };
 }

@@ -56,6 +56,15 @@ test("hashes bind values without keeping them", () => {
   expect(JSON.stringify(records())).not.toContain("secret");
 });
 
+test("hashes are keyed per capture", () => {
+  const hash = () => {
+    const { instance, records } = recorder({ paramHash: true });
+    instance.statement("select $1", ["someone@example.com"], undefined);
+    return Reflect.get(Object(records()[0]), "paramHash");
+  };
+  expect(hash()).not.toBe(hash());
+});
+
 test("numbers request scopes in the order they first send a statement", () => {
   const { instance, records } = recorder();
   const first = {};

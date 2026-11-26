@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 /** One line of a capture file. */
 export type CaptureRecord =
@@ -8,7 +8,7 @@ export type CaptureRecord =
       readonly sql: string;
       /** How many bind values the statement carried; values are never kept. */
       readonly params: number;
-      /** A short hash of the bind values, when asked for. */
+      /** A short hash of the bind values, keyed per capture, when asked for. */
       readonly paramHash?: string;
       /**
        * The statement's outermost counter scope, numbered from 1 in the order
@@ -44,16 +44,21 @@ export interface StatementRecorder {
   phaseEnd(label: string, requests: number): void;
 }
 
-function hashParameters(parameters: readonly unknown[]): string {
+/**
+ * Hashes are keyed with a random key per recorder, so they match only within
+ * one capture and cannot confirm a guessed value such as an email.
+ */
+function hashParameters(key: Buffer, parameters: readonly unknown[]): string {
   const json = JSON.stringify(parameters, (_key, value: unknown) =>
     typeof value === "bigint" ? value.toString() : value,
   );
-  return createHash("sha256").update(json).digest("hex").slice(0, 12);
+  return createHmac("sha256", key).update(json).digest("hex").slice(0, 12);
 }
 
 export function createStatementRecorder(
   options: RecorderOptions,
 ): StatementRecorder {
+  const hashKey = randomBytes(32);
   let testNumber = 0;
   let written = 0;
   const requests = new WeakMap<object, number>();
@@ -81,7 +86,9 @@ export function createStatementRecorder(
         label: options.label() ?? `test-${testNumber}`,
         sql,
         params: parameters.length,
-        ...(options.paramHash ? { paramHash: hashParameters(parameters) } : {}),
+        ...(options.paramHash
+          ? { paramHash: hashParameters(hashKey, parameters) }
+          : {}),
         ...(scope === undefined ? {} : { request: requestNumber(scope) }),
       });
     },

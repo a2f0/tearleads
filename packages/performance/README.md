@@ -336,7 +336,7 @@ pattern.
 
 | Record | Fields |
 | --- | --- |
-| Statement | `label`, `sql`, `params` (bind value count), `request` (see below), and with `--param-hash` a 12-character `paramHash` |
+| Statement | `label`, `sql`, `params` (bind value count), `request` (see below), and with `--param-hash` a 12-character `paramHash`, keyed per capture |
 | Phase end | `phaseEnd` (a canary phase label) and `requests` |
 | Truncation | `truncated`: the record limit (`--limit`, default 1,000,000) was reached |
 
@@ -344,7 +344,9 @@ A statement's label is `globalThis.sqlCaptureLabel` when a probe set it
 around the work it measures, and `test-<n>` otherwise. The preload clears
 the label before each test. Labels are global, not async-context scoped:
 work that outlives a test is counted under the next test's label. Bind values
-are never written. `request` numbers the outermost statement-counter scope
+are never written. `paramHash` is an HMAC under a random key each capture
+makes, so hashes match only within one capture file and cannot confirm a
+guessed value. `request` numbers the outermost statement-counter scope
 a statement ran in, in order of first use. The API's request-cost middleware
 opens one around every request, so unless a test wraps requests in a counter
 of its own, it identifies the request; it is absent outside every scope. Two
