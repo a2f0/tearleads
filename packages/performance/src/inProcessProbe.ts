@@ -48,26 +48,53 @@ export function probeReport(
   return { ...header, ...results };
 }
 
+/** What a run starts and writes; tests replace them. */
+interface ProbeServices {
+  readonly startProxy: (target: URL) => Promise<{
+    readonly url: string;
+    readonly snapshot: () => PostgresTraffic;
+    readonly stop: () => Promise<void>;
+  }>;
+  readonly startApi: () => Promise<InProcessApi>;
+  readonly saveReport: (name: string, report: object) => Promise<string>;
+}
+
+const services: ProbeServices = {
+  startProxy: startPostgresProxy,
+  startApi: startInProcessApi,
+  saveReport: (name, report) => saveJson(name, report),
+};
+
+/** Stops what a run started, each whatever the other does. */
+async function stopAll(stops: readonly (Promise<void> | undefined)[]) {
+  for (const result of await Promise.allSettled(stops))
+    if (result.status === "rejected")
+      console.error(`A probe service did not stop: ${String(result.reason)}`);
+}
+
 /**
  * Boots the API in this process against the local database named by
  * `DATABASE_URL`, through a counting proxy, and runs the probe. The report
  * is saved whenever the probe reports progress and once more when the run
  * ends, however it ends.
  */
-export async function runInProcessProbe(input: {
-  readonly scenario: string;
-  readonly reportPrefix: string;
-  readonly options: object;
-  /** What the measurement does and does not stand for. */
-  readonly boundary: string;
-  readonly run: (context: InProcessProbeContext) => Promise<void>;
-  /** The report's own fields, read at every save. */
-  readonly results: () => ProbeResults;
-}): Promise<void> {
+export async function runInProcessProbe(
+  input: {
+    readonly scenario: string;
+    readonly reportPrefix: string;
+    readonly options: object;
+    /** What the measurement does and does not stand for. */
+    readonly boundary: string;
+    readonly run: (context: InProcessProbeContext) => Promise<void>;
+    /** The report's own fields, read at every save. */
+    readonly results: () => ProbeResults;
+  },
+  { startProxy, startApi, saveReport }: ProbeServices = services,
+): Promise<void> {
   const { DATABASE_URL: databaseUrl } = process.env;
   const target = parseLocalDatabaseUrl(databaseUrl);
   const database = decodeURIComponent(target.pathname.slice(1));
-  const proxy = await startPostgresProxy(target);
+  const proxy = await startProxy(target);
   // The API reads its database configuration when it loads.
   Object.assign(process.env, {
     API_DATABASE: "postgres",
@@ -92,7 +119,7 @@ export async function runInProcessProbe(input: {
     },
   };
   const save = (status: "running" | "complete" | "failed") =>
-    saveJson(
+    saveReport(
       reportName,
       probeReport(
         { ...metadata, updatedAt: new Date().toISOString(), status },
@@ -104,7 +131,7 @@ export async function runInProcessProbe(input: {
     | { readonly status: "complete" }
     | { readonly status: "failed"; readonly error: unknown };
   try {
-    api = await startInProcessApi();
+    api = await startApi();
     await input.run({
       api,
       database,
@@ -124,8 +151,7 @@ export async function runInProcessProbe(input: {
     if (outcome.status === "complete") outcome = { status: "failed", error };
     else console.error(`The report was not saved: ${String(error)}`);
   } finally {
-    await api?.stop();
-    await proxy.stop();
+    await stopAll([api?.stop(), proxy.stop()]);
   }
   if (outcome.status === "failed") throw outcome.error;
 }

@@ -222,9 +222,14 @@ export async function openReloadAccount(origin: string, quietMs: number) {
   };
   const registered = await register(profile, local);
   const { restored } = registered;
-  let { sdk } = registered;
+  // The running SDK; null between disposing one and building the next.
+  let running: Tearleads | null = registered.sdk;
   const folders: string[] = [];
   let documents = 0;
+  const current = (): Tearleads => {
+    if (!running) throw new Error("No SDK is running.");
+    return running;
+  };
 
   return {
     folders: () => folders.length,
@@ -235,6 +240,7 @@ export async function openReloadAccount(origin: string, quietMs: number) {
      * until the account holds `count`.
      */
     async grow(count: number, perFolder: number): Promise<void> {
+      const sdk = current();
       await createFolders(
         sdk,
         restored.rootId,
@@ -245,11 +251,11 @@ export async function openReloadAccount(origin: string, quietMs: number) {
         const first = documents;
         const batch = Math.min(CREATE_BATCH, count - first);
         await allSettled(
-          Array.from({ length: batch }, (_, offset) => {
+          Array.from({ length: batch }, async (_, offset) => {
             const position = first + offset;
             const folder = folders[Math.floor(position / perFolder)];
             if (!folder) throw new Error("The note's folder is missing.");
-            return createNote(sdk, folder, position);
+            await createNote(sdk, folder, position);
           }),
         );
         documents += batch;
@@ -258,15 +264,17 @@ export async function openReloadAccount(origin: string, quietMs: number) {
     },
     /** Disposes the running SDK and starts a new one, as a page load does. */
     async reload(): Promise<ReloadOutcome> {
-      sdk.dispose();
+      current().dispose();
+      running = null;
       const started = performance.now();
       const opened = openSdk(profile);
       // Held before startup, so a failed reload's SDK is the one `close` disposes.
-      sdk = opened.sdk;
+      running = opened.sdk;
       return await start(opened, restored, quietMs, started);
     },
     close(): void {
-      sdk.dispose();
+      running?.dispose();
+      running = null;
       local.close();
     },
   };
