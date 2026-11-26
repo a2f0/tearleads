@@ -36,10 +36,17 @@ function laneLimit(laneCount: number): number {
   );
 }
 
+// The API client answers a request from an identical one still in flight. A
+// listing must show what was committed before it was asked for: it settles
+// the request a tree listing recorded, and acknowledges the hint that forced
+// it. So every listing carries lane ids no other request has, as each
+// reconnect crawl's parent-lane listings do.
+let listingSequence = 0;
+
 /**
  * Lists one page per requested lane in a single batched request. A lane the
  * server rejected yields `null` for that lane only; a failed request yields
- * `null` for the batch.
+ * `null` for the batch. The request never joins one already in flight.
  */
 export async function listContainerDocumentLanesFromApi(
   apiClient: ContainerDocumentLaneApi,
@@ -47,9 +54,11 @@ export async function listContainerDocumentLanesFromApi(
   reportErrors = true,
 ): ReturnType<ContainerDocumentLaneLister> {
   const limit = laneLimit(lanes.length);
+  listingSequence += 1;
+  const prefix = `d${listingSequence}`;
   const requested = lanes.map((lane, index) => ({
     containerId: lane.containerId,
-    laneId: `lane-${index}`,
+    laneId: `${prefix}-${index}`,
     limit,
     watermark: lane.watermark,
   }));

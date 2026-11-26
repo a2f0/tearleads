@@ -107,3 +107,14 @@ export function settleOwedDocumentLaneListing(
 ): Promise<void> {
   return new DocumentLaneRevalidationRepository(execSql).settle(owed);
 }
+
+/**
+ * Forgets the listings owed to containers this device does not store.
+ * Nothing lists such a lane, and a container stored later owes its first
+ * listing by having no settled lane.
+ */
+export function forgetUnheldDocumentLaneListings(
+  execSql: ExecSql,
+): Promise<void> {
+  return new DocumentLaneRevalidationRepository(execSql).forgetUnheld();
+}

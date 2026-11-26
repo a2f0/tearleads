@@ -14,7 +14,7 @@ import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 const CONTAINER_PARENT_LANE = "container_parent";
 const CONTAINER_RESTORATION_LANE = "container_restoration";
-const CONTAINER_DOCUMENTS_LANE = "container_documents";
+export const CONTAINER_DOCUMENTS_LANE = "container_documents";
 const ROOT_CONTAINER_PARENT_LANE_ID = "root";
 const CONTAINER_PARENT_LANE_ID_PREFIX = "parent:";
 // Each lane predicate binds two values, so keep batches comfortably under
