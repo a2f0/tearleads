@@ -115,7 +115,7 @@ describe("rebaseOntoFreshPeer over random histories", () => {
       if (scenario.refused.size === 0) continue;
       const liveContent = canonicalContent(scenario.device);
       const result = rebaseOntoFreshPeer({
-        knownCommitted: scenario.unsentStart,
+        committedVersion: scenario.unsentStart,
         live: scenario.device,
         newPeer: `${NEW_PEER}`,
         refusedFrontiers: scenario.refused,
@@ -186,7 +186,7 @@ describe("rebaseOntoFreshPeer after a stale recreation", () => {
     const committed = versionCounters(live);
 
     const result = rebaseOntoFreshPeer({
-      knownCommitted: committed,
+      committedVersion: committed,
       live,
       newPeer: `${NEW_PEER}`,
       refusedFrontiers: new Map([[`${RECORD_PEER}`, 0]]),
@@ -206,7 +206,7 @@ describe("rebaseOntoFreshPeer after a stale recreation", () => {
     const committed = versionCounters(live);
 
     const result = rebaseOntoFreshPeer({
-      knownCommitted: committed,
+      committedVersion: committed,
       live,
       newPeer: `${NEW_PEER}`,
       refusedFrontiers: new Map([[`${RECORD_PEER}`, 0]]),
@@ -216,14 +216,14 @@ describe("rebaseOntoFreshPeer after a stale recreation", () => {
     expect(result.kind).toBe("history_regressed");
   });
 
-  it("judges a frontier against what a relay recorded as committed", async () => {
+  it("judges a frontier against the committed version, not the queue's start", async () => {
     const live = await documentOnPeer(RECORD_PEER);
     append(live, "hello ");
     const committed = versionCounters(live);
 
-    // A relay queued the peer again from zero, so its unsent start fell.
+    // A queued update sends the peer again from zero, so its start fell.
     const result = rebaseOntoFreshPeer({
-      knownCommitted: committed,
+      committedVersion: committed,
       live,
       newPeer: `${NEW_PEER}`,
       refusedFrontiers: new Map([[`${RECORD_PEER}`, 2]]),
@@ -244,7 +244,7 @@ describe("rebaseOntoFreshPeer after a stale recreation", () => {
     append(live, "world");
 
     const result = rebaseOntoFreshPeer({
-      knownCommitted: committed,
+      committedVersion: committed,
       live,
       newPeer: `${NEW_PEER}`,
       refusedFrontiers: committed,

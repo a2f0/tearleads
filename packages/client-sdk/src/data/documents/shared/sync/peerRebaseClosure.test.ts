@@ -32,9 +32,9 @@ async function deviceWithUnsentRecordOp(): Promise<TestDocument> {
   return device;
 }
 
-/** No relay ran, so what the device knows is committed ends where its unsent operations start. */
-function rebaseUnrelayed(input: Omit<PeerRebaseInput, "knownCommitted">) {
-  return rebaseOntoFreshPeer({ ...input, knownCommitted: input.unsentStart });
+/** In these histories the server committed everything below the queue's start. */
+function rebaseUnrelayed(input: Omit<PeerRebaseInput, "committedVersion">) {
+  return rebaseOntoFreshPeer({ ...input, committedVersion: input.unsentStart });
 }
 
 describe("rebaseOntoFreshPeer cut closure", () => {

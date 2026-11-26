@@ -5,9 +5,11 @@ import {
   exportUpdatesSince,
   getImportBlobMetadata,
   listVersionVectorSpans,
+  mergeVersionVectors,
   type VersionVectorSpan,
 } from "@tearleads/loro";
 import type { DocumentPeerFrontier } from "@tearleads/validators/response";
+import { committedSpansVersion } from "./peerRebase";
 import { documentOnPeer, type TestDocument } from "./peerRebase.testFixtures";
 import {
   type PeerRefusal,
@@ -129,24 +131,15 @@ export class PeerServer {
 }
 
 interface QueuedUpdate {
-  readonly committedVersionVector: string | null;
   readonly partialEndVersionVector: string;
   readonly partialStartVersionVector: string;
   readonly update: Uint8Array;
 }
 
-function queuedUpdate(
-  update: Uint8Array,
-  committedVersionVector: string | null,
-): QueuedUpdate {
+function queuedUpdate(update: Uint8Array): QueuedUpdate {
   const { partialEndVersionVector, partialStartVersionVector } =
     getImportBlobMetadata(update);
-  return {
-    committedVersionVector,
-    partialEndVersionVector,
-    partialStartVersionVector,
-    update,
-  };
+  return { partialEndVersionVector, partialStartVersionVector, update };
 }
 
 export type PassOutcome =
@@ -155,27 +148,54 @@ export type PassOutcome =
 
 /**
  * A device as the document store keeps it: the live document, its pending
- * base and its queue. A pass submits the queue and answers a refusal with
- * the recovery the SDK plans, applied the way the store's install applies it.
+ * base, its queue, and the record's committed version. A pass submits the
+ * queue and answers a refusal with the recovery the SDK plans, applied the
+ * way the store's install applies it. As in the store, a settlement and a
+ * recovery's install raise the committed version, and nothing lowers it.
  */
 export class QueueDevice {
   queue: QueuedUpdate[] = [];
+  /**
+   * What settlements showed the record. Everything the device holds at
+   * first was committed before the purge: pulls and acknowledgements
+   * recorded it, unless `recorded` is false, as for a record whose content
+   * no settlement brought (a folder's create seed).
+   */
+  committedVersion: string | null;
   private freshPeer = 900;
   private pendingBase: string;
 
   constructor(
     public doc: TestDocument,
     private readonly userId: string,
+    recorded = true,
   ) {
     this.pendingBase = encodeVersionVector(doc);
+    this.committedVersion = recorded ? this.pendingBase : null;
+  }
+
+  private raiseCommittedVersion(version: string | null): void {
+    this.committedVersion = mergeVersionVectors(
+      [this.committedVersion, version].flatMap((known) =>
+        known === null ? [] : [known],
+      ),
+    );
   }
 
   edit(text: string): void {
     append(this.doc, text);
     this.queue.push(
-      queuedUpdate(exportUpdatesSince(this.doc, this.pendingBase), null),
+      queuedUpdate(exportUpdatesSince(this.doc, this.pendingBase)),
     );
     this.pendingBase = encodeVersionVector(this.doc);
+  }
+
+  /**
+   * Queues everything the device holds from counter zero, as a rotation
+   * baseline or a republished history does, in front of the other updates.
+   */
+  queueFullHistory(): void {
+    this.queue.unshift(queuedUpdate(exportAllUpdates(this.doc)));
   }
 
   pass(server: PeerServer): PassOutcome {
@@ -184,11 +204,13 @@ export class QueueDevice {
       this.queue.map((row) => row.update),
     );
     if (verdict.kind === "accepted") {
+      this.raiseCommittedVersion(committedSpansVersion(this.queue));
       this.queue = [];
       return "accepted";
     }
     this.freshPeer += 1;
     const recovery = planPeerRefusalRecovery({
+      committedVersion: this.committedVersion,
       live: this.doc,
       newPeer: `${this.freshPeer}`,
       pendingBases: [this.pendingBase],
@@ -200,9 +222,8 @@ export class QueueDevice {
       this.pendingBase = encodeVersionVector(recovery.fork);
     }
     if (recovery.kind === "rebase" || recovery.kind === "relay") {
-      this.queue = [
-        queuedUpdate(recovery.update, recovery.committedVersionVector),
-      ];
+      this.queue = [queuedUpdate(recovery.update)];
+      this.raiseCommittedVersion(recovery.committedVersion);
     }
     return recovery.kind;
   }

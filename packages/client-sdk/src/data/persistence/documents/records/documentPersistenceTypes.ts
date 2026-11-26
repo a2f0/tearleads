@@ -33,6 +33,17 @@ export interface DocumentRecord {
    * column, so an ordinary save never clears it.
    */
   peerSalt?: string;
+  /**
+   * What sync settlements showed the server to hold of the record's history:
+   * an encoded version vector with, per peer, the highest counter of any
+   * served update the device accepted or outgoing update the server
+   * acknowledged. Absent until the first one. A settlement's
+   * `committedVersions` and a peer recovery's install raise the column, by
+   * merging; an ordinary save never writes it, so a stale copy in memory
+   * never lowers it. A peer refusal is judged against it and against where
+   * the queue starts (`knownCommittedOf`).
+   */
+  committedVersion?: string;
   pullContinuation?: DocumentSyncPullContinuation | null;
   /**
    * The durable continuation column was non-null but could not be decoded.
@@ -47,14 +58,6 @@ export interface PendingUpdateFields {
   partialStartVersionVector: string;
   partialEndVersionVector: string;
   sourceVersionVector?: string | null;
-  /**
-   * The version this device knew the server had committed when it queued the
-   * update below it: a relay after a stale recreation sends committed
-   * operations again. Absent on every other update. A later peer refusal is
-   * judged against it, because the queue's start no longer says where the
-   * unsent operations begin.
-   */
-  committedVersionVector?: string | null;
 }
 
 /**
@@ -99,6 +102,7 @@ export interface SelectedDocumentRecordRow {
   documentManifestBundle: string | null;
   pendingBaseVersion: string | null;
   peerSalt: string | null;
+  committedVersion: string | null;
   pullContinuation: string | null;
 }
 
@@ -109,6 +113,5 @@ export interface SelectedPendingUpdateRow {
   partialStartVersionVector: string | null;
   partialEndVersionVector: string | null;
   sourceVersionVector: string | null;
-  committedVersionVector: string | null;
   rekeyCount: number;
 }

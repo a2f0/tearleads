@@ -46,14 +46,17 @@ interface PeerRebaseContext {
 }
 
 /**
- * The live document with every durable row merged in. Another runtime on
- * this database may have queued operations the live document never saw; the
- * install replaces every queued row, so its one update must carry them too.
+ * The live document with every durable row merged in, and the durable
+ * record's committed version. Another runtime on this database may have
+ * queued operations the live document never saw; the install replaces every
+ * queued row, so its one update must carry them too. The committed version
+ * is read here and not from memory: settlements raise it in their own
+ * transactions, and the record in memory may be older than the last one.
  */
 async function readMergedDocument(context: PeerRebaseContext) {
   const { currentDoc, state } = context;
-  const [history, queued] = await Promise.all([
-    state.persistence.loadHistoryRestoreState(
+  const [stored, queued] = await Promise.all([
+    state.persistence.loadDocumentWithHistoryRestoreState(
       state.runtime.infra.execSql,
       state.localId,
     ),
@@ -61,7 +64,7 @@ async function readMergedDocument(context: PeerRebaseContext) {
   ]);
   const merged = currentDoc.fork();
   try {
-    importDurableDocumentHistory(merged, history);
+    importDurableDocumentHistory(merged, stored.historyRestoreState);
     importDocumentHistoryTailUpdates(
       merged,
       queued.map((row) => row.updateData),
@@ -70,7 +73,11 @@ async function readMergedDocument(context: PeerRebaseContext) {
     merged.free();
     throw error;
   }
-  return { merged, queued };
+  return {
+    committedVersion: stored.document?.committedVersion,
+    merged,
+    queued,
+  };
 }
 
 function isUnchanged(context: PeerRebaseContext, readVersion: string) {
@@ -148,7 +155,7 @@ async function installFork(
           snapshot: bytesToBase64(exportFullHistorySnapshot(fork)),
         },
         kind: "fork",
-        pendingUpdate: queuedRecoveryUpdate(rebase),
+        ...queuedRecoveryUpdate(rebase),
         record: { kind: "document", peerSalt },
       })) && isUnchanged(context, read.liveVersion);
     // A store reset after the commit reloads the installed rows itself.
@@ -179,7 +186,7 @@ async function installRelay(
   const installed = await context.install(context.state.runtime.infra.execSql, {
     ...installFence(context, read),
     kind: "relay",
-    pendingUpdate: queuedRecoveryUpdate(relay),
+    ...queuedRecoveryUpdate(relay),
   });
   return installed && isUnchanged(context, read.liveVersion)
     ? "relayed"
@@ -199,18 +206,18 @@ async function recoverOnWriteChain(
   if (!record || !documentId || !isUnchanged(context, liveVersion)) {
     return "superseded";
   }
-  const { merged, queued } = await readMergedDocument(context);
+  const { committedVersion, merged, queued } =
+    await readMergedDocument(context);
   try {
     if (!isUnchanged(context, liveVersion)) return "superseded";
     const recovery = planPeerRefusalRecovery({
+      committedVersion,
       live: merged,
       newPeer,
       pendingBases: [state.pendingBaseVersion, record.pendingBaseVersion],
       queued,
       refusal,
     });
-    if (recovery.kind === "nothing_to_cut") return "nothing_to_cut";
-    if (recovery.kind === "park") return "parked";
     const read = {
       documentId,
       liveVersion,
@@ -218,9 +225,17 @@ async function recoverOnWriteChain(
       readVersion: encodeVersionVector(merged),
       record,
     };
-    return recovery.kind === "relay"
-      ? await installRelay(context, read, recovery)
-      : await installFork(context, read, recovery, peerSalt);
+    switch (recovery.kind) {
+      case "nothing_to_cut":
+      case "nothing_to_relay":
+        return recovery.kind;
+      case "park":
+        return "parked";
+      case "relay":
+        return await installRelay(context, read, recovery);
+      case "rebase":
+        return await installFork(context, read, recovery, peerSalt);
+    }
   } finally {
     merged.free();
   }

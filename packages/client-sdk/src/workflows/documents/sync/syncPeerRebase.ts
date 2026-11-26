@@ -25,24 +25,28 @@ export function peerRebaseChangedQueue(
     case "superseded":
       return true;
     case "nothing_to_cut":
+    case "nothing_to_relay":
     case "parked":
       return false;
   }
 }
 
 /**
- * The one queued update a rebase or a relay installs, with the version the
- * device knows is committed while the update starts below it.
+ * What a rebase or a relay hands its install: the one update it queues, and
+ * what the device knew was committed, which the install records.
  */
 export function queuedRecoveryUpdate(recovery: {
-  readonly committedVersionVector: string | null;
+  readonly committedVersion: string;
   readonly update: Uint8Array;
-}): PendingUpdateFields {
-  const fields = createPendingUpdateFields(recovery.update);
-  if (!fields) throw new Error("Peer recovery produced no update to send");
-  return recovery.committedVersionVector === null
-    ? fields
-    : { ...fields, committedVersionVector: recovery.committedVersionVector };
+}): {
+  readonly committedVersion: string;
+  readonly pendingUpdate: PendingUpdateFields;
+} {
+  const pendingUpdate = createPendingUpdateFields(recovery.update);
+  if (!pendingUpdate) {
+    throw new Error("Peer recovery produced no update to send");
+  }
+  return { committedVersion: recovery.committedVersion, pendingUpdate };
 }
 
 async function reportTerminalPeerRefusal(
@@ -86,8 +90,9 @@ async function parkUntilOwnerRestores(
  * operation nobody committed. Hand the refusal to the host's recovery and
  * end the pass without a result: a rebase or a relay changes the queue, and
  * the host requests the pass that sends it. A recovery that parks reports
- * the wait and leaves the queue. One that finds nothing to cut, or that
- * fails, leaves the refusal terminal for this pass; a failure is rethrown.
+ * the wait and leaves the queue. One that finds nothing to cut or nothing
+ * to relay, or that fails, leaves the server's own refusal terminal for
+ * this pass; a failure is rethrown.
  */
 export async function rebaseAfterPeerRefusal(
   sync: RemoteDocumentSyncPass,
@@ -110,6 +115,7 @@ export async function rebaseAfterPeerRefusal(
   }
   switch (outcome) {
     case "nothing_to_cut":
+    case "nothing_to_relay":
       await reportTerminalPeerRefusal(sync, request.failure);
       return null;
     case "parked":

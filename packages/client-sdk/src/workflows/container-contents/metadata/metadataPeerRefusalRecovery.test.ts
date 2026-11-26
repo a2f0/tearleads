@@ -8,6 +8,7 @@ import {
   exportUpdatesSince,
   importUpdates,
   listVersionVectorSpans,
+  versionVectorsEqual,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
@@ -77,6 +78,23 @@ async function metadataCommittedBeforeThePurge() {
       update: exportUpdatesSince(doc, committed),
     },
   );
+  // An earlier pass settled the committed content, and its settlement
+  // recorded what it saw the server hold.
+  const storedState =
+    await sqlContainerContentsPersistence.loadContainerMetadataState(
+      execSql,
+      CONTAINER_ID,
+    );
+  if (!storedState?.record) throw new Error("expected the stored metadata");
+  await sqlContainerContentsPersistence.settleAcceptedMetadataPendingUpdates(
+    execSql,
+    {
+      committedVersions: [committed],
+      containerId: CONTAINER_ID,
+      expectedRecord: storedState.record,
+      pendingUpdateIds: [],
+    },
+  );
   const metadataState: ContainerMetadataState = { container, doc, record };
   return { committed, metadataState };
 }
@@ -103,6 +121,7 @@ async function stored() {
       CONTAINER_ID,
     );
   return {
+    committedVersion: state?.record?.committedVersion,
     metadataUpdates: state?.record?.metadataUpdates,
     queued: await sqlContainerContentsPersistence.listPendingUpdates(
       execSql,
@@ -142,7 +161,8 @@ test("relays metadata a stale recreation lost under its own peer", async () => {
       startCounter: 0,
     },
   ]);
-  expect(relay.committedVersionVector).toBe(committed);
+  // The record still says what the device saw committed.
+  expect(versionVectorsEqual(after.committedVersion, committed)).toBe(true);
   // With the other device's lost icon, which a second refusal names, a
   // server holding nothing reads the metadata once, under its own ids.
   const again = await rebase({
@@ -193,4 +213,29 @@ test("parks metadata on a lost peer another user owns, then rebases", async () =
     icon: "star",
     name: "After",
   });
+});
+
+// The stored content holds the device's own unsent writes, so it cannot say
+// what is committed, and neither can a queue that starts a peer at zero.
+test("parks metadata at a frontier that fell although a full history is queued", async () => {
+  const { metadataState } = await metadataCommittedBeforeThePurge();
+  const live = metadataState.doc;
+  await enqueuePendingContainerUpdate(
+    execSql,
+    sqlContainerContentsPersistence,
+    { containerId: CONTAINER_ID, update: exportAllUpdates(live) },
+  );
+  const before = await stored();
+  expect(before.queued).toHaveLength(2);
+  const { rebase, signals } = recovery(metadataState);
+
+  const outcome = await rebase({
+    kind: "peer_owned",
+    peerFrontiers: [{ committedEndCounter: 0, peerId: WRITER_PEER }],
+  });
+
+  expect(outcome).toBe("parked");
+  expect(signals.rebased).toBe(0);
+  expect(metadataState.doc).toBe(live);
+  expect(await stored()).toEqual(before);
 });

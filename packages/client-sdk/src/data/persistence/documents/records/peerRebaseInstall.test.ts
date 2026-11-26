@@ -4,6 +4,7 @@ import {
   createDocument,
   emptyVersionVector,
   encodeVersionVector,
+  encodeVersionVectorCounters,
   exportAllUpdates,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -29,14 +30,22 @@ beforeEach(async () => {
 
 afterEach(() => close());
 
+// What settlements showed the record, what the recovery knew when it was
+// planned, and the two merged: an install raises the record and never lowers
+// a peer.
+const COMMITTED = encodeVersionVectorCounters({ "11": 4 });
+const KNOWN = encodeVersionVectorCounters({ "11": 2, "22": 7 });
+const RAISED = encodeVersionVectorCounters({ "11": 4, "22": 7 });
+
 /** A record with one queued update, and a fork that would replace it. */
 async function installCandidate(): Promise<
   Extract<DocumentPeerRebaseInstall, { kind: "fork" }>
 > {
   await execSql(
-    `INSERT INTO documents (app_kind, local_id, document_id, recovery_generation, updated_at)
-     VALUES ('documents', ?, 'remote-note', 2, '2026-11-23')`,
-    [LOCAL_ID],
+    `INSERT INTO documents (app_kind, local_id, document_id,
+       recovery_generation, committed_version, updated_at)
+     VALUES ('documents', ?, 'remote-note', 2, ?, '2026-11-23')`,
+    [LOCAL_ID, COMMITTED],
   );
   const queuedDoc = await createDocument("queued-writer");
   queuedDoc.getText("text").insert(0, "queued");
@@ -54,6 +63,7 @@ async function installCandidate(): Promise<
   const pendingUpdate = createPendingUpdateFields(exportAllUpdates(fork));
   if (!pendingUpdate) throw new Error("expected the fork's update");
   return {
+    committedVersion: KNOWN,
     kind: "fork",
     queuedUpdateIds: await queuedUpdateIds(),
     checkpoint: {
@@ -80,7 +90,9 @@ async function queuedUpdateIds(): Promise<string[]> {
 
 async function storedState() {
   const [record] = await execSql(
-    "SELECT recovery_generation, peer_salt, pending_base_version FROM documents WHERE local_id = ?",
+    `SELECT recovery_generation, peer_salt, pending_base_version,
+       committed_version
+     FROM documents WHERE local_id = ?`,
     [LOCAL_ID],
   );
   const rows = await execSql(
@@ -127,7 +139,11 @@ test("replaces the record's history and queue with the fork", async () => {
   expect(await installDocumentPeerRebase(execSql, candidate)).toBe(true);
 
   const stored = await storedState();
+  // The fork keeps every operation the device knows is committed, and its
+  // one update may start below some of them, so the record takes what the
+  // recovery knew and loses nothing it had.
   expect(stored.record).toEqual({
+    committed_version: RAISED,
     peer_salt: "salt",
     pending_base_version: candidate.checkpoint.endVersionVector,
     recovery_generation: 3,
@@ -179,8 +195,6 @@ test("writes nothing once another runtime settled a queued update the rebase rea
   expect(await storedState()).toEqual(before);
 });
 
-const COMMITTED = "Y29tbWl0dGVk";
-
 /**
  * A record with a checkpoint, a queued edit in its history tail, and a
  * queued outbox update, and a relay that would replace both queued updates.
@@ -220,10 +234,11 @@ async function relayCandidate(): Promise<DocumentPeerRebaseInstall> {
   const pendingUpdate = createPendingUpdateFields(exportAllUpdates(relayed));
   if (!pendingUpdate) throw new Error("expected the relay's update");
   return {
+    committedVersion: KNOWN,
     expectedDocumentId: fork.expectedDocumentId,
     expectedRecoveryGeneration: fork.expectedRecoveryGeneration,
     kind: "relay",
-    pendingUpdate: { ...pendingUpdate, committedVersionVector: COMMITTED },
+    pendingUpdate,
     queuedUpdateIds: await queuedUpdateIds(),
     readVersion: encodeVersionVector(relayed),
     scope: SCOPE,
@@ -233,14 +248,13 @@ async function relayCandidate(): Promise<DocumentPeerRebaseInstall> {
 
 async function queueRows() {
   return execSql(
-    `SELECT update_data, origin, update_id IS NOT NULL AS queued,
-       committed_version_vector
+    `SELECT update_data, origin, update_id IS NOT NULL AS queued
      FROM document_history_updates WHERE local_id = ? ORDER BY rowid`,
     [LOCAL_ID],
   );
 }
 
-test("a relay replaces the queue and leaves the record and its history", async () => {
+test("a relay replaces the queue, records what the device knew, and leaves the history", async () => {
   const candidate = await relayCandidate();
   const before = await storedState();
   const [, edit] = await queueRows();
@@ -249,7 +263,13 @@ test("a relay replaces the queue and leaves the record and its history", async (
   expect(await installDocumentPeerRebase(execSql, candidate)).toBe(true);
 
   const stored = await storedState();
-  expect(stored.record).toEqual(before.record);
+  // The relay's update starts below operations the device knew were
+  // committed only for being outside the queue. The record now says so, and
+  // the next refusal is judged against it. Nothing else of the record moves.
+  expect(stored.record).toEqual({
+    ...before.record,
+    committed_version: RAISED,
+  });
   expect(stored.checkpoints).toEqual(before.checkpoints);
   expect(await verdictRows()).toBe(1);
   // The outbox update is dropped, the edit stays as unqueued history, and
@@ -257,16 +277,11 @@ test("a relay replaces the queue and leaves the record and its history", async (
   expect(await queueRows()).toEqual([
     { ...edit, queued: 0 },
     {
-      committed_version_vector: COMMITTED,
       origin: "outbox",
       queued: 1,
       update_data: candidate.pendingUpdate.updateData,
     },
   ]);
-  const [queued] = await new DocumentRecordRepository(
-    execSql,
-  ).listDocumentPendingUpdates(SCOPE);
-  expect(queued?.committedVersionVector).toBe(COMMITTED);
 });
 
 test.each([

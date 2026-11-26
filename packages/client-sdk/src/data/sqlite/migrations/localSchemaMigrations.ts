@@ -227,15 +227,15 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     version: 12,
   },
   {
-    // A relay after a stale recreation queues operations again that the
-    // device saw committed, and records that version on the queued update
-    // (#3263). No update queued before this step is a relay, so the column
-    // starts null. It is unindexed.
-    name: "add_queued_update_committed_version",
+    // A device judges a peer refusal against what it has seen the server
+    // commit, which the record now keeps (#3263). No record written before
+    // this step has one, so the column starts null: nothing is known
+    // committed until the next sync settlement. It is unindexed.
+    name: "add_document_committed_version",
     up: async (execSql, context) => {
-      if (await context.hasTable("document_history_updates")) {
+      if (await context.hasTable("documents")) {
         await execSql(
-          'ALTER TABLE "document_history_updates" ADD COLUMN "committed_version_vector" TEXT',
+          'ALTER TABLE "documents" ADD COLUMN "committed_version" TEXT',
         );
       }
     },

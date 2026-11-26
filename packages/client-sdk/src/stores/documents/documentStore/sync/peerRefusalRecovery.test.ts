@@ -6,6 +6,7 @@ import {
   exportUpdatesSince,
   getTextValue,
   listVersionVectorSpans,
+  versionVectorsEqual,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
@@ -15,6 +16,7 @@ import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/
 import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import { committedUpdateVersions } from "../../../../workflows/documents";
 import type { RemoteDocumentSyncPass } from "../../../../workflows/documents/sync/remoteDocumentSyncPass";
 import { rebaseAfterPeerRefusal } from "../../../../workflows/documents/sync/syncPeerRebase";
 import { openHistoryTestStore } from "../history/historyDurability.testFixtures";
@@ -57,11 +59,20 @@ async function noteCommittedBeforeThePurge() {
     "UPDATE documents SET document_id = 'remote-note' WHERE local_id = ?",
     [LOCAL_ID],
   );
-  // The server accepted the birth, so its rows settle and stay as history.
+  // The server accepted the birth: its rows settle, stay as history, and
+  // raise what the record has seen committed.
   const repository = new DocumentRecordRepository(execSql);
-  for (const row of await repository.listDocumentPendingUpdates(SCOPE)) {
-    await repository.settleDocumentPendingUpdate(row.id);
-  }
+  const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+    execSql,
+    LOCAL_ID,
+  );
+  if (!expectedRecord) throw new Error("expected the stored note");
+  const birth = await repository.listDocumentPendingUpdates(SCOPE);
+  await sqlDocumentsPersistence.settleAcceptedPendingUpdates(execSql, {
+    committedVersions: committedUpdateVersions(birth),
+    expectedRecord,
+    pendingUpdateIds: birth.map((row) => row.id),
+  });
   const state = await openHistoryTestStore(
     execSql,
     LOCAL_ID,
@@ -97,7 +108,7 @@ function lost(kind: PeerRefusal["kind"], peerId: string): PeerRefusal {
 async function storedRecord() {
   const [record] = await execSql(
     `SELECT recovery_generation, peer_salt, pending_base_version,
-       sync_failure_message
+       committed_version, sync_failure_message
      FROM documents WHERE local_id = ?`,
     [LOCAL_ID],
   );
@@ -120,8 +131,14 @@ test("relays the operations a stale recreation lost under their own peer", async
   expect(state.doc).toBe(liveDoc);
   expect(state.doc?.peerIdStr).toBe(recordPeer);
   expect(await storedRecord()).toEqual(before);
-  // One update sends the whole record peer again, edit included, and keeps
-  // what the device saw committed.
+  // The record still says what the device saw committed, below which the
+  // relay's update starts.
+  const [{ committed_version: committedVersion } = {}] = await execSql(
+    "SELECT committed_version FROM documents WHERE local_id = ?",
+    [LOCAL_ID],
+  );
+  expect(versionVectorsEqual(String(committedVersion), committed)).toBe(true);
+  // One update sends the whole record peer again, edit included.
   const queued = await listPendingUpdates(state);
   expect(queued).toHaveLength(1);
   const [relay] = queued;
@@ -133,7 +150,6 @@ test("relays the operations a stale recreation lost under their own peer", async
       startCounter: 0,
     },
   ]);
-  expect(relay.committedVersionVector).toBe(committed);
 
   // A reload restores the same history on the same peer.
   const reopened = await openHistoryTestStore(
@@ -298,7 +314,6 @@ test("parks on a lost peer another user owns, reports it, and recovers", async (
   expect(fork.oplogVersion().get(recordPeer)).toBe(restored);
   const [rebased, ...others] = await listPendingUpdates(state);
   if (!rebased || others.length > 0) throw new Error("expected one update");
-  expect(rebased.committedVersionVector).toBeUndefined();
   // The pass that lands the rebased queue clears the row, as any clean pass
   // clears a recorded failure.
   await saveDocumentRecord(

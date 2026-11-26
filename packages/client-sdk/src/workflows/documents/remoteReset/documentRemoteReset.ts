@@ -130,7 +130,9 @@ export async function clearDocumentRowsForRemoteReset(input: {
 
 /**
  * Drops each document's server id, keys, manifest, and sync position, keeping
- * the old id for recovery, and moves its projection to `organizationId`.
+ * the old id for recovery, and moves its projection to `organizationId`. What
+ * the server was seen to commit goes with them: the reset queues the whole
+ * history as unsent, so none of it counts as committed on the replacement.
  */
 export async function resetDocumentServerIdentity(input: {
   documentLocalIds: readonly string[];
@@ -156,6 +158,7 @@ export async function resetDocumentServerIdentity(input: {
         .set({
           accessEpoch: 1,
           accessStateHash: null,
+          committedVersion: null,
           contentKeyBundle: null,
           documentId: null,
           documentKekTargets: null,

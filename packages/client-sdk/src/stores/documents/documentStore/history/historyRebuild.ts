@@ -58,6 +58,9 @@ export async function installRebuiltDocument(input: {
     },
     {
       acceptedPendingUpdateIds: input.synced.settledPendingUpdateIds,
+      // The rebuild holds only updates the server served, over every page
+      // of the raw pull, so the server holds all of it.
+      committedVersions: [rebuiltEndVersion],
       expectedSyncState: {
         pullContinuation: input.consumedPullContinuation,
         record: input.currentRecord,

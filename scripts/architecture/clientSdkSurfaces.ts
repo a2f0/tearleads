@@ -119,6 +119,7 @@ export const documentStoreSurface = [
   `${sdk}/data/persistence/documents/documentPlacement.ts`,
   `${sdk}/data/persistence/documents/documentProjectionContainers.ts`,
   `${sdk}/data/persistence/documents/documentsPersistence.ts`,
+  `${sdk}/data/persistence/documents/records/documentCommittedVersionPersistence.ts`,
   `${sdk}/data/persistence/documents/records/documentRowsInTransaction.ts`,
   `${sdk}/data/persistence/documents/records/documentPendingUpdatePersistence.ts`,
   `${sdk}/data/persistence/documents/records/documentSyncFailurePersistence.ts`,

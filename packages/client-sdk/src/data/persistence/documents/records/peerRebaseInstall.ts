@@ -1,5 +1,9 @@
 import { base64ToBytes } from "@tearleads/encoding";
-import { getImportBlobMetadata, satisfiesVersionVector } from "@tearleads/loro";
+import {
+  getImportBlobMetadata,
+  mergeVersionVectors,
+  satisfiesVersionVector,
+} from "@tearleads/loro";
 import { and, eq } from "drizzle-orm";
 import {
   documentHistoryCheckpoints,
@@ -53,6 +57,13 @@ interface DocumentPeerRecoveryInstall {
   readonly queuedUpdateIds: readonly string[];
   /** The one update that replaces the queue. */
   readonly pendingUpdate: PendingUpdateFields;
+  /**
+   * What the device knew was committed when it planned the recovery. The
+   * install merges it into the record's committed version, keeping the
+   * higher counter on each peer: the one update may start below operations
+   * that were known committed only for being outside the queue.
+   */
+  readonly committedVersion: string;
   /** Rechecked in the synchronous slice that dispatches the commit. */
   readonly stillCurrent: () => boolean;
 }
@@ -108,14 +119,18 @@ function sameIds(left: readonly string[], right: readonly string[]): boolean {
   return ids.size === new Set(right).size && right.every((id) => ids.has(id));
 }
 
-/** Whether the record and every durable row are still what the rebase read. */
-async function readStillCovered(
+/**
+ * The record's committed version raised to what the recovery knew, or null
+ * when the record is no longer the one the recovery read.
+ */
+async function readRaisedCommittedVersion(
   tx: ClientSQLiteTransactionScope,
   input: DocumentPeerRebaseInstall,
-): Promise<boolean> {
+): Promise<string | null> {
   const { scope } = input;
   const [record] = await tx
     .select({
+      committedVersion: documents.committedVersion,
       documentId: documents.documentId,
       recoveryGeneration: documents.recoveryGeneration,
     })
@@ -132,8 +147,20 @@ async function readStillCovered(
     record.documentId !== input.expectedDocumentId ||
     record.recoveryGeneration !== input.expectedRecoveryGeneration
   ) {
-    return false;
+    return null;
   }
+  return mergeVersionVectors([
+    ...(record.committedVersion === null ? [] : [record.committedVersion]),
+    input.committedVersion,
+  ]);
+}
+
+/** Whether every durable row is still what the recovery read. */
+async function historyStillCovered(
+  tx: ClientSQLiteTransactionScope,
+  input: DocumentPeerRebaseInstall,
+): Promise<boolean> {
+  const { scope } = input;
   const [checkpoint] = await tx
     .select({ endVersionVector: documentHistoryCheckpoints.endVersionVector })
     .from(documentHistoryCheckpoints)
@@ -173,11 +200,12 @@ async function replaceHistoryWithFork(
   tx: ClientSQLiteTransactionScope,
   input: DocumentPeerForkInstall,
   updatedAt: string,
+  committedVersion: string,
 ): Promise<void> {
   const { scope } = input;
   await tx
     .update(documents)
-    .set(recordSet(input, updatedAt))
+    .set({ ...recordSet(input, updatedAt), committedVersion })
     .where(
       and(
         eq(documents.appKind, scope.appKind),
@@ -226,14 +254,28 @@ async function replaceHistoryWithFork(
 /**
  * Every queued update stops being queued and the relay's one update takes
  * their place. A local row keeps its content as history, which the relay
- * leaves alone, so the record, its checkpoint, and its verdicts stay too.
+ * leaves alone, so the record's checkpoint and its verdicts stay too. Of
+ * the record only its committed version moves: the relay's update starts
+ * below operations the device knew were committed for being outside the
+ * queue, and the record must go on saying so.
  */
 async function replaceQueueWithRelay(
   tx: ClientSQLiteTransactionScope,
   input: DocumentPeerRelayInstall,
   createdAt: string,
+  committedVersion: string,
 ): Promise<void> {
   const { scope } = input;
+  await tx
+    .update(documents)
+    .set({ committedVersion })
+    .where(
+      and(
+        eq(documents.appKind, scope.appKind),
+        eq(documents.localId, scope.localId),
+      ),
+    )
+    .run();
   await unqueueDocumentScopesInTransaction(tx, [scope]);
   await insertDocumentPendingUpdateInTransaction(tx, {
     createdAt,
@@ -264,9 +306,10 @@ function recordSet(input: DocumentPeerForkInstall, updatedAt: string) {
  * history row goes, one update queues the fork's unsent operations, and the
  * record takes the fork's frontier (and, for a document, its fresh peer's
  * salt and the next recovery generation). A relay replaces only the queue,
- * with its one update, and leaves the record and its history as they are.
- * Returns false, writing nothing, when the record or its history moved past
- * what the recovery read.
+ * with its one update, and leaves the history as it is. Either one raises
+ * the record's committed version to what the recovery knew. Returns false,
+ * writing nothing, when the record or its history moved past what the
+ * recovery read.
  */
 export async function installDocumentPeerRebase(
   execSql: ExecSql,
@@ -276,12 +319,17 @@ export async function installDocumentPeerRebase(
   const runtime = getClientSQLitePersistenceRuntime(execSql);
   const outcome = await runtime.guardedTransaction(
     async (tx) => {
-      if (!input.stillCurrent() || !(await readStillCovered(tx, input))) {
+      if (!input.stillCurrent()) return false;
+      const committed = await readRaisedCommittedVersion(tx, input);
+      if (committed === null || !(await historyStillCovered(tx, input))) {
         return false;
       }
       const now = new Date().toISOString();
-      if (input.kind === "fork") await replaceHistoryWithFork(tx, input, now);
-      else await replaceQueueWithRelay(tx, input, now);
+      if (input.kind === "fork") {
+        await replaceHistoryWithFork(tx, input, now, committed);
+      } else {
+        await replaceQueueWithRelay(tx, input, now, committed);
+      }
       return true;
     },
     input.stillCurrent,

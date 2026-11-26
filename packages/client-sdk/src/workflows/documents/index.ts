@@ -195,6 +195,10 @@ export {
 } from "./sync/runtimeRestart";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
+  committedUpdateVersions,
+  documentSyncCommittedVersions,
+} from "./sync/syncCommittedVersions";
+export {
   type DocumentSyncLane,
   registerDocumentSyncLane,
   requestDocumentSyncLaneAndWait,

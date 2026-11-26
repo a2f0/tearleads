@@ -41,9 +41,15 @@ import type { DocumentSyncTraceEmitter } from "./syncTrace";
  *   pass is refused and recovers again.
  * - `nothing_to_cut`: found nothing past the named frontiers, which leaves
  *   the refusal terminal.
+ * - `nothing_to_relay`: the server lost such operations and refused a
+ *   dependency on them, but the queue already sends them from every
+ *   frontier that fell, so the refused request was not this queue. No other
+ *   user is waited on, so it is not a park: the pass reports the server's
+ *   own refusal as terminal, and the next pass sends the queue.
  */
 export type DocumentPeerRebaseOutcome =
   | "nothing_to_cut"
+  | "nothing_to_relay"
   | "parked"
   | "rebased"
   | "relayed"
@@ -53,8 +59,9 @@ export type DocumentPeerRebaseOutcome =
  * Recovers from a peer refusal and requests a new sync when the queue
  * changed. It rebases the record's unsent operations on the refused peers
  * onto a fresh peer, or, when a named frontier is below what the device saw
- * committed, relays the lost operations or parks. Either way one update
- * replaces the record's queued updates, except when it parks.
+ * committed, relays the lost operations or parks. A rebase or a relay
+ * replaces the record's queued updates with one update; every other outcome
+ * leaves the queue.
  */
 export type DocumentPeerRebaser = (
   refusal: PeerRefusal,

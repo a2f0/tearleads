@@ -9,7 +9,7 @@ import {
   isDocumentPeerRebaseErrorCode,
 } from "@tearleads/validators/response";
 import {
-  knownCommittedOf,
+  countersOf,
   type PeerCounters,
   rebaseOntoFreshPeer,
   unsentStartOf,
@@ -56,6 +56,11 @@ export function peerRefusalOf(failure: {
 }
 
 export interface PeerRefusalRecoveryInput {
+  /**
+   * The record's committed version: what sync settlements showed the server
+   * to hold. Absent when the record has settled none.
+   */
+  readonly committedVersion: string | null | undefined;
   /** The live document with every durable row merged in. */
   readonly live: RecoveryDocument;
   /** The fresh peer a rebase writes the cut operations on. */
@@ -63,7 +68,6 @@ export interface PeerRefusalRecoveryInput {
   /** The record's pending bases; see `unsentStartOf`. */
   readonly pendingBases: readonly (string | null | undefined)[];
   readonly queued: readonly {
-    readonly committedVersionVector?: string | null | undefined;
     readonly partialEndVersionVector: string;
     readonly partialStartVersionVector: string;
   }[];
@@ -83,26 +87,33 @@ export interface PeerRefusalRecoveryInput {
  *   owns, so the device may not send them, and writing them again on a
  *   fresh peer would duplicate them for every device that still holds them.
  *   The queue and the document stay as they are, and a later pass recovers
- *   once that user's device has sent them. A dependency refusal that names
- *   no frontier below the queue's start parks too: the queue already sends
- *   everything from there, so sending it again changes nothing.
+ *   once that user's device has sent them.
+ * - `nothing_to_relay`: the server lost such operations and refused a
+ *   dependency on them, but the queue already starts at or below every
+ *   frontier that fell, so a relay would queue the same operations again.
+ *   The refused request was not this queue: another runtime relayed after
+ *   it was built, or it carried only part of the queue. Nothing changes and
+ *   no other user is waited on; the server's refusal stands for the pass.
  * - `nothing_to_cut`: no refused peer passes its frontier.
  *
- * `committedVersionVector` is what the device knows is committed, kept on
- * the queued update while that update starts below it.
+ * `committedVersion` is what the device knew was committed when it planned
+ * the recovery. The install raises the record's committed version to it:
+ * the one update it queues may start below operations that until now were
+ * known committed only for being outside the queue.
  */
 export type PeerRefusalRecovery =
   | { readonly kind: "nothing_to_cut" }
+  | { readonly kind: "nothing_to_relay" }
   | { readonly kind: "park" }
   | {
       readonly kind: "rebase";
-      readonly committedVersionVector: string | null;
+      readonly committedVersion: string;
       readonly fork: RecoveryDocument;
       readonly update: Uint8Array;
     }
   | {
       readonly kind: "relay";
-      readonly committedVersionVector: string;
+      readonly committedVersion: string;
       readonly update: Uint8Array;
     };
 
@@ -125,12 +136,6 @@ function relayStart(
   return lowered ? start : null;
 }
 
-function startsBelow(start: PeerCounters, committed: PeerCounters): boolean {
-  return [...committed].some(
-    ([peer, counter]) => (start.get(peer) ?? 0) < counter,
-  );
-}
-
 /**
  * Decide how a device recovers from a peer refusal: rebase its own unsent
  * operations onto a fresh peer, or, when the server's history went
@@ -139,17 +144,15 @@ function startsBelow(start: PeerCounters, committed: PeerCounters): boolean {
 export function planPeerRefusalRecovery(
   input: PeerRefusalRecoveryInput,
 ): PeerRefusalRecovery {
-  const { live, queued, refusal } = input;
+  const { live, refusal } = input;
   live.commit();
-  const liveVersion = encodeVersionVector(live);
   const unsentStart = unsentStartOf({
-    liveVersion,
+    liveVersion: encodeVersionVector(live),
     pendingBases: input.pendingBases,
-    queued,
+    queued: input.queued,
   });
-  const knownCommitted = knownCommittedOf({ liveVersion, queued, unsentStart });
   const rebase = rebaseOntoFreshPeer({
-    knownCommitted,
+    committedVersion: countersOf(input.committedVersion),
     live,
     newPeer: input.newPeer,
     refusedFrontiers: new Map(
@@ -160,23 +163,25 @@ export function planPeerRefusalRecovery(
     ),
     unsentStart,
   });
-  if (rebase.kind === "nothing_to_cut") return rebase;
-  if (rebase.kind === "rebased") {
-    return {
-      committedVersionVector: startsBelow(rebase.unsentBase, knownCommitted)
-        ? encoded(knownCommitted)
-        : null,
-      fork: rebase.fork,
-      kind: "rebase",
-      update: rebase.update,
-    };
+  switch (rebase.kind) {
+    case "nothing_to_cut":
+      return rebase;
+    case "rebased":
+      return {
+        committedVersion: encoded(rebase.knownCommitted),
+        fork: rebase.fork,
+        kind: "rebase",
+        update: rebase.update,
+      };
+    case "history_regressed": {
+      if (refusal.kind === "peer_owned") return { kind: "park" };
+      const start = relayStart(unsentStart, rebase.regressedFrontiers);
+      if (!start) return { kind: "nothing_to_relay" };
+      return {
+        committedVersion: encoded(rebase.knownCommitted),
+        kind: "relay",
+        update: live.export({ from: versionOf(start), mode: "update" }),
+      };
+    }
   }
-  if (refusal.kind === "peer_owned") return { kind: "park" };
-  const start = relayStart(unsentStart, rebase.regressedFrontiers);
-  if (!start) return { kind: "park" };
-  return {
-    committedVersionVector: encoded(rebase.knownCommitted),
-    kind: "relay",
-    update: live.export({ from: versionOf(start), mode: "update" }),
-  };
 }

@@ -102,7 +102,7 @@ async function installMetadataFork(
           snapshot: bytesToBase64(metadataUpdates),
         },
         kind: "fork",
-        pendingUpdate: queuedRecoveryUpdate(rebase),
+        ...queuedRecoveryUpdate(rebase),
         record: { kind: "container_metadata" },
       })) && fence.stillCurrent();
     if (!installed) return "superseded";
@@ -144,15 +144,24 @@ async function recoverLiveMetadata(
       return "superseded";
     }
     const recovery = planPeerRefusalRecovery({
+      // The stored content holds this device's unsent writes too, so it
+      // does not say what is committed. The stored record's version does
+      // for whatever the queue sends again.
+      committedVersion: record.committedVersion,
       live: merged,
       newPeer: freshPeer(),
       // Every local metadata write queues its own update beside the content,
-      // so the queue alone marks what this device has not sent.
+      // so the queue marks where this device's unsent writes start.
       pendingBases: [],
       queued,
       refusal,
     });
-    if (recovery.kind === "nothing_to_cut") return "nothing_to_cut";
+    if (
+      recovery.kind === "nothing_to_cut" ||
+      recovery.kind === "nothing_to_relay"
+    ) {
+      return recovery.kind;
+    }
     if (recovery.kind === "park") return "parked";
     const fence = {
       expectedDocumentId: documentId,
@@ -170,7 +179,7 @@ async function recoverLiveMetadata(
     const installed = await context.install(context.execSql, {
       ...fence,
       kind: "relay",
-      pendingUpdate: queuedRecoveryUpdate(recovery),
+      ...queuedRecoveryUpdate(recovery),
     });
     return installed && stillCurrent() ? "relayed" : "superseded";
   } finally {

@@ -2,6 +2,7 @@ import {
   type createDocument,
   decodeVersionVector,
   encodeVersionVectorCounters,
+  listVersionVectorSpans,
 } from "@tearleads/loro";
 
 type RebaseDocument = Awaited<ReturnType<typeof createDocument>>;
@@ -61,11 +62,12 @@ export interface PeerRebaseInput {
    */
   readonly unsentStart: PeerCounters;
   /**
-   * Per peer, what this device knows the server committed at some time
-   * (`knownCommittedOf`): at least `unsentStart`, and more where a relay
-   * queued operations again that it had already seen committed.
+   * Per peer, what a sync settlement showed the server to hold: the record's
+   * committed version (`countersOf`). It passes `unsentStart` where the queue
+   * sends committed operations again, and `knownCommittedOf` then counts
+   * them committed whatever the queue holds.
    */
-  readonly knownCommitted: PeerCounters;
+  readonly committedVersion: PeerCounters;
 }
 
 export type PeerRebase =
@@ -87,6 +89,8 @@ export type PeerRebase =
     }
   | {
       readonly kind: "rebased";
+      /** What this device knows is committed, on every peer it holds. */
+      readonly knownCommitted: PeerCounters;
       /** The live content on `newPeer`, over the kept operations K. */
       readonly fork: RebaseDocument;
       /** K: the largest causally closed version below the refused frontiers. */
@@ -106,7 +110,10 @@ function counters(version: DocumentVersion): Map<string, number> {
   return new Map(version.toJSON());
 }
 
-function encodedCounters(encoded: string | null | undefined) {
+/** The per-peer counters of an encoded version vector; none when absent. */
+export function countersOf(
+  encoded: string | null | undefined,
+): Map<string, number> {
   return encoded ? counters(decodeVersionVector(encoded)) : new Map();
 }
 
@@ -122,8 +129,10 @@ function lowerTo(
  * Per peer of `liveVersion`, the version before any operation a device has
  * not sent: the smallest of its pending bases (a peer a base leaves out
  * starts at zero), lowered to the start of every queued update that writes
- * on the peer. Lower is safe: the rebase then sends more of what is already
- * committed and trusts less of it as committed.
+ * on the peer. Lower is safe: the fork's update then sends more of what is
+ * already committed. Everything below it is committed, but not only that:
+ * a queued update may send committed operations again, and the record's
+ * committed version says which (`knownCommittedOf`).
  */
 export function unsentStartOf(input: {
   readonly liveVersion: string;
@@ -133,15 +142,15 @@ export function unsentStartOf(input: {
     readonly partialStartVersionVector: string;
   }[];
 }): Map<string, number> {
-  const start = encodedCounters(input.liveVersion);
+  const start = countersOf(input.liveVersion);
   for (const encoded of input.pendingBases) {
-    const base = encodedCounters(encoded);
+    const base = countersOf(encoded);
     for (const peer of [...start.keys()])
       lowerTo(start, peer, base.get(peer) ?? 0);
   }
   for (const row of input.queued) {
-    const rowStart = encodedCounters(row.partialStartVersionVector);
-    for (const [peer, end] of encodedCounters(row.partialEndVersionVector)) {
+    const rowStart = countersOf(row.partialStartVersionVector);
+    for (const [peer, end] of countersOf(row.partialEndVersionVector)) {
       const from = rowStart.get(peer) ?? 0;
       if (end > from) lowerTo(start, peer, from);
     }
@@ -149,33 +158,30 @@ export function unsentStartOf(input: {
   return start;
 }
 
+/** An update's declared span: the counters it starts and ends at per peer. */
+export interface CommittedUpdateSpan {
+  readonly partialEndVersionVector: string;
+  readonly partialStartVersionVector: string;
+}
+
 /**
- * Per peer of `liveVersion`, what a device knows the server committed at
- * some time: where its unsent operations start, raised to the version a
- * queued update recorded as committed when a relay lowered its start
- * (`committedVersionVector`), and never past what the device holds. A relay
- * sends committed operations again, so the queue alone no longer says where
- * the unsent ones start.
+ * The version a set of committed updates proves the server holds, for the
+ * record's committed version: per peer, the highest end of a span one of
+ * them carries. A peer an update names without carrying an operation on it
+ * proves nothing. Null when they carry no operation at all.
  */
-export function knownCommittedOf(input: {
-  readonly liveVersion: string;
-  readonly queued: readonly {
-    readonly committedVersionVector?: string | null | undefined;
-  }[];
-  readonly unsentStart: PeerCounters;
-}): Map<string, number> {
-  const recorded = input.queued.map((row) =>
-    encodedCounters(row.committedVersionVector),
-  );
-  const known = new Map<string, number>();
-  for (const [peer, end] of encodedCounters(input.liveVersion)) {
-    const committed = Math.max(
-      input.unsentStart.get(peer) ?? 0,
-      ...recorded.map((version) => version.get(peer) ?? 0),
-    );
-    known.set(peer, Math.min(end, committed));
+export function committedSpansVersion(
+  updates: readonly CommittedUpdateSpan[],
+): string | null {
+  const ends: Record<string, number> = {};
+  for (const update of updates) {
+    for (const span of listVersionVectorSpans(update)) {
+      ends[span.peerId] = Math.max(ends[span.peerId] ?? 0, span.endCounter);
+    }
   }
-  return known;
+  return Object.keys(ends).length === 0
+    ? null
+    : encodeVersionVectorCounters(ends);
 }
 
 export function versionOf(peerCounters: PeerCounters): DocumentVersion {
@@ -275,16 +281,31 @@ function closeCut(
   }
 }
 
-/** What the device knows is committed on each peer it holds. */
-function committedWithin(
+/**
+ * What the device knows is committed on each peer it holds, and never past
+ * the live document; this is the one place that clamps it. It has two
+ * parts. An operation enters a record from the server or from a local
+ * write, and a local write stays queued until the server acknowledges it,
+ * so everything below `unsentStart` is committed. The queue can also send
+ * committed operations again: a relay, a full-history baseline, and a
+ * republished history each start a peer at counter zero. For those the
+ * record's committed version decides, so no queued update lowers what a
+ * settlement showed.
+ */
+function knownCommittedOf(
   liveVersion: PeerCounters,
-  knownCommitted: PeerCounters,
+  committedVersion: PeerCounters,
+  unsentStart: PeerCounters,
 ): Map<string, number> {
-  const committed = new Map<string, number>();
+  const known = new Map<string, number>();
   for (const [peer, end] of liveVersion) {
-    committed.set(peer, Math.min(end, knownCommitted.get(peer) ?? 0));
+    const committed = Math.max(
+      committedVersion.get(peer) ?? 0,
+      unsentStart.get(peer) ?? 0,
+    );
+    known.set(peer, Math.min(end, committed));
   }
-  return committed;
+  return known;
 }
 
 /** F on each refused peer the device knows is committed past F. */
@@ -306,20 +327,19 @@ function regressedFrontiers(
  * the device knows. The closure must keep every operation below it.
  */
 function assertKeepsCommitted(
-  input: PeerRebaseInput,
+  refusedFrontiers: PeerCounters,
+  knownCommitted: PeerCounters,
   liveVersion: PeerCounters,
   kept: PeerCounters,
 ): void {
   for (const [peer, end] of liveVersion) {
-    const committed =
-      input.refusedFrontiers.get(peer) ?? input.knownCommitted.get(peer) ?? 0;
+    const committed = Math.min(
+      refusedFrontiers.get(peer) ?? knownCommitted.get(peer) ?? 0,
+      end,
+    );
     const keptCounter = kept.get(peer) ?? 0;
-    if (keptCounter < Math.min(committed, end)) {
-      throw new PeerRebaseCommittedCutError(
-        peer,
-        keptCounter,
-        Math.min(committed, end),
-      );
+    if (keptCounter < committed) {
+      throw new PeerRebaseCommittedCutError(peer, keptCounter, committed);
     }
   }
 }
@@ -383,7 +403,11 @@ export function rebaseOntoFreshPeer(input: PeerRebaseInput): PeerRebase {
   const { live, newPeer } = input;
   live.commit();
   const liveVersion = counters(live.oplogVersion());
-  const knownCommitted = committedWithin(liveVersion, input.knownCommitted);
+  const knownCommitted = knownCommittedOf(
+    liveVersion,
+    input.committedVersion,
+    input.unsentStart,
+  );
   const regressed = regressedFrontiers(input.refusedFrontiers, knownCommitted);
   if (regressed.size > 0) {
     return {
@@ -397,7 +421,12 @@ export function rebaseOntoFreshPeer(input: PeerRebaseInput): PeerRebase {
   }
   const kept = refusedCut(liveVersion, input.refusedFrontiers);
   closeCut(live, liveVersion, kept);
-  assertKeepsCommitted(input, liveVersion, kept);
+  assertKeepsCommitted(
+    input.refusedFrontiers,
+    knownCommitted,
+    liveVersion,
+    kept,
+  );
   if ([...liveVersion].every(([peer, end]) => kept.get(peer) === end)) {
     return { kind: "nothing_to_cut" };
   }
@@ -407,6 +436,7 @@ export function rebaseOntoFreshPeer(input: PeerRebaseInput): PeerRebase {
     fork,
     keptVersion: kept,
     kind: "rebased",
+    knownCommitted,
     unsentBase,
     update: fork.export({ from: versionOf(unsentBase), mode: "update" }),
   };

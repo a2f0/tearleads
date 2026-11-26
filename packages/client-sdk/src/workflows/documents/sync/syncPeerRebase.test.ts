@@ -217,6 +217,22 @@ describe("document sync peer-owned refusal", () => {
     expect(pass.abandoned).toEqual(["peer-restore-awaits-owner"]);
   });
 
+  // The queue already sends the lost operations and no other user owns the
+  // peer, so the wait-for-owner report would be false.
+  test("reports the server's own refusal when there is nothing to relay", async () => {
+    const pass = await syncRefusedPass({
+      code: DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted,
+      rebase: async () => "nothing_to_relay",
+    });
+
+    expect(pass.synced).toBeNull();
+    expect(pass.submits).toEqual([1]);
+    expect(pass.terminal.map(({ code, status }) => ({ code, status }))).toEqual(
+      [{ code: DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted, status: 409 }],
+    );
+    expect(pass.abandoned).toEqual(["the sync submit failed terminally"]);
+  });
+
   // A forged committed operation: the guard is a failure, never a recovery.
   test("records a failed rebase as terminal and rethrows it", async () => {
     const failure = new PeerRebaseCommittedCutError("21", 0, 5);
