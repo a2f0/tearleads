@@ -74,8 +74,11 @@ handle.
 6. Test the step on a database written in the previous shape.
 
 Never edit, reorder, or remove a shipped step. A correction is a new step.
-Signed or encrypted content cannot be rewritten by a step; those shapes stay
-flag days (see [API persistence](../../../../../../docs/developer/api-persistence.md#signed-shape-invariants)).
+The project is greenfield: a step need not preserve local data. One that
+cannot run on a database holding data says in its comment that the local
+database needs a reset. Signed or encrypted content cannot be rewritten by a
+step; those shapes stay flag days (see
+[API persistence](../../../../../../docs/developer/api-persistence.md#signed-shape-invariants)).
 
 ## Backups
 

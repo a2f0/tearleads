@@ -172,17 +172,14 @@ tracks trust resets. A crawl already holding an earlier verified placement,
 or receiving its earlier listing after a separately checkpointed unlink,
 can finish later and restore the old projection.
 
-Deploy the additive database migrations before the API. A populated PostgreSQL
-database installs the triggers in one short transaction. Existing writers then
-publish immediately while the migrator fills historical rows in batches of 512
-and builds the five indexes concurrently. Each batch skips busy rows and
-revisits them before indexing. The cutover acquires its metadata
-locks together without waiting and retries for up to one minute when writers
-are active. Restarting the migrator resumes this
-work, including a concurrent index build interrupted before becoming valid.
-Fresh installations and PGlite apply the journal directly. See the
-[discovery preparation](../packages/api-shared/src/adapters/prepareDiscoveryMigration.ts)
-and [historical backfill](../packages/api-shared/drizzle/0005_publish_discovery_order.sql).
+Deploy the database migrations before the API. Migration
+[`0004`](../packages/api-shared/drizzle/0004_discovery_order.sql) adds the
+publication positions and their triggers, and
+[`0005`](../packages/api-shared/drizzle/0005_publish_discovery_order.sql)
+gives rows committed before it their historical positions and builds the five
+indexes. Both run in the migration transaction and take their table locks
+without waiting, so `migrate` fails while a writer holds one and can be run
+again.
 Rotate the [discovery key after a database restore](./developer/api-persistence.md#restored-discovery-cursors).
 Drain the old API fleet before relying on opaque cursors across consecutive
 pages. Alternating old and new servers can restart a multi-page crawl until

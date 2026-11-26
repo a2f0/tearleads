@@ -44,7 +44,9 @@ migration and write its SQL:
 bun run db:generate --custom --name <backfill>
 ```
 
-Write each migration so the previous Worker still works against it (see
+The project is greenfield: a migration need not preserve existing data. One
+that cannot run on a database holding data says in its header comment that it
+needs a reset (see
 [schema migrations](../../docs/developer/api-persistence.md#schema-migrations)).
 If `main` gains a migration while your branch has one, delete yours (its SQL
 file, snapshot, and journal entry), merge, and generate it again, so it sorts
