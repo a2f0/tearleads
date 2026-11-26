@@ -242,7 +242,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.331",
+      "version": "0.1.332",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -370,7 +370,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.100",
+      "version": "0.1.101",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "zod": "catalog:",
