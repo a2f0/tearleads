@@ -41,20 +41,22 @@ test("authoritative document listing starts without a persisted watermark", asyn
         ? page(["document-a"], watermarkA)
         : page(["document-b"]);
     }),
-    containerId: "container-a",
+    containerIds: ["container-a"],
   });
 
   expect(requestedWatermarks).toEqual([null, watermarkA]);
-  expect(documentIds).toEqual(["document-a", "document-b"]);
+  expect(documentIds).toEqual(
+    new Map([["container-a", ["document-a", "document-b"]]]),
+  );
 });
 
 test("authoritative document listing requires every page", async () => {
   const documentIds = await listAllContainerDocumentIdsFromApi({
     apiClient: laneApi(async () => null),
-    containerId: "container-a",
+    containerIds: ["container-a"],
   });
 
-  expect(documentIds).toBeNull();
+  expect(documentIds).toEqual(new Map([["container-a", null]]));
 });
 
 test("initial probe listings can suppress failure reports", async () => {
@@ -66,11 +68,11 @@ test("initial probe listings can suppress failure reports", async () => {
         return null;
       },
     },
-    containerId: "container-a",
+    containerIds: ["container-a"],
     reportErrors: false,
   });
 
-  expect(documentIds).toBeNull();
+  expect(documentIds).toEqual(new Map([["container-a", null]]));
   expect(reportOptions).toEqual([{ reportErrors: false }]);
 });
 
@@ -323,3 +325,43 @@ test.each([
     expect([...listed.values()]).toEqual(["unavailable", "unavailable"]);
   },
 );
+
+test("authoritative listings of many containers share one request", async () => {
+  const requests: string[][] = [];
+  const documentIds = await listAllContainerDocumentIdsFromApi({
+    apiClient: {
+      listContainerDocumentLanes: async ({ lanes }) => {
+        requests.push(lanes.map((lane) => lane.containerId));
+        return {
+          results: lanes.map(({ containerId, laneId, watermark }) =>
+            containerId === "container-refused"
+              ? { failure: {}, laneId }
+              : {
+                  laneId,
+                  // The second lane needs a continuation page.
+                  page:
+                    containerId === "container-b" && watermark === null
+                      ? page(["document-b1"], watermarkA)
+                      : page([`document-${containerId}`]),
+                },
+          ),
+        };
+      },
+    },
+    containerIds: ["container-a", "container-b", "container-refused"],
+  });
+
+  // One request lists every lane from no watermark; only the lane with more
+  // rows asks again.
+  expect(requests).toEqual([
+    ["container-a", "container-b", "container-refused"],
+    ["container-b"],
+  ]);
+  expect(documentIds).toEqual(
+    new Map<string, ReadonlyArray<string> | null>([
+      ["container-a", ["document-container-a"]],
+      ["container-b", ["document-b1", "document-container-b"]],
+      ["container-refused", null],
+    ]),
+  );
+});

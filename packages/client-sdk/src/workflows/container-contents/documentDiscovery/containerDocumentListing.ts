@@ -250,26 +250,39 @@ export async function listAllContainerDocumentLanes(input: {
   return listed;
 }
 
-/** Lists the authoritative current ids by deliberately starting at no watermark. */
+/**
+ * Lists each container's authoritative current document ids by deliberately
+ * starting at no watermark, every lane in one batched listing. A lane that
+ * could not be listed maps to `null`.
+ */
 export async function listAllContainerDocumentIdsFromApi(input: {
   readonly apiClient: ContainerDocumentLaneApi;
-  readonly containerId: string;
+  readonly containerIds: ReadonlyArray<string>;
   readonly reportErrors?: boolean;
-}): Promise<ReadonlyArray<string> | null> {
-  const listed = (
-    await listAllContainerDocumentLanes({
-      lanes: [{ containerId: input.containerId, watermark: null }],
-      listContainerDocumentLanes: (lanes) =>
-        listContainerDocumentLanesFromApi(
-          input.apiClient,
-          lanes,
-          input.reportErrors,
-        ),
-    })
-  ).get(input.containerId);
-  return listed && listed !== "unavailable"
-    ? Array.from(new Set(listed.items.map((document) => document.id)))
-    : null;
+}): Promise<ReadonlyMap<string, ReadonlyArray<string> | null>> {
+  const listed = await listAllContainerDocumentLanes({
+    lanes: input.containerIds.map((containerId) => ({
+      containerId,
+      watermark: null,
+    })),
+    listContainerDocumentLanes: (lanes) =>
+      listContainerDocumentLanesFromApi(
+        input.apiClient,
+        lanes,
+        input.reportErrors,
+      ),
+  });
+  return new Map(
+    input.containerIds.map((containerId) => {
+      const lane = listed.get(containerId);
+      return [
+        containerId,
+        lane && lane !== "unavailable"
+          ? Array.from(new Set(lane.items.map((document) => document.id)))
+          : null,
+      ];
+    }),
+  );
 }
 
 /** Loads each lane's persisted watermark, then lists every lane in batches. */
