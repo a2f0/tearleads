@@ -26,6 +26,9 @@
     },
     "realtime": {
       "cache": false
+    },
+    "realtime:contention": {
+      "cache": false
     }
   }
 }

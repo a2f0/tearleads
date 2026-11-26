@@ -13,6 +13,7 @@ import {
 import {
   addDateOnlyFormatIssue,
   addFormatIssue,
+  identifierEnding,
   structuredFieldsProjector,
 } from "../shared/documentFieldUtils";
 import type { VariantDocumentFieldDefinition } from "../shared/variantDocumentFieldModel";
@@ -154,9 +155,8 @@ export function readInsurancePolicyFieldValues(
 const untitledTitle = "Untitled insurance policy";
 
 // "Acme Mutual Health Insurance", degrading to whichever of insurer and type
-// are set, then to the last four characters of the policy or member number (a
-// title is listed wherever the document is, so it never carries a whole
-// identifier), then to the untitled title.
+// are set, then to the last four characters of the policy or member number
+// (never a whole identifier: see identifierEnding), then to the untitled title.
 function deriveInsurancePolicyTitle(
   fields: InsurancePolicyDocumentFields,
 ): string {
@@ -170,11 +170,9 @@ function deriveInsurancePolicyTitle(
       .join(" ");
   }
 
-  const identifier = (fields.policyNumber.trim() || fields.memberId.trim())
-    .replaceAll(/\s+/gu, "")
-    .slice(-4);
-  return identifier.length > 0
-    ? `Insurance Policy ending ${identifier}`
+  const ending = identifierEnding(fields.policyNumber, fields.memberId);
+  return ending.length > 0
+    ? `Insurance Policy ending ${ending}`
     : untitledTitle;
 }
 

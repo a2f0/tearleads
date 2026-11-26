@@ -8,6 +8,7 @@ first. Raw reports stay private under `.test_files/performance/`.
 
 | Date | Experiment | Target |
 | --- | --- | --- |
+| 2026-11-25 | [Realtime hub contention](2026-11-25-realtime-hub-contention.md) | Local, M2 Pro |
 | 2026-11-25 | [Realtime hub interest authorization](2026-11-25-realtime-hub-interest.md) | Local, M2 Pro |
 | 2026-11-20 | [Continuity seed round trip](2026-11-20-continuity-seed-round-trip.md) | Production |
 | 2026-10-26 | [Database round trip](2026-10-26-database-round-trip.md) | Staging and production |
