@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   isConnectAttemptSettled,
   releaseSettledConnectAttemptWaits,
+  resolveHeldCrawl,
   waitForPendingConnectAttempt,
 } from "./connectAttemptGate";
 
@@ -14,8 +15,9 @@ function gateState(pendingConnectAttempt?: number) {
 }
 
 /** Whether `wait` has resolved once queued microtasks ran. */
-async function isResolved(wait: Promise<void>): Promise<boolean> {
+async function isResolved(wait: Promise<void> | null): Promise<boolean> {
   let resolved = false;
+  if (!wait) throw new Error("expected a pending connect attempt");
   void wait.then(() => {
     resolved = true;
   });
@@ -32,11 +34,24 @@ test("a wait is over once its attempt is no longer the pending one", () => {
   expect(isConnectAttemptSettled(3, 4)).toBe(true);
 });
 
-test("with no connect attempt pending there is nothing to wait for", async () => {
-  expect(await isResolved(waitForPendingConnectAttempt(gateState()))).toBe(
-    true,
-  );
+test("with no connect attempt pending there is nothing to wait for", () => {
+  expect(waitForPendingConnectAttempt(gateState())).toBeNull();
 });
+
+test.each([
+  // Owed: the acknowledgement's crawl lists, whatever became of the store.
+  [true, true, "drop"],
+  [true, false, "drop"],
+  [false, true, "start"],
+  [false, false, "restart"],
+] as const)(
+  "a held crawl with the reconnect crawl owed=%p and its generation current=%p is to %s",
+  (reconnectCrawlOwed, generationCurrent, outcome) => {
+    expect(resolveHeldCrawl({ generationCurrent, reconnectCrawlOwed })).toBe(
+      outcome,
+    );
+  },
+);
 
 test.each([
   ["is acknowledged or ends", undefined],

@@ -25,12 +25,14 @@ export type RemoteHydrationRequestState = RemoteContainerHydrationState &
 export interface RemoteHydrationRequestInput {
   /**
    * Set for the crawl that regained sync prerequisites start. It lists what
-   * the crawl after an acknowledged connection lists, so it holds its
-   * listing until a connect attempt in flight settles
-   * (`connectAttemptGate.ts`), and once superseded it is not retried while
-   * that crawl is owed. Returns whether it is.
+   * the crawl after an acknowledged connection lists, so it does not start
+   * until a connect attempt in flight settles (`connectAttemptGate.ts`), and
+   * it is neither started nor retried while that crawl is owed. Returns
+   * whether it is.
    */
   yieldsToReconnectCrawl?: (() => boolean) | undefined;
+  /** Set once the request has waited for its connect attempt. */
+  connectAttemptSettled?: true;
   ownsTreeReset?: () => boolean;
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;

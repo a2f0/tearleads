@@ -199,13 +199,14 @@ behind its cursor.
 A connect costs one tree crawl. Going online starts a crawl, and so does the
 interest acknowledgement that follows, which must list after the
 acknowledgement because hints sent before it are lost. The first crawl
-therefore gives way: it holds its listing while a connect attempt is pending,
-and once the acknowledgement supersedes it, it is not retried while the
-acknowledgement's crawl is owed. If the attempt ends without an
-acknowledgement, the first crawl lists. Before, a reconnect listed the tree
-twice. A crawl costs one request for every 32 lanes; a lane with more children
-than its share of the 500-row page, 15 in a full batch, continues in a later
-request.
+therefore gives way: it does not start while a connect attempt is pending,
+and it is neither started nor retried while the crawl of a current
+acknowledgement is owed. If the attempt ends without an acknowledgement, the
+first crawl lists. It waits without holding the store's hydration slot, so a
+refresh or a write's follow-up crawl made meanwhile lists at once. Before, a
+reconnect listed the tree twice. A crawl costs one request for every 32
+lanes; a lane with more children than its share of the 500-row page, 15 in a
+full batch, continues in a later request.
 
 Before listings covered documents, every opened document probed once per
 session: the first restart cost 23 requests with two notes and 35 with eight,

@@ -144,7 +144,7 @@ test.each([
   await hydration;
 });
 
-test("a regained crawl holds its listing while a connect attempt is pending", async () => {
+test("a regained crawl does not start while a connect attempt is pending", async () => {
   const store = createRegainedStore(7);
   const hydration = store.crawl(true);
   await store.settle();
@@ -178,4 +178,43 @@ test("only the regained crawl waits for a connect attempt", async () => {
   expect(store.releases).toHaveLength(1);
   store.releases[0]?.();
   await hydration;
+});
+
+test("a held crawl holds no other request back", async () => {
+  const store = createRegainedStore(7);
+  const held = store.crawl(true);
+  await store.settle();
+  expect(store.state.remoteHydrationPromise).toBeNull();
+
+  // A refresh, or a write's follow-up crawl, made while the connection is
+  // still being made lists at once.
+  const refresh = store.crawl(false);
+  await store.settle();
+  expect(store.releases).toHaveLength(1);
+  store.releases[0]?.();
+  await refresh;
+
+  // The attempt ends unacknowledged: the held crawl now lists too.
+  store.connection.pendingConnectAttempt = undefined;
+  releaseSettledConnectAttemptWaits(store.state);
+  await store.settle();
+  expect(store.releases).toHaveLength(2);
+  store.releases[1]?.();
+  await held;
+});
+
+test("a held crawl superseded without an acknowledgement lists in the new generation", async () => {
+  const store = createRegainedStore(7);
+  const held = store.crawl(true);
+  await store.settle();
+
+  // The store's runtime is replaced while the socket is still unavailable,
+  // and then the attempt ends: no acknowledged crawl is owed.
+  store.state.structuralGeneration += 1;
+  store.connection.pendingConnectAttempt = undefined;
+  releaseSettledConnectAttemptWaits(store.state);
+  await store.settle();
+  expect(store.releases).toHaveLength(1);
+  store.releases[0]?.();
+  await held;
 });

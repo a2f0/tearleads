@@ -7,18 +7,21 @@
  * acknowledgement starts a crawl of its own, which must list after the
  * acknowledgement because hints sent before it are lost. A crawl that listed
  * before the acknowledgement therefore saves nothing: the tree was listed
- * twice on every reconnect. So the first crawl waits here once its local
- * preparation is done:
+ * twice on every reconnect. So the first crawl waits here before it starts:
  *
- * | Connect attempt when the crawl is ready to list | The crawl |
+ * | Connect attempt when the crawl is requested | The crawl |
  * | --- | --- |
- * | none pending | lists at once |
- * | pending, then acknowledged | is superseded; the acknowledgement's crawl lists |
- * | pending, then ended or replaced without an acknowledgement | lists |
+ * | none pending | starts at once |
+ * | pending, then acknowledged | is dropped; the acknowledgement's crawl lists |
+ * | pending, then ended or replaced without an acknowledgement | starts |
+ *
+ * It waits before it claims the store's hydration slot, so nothing queues
+ * behind the wait: a refresh, a write's follow-up crawl or a parent-lane
+ * request made meanwhile starts at once, as it would have with no wait.
  *
  * The wait is bounded by the host: a connect attempt ends when its request,
  * handshake or acknowledgement times out. A store that is reset or retired
- * releases every wait, and the crawl's own generation check then drops it.
+ * releases every wait, and `resolveHeldCrawl` then says what becomes of each.
  */
 
 interface ConnectAttemptGateState {
@@ -45,14 +48,32 @@ export function isConnectAttemptSettled(
 }
 
 /**
+ * What a held crawl does once its wait is over.
+ *
+ * | Reconnect crawl owed | Store generation | The held crawl |
+ * | --- | --- | --- |
+ * | yes | either | `drop`: that crawl lists the same lanes, after the acknowledgement |
+ * | no | unchanged | `start` |
+ * | no | moved | `restart`: it is requested again as any superseded crawl is |
+ */
+export function resolveHeldCrawl(input: {
+  readonly generationCurrent: boolean;
+  readonly reconnectCrawlOwed: boolean;
+}): "drop" | "restart" | "start" {
+  if (input.reconnectCrawlOwed) return "drop";
+  return input.generationCurrent ? "start" : "restart";
+}
+
+/**
  * Resolves once the connect attempt pending now is acknowledged, ends, or is
- * replaced by another; at once when none is pending.
+ * replaced by another. Null when none is pending: there is nothing to wait
+ * for.
  */
 export function waitForPendingConnectAttempt(
   state: ConnectAttemptGateState,
-): Promise<void> {
+): Promise<void> | null {
   const attempt = state.runtime.state.serverEventsPendingConnectAttempt;
-  if (attempt === undefined) return Promise.resolve();
+  if (attempt === undefined) return null;
   return new Promise((resolve) => {
     const waits = waitsByState.get(state) ?? new Set();
     waitsByState.set(state, waits);
