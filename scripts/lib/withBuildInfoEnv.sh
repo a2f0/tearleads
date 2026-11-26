@@ -8,8 +8,8 @@
 # renderer defines for these same variables, so both share this wrapper.
 # Capacitor reads the same metadata in its Vite config.
 #
-# Version comes from the invoking package's own package.json, so each target
-# reports the version it is actually released under.
+# Version comes from the invoking package's own package.json, which changes only
+# when bumped by hand; the Git SHA identifies the exact build.
 #
 # Both values degrade to "unknown" instead of failing the build: release builds
 # can run from a source tarball with no .git directory, and a support report that

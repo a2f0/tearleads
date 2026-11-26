@@ -95,7 +95,7 @@ marked it irrelevant. A failed, cancelled, missing, or unexpectedly skipped job
 fails the gate. Changes to workflows, CI scripts, tool pins, or
 [`package.json`](../../package.json) exercise every lane. So does a
 [`bun.lock`](../../bun.lock) change, unless it only rewrites workspace
-`version` fields, as `versions prepare` does on nearly every pull request: the
+`version` fields, as a hand version bump does: the
 classifier compares the merge base's and head's lockfiles with those fields
 removed, so a dependency, resolution, integrity, or workspace-set change still
 selects every lane, and a lockfile it cannot read or parse counts as changed.
@@ -117,7 +117,7 @@ checks and API errors stop the merge. This also protects standalone helper
 calls, where waiting only for the checks a ruleset requires would be
 insufficient. It does not require the branch to contain the base's newest
 commit: a base that moved during CI needs integration only when GitHub reports
-a conflict or `versions check` fails against the live base. Two PRs that pass
+a conflict. Two PRs that pass
 separately can break `main` together, so CI also runs on every `main` push and
 the `ship-pr` skill starts from `agent-tool repo base-health`. Update
 [`agent-tool.json`](../../agent-tool.json) together with the ruleset when a

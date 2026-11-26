@@ -38,11 +38,11 @@ function withoutWorkspaceVersions(lockfile: string) {
   return { ...parsed, workspaces: Object.fromEntries(workspaces) };
 }
 
-// `versions prepare` rewrites the workspace `version` fields of bun.lock on
-// nearly every pull request. Those fields change nothing any platform lane
-// installs, so only a lockfile that differs elsewhere (dependencies,
-// resolutions, integrity, the workspace set) exercises every lane. A lockfile
-// that is missing or cannot be parsed counts as changed.
+// A hand version bump rewrites the workspace `version` fields of bun.lock.
+// Those fields change nothing any platform lane installs, so only a lockfile
+// that differs elsewhere (dependencies, resolutions, integrity, the workspace
+// set) exercises every lane. A lockfile that is missing or cannot be parsed
+// counts as changed.
 export function lockfileChangeIsCommon({ base, head }: CiLockfiles) {
   if (base === undefined || head === undefined) return true;
   try {

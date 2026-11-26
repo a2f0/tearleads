@@ -281,8 +281,8 @@ and in client SDK sync.
 Shared branch, hook, validation, release, review, PR, and version helpers come
 from the exact npm-pinned [`@a2f0/agent-tool`](https://github.com/a2f0/agent-tool)
 dev dependency; run it with `bun run agent-tool`. Branch, commit trust, binary,
-hook, push-gate, title, required-check, and version policy is in
-`agent-tool.json`. The shared `app-store-readiness`, `audit-trails`,
+hook, push-gate, title, and required-check policy is in `agent-tool.json`. The
+shared `app-store-readiness`, `audit-trails`,
 `cross-agent-review`, `explicit-state-machines`, `open-issue`, `open-pr`,
 `performance-pass`, `reset`, `seo-optimization`, `ship-pr`, `space-cleanup`,
 `squash-merge`, `take-screenshots`, and `update-dependencies` skills are managed
@@ -301,22 +301,14 @@ Shipping rules on top of the shared skills:
 
 - **Reviewer**: prefer the other agent's CLI (Codex from Claude Code, Claude
   from Codex), then the remaining CLIs, and report any fallback.
-- **Base integration**: only on a conflict or a `versions check` failure
-  against the live base, merge the pinned base OID; never rebase or
-  force-push. Without a PR, integrate and repair locally so the branch is
-  pushed once. After that integration and `versions prepare`, the earlier
-  clean review stands when
-  `bun run agent-tool review carry <reviewed-head> <new-head>` passes, as the
-  `ship-pr` skill describes; review again anything it rejects.
-- **Versions**: every changed workspace package ships one patch past its
-  version on the merge base. The private root `package.json` is not versioned,
-  so a change confined to root files bumps nothing; leave its `version` field
-  alone. After each base integration or repair and before each review, run
-  `bun run agent-tool versions prepare "$BASE_OID"`, which commits the
-  manifests and refreshed `bun.lock`. Resolve a conflict confined
-  to version fields with `bun run agent-tool versions resolve-conflicts`, then
-  `git commit --no-edit`. Before merging, `versions check` must pass against the
-  live base.
+- **Base integration**: only when GitHub reports a conflict, merge the pinned
+  base OID; never rebase or force-push. Without a PR, integrate and repair
+  locally so the branch is pushed once.
+- **Versions**: pull requests do not bump package versions. To release
+  `@tearleads/client-sdk` or `@tearleads/windowing`, which publish when their
+  version passes npm's `latest`, bump that `version` by hand and refresh
+  `bun.lock` with `bun install`. Just before merging, confirm it is still newer
+  than live `main` and npm: no check stops two PRs taking one version.
 - **Titles**: PR titles and squash subjects follow `commitlint.config.mts`. The
   helper checks type and length only, so also run
   `printf '%s\n' "$TITLE" | bun run agent-tool bun x commitlint -- --config commitlint.config.mts`.
