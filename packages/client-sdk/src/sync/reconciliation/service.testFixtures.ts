@@ -3,6 +3,7 @@ import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { createDomainScope } from "../../data/shared/domainScope";
 import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import { type ReconciliationClock, systemReconciliationClock } from "./clock";
+import { createReconciliationService } from "./service";
 import type {
   ContainerDiscoveryOutcome,
   ContainerDiscoveryRequest,
@@ -196,4 +197,70 @@ export function forceKnownContainers(
   for (const containerId of host.listKnownContainerIds()) {
     service.enqueueContainer(containerId, "active", true);
   }
+}
+
+export const OWED_LANE_HOST_CONTAINER_IDS = ["a", "b", "c"] as const;
+
+/**
+ * A host with three known lanes, of which `owed` are owed a listing, that
+ * records each batched listing request.
+ */
+export function createOwedLaneHost(input: {
+  /** The known containers; the three fixed ones unless a test moves them. */
+  readonly known?: (() => ReadonlyArray<string>) | undefined;
+  readonly owed: () => ReadonlyArray<string>;
+  readonly overrides?: Partial<ReconciliationHost>;
+}) {
+  const listings: string[][] = [];
+  const steps: string[] = [];
+  const host = createReconciliationTestHost({
+    discoverContainerDocuments: async (requests, onOutcome) => {
+      listings.push(requests.map((request) => request.containerId));
+      // Each lane is listed and applies, finding nothing new.
+      const outcomes = requests.map(({ containerId }) => ({
+        containerId,
+        status: "fulfilled" as const,
+        value: [],
+      }));
+      for (const outcome of outcomes) await onOutcome(outcome);
+      return outcomes;
+    },
+    listKnownContainerIds: () =>
+      input.known?.() ?? [...OWED_LANE_HOST_CONTAINER_IDS],
+    // Owed among the containers it is asked about, as the real record is.
+    listOwedDocumentDiscoveryContainerIds: async (containerIds) =>
+      input.owed().filter((id) => containerIds.includes(id)),
+    requestOwedDocumentReads: async () => {
+      steps.push("owed-reads");
+    },
+    ...input.overrides,
+  });
+  return { host, listings, steps };
+}
+
+/**
+ * A started service whose catch-up waits on a crawl the test settles by
+ * opening `crawl`, on a clock that never runs out by itself.
+ */
+export function awaitingCrawl(input: {
+  readonly known?: () => ReadonlyArray<string>;
+  readonly owed?: () => ReadonlyArray<string>;
+  readonly overrides?: Partial<ReconciliationHost>;
+}) {
+  const crawl = createGate();
+  const fixture = createOwedLaneHost({
+    known: input.known,
+    overrides: {
+      clock: createManualReconciliationClock(),
+      whenTreeCrawlSettles: async () => {
+        await crawl.wait;
+        return true;
+      },
+      ...input.overrides,
+    },
+    owed: input.owed ?? (() => []),
+  });
+  const service = createReconciliationService(fixture.host);
+  service.start();
+  return { ...fixture, crawl, service };
 }
