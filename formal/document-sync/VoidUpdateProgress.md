@@ -205,9 +205,22 @@ asserts the named violation on every run:
   never asks for a reload, so after one counted failure a trapper holds the
   device for good: `DeviceEventuallyCurrent` fails.
 
+A [rotation baseline](../../docs/glossary/keys.md#rotation-baseline) is an
+ordered group of ordinary updates, its segments, so the model needs no state
+for one: `Judge` reads a segment as it reads any update, with the same
+verdicts, and a segment whose parents no earlier served update carries is
+void like any other. Its abstraction is unchanged from when a baseline was a
+snapshot the judge imported apart. The void rules version changed with that
+rule, which is an `Upgrade` here: a device judges again whatever it voided
+under the older judge.
+
 Outside the model: the rotation-baseline redirect of a pull's first page, which
 skips only updates after the cursor that the baseline covers
-([`BaselineDominance`](./BaselineDominance.md) checks that gate); AEAD failures
+([`BaselineDominance`](./BaselineDominance.md) checks that gate); the group
+rules a served baseline must meet (index order, one baseline, the signed
+count and digest), which `judgeServedBaselineGroups` checks before `Judge`
+reads a payload and which fail the pass without a verdict, as a duplicate
+update id does; AEAD failures
 and content keys, which [`ContentKeyCommitment`](./ContentKeyCommitment.md)
 checks, so no verdict or cursor depends on the key a reader holds; duplicate
 update ids, which still fail a page; a pull's pages beyond the

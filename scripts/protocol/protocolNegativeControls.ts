@@ -14,6 +14,7 @@ import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeC
 import { DISCOVERY_LANE_NEGATIVE_CONTROLS } from "./protocolDiscoveryLaneNegativeControls";
 import { DOCUMENT_LISTING_NEGATIVE_CONTROLS } from "./protocolDocumentListingNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
+import { EMPTY_FRONTIER_NEGATIVE_CONTROLS } from "./protocolEmptyFrontierNegativeControls";
 import { GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS } from "./protocolGroupGrantRevocationNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
@@ -312,46 +313,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "action", name: "HeldReferencesNeverRegress" },
     why: "A dishonest server can serve a signed successor that reintroduces an older group reference (#2266).",
   },
-  {
-    id: "empty-frontier-unlink-unlocked",
-    module: "formal/document-sync/EmptyFrontierUnlink.tla",
-    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
-    constants: { LockedUnlink: "FALSE" },
-    expect: { kind: "invariant", name: "NoDataLoss" },
-    why: "Without the manifest-head lock a writer commits between the emptiness proof and the unlink commit, and the rotation orphans its update.",
-  },
-  {
-    id: "empty-frontier-link-advances-epoch",
-    module: "formal/document-sync/EmptyFrontierUnlink.tla",
-    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
-    constants: { RequireEmptyFrontierOnLinkAdvance: "FALSE" },
-    expect: { kind: "invariant", name: "NoDataLoss" },
-    why: "A link carries no rotation baseline, so accepting one that advances the content-key epoch strands committed updates from the new container's members (#2365 finding 28).",
-  },
-  {
-    id: "empty-frontier-check-ignores-baselines",
-    module: "formal/document-sync/EmptyFrontierUnlink.tla",
-    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
-    constants: { FrontierCheck: '"uncovered"' },
-    expect: { kind: "invariant", name: "NoDataLoss" },
-    why: "A rotation baseline is itself a committed update sealed to its own epoch, so a later advance that checks only the uncovered frontier strands it.",
-  },
-  {
-    id: "empty-frontier-short-baseline",
-    module: "formal/document-sync/EmptyFrontierUnlink.tla",
-    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
-    constants: { CheckBaselineCoversFrontier: "FALSE" },
-    expect: { kind: "invariant", name: "NoDataLoss" },
-    why: "An unlink whose rotation baseline falls short of the committed frontier strands every update the baseline does not cover.",
-  },
-  {
-    id: "empty-frontier-baseline-skips-earlier-baseline",
-    module: "formal/document-sync/EmptyFrontierUnlink.tla",
-    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
-    constants: { BaselineFrontier: '"uncovered"' },
-    expect: { kind: "invariant", name: "NoDataLoss" },
-    why: "A baseline compared only with updates since the latest baseline lets the next rotation drop that earlier baseline's history.",
-  },
+  ...EMPTY_FRONTIER_NEGATIVE_CONTROLS,
 ];
 
 export type { ParsedConfig } from "./protocolNegativeControlConfig";

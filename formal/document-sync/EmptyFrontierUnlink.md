@@ -6,24 +6,32 @@ gates for the two content-key epoch advances that carry no
 submitted without one, and a link that advances the epoch. A rotation strands
 every committed update that no baseline sealed to the new epoch covers. A
 document with an empty committed frontier has nothing for a baseline to cover,
-and its client sends none: an empty snapshot is sent as a baseline only with a
-processed cursor, which a document never written lacks. The server accepts a
+and its client sends none: an empty history is sent as a baseline, one empty
+segment, only with a processed cursor, which a document never written lacks.
+The server accepts a
 baseline-less unlink only after proving the committed frontier is empty inside
 the mutation transaction, under the document manifest-head write
 lock that sync writers also take exclusively. A link never carries a baseline,
 so it may advance the epoch only under the same emptiness proof.
+
+A baseline is an ordered group of updates, its segments, committed whole with
+the unlink. The model still counts it as one thing that covers a frontier:
+what it covers is what its segments' spans reach together, and the group
+commits in the unlink's transaction or not at all. Only the production
+mapping changed when a baseline stopped being one snapshot record, plus one
+switch for the commit being whole.
 
 The abstraction maps to production at these seams:
 
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
-| `CheckCoveringUnlink` / `RejectCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
-| `BaselineAccepted` | the frontier comparison in `assertAtomicRotationBaselineCoversCommittedFrontier` |
+| `CheckCoveringUnlink` / `RejectCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline`, which refuses a group it did not insert whole |
+| `BaselineAccepted` | the frontier comparison in `assertAtomicRotationBaselineCoversCommittedFrontier`, against the coverage `requireOutgoingBaselineGroup` reads from the segments' spans |
 | `BeginLinkAdvance` / `LinkAdvancesEpoch` / `RejectLinkAdvance` | `assertLinkKeepsCommittedContentKeyEpoch` inside `advanceDocumentLinkSet` |
 | `FrontierEmpty` | `hasCommittedDocumentUpdate`, the emptiness proof both gates share |
 | `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
-| the client sending an empty baseline only with a processed cursor (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot with no cursor; the server refuses an empty one without a cursor in `assertOutgoingSpanOrCursoredEmptyBaseline` |
+| the client sending an empty baseline only with a processed cursor (boundary assumption) | `buildDocumentRotationBaseline` returning null for a history with no operations and no cursor; the server refuses an empty one without a cursor in `judgeDocumentBaselineGroup`, and an empty segment anywhere else in `assertOutgoingSpanOrEmptyBaseline` |
 
 The checked configuration sets `LockedUnlink = TRUE`, matching production, and
 the invariants require that no rotation ever orphans a committed update and
@@ -35,9 +43,10 @@ negative-control check asserts this on every run.
 `RequireEmptyFrontierOnLinkAdvance = FALSE` lets a link advance the epoch over
 committed updates, and TLC reports the same violation.
 
-A rotation baseline covers history only under the epoch it is sealed to, and it
-is itself a committed update, so both gates ask whether any update is
-committed, not whether one is uncovered. `FrontierCheck = "uncovered"` is a
+A rotation baseline covers history only under the epoch it is sealed to, and
+its segments are themselves committed updates, so both gates ask whether any
+update is committed, not whether one is uncovered.
+`FrontierCheck = "uncovered"` is a
 server that checked only the uncovered frontier; after a covering unlink TLC
 finds a link advance that strands the baseline, and the negative control
 `empty-frontier-check-ignores-baselines` asserts it.
@@ -58,12 +67,18 @@ accepts an empty baseline for the next, which strands the first baseline: the
 control `empty-frontier-baseline-skips-earlier-baseline` asserts it across two
 consecutive rotations.
 
+The gate reads a baseline's coverage from all of its segments, so the unlink
+is sound only when all of them commit. `CommitWholeBaseline = FALSE` is a
+server that could commit some of a checked group's segments and not others:
+the rotation covers less than the gate checked, and the control
+`empty-frontier-partial-baseline-commit` asserts the `NoDataLoss` violation.
+
 The committed frontier a covering baseline must cover is the one after the
 baseline's signed processed cursor: its author imported or voided every update
-up to the cursor, so the snapshot stands for those (#3135).
+up to the cursor, so the baseline stands for those (#3135).
 [BaselineCursorCoverage](./BaselineCursorCoverage.md) models that cursor;
 here `total` counts the updates after it. A document whose every update its
-author voided has an empty snapshot. Its baseline is that empty snapshot
+author voided has an empty history. Its baseline is one empty segment
 signing the cursor, so `total` is zero and the covering unlink commits
 (#3194). The baseline-less gate would refuse that document while any update
 is committed, since new members would lack the old key for those rows.

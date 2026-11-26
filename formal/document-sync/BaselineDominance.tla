@@ -1,51 +1,58 @@
 --------------------- MODULE BaselineDominance ---------------------
 EXTENDS Naturals
 
-CONSTANTS Peers, MaxCounter, MaxEpoch, UpdateCount,
+CONSTANTS Peers, MaxCounter, MaxEpoch, UpdateCount, SegmentCount,
           CheckVectorCovers,            \* dominance requires the vector to cover the update
           RawModeServesAll,             \* raw history mode never redirects
           RedirectKeepsCurrentEpoch,    \* a redirect drops only older-epoch updates
-          RequireAuthenticatedBaseline  \* only a signed full-history baseline redirects
+          RequireWholeBaseline          \* only a whole signed group redirects
 
 ASSUME /\ Peers # {}
        /\ MaxCounter \in Nat
        /\ MaxEpoch \in Nat \ {0}
        /\ UpdateCount \in Nat \ {0}
+       /\ SegmentCount \in Nat \ {0}
        /\ {CheckVectorCovers, RawModeServesAll, RedirectKeepsCurrentEpoch,
-           RequireAuthenticatedBaseline} \subseteq BOOLEAN
+           RequireWholeBaseline} \subseteq BOOLEAN
 
 Counters == 0..MaxCounter
 Epochs == 1..MaxEpoch
 UpdateIds == 1..UpdateCount
+Segments == 1..SegmentCount
+NoSegment == 0
 VersionVectors == [Peers -> Counters]
 UpdateRecords == [epoch : Epochs, frontier : VersionVectors]
 UpdateMaps == [UpdateIds -> UpdateRecords]
 
-(* `coverage` is the source version vector the latest current-epoch      *)
-(* baseline declares; `baselineContains` is what its snapshot actually    *)
-(* carries. A baseline whose signed metadata binds a full-history span to *)
-(* that vector carries exactly the updates the vector covers; any other    *)
-(* baseline's contents are unconstrained.                                  *)
+(* The latest current-epoch baseline is a group of `SegmentCount` signed  *)
+(* segments, each an ordinary update. `coverage` is the version its       *)
+(* segments' signed spans reach together, which run gapless from zero.    *)
+(* `segmentOf` names the segment that carries each update's operations,   *)
+(* or `NoSegment` for an update the group does not hold: a writer's group *)
+(* holds exactly the updates its coverage covers. `storedSegments` are    *)
+(* the segments the server still holds with the fields their writer       *)
+(* signed. The final segment signs the count and a digest of the others,  *)
+(* so a server can tell a whole group from one missing a segment.         *)
 VARIABLES phase,
           updates,
           currentEpoch,
           hasBaseline,
-          baselineAuthenticated,
-          baselineContains,
+          segmentOf,
+          storedSegments,
           coverage,
           historyMode,
           served
 
-vars == << phase, updates, currentEpoch, hasBaseline, baselineAuthenticated,
-           baselineContains, coverage, historyMode, served >>
+vars == << phase, updates, currentEpoch, hasBaseline, segmentOf,
+           storedSegments, coverage, historyMode, served >>
 
 TypeOK ==
   /\ phase \in {"ready", "served"}
   /\ updates \in UpdateMaps
   /\ currentEpoch \in Epochs
   /\ hasBaseline \in BOOLEAN
-  /\ baselineAuthenticated \in BOOLEAN
-  /\ baselineContains \subseteq UpdateIds
+  /\ segmentOf \in [UpdateIds -> Segments \cup {NoSegment}]
+  /\ storedSegments \subseteq Segments
   /\ coverage \in VersionVectors
   /\ historyMode \in {"normal", "raw"}
   /\ served \subseteq UpdateIds
@@ -55,10 +62,18 @@ Older(id) == updates[id].epoch < currentEpoch
 VectorCovers(required) ==
   \A peer \in Peers : coverage[peer] >= required[peer]
 
-(* The baseline the redirect may use: production loads only one whose    *)
-(* signed metadata binds the declared vector to a full-history span.      *)
+(* What the stored segments carry: a reader redirected to the group is   *)
+(* served these and no other part of it.                                  *)
+BaselineContains == {id \in UpdateIds : segmentOf[id] \in storedSegments}
+
+WholeBaseline == storedSegments = Segments
+
+(* The baseline the redirect may use: production loads only a group      *)
+(* whose stored segments are all there, in index order, each carrying    *)
+(* the fields its metadata hash signs, and matching the signed count and  *)
+(* digest.                                                                *)
 ReadableBaseline ==
-  hasBaseline /\ (RequireAuthenticatedBaseline => baselineAuthenticated)
+  hasBaseline /\ (RequireWholeBaseline => WholeBaseline)
 
 Dominated(id) ==
   /\ ReadableBaseline
@@ -82,12 +97,13 @@ Init ==
   /\ updates \in UpdateMaps
   /\ currentEpoch \in Epochs
   /\ hasBaseline \in BOOLEAN
-  /\ baselineAuthenticated \in BOOLEAN
   /\ coverage \in VersionVectors
-  /\ baselineContains \in SUBSET UpdateIds
-  /\ ~hasBaseline => baselineContains = {}
-  /\ (hasBaseline /\ baselineAuthenticated) =>
-       baselineContains = {id \in UpdateIds : VectorCovers(updates[id].frontier)}
+  /\ segmentOf \in [UpdateIds -> Segments \cup {NoSegment}]
+  /\ storedSegments \in SUBSET Segments
+  /\ ~hasBaseline => storedSegments = {}
+  /\ \A id \in UpdateIds :
+       (segmentOf[id] # NoSegment) <=>
+         (hasBaseline /\ VectorCovers(updates[id].frontier))
   /\ historyMode \in {"normal", "raw"}
   /\ served = {}
 
@@ -97,8 +113,8 @@ Serve ==
   /\ served' = IF (historyMode = "normal" \/ ~RawModeServesAll) /\ CanRedirect
                    THEN RedirectServed
                    ELSE UpdateIds
-  /\ UNCHANGED << updates, currentEpoch, hasBaseline, baselineAuthenticated,
-                  baselineContains, coverage, historyMode >>
+  /\ UNCHANGED << updates, currentEpoch, hasBaseline, segmentOf,
+                  storedSegments, coverage, historyMode >>
 
 RemainServed ==
   /\ phase = "served"
@@ -119,11 +135,11 @@ UncoveredUpdateIsServed ==
 CurrentOrNewerUpdateIsServed ==
   phase # "served" \/ \A id \in UpdateIds : ~Older(id) => id \in served
 
-(* Stated against what the baseline carries, not against the predicate   *)
-(* that guards the redirect: an omitted update must reach the reader      *)
-(* inside the baseline it is redirected to.                               *)
+(* Stated against what the stored segments carry, not against the        *)
+(* predicate that guards the redirect: an omitted update must reach the   *)
+(* reader inside a segment of the group it is redirected to.              *)
 NoDataLoss ==
-  phase # "served" \/ \A id \in (UpdateIds \ served) : id \in baselineContains
+  phase # "served" \/ \A id \in (UpdateIds \ served) : id \in BaselineContains
 
 RawModeServesCompleteFrontier ==
   phase # "served" \/ historyMode # "raw" \/ served = UpdateIds

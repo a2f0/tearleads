@@ -14,12 +14,12 @@ export const BASELINE_DOMINANCE_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       why: "A redirect that omits an older update its baseline vector does not cover leaves the reader without that update.",
     },
     {
-      id: "baseline-redirect-unauthenticated",
+      id: "baseline-redirect-partial-group",
       module: BASELINE_DOMINANCE_MODULE,
       config: BASELINE_DOMINANCE_CONFIG,
-      constants: { RequireAuthenticatedBaseline: "FALSE" },
+      constants: { RequireWholeBaseline: "FALSE" },
       expect: { kind: "invariant", name: "NoDataLoss" },
-      why: "Nothing binds an unauthenticated baseline's declared vector to its contents, so redirecting through one can omit an update it does not carry.",
+      why: "A baseline is a group of segments whose spans reach its coverage together. Redirecting through a group that is missing a segment omits an update whose operations only that segment carries.",
     },
     {
       id: "baseline-redirect-raw-mode",

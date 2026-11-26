@@ -16,9 +16,10 @@ backoff. See the [mapping](./SyncLaneConcurrency.md).
 models the no-data-loss gate for document sync baseline redirection: a
 normal-mode read may omit an older-epoch update only when a readable
 current-epoch baseline provably dominates it, and raw mode always serves the
-complete retained missing frontier. `NoDataLoss` is stated against what the
-baseline actually carries, and four controls show that the vector coverage
-check, the authenticated-baseline rule, raw-mode completeness, and keeping
+complete retained missing frontier. A baseline is a group of segments, and
+only a whole group is readable. `NoDataLoss` is stated against what the
+stored segments actually carry, and four controls show that the vector
+coverage check, the whole-group rule, raw-mode completeness, and keeping
 current-epoch updates each carry an invariant. Because the other invariants
 share the `Dominated`/`Older` operators with the serve action, TLC alone cannot
 check the dominance definition itself; the registered
@@ -91,8 +92,9 @@ See the [production mapping, negative controls, and bounds](./ContentKeyCommitme
 [`BaselineCursorCoverage.tla`](./BaselineCursorCoverage.tla)
 models the server's coverage checks for a rotation baseline over a log that
 can hold an overclaimed op span. A baseline signs its author's processed
-cursor only when its snapshot holds the frontier the cursor was recorded
-with, and the gate and the redirect weigh only updates committed after it. It
+cursor only when the history it carries holds the frontier the cursor was
+recorded with, and the gate and the redirect weigh only updates committed
+after it. It
 requires that no accepted baseline lacks a truthful operation, that an author
 that judged the whole log is never refused, and that a new reader starts at
 the latest accepted baseline. See the
@@ -197,7 +199,7 @@ no [rotation baseline](../../docs/glossary/keys.md#rotation-baseline): a
 document unlink submitted without one, and a link that advances the epoch. Both
 require a committed frontier proved empty under the document manifest-head
 write lock, and a covering unlink's baseline is refused when it falls short of
-the committed frontier. See the
+the committed frontier and commits whole or not at all. See the
 [mapping, negative controls, and bounds](./EmptyFrontierUnlink.md).
 
 ## Attachment Key Reachability

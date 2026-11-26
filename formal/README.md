@@ -132,7 +132,7 @@ Model-specific gaps:
   does not cover retries, cancellation, or network failure.
 - `BaselineCursorCoverage` treats every reader as voiding exactly the
   overclaims; decoders, dependencies, and runtime failures are
-  `VoidUpdateProgress`'s. A writer that signs a cursor past its own snapshot
+  `VoidUpdateProgress`'s. A writer that signs a cursor past its own history
   is outside it.
 - `DiscoveryLaneResumption` fixes the server's documents before sign-in and
   bounds crashes and deferrals. A peer write after a lane settles, and a hint

@@ -63,7 +63,8 @@ export const principalPolicyContractsSurface = [
 // Document sync also uses the KEK currency, content crypto, event, outgoing
 // batch, pagination, decryption, import, verdict, Loro runtime-failure ledger,
 // runtime health, Loro lifetime and read-window, content-key commitment,
-// acknowledgement, and submit-failure contracts.
+// acknowledgement, and submit-failure contracts, and the rotation baseline
+// segment fields and served-group rules.
 export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/containerKek/index.ts`,
   `${sdk}/data/documents/shared/projection/index.ts`,
@@ -77,6 +78,9 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/readers.ts`,
   `${sdk}/data/documents/shared/responses.ts`,
   `${sdk}/data/documents/shared/stableDocumentId.ts`,
+  `${sdk}/data/documents/shared/sync/baselineGroupMachine.ts`,
+  `${sdk}/data/documents/shared/sync/baselineGroupProgress.ts`,
+  `${sdk}/data/documents/shared/sync/baselineSegment.ts`,
   `${sdk}/data/documents/shared/sync/contentKeyCommitment.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncImportVerdicts.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncOutgoingBatch.ts`,
