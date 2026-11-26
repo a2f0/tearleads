@@ -59,8 +59,8 @@ Playwright's default two workers beside its three app servers and the API, and
 installs only the browsers its listing uses
 ([`e2eShardBrowsers.ts`](../../packages/app-web/scripts/e2eShardBrowsers.ts)).
 [`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
-checks that every shard runs, and on CI each shard's log ends with its spec
-files' summed test times, slowest first, for rebalancing. The gate requires the
+checks that every shard runs, and each shard's log ends with its spec files'
+summed test times, slowest first, for rebalancing. The gate requires the
 job's aggregate result, so the shards need no ruleset entries. The Turbo task
 depends on the app-web workspace builds and the API's runtime sources, so each
 shard replays from the cache until a change reaches either. The
