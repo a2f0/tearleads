@@ -32,3 +32,36 @@ test("a portaled combobox retains its selected highlight and trigger focus", () 
   expect(view.queryByRole("listbox")).toBeNull();
   expect(document.activeElement).toBe(trigger);
 });
+
+test("arrow keys move from a highlighted option whose id is empty", () => {
+  const view = render(
+    <MiniAppSelectMenu
+      ariaLabel="Pick a residency"
+      onChange={() => {}}
+      portaled
+      options={[
+        { id: "", label: "None" },
+        { id: "first", label: "First option" },
+        { id: "last", label: "Last option" },
+      ]}
+      value="last"
+    />,
+  );
+  const trigger = view.getByRole("combobox", { name: "Pick a residency" });
+  const highlighted = () =>
+    view
+      .getAllByRole("option")
+      .find(
+        (option) => option.id === trigger.getAttribute("aria-activedescendant"),
+      )?.textContent;
+  fireEvent.click(trigger);
+
+  fireEvent.keyDown(trigger, { key: "Home" });
+  expect(highlighted()).toBe("None");
+  fireEvent.keyDown(trigger, { key: "ArrowDown" });
+  expect(highlighted()).toBe("First option");
+  fireEvent.keyDown(trigger, { key: "ArrowUp" });
+  expect(highlighted()).toBe("None");
+  fireEvent.keyDown(trigger, { key: "ArrowUp" });
+  expect(highlighted()).toBe("Last option");
+});

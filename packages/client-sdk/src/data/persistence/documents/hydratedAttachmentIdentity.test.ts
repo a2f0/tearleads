@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
 import { documents } from "../../sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../sqlite/sqlSchema";
+import { createExecSql, type ExecSql } from "../../sqlite/sqlSchema";
 import {
   CONTAINER_METADATA_APP_KIND,
   sqlContainerContentsPersistence,
@@ -59,7 +59,7 @@ async function saveDocument(execSql: ExecSql) {
 }
 
 for (const metadataFirst of [true, false]) {
-  test(`hydration's local-id-only guard observes insertion order: metadata first ${metadataFirst}`, async () => {
+  test(`hydration's guard reads the document, not metadata sharing its local id: metadata first ${metadataFirst}`, async () => {
     const { execSql, close } = await createTestExecSql(
       "hydration-kind-identity",
     );
@@ -97,8 +97,8 @@ for (const metadataFirst of [true, false]) {
             ),
           ),
       ).toEqual([{ snapshot: "document-frontier" }]);
-      // Characterization, not an endorsement of LIMIT 1 identity semantics.
-      // A full-primary-key control changes the metadata-first result to true.
+      // Attachment rows carry a document's local id, so the guard compares
+      // the document's frontier whichever kind was written first.
       const committed = await sqlDocumentsPersistence.saveHydratedAttachment(
         execSql,
         {
@@ -108,10 +108,10 @@ for (const metadataFirst of [true, false]) {
           stillCurrent: () => true,
         },
       );
-      expect(committed).toBe(!metadataFirst);
+      expect(committed).toBe(true);
       expect(
         await sqlDocumentsPersistence.listLocalAttachments(execSql, LOCAL_ID),
-      ).toEqual(metadataFirst ? [] : [attachment]);
+      ).toEqual([attachment]);
     } finally {
       close();
     }
@@ -148,7 +148,7 @@ for (const expectedSnapshotEndVersion of [null, "", "document-frontier"]) {
 }
 
 for (const expectedSnapshotEndVersion of [null, "", "document-frontier"]) {
-  test(`metadata-only hydration compares its frontier to ${JSON.stringify(expectedSnapshotEndVersion)}`, async () => {
+  test(`hydration with only metadata at the local id finds no document and compares to ${JSON.stringify(expectedSnapshotEndVersion)}`, async () => {
     const { execSql, close } = await createTestExecSql(
       "hydration-metadata-only",
     );
@@ -167,7 +167,7 @@ for (const expectedSnapshotEndVersion of [null, "", "document-frontier"]) {
           stillCurrent: () => true,
         },
       );
-      expect(committed).toBe(expectedSnapshotEndVersion === "");
+      expect(committed).toBe(expectedSnapshotEndVersion === null);
       expect(
         await sqlDocumentsPersistence.listLocalAttachments(execSql, LOCAL_ID),
       ).toEqual(committed ? [attachment] : []);
@@ -176,3 +176,45 @@ for (const expectedSnapshotEndVersion of [null, "", "document-frontier"]) {
     }
   });
 }
+
+// The guard runs inside an immediate transaction, once per hydrated
+// attachment. A lookup by local id alone reads every document row.
+test("hydration's guard reads its document by primary key", async () => {
+  const f = await createTestExecSql("hydration-guard-plan");
+  const statements: Array<{ bind: Parameters<ExecSql>[1]; sql: string }> = [];
+  const execSql = createExecSql({
+    exec: async ({ sql, bind, rowMode }) => {
+      if (/^select\b/i.test(sql) && sql.includes('from "documents"'))
+        statements.push({ bind, sql });
+      return {
+        rows: await f.execSql(sql, bind, rowMode ? { rowMode } : undefined),
+      };
+    },
+  });
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveDocument(execSql);
+    await saveMetadata(execSql);
+    statements.length = 0;
+    expect(
+      await sqlDocumentsPersistence.saveHydratedAttachment(execSql, {
+        attachment,
+        expectedStorageKey: null,
+        expectedSnapshotEndVersion: "document-frontier",
+        stillCurrent: () => true,
+      }),
+    ).toBe(true);
+    expect(statements).toHaveLength(1);
+    const [statement] = statements;
+    if (!statement) throw new Error("the guard did not read its document");
+    const plan = await f.execSql(
+      `EXPLAIN QUERY PLAN ${statement.sql}`,
+      statement.bind,
+    );
+    expect(plan.map((row) => String(Reflect.get(row, "detail")))).toEqual([
+      "SEARCH documents USING INDEX sqlite_autoindex_documents_1 (app_kind=? AND local_id=?)",
+    ]);
+  } finally {
+    f.close();
+  }
+});
