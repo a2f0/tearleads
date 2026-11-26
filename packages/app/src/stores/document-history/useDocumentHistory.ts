@@ -16,6 +16,7 @@ import {
   type DocumentHistoryEvent,
   type DocumentHistoryState,
   INITIAL_DOCUMENT_HISTORY,
+  localDocumentHistory,
   transitionDocumentHistory,
 } from "./documentHistoryMachine";
 
@@ -26,6 +27,14 @@ export interface DocumentHistoryControls {
   /** Reopen the history, picking up edits made since the capture. */
   readonly reload: () => void;
   readonly seek: (index: number) => void;
+  /** Go back from a signed replay to this device's capture. */
+  readonly showLocal: () => void;
+  /**
+   * Show a replay of the signed uploads in place of this device's capture,
+   * which stays open underneath. The replay remains the caller's: it must
+   * stay open while it is on screen, and History never closes it.
+   */
+  readonly showSigned: (signed: DocumentHistory) => void;
   readonly state: DocumentHistoryState;
   readonly step: (delta: -1 | 1) => void;
   readonly togglePlay: () => void;
@@ -154,7 +163,7 @@ function useReplaySelectedStop(
       if (!isCurrentRun(run)) return;
       try {
         send({
-          run,
+          history,
           stop: {
             change: history.changeAt(selectedIndex),
             index: selectedIndex,
@@ -164,8 +173,8 @@ function useReplaySelectedStop(
         });
       } catch (error) {
         send({
+          history,
           message: unknownErrorMessage(error),
-          run,
           type: "replay-failed",
         });
       }
@@ -188,14 +197,15 @@ function usePlayback(playing: boolean, send: Send): void {
 /**
  * Notice edits the capture does not hold. A save of this document may add
  * stops, but opening the document also saves it, so compare a fresh capture
- * rather than trust the notification.
+ * rather than trust the notification. It is this device's capture that is
+ * compared, whichever history is on screen.
  */
 function useNewerEditsCheck(
   { documents, localId }: HistorySource,
   state: DocumentHistoryState,
   send: Send,
 ): void {
-  const history = state.status === "ready" ? state.history : null;
+  const history = localDocumentHistory(state);
   const newerAvailable = state.status === "ready" && state.newerAvailable;
   const { run } = state;
 
@@ -310,6 +320,11 @@ export function useDocumentHistory(localId: string): DocumentHistoryControls {
   return {
     reload: open,
     seek: useCallback((index: number) => send({ index, type: "seeked" }), []),
+    showLocal: useCallback(() => send({ type: "local-shown" }), []),
+    showSigned: useCallback(
+      (signed: DocumentHistory) => send({ signed, type: "signed-shown" }),
+      [],
+    ),
     state,
     step: useCallback((delta: -1 | 1) => send({ delta, type: "stepped" }), []),
     togglePlay: useCallback(() => send({ type: "play-toggled" }), []),

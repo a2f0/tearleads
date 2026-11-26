@@ -12,14 +12,24 @@ export interface ShownDocumentHistoryStop {
 }
 
 /**
+ * Which history a ready replay has on screen: this device's capture, or the
+ * replay of the signed uploads shown in its place. The capture stays open
+ * under a signed replay, as `local`, for the way back.
+ */
+type ShownDocumentHistorySource =
+  | { readonly source: "local" }
+  | { readonly local: DocumentHistory; readonly source: "signed" };
+
+/**
  * A document's history replay, tagged with the open that started it.
  *
  * - `loading`: reading the document's durable history.
  * - `unavailable`: the document has no durable history to replay yet.
  * - `failed`: the history could not be read, or a stop could not be replayed.
- * - `ready`: `history` is open. `selectedIndex` is the stop the user asked
- *   for; `shown` is the stop on screen, which lags it while a replay runs.
- *   `newerAvailable` means edits became durable after this capture was taken.
+ * - `ready`: `history` is on screen, from `source`. `selectedIndex` is the
+ *   stop the user asked for; `shown` is the stop on screen, which lags it
+ *   while a replay runs. `newerAvailable` means edits became durable after
+ *   this device's capture was taken.
  */
 export type DocumentHistoryState =
   | { readonly run: number; readonly status: "loading" }
@@ -29,7 +39,7 @@ export type DocumentHistoryState =
       readonly run: number;
       readonly status: "failed";
     }
-  | {
+  | ({
       readonly history: DocumentHistory;
       readonly newerAvailable: boolean;
       readonly playing: boolean;
@@ -37,7 +47,7 @@ export type DocumentHistoryState =
       readonly selectedIndex: number;
       readonly shown: ShownDocumentHistoryStop | null;
       readonly status: "ready";
-    };
+    } & ShownDocumentHistorySource);
 
 export type DocumentHistoryEvent =
   | { readonly run: number; readonly type: "open-started" }
@@ -56,16 +66,22 @@ export type DocumentHistoryEvent =
   | { readonly type: "play-toggled" }
   | { readonly type: "tick" }
   | {
-      readonly run: number;
+      /** The history the stop was replayed from. */
+      readonly history: DocumentHistory;
       readonly stop: ShownDocumentHistoryStop;
       readonly type: "shown";
     }
   | {
+      /** The history whose stop could not be replayed. */
+      readonly history: DocumentHistory;
       readonly message: string;
-      readonly run: number;
       readonly type: "replay-failed";
     }
-  | { readonly run: number; readonly type: "newer-found" };
+  | { readonly run: number; readonly type: "newer-found" }
+  /** Show the replay of the signed uploads in place of the capture. */
+  | { readonly signed: DocumentHistory; readonly type: "signed-shown" }
+  /** Go back to this device's capture. */
+  | { readonly type: "local-shown" };
 
 type ReadyState = Extract<DocumentHistoryState, { status: "ready" }>;
 
@@ -81,13 +97,39 @@ function lastIndex(state: ReadyState): number {
 /**
  * Whether a stop is the document as it is now, so there is nothing to
  * restore: the newest stop of a capture that no later edit has overtaken.
- * Once newer edits exist, the capture's last stop is a past version too.
+ * Once newer edits exist, the capture's last stop is a past version too. No
+ * stop of a signed replay qualifies: this device's copy differs from it.
  */
 export function isCurrentDocumentVersion(
   state: ReadyState,
   index: number,
 ): boolean {
-  return index === lastIndex(state) && !state.newerAvailable;
+  return (
+    state.source === "local" &&
+    index === lastIndex(state) &&
+    !state.newerAvailable
+  );
+}
+
+/**
+ * This device's capture, whichever history is on screen; null while none is
+ * open. A different one is a different capture.
+ */
+export function localDocumentHistory(
+  state: DocumentHistoryState,
+): DocumentHistory | null {
+  if (state.status !== "ready") return null;
+  return state.source === "signed" ? state.local : state.history;
+}
+
+/** A history as it first appears: on its newest stop, not yet replayed. */
+function onNewestStop(history: DocumentHistory) {
+  return {
+    history,
+    playing: false,
+    selectedIndex: history.stops.length - 1,
+    shown: null,
+  };
 }
 
 function clampIndex(state: ReadyState, index: number): number {
@@ -141,16 +183,39 @@ function transitionReady(
     case "tick":
       return tick(state);
     case "shown":
-      return event.run === state.run && event.stop.index === state.selectedIndex
+      return event.history === state.history &&
+        event.stop.index === state.selectedIndex
         ? { ...state, shown: event.stop }
         : state;
     case "replay-failed":
-      return event.run === state.run
+      return event.history === state.history
         ? { message: event.message, run: state.run, status: "failed" }
         : state;
     case "newer-found":
       return event.run === state.run && !state.newerAvailable
         ? { ...state, newerAvailable: true }
+        : state;
+    case "signed-shown":
+      // A signed replay with no stops has nothing to put on screen.
+      return state.source === "local" && event.signed.stops.length > 0
+        ? {
+            ...onNewestStop(event.signed),
+            local: state.history,
+            newerAvailable: state.newerAvailable,
+            run: state.run,
+            source: "signed",
+            status: "ready",
+          }
+        : state;
+    case "local-shown":
+      return state.source === "signed"
+        ? {
+            ...onNewestStop(state.local),
+            newerAvailable: state.newerAvailable,
+            run: state.run,
+            source: "local",
+            status: "ready",
+          }
         : state;
     default:
       return state;
@@ -159,16 +224,22 @@ function transitionReady(
 
 /**
  * Pure transition; returns the same reference for ignored events so React
- * skips the re-render. Only the current run may finish an open, show a stop,
- * or report newer edits. The caller closes any `history` the state it gets
- * back does not hold.
+ * skips the re-render. Only the current run may finish an open or report
+ * newer edits, and a stop is shown, or fails the replay, only when it was
+ * replayed from the history on screen. The caller closes this device's
+ * capture when the state it gets back no longer holds it. A signed replay is
+ * never this machine's to close: whoever asked for it to be shown owns it,
+ * and must take it off screen (`local-shown`, or a reopen) before closing it.
  *
- * | state \ event | open-started | opened (run)          | open-failed (run) | seeked / stepped | play-toggled | tick            | shown (run)   | replay-failed (run) | newer-found (run) |
- * | ------------- | ------------ | --------------------- | ----------------- | ---------------- | ------------ | --------------- | ------------- | ------------------- | ----------------- |
- * | loading       | loading      | ready or unavailable  | failed            | (same)           | (same)       | (same)          | (same)        | (same)              | (same)            |
- * | unavailable   | loading      | (same)                | (same)            | (same)           | (same)       | (same)          | (same)        | (same)              | (same)            |
- * | failed        | loading      | (same)                | (same)            | (same)           | (same)       | (same)          | (same)        | (same)              | (same)            |
- * | ready         | loading      | (same)                | (same)            | stop selected    | play / pause | next stop       | stop on screen| failed              | newerAvailable    |
+ * | state \ event  | open-started | opened (run)         | open-failed (run) | seeked / stepped | play-toggled | tick      | shown (history) | replay-failed (history) | newer-found (run) | signed-shown   | local-shown    |
+ * | -------------- | ------------ | -------------------- | ----------------- | ---------------- | ------------ | --------- | --------------- | ----------------------- | ----------------- | -------------- | -------------- |
+ * | loading        | loading      | ready or unavailable | failed            | (same)           | (same)       | (same)    | (same)          | (same)                  | (same)            | (same)         | (same)         |
+ * | unavailable    | loading      | (same)               | (same)            | (same)           | (same)       | (same)    | (same)          | (same)                  | (same)            | (same)         | (same)         |
+ * | failed         | loading      | (same)               | (same)            | (same)           | (same)       | (same)    | (same)          | (same)                  | (same)            | (same)         | (same)         |
+ * | ready (local)  | loading      | (same)               | (same)            | stop selected    | play / pause | next stop | stop on screen  | failed                  | newerAvailable    | ready (signed) | (same)         |
+ * | ready (signed) | loading      | (same)               | (same)            | stop selected    | play / pause | next stop | stop on screen  | failed                  | newerAvailable    | (same)         | ready (local)  |
+ *
+ * Either way a source change opens the history on its newest stop, paused.
  */
 export function transitionDocumentHistory(
   state: DocumentHistoryState,
@@ -196,13 +267,11 @@ export function transitionDocumentHistory(
     return { run: state.run, status: "unavailable" };
   }
   return {
-    history: event.history,
-    newerAvailable: false,
-    playing: false,
-    run: state.run,
     // Open on the newest stop: the document as it is now.
-    selectedIndex: event.history.stops.length - 1,
-    shown: null,
+    ...onNewestStop(event.history),
+    newerAvailable: false,
+    run: state.run,
+    source: "local",
     status: "ready",
   };
 }
