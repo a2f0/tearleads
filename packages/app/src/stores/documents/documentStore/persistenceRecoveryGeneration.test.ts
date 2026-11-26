@@ -34,7 +34,6 @@ const pendingUpdate = {
   localId: recoveredRecord.id,
   partialEndVersionVector: "end",
   partialStartVersionVector: "start",
-  sourceVersionVector: null,
   updateData: "current update",
 };
 

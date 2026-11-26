@@ -36,7 +36,6 @@ function ordinaryPendingUpdateBytes(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
 }): Uint8Array[] {
   return input.pendingUpdates.flatMap((update) => {
-    if (update.sourceVersionVector != null) return [];
     const bytes = provenOrdinaryUpdateBytes(input.currentDocument, update);
     if (!bytes) {
       throw new Error("Ordinary pending-update provenance is inconsistent");

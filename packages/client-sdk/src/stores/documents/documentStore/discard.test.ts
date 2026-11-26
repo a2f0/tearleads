@@ -322,7 +322,6 @@ test("stale writers cannot resurrect rows after a discard", async () => {
     await enqueuePendingUpdate(
       state,
       new Uint8Array([1, 2, 3]),
-      undefined,
       staleGeneration,
     );
     await savePendingAttachmentUpload(

@@ -21,6 +21,7 @@ import {
   readWriteHeader,
   serializedPersistedDocumentState,
 } from "../readers";
+import { documentBaselineSegmentFields } from "./baselineSegment";
 
 export { submitDocumentSync } from "./syncPagination";
 
@@ -144,23 +145,12 @@ async function assertDocumentSyncResponseUpdateHashes(input: {
     throw new Error("Document sync response ciphertext hash mismatch");
   }
   const metadataHash = await computeDocumentContentRecordMetadataHash({
-    ...(update.checkpointKind === undefined
-      ? {}
-      : { checkpointKind: update.checkpointKind }),
-    ...(update.checkpointPayloadKind === undefined
-      ? {}
-      : { checkpointPayloadKind: update.checkpointPayloadKind }),
-    ...(update.coversThroughUpdateId === undefined
-      ? {}
-      : { coversThroughUpdateId: update.coversThroughUpdateId }),
+    ...documentBaselineSegmentFields(update),
     dependencyVersionVector: update.dependencyVersionVector,
     documentId: update.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,
     plaintextHash: update.plaintextHash,
-    ...(update.sourceVersionVector === undefined
-      ? {}
-      : { sourceVersionVector: update.sourceVersionVector }),
     updateId: update.id,
   });
   if (

@@ -3,6 +3,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
+  exportAllUpdates,
   exportFullHistorySnapshot,
   exportUpdatesSince,
   getUpdateVersionVectors,
@@ -27,9 +28,11 @@ test("a rejected recovery checkpoint rolls back its whole document mutation", as
       "recovery-checkpoint-writer",
     );
     candidateDocument.getText("text").update("recovery candidate");
-    const candidateSnapshotBytes = exportFullHistorySnapshot(candidateDocument);
-    const candidateSnapshot = bytesToBase64(candidateSnapshotBytes);
-    const candidateVectors = getUpdateVersionVectors(candidateSnapshotBytes);
+    const candidateSnapshot = bytesToBase64(
+      exportFullHistorySnapshot(candidateDocument),
+    );
+    // A tail row the candidate covers, which its install would prune.
+    const candidateTail = bytesToBase64(exportAllUpdates(candidateDocument));
     const candidateVersion = encodeVersionVector(candidateDocument);
     const initialRecord = {
       accessEpoch: 1,
@@ -47,12 +50,10 @@ test("a rejected recovery checkpoint rolls back its whole document mutation", as
       undefined,
       async () => undefined,
     );
-    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+    await sqlDocumentsPersistence.appendHistoryUpdates(execSql, {
       localId: initialRecord.id,
-      partialEndVersionVector: candidateVectors.partialEndVersionVector,
-      partialStartVersionVector: candidateVectors.partialStartVersionVector,
-      sourceVersionVector: candidateVersion,
-      updateData: candidateSnapshot,
+      origin: "remote",
+      updates: [candidateTail],
     });
     const expectedRecord = await sqlDocumentsPersistence.loadDocument(
       execSql,
@@ -86,19 +87,13 @@ test("a rejected recovery checkpoint rolls back its whole document mutation", as
       await sqlDocumentsPersistence.loadDocument(execSql, initialRecord.id),
     ).toEqual(expectedRecord);
     expect(
-      await sqlDocumentsPersistence.listPendingUpdates(
-        execSql,
-        initialRecord.id,
-      ),
-    ).toHaveLength(1);
-    expect(
       await sqlDocumentsPersistence.loadHistoryRestoreState(
         execSql,
         initialRecord.id,
       ),
     ).toEqual({
       snapshot: storedSnapshot,
-      tailUpdates: [{ origin: "local", updateData: candidateSnapshot }],
+      tailUpdates: [{ origin: "remote", updateData: candidateTail }],
     });
   } finally {
     close();
@@ -231,7 +226,6 @@ test("recovery install rejects an ordinary row appended after settlement", async
       localId: initialRecord.id,
       partialEndVersionVector: siblingVectors.partialEndVersionVector,
       partialStartVersionVector: siblingVectors.partialStartVersionVector,
-      sourceVersionVector: null,
       updateData: siblingUpdate,
     });
     const expectedRecord = await sqlDocumentsPersistence.loadDocument(
@@ -295,10 +289,14 @@ test("recovery install rolls back when its generation changes during projection"
     const baseVersion = encodeVersionVector(recoveredDocument);
     recoveredDocument.getText("text").update("verified recovery");
     recoveredDocument.commit();
-    const recoveredSnapshotBytes = exportFullHistorySnapshot(recoveredDocument);
-    const recoveredSnapshot = bytesToBase64(recoveredSnapshotBytes);
+    const recoveredSnapshot = bytesToBase64(
+      exportFullHistorySnapshot(recoveredDocument),
+    );
     const recoveredVersion = encodeVersionVector(recoveredDocument);
-    const recoveredVectors = getUpdateVersionVectors(recoveredSnapshotBytes);
+    // A tail row the recovery covers, which its install would prune.
+    const recoveredTail = bytesToBase64(
+      exportUpdatesSince(recoveredDocument, baseVersion),
+    );
     const initialRecord = {
       accessEpoch: 1,
       containerId: "container-1",
@@ -314,12 +312,10 @@ test("recovery install rolls back when its generation changes during projection"
       undefined,
       async () => undefined,
     );
-    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+    await sqlDocumentsPersistence.appendHistoryUpdates(execSql, {
       localId: initialRecord.id,
-      partialEndVersionVector: recoveredVectors.partialEndVersionVector,
-      partialStartVersionVector: recoveredVectors.partialStartVersionVector,
-      sourceVersionVector: recoveredVersion,
-      updateData: recoveredSnapshot,
+      origin: "remote",
+      updates: [recoveredTail],
     });
     const expectedRecord = await sqlDocumentsPersistence.loadDocument(
       execSql,
@@ -354,19 +350,13 @@ test("recovery install rolls back when its generation changes during projection"
       ),
     ).resolves.toEqual({ committed: false, currentRecord: expectedRecord });
     expect(
-      await sqlDocumentsPersistence.listPendingUpdates(
-        execSql,
-        initialRecord.id,
-      ),
-    ).toHaveLength(1);
-    expect(
       await sqlDocumentsPersistence.loadHistoryRestoreState(
         execSql,
         initialRecord.id,
       ),
     ).toEqual({
       snapshot: baseSnapshot,
-      tailUpdates: [{ origin: "local", updateData: recoveredSnapshot }],
+      tailUpdates: [{ origin: "remote", updateData: recoveredTail }],
     });
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, initialRecord.id),

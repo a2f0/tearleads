@@ -167,8 +167,7 @@ test("a rotation baseline or an empty history is not a founding update", async (
         [first],
         [
           {
-            checkpointKind: "rotate_baseline",
-            checkpointPayloadKind: "full_history_snapshot",
+            baselineId: "550e8400-e29b-41d4-a716-4466554400f0",
             dependencyVersionVector: first.dependencyVersionVector,
             id: first.id,
             partialEndVersionVector: first.partialEndVersionVector,

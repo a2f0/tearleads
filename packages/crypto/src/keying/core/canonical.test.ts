@@ -172,41 +172,51 @@ test("canonical JSON rejects lone surrogates in values and property names", () =
   ).toBe('{"decomposed":"e\u0301","emoji":"😀"}');
 });
 
-// The API weighs only updates committed after a baseline's cursor, so the
-// cursor is signed: a baseline without one keeps its old hash, and a server
-// that changes or drops it breaks the writer's signature.
-test("document content-record metadata commits to a baseline's cursor", async () => {
-  const baseline = {
-    checkpointKind: "rotate_baseline" as const,
-    checkpointPayloadKind: "full_history_snapshot" as const,
+// A baseline's group fields are signed: a segment moved to another group or
+// another place in its own, or a final segment whose count, digest or cursor
+// the server changed or dropped, no longer has the hash its writer signed.
+test("document content-record metadata commits to a baseline segment's group fields", async () => {
+  const ordinary = {
     dependencyVersionVector: "",
     documentId: "document-1",
     partialEndVersionVector: "end",
     partialStartVersionVector: "start",
     plaintextHash: "plaintext",
-    sourceVersionVector: "end",
-    updateId: "baseline-1",
+    updateId: "segment-1",
   };
-  const withoutCursor =
-    await computeDocumentContentRecordMetadataHash(baseline);
-  const hashes = new Set([
-    withoutCursor,
-    await computeDocumentContentRecordMetadataHash({
-      ...baseline,
-      coversThroughUpdateId: "update-1",
-    }),
-    await computeDocumentContentRecordMetadataHash({
-      ...baseline,
-      coversThroughUpdateId: "update-2",
-    }),
-  ]);
-  expect(hashes.size).toBe(3);
+  const final = {
+    ...ordinary,
+    baselineId: "baseline-1",
+    baselineSegmentCount: 2,
+    baselineSegmentIndex: 1,
+    baselineSegmentsDigest: "digest-1",
+    coversThroughUpdateId: "update-1",
+  };
+  const variants = [
+    ordinary,
+    { ...ordinary, baselineId: "baseline-1", baselineSegmentIndex: 1 },
+    final,
+    { ...final, baselineId: "baseline-2" },
+    { ...final, baselineSegmentIndex: 0 },
+    { ...final, baselineSegmentCount: 3 },
+    { ...final, baselineSegmentsDigest: "digest-2" },
+    { ...final, coversThroughUpdateId: "update-2" },
+    { ...final, coversThroughUpdateId: undefined },
+  ];
+  const hashes = new Set(
+    await Promise.all(variants.map(computeDocumentContentRecordMetadataHash)),
+  );
+  expect(hashes.size).toBe(variants.length);
   expect(
     await computeDocumentContentRecordMetadataHash({
-      ...baseline,
+      ...ordinary,
+      baselineId: undefined,
+      baselineSegmentCount: undefined,
+      baselineSegmentIndex: undefined,
+      baselineSegmentsDigest: undefined,
       coversThroughUpdateId: undefined,
     }),
-  ).toBe(withoutCursor);
+  ).toBe(await computeDocumentContentRecordMetadataHash(ordinary));
 });
 
 // The API refuses an update whose dependencies it has not committed, and every

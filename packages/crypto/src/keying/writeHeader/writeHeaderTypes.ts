@@ -39,11 +39,30 @@ export interface WriteHeader extends UnsignedWriteHeader {
 }
 
 export interface DocumentContentRecordMetadataInput {
-  checkpointKind?: "rotate_baseline";
-  checkpointPayloadKind?: "full_history_snapshot";
   /**
-   * A rotation baseline's processed cursor: every update committed at or
-   * before it was imported into the baseline or void for its author.
+   * The rotation baseline this update is a segment of. A baseline is an
+   * ordered group of updates, written at the epoch a rotation opened, that
+   * together carry the document's whole history. Absent on an ordinary
+   * update.
+   */
+  baselineId?: string | undefined;
+  /** This segment's place in its baseline, from zero. */
+  baselineSegmentIndex?: number | undefined;
+  /**
+   * On a baseline's final segment only: how many segments the baseline has.
+   * A writer signs the earlier segments before it knows the count.
+   */
+  baselineSegmentCount?: number | undefined;
+  /**
+   * On a baseline's final segment only: the digest of the segments before
+   * it (`computeDocumentBaselineSegmentsDigest`), so a reader that holds
+   * them all can tell none was dropped, replaced, or reordered.
+   */
+  baselineSegmentsDigest?: string | undefined;
+  /**
+   * On a baseline's final segment only, its author's processed cursor:
+   * every update committed at or before it was imported into the baseline
+   * or void for its author.
    */
   coversThroughUpdateId?: string | undefined;
   /**
@@ -57,7 +76,6 @@ export interface DocumentContentRecordMetadataInput {
   partialEndVersionVector: string;
   partialStartVersionVector: string;
   plaintextHash: string;
-  sourceVersionVector?: string;
   updateId: string;
 }
 

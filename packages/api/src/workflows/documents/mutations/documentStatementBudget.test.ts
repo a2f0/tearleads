@@ -162,8 +162,7 @@ test("a rotation baseline write and its pull stay within their statement budgets
   const pulled = await pull.result.json();
   expect(
     pulled.updates.filter(
-      (update: { checkpointKind?: string }) =>
-        update.checkpointKind === "rotate_baseline",
+      (update: { baselineId?: string }) => update.baselineId !== undefined,
     ),
   ).toHaveLength(1);
 

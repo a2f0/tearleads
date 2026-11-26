@@ -40,6 +40,14 @@ export type ScratchJudgement =
   | {
       readonly failure: unknown;
       /**
+       * Whether the update could not join because the reader lacks an
+       * operation its signed start or signed dependencies name. An import
+       * that leaves operations pending with both held is not this: the
+       * payload itself skips operations, which is its writer's doing and
+       * the same for every reader.
+       */
+      readonly missingDependency: boolean;
+      /**
        * Set when the update reuses ids of operations this device wrote under
        * its own peer with other operations: a writer committed them as it.
        */
@@ -74,13 +82,6 @@ function freeQuietly(document: SyncDocument): void {
   }
 }
 
-function isRotationBaseline(update: DecryptedDocumentSyncUpdate): boolean {
-  return (
-    update.checkpointKind === "rotate_baseline" &&
-    update.checkpointPayloadKind === "full_history_snapshot"
-  );
-}
-
 function totalBytes(updates: readonly DecryptedDocumentSyncUpdate[]): number {
   return updates.reduce((sum, update) => sum + update.updateData.byteLength, 0);
 }
@@ -95,7 +96,6 @@ function startsPastHeldCounters(
   held: string,
   update: DecryptedDocumentSyncUpdate,
 ): boolean {
-  if (isRotationBaseline(update)) return false;
   let start: string;
   try {
     start = getImportBlobMetadata(update.updateData).partialStartVersionVector;
@@ -104,6 +104,19 @@ function startsPastHeldCounters(
     return false;
   }
   return !satisfiesVersionVector(held, start);
+}
+
+/** Whether `held` lacks an operation `update` signs a dependency on. */
+function lacksDeclaredDependency(
+  held: string,
+  update: DecryptedDocumentSyncUpdate,
+): boolean {
+  try {
+    return !satisfiesVersionVector(held, update.dependencyVersionVector);
+  } catch (error) {
+    if (isLoroRuntimeFailure(error)) throw error;
+    return false;
+  }
 }
 
 /**
@@ -128,9 +141,11 @@ function importVoid(
   failure: unknown,
   scratchChanged: boolean,
   preemptedPeerId: string | null = null,
+  missingDependency = false,
 ): ScratchVoid {
   return {
     failure,
+    missingDependency,
     preemptedPeerId,
     scratchChanged,
     stage: "loro_import",
@@ -169,23 +184,23 @@ function judgeOnScratch(
 ): ScratchJudgement {
   const held = encodeVersionVector(document);
   if (startsPastHeldCounters(held, update)) {
-    return importVoid(new Error(MISSING_DEPENDENCY_MESSAGE), false);
+    return importVoid(new Error(MISSING_DEPENDENCY_MESSAGE), false, null, true);
   }
   const changed = () =>
     !versionVectorsEqual(encodeVersionVector(document), held);
   try {
-    if (isRotationBaseline(update)) {
-      importSnapshot(document, update.updateData);
-    } else {
-      importUpdates(document, [update.updateData]);
-    }
+    importUpdates(document, [update.updateData]);
   } catch (error) {
     if (isLoroRuntimeFailure(error)) throw error;
     if (error instanceof LoroImportUnresolvedDependenciesError) {
-      // Loro keeps the operations it could not apply as pending.
+      // Loro keeps the operations it could not apply as pending. The reader
+      // held the update's start, so it lacks a declared dependency, or the
+      // payload leaves a gap inside its own range.
       return importVoid(
         new Error(MISSING_DEPENDENCY_MESSAGE, { cause: error }),
         true,
+        null,
+        lacksDeclaredDependency(held, update),
       );
     }
     if (error instanceof LoroReusedOperationIdError) {
@@ -220,6 +235,7 @@ function judgeUpdate(
     }
     return {
       failure: error,
+      missingDependency: false,
       preemptedPeerId: null,
       scratchChanged: false,
       stage: "loro_metadata",

@@ -3,7 +3,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
-  computeDocumentContentRecordMetadataHash,
+  computeDocumentBaselineSegmentsDigest,
   type WriteHeader,
 } from "@tearleads/crypto";
 import {
@@ -12,31 +12,24 @@ import {
   encodeVersionVector,
 } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
-import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  DOCUMENT_MUTATION_ERROR_CODES,
+  DOCUMENT_SYNC_ERROR_CODES,
+} from "@tearleads/validators/response";
+import {
+  type BaselineSegmentRange,
+  baselineSegmentRanges,
+} from "../../../../test/helpers/documentBaselineGroups";
 import {
   assertAtomicRotationBaselineCoversCommittedFrontier,
   assertBaselinelessUnlinkHasEmptyCommittedFrontier,
 } from "./atomicRotationBaseline";
 
-async function rotationBaseline(input: {
+function header(input: {
   documentId: string;
-  sourceVersionVector: string;
-}): Promise<DocumentOutgoingUpdate> {
-  const id = crypto.randomUUID();
-  const partialStartVersionVector = emptyVersionVector();
-  const plaintextHash = `plaintext-${id}`;
-  const metadataHash = await computeDocumentContentRecordMetadataHash({
-    checkpointKind: "rotate_baseline",
-    checkpointPayloadKind: "full_history_snapshot",
-    dependencyVersionVector: emptyVersionVector(),
-    documentId: input.documentId,
-    partialEndVersionVector: input.sourceVersionVector,
-    partialStartVersionVector,
-    plaintextHash,
-    sourceVersionVector: input.sourceVersionVector,
-    updateId: id,
-  });
-  const header: WriteHeader = {
+  id: string;
+}): Omit<WriteHeader, "ciphertextHash" | "metadataHash"> {
+  return {
     dependencyManifestHashes: [],
     version: 1,
     organizationId: crypto.randomUUID(),
@@ -46,38 +39,74 @@ async function rotationBaseline(input: {
     contentKeyEpoch: 2,
     targetHash: "rotation-target",
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-    contentRecordId: id,
+    contentRecordId: input.id,
     nonceDomainHash: "rotation-nonce-domain",
-    metadataHash,
-    ciphertextHash: "rotation-ciphertext-hash",
     writerUserId: crypto.randomUUID(),
     writerDeviceId: crypto.randomUUID(),
     writerKeyFingerprint: "rotation-writer-fingerprint",
     signedAt: new Date().toISOString(),
     signature: "rotation-signature",
   };
-  return {
-    checkpointKind: "rotate_baseline",
-    checkpointPayloadKind: "full_history_snapshot",
-    id,
-    dependencyVersionVector: emptyVersionVector(),
-    encryptedData: "encrypted-rotation-baseline",
-    partialStartVersionVector,
-    partialEndVersionVector: input.sourceVersionVector,
-    plaintextHash,
-    sourceVersionVector: input.sourceVersionVector,
-    writeHeader: { ...header },
-  };
 }
 
-test("atomic rotation baseline must cover the complete committed frontier", async () => {
+/**
+ * A group over `ranges` whose headers carry the hashes the group rules read.
+ * The gate reads declared fields and those hashes; the append, which this
+ * test does not run, verifies signatures and the metadata hash itself.
+ */
+async function rotationBaseline(input: {
+  documentId: string;
+  ranges: readonly BaselineSegmentRange[];
+}): Promise<DocumentOutgoingUpdate[]> {
+  const baselineId = crypto.randomUUID();
+  const entries = input.ranges.map(() => {
+    const updateId = crypto.randomUUID();
+    return {
+      ciphertextHash: `ciphertext-${updateId}`,
+      metadataHash: `metadata-${updateId}`,
+      updateId,
+    };
+  });
+  const baselineSegmentsDigest = await computeDocumentBaselineSegmentsDigest({
+    baselineId,
+    documentId: input.documentId,
+    segments: entries.slice(0, -1),
+  });
+  return input.ranges.map((range, index) => {
+    const entry = entries[index];
+    if (!entry) throw new Error("Missing digest entry");
+    return {
+      baselineId,
+      baselineSegmentIndex: index,
+      ...(index === input.ranges.length - 1
+        ? { baselineSegmentCount: input.ranges.length, baselineSegmentsDigest }
+        : {}),
+      id: entry.updateId,
+      dependencyVersionVector: range.partialStartVersionVector,
+      encryptedData: "encrypted-rotation-baseline-segment",
+      partialStartVersionVector: range.partialStartVersionVector,
+      partialEndVersionVector: range.partialEndVersionVector,
+      plaintextHash: `plaintext-${entry.updateId}`,
+      writeHeader: {
+        ...header({ documentId: input.documentId, id: entry.updateId }),
+        ciphertextHash: entry.ciphertextHash,
+        metadataHash: entry.metadataHash,
+      },
+    };
+  });
+}
+
+async function committedDocument(label: string): Promise<{
+  committedFrontier: string;
+  documentId: string;
+  staleFrontier: string;
+}> {
   const documentId = crypto.randomUUID();
   await db.insert(documents).values({
     id: documentId,
-    createdByFingerprint: "atomic-rotation-frontier-test",
+    createdByFingerprint: label,
   });
-
-  const document = await createDocument("atomic-rotation-frontier-peer");
+  const document = await createDocument(`${label}-peer`);
   document.getText("text").update("first");
   document.commit();
   const staleFrontier = encodeVersionVector(document);
@@ -96,30 +125,40 @@ test("atomic rotation baseline must cover the complete committed frontier", asyn
     partialEndVersionVector: committedFrontier,
     plaintextHash: "pre-rotation-plaintext-hash",
   });
+  return { committedFrontier, documentId, staleFrontier };
+}
 
-  await expect(
-    assertAtomicRotationBaselineCoversCommittedFrontier(db, {
-      baseline: await rotationBaseline({
-        documentId,
-        sourceVersionVector: staleFrontier,
-      }),
-      documentId,
-    }),
-  ).rejects.toMatchObject({
-    code: DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
-    message: "Document unlink rotation baseline is stale",
-    status: 409,
-  });
+test("atomic rotation baseline must cover the complete committed frontier", async () => {
+  const { committedFrontier, documentId, staleFrontier } =
+    await committedDocument("atomic-rotation-frontier-test");
 
-  await expect(
-    assertAtomicRotationBaselineCoversCommittedFrontier(db, {
-      baseline: await rotationBaseline({
+  // What a group covers is what its segments reach together, so a group of
+  // several segments that stops short is as stale as one segment that does.
+  for (const segments of [1, 3]) {
+    await expect(
+      assertAtomicRotationBaselineCoversCommittedFrontier(db, {
+        baseline: await rotationBaseline({
+          documentId,
+          ranges: baselineSegmentRanges(staleFrontier, segments),
+        }),
         documentId,
-        sourceVersionVector: committedFrontier,
       }),
-      documentId,
-    }),
-  ).resolves.toBeUndefined();
+    ).rejects.toMatchObject({
+      code: DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
+      message: "Document unlink rotation baseline is stale",
+      status: 409,
+    });
+
+    await expect(
+      assertAtomicRotationBaselineCoversCommittedFrontier(db, {
+        baseline: await rotationBaseline({
+          documentId,
+          ranges: baselineSegmentRanges(committedFrontier, segments),
+        }),
+        documentId,
+      }),
+    ).resolves.toBeUndefined();
+  }
 });
 
 test("baseline-less unlink is allowed only for an empty committed frontier", async () => {
@@ -159,25 +198,36 @@ test("baseline-less unlink is allowed only for an empty committed frontier", asy
   });
 });
 
-test("atomic rotation baseline rejects unauthenticated checkpoint metadata", async () => {
-  const documentId = crypto.randomUUID();
-  await db.insert(documents).values({
-    id: documentId,
-    createdByFingerprint: "atomic-rotation-auth-test",
-  });
+test("atomic rotation baseline must be one whole group", async () => {
+  const { committedFrontier, documentId } = await committedDocument(
+    "atomic-rotation-group-test",
+  );
   const baseline = await rotationBaseline({
     documentId,
-    sourceVersionVector: emptyVersionVector(),
+    ranges: baselineSegmentRanges(committedFrontier, 3),
   });
-  baseline.writeHeader = { ...baseline.writeHeader, metadataHash: "tampered" };
+  expect(baseline).toHaveLength(3);
+  const refused = {
+    code: DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
+    status: 409,
+  };
 
+  // A group that covers the frontier is still refused when it is not whole:
+  // the coverage read would trust spans the group rules never checked.
   await expect(
     assertAtomicRotationBaselineCoversCommittedFrontier(db, {
-      baseline,
+      baseline: baseline.toReversed(),
       documentId,
     }),
   ).rejects.toMatchObject({
-    message: "Document unlink rotation baseline is not replayable",
-    status: 400,
+    ...refused,
+    message:
+      "Document rotation baseline is not one whole group: the segments are not in index order from zero",
   });
+  await expect(
+    assertAtomicRotationBaselineCoversCommittedFrontier(db, {
+      baseline: baseline.map(({ baselineId: _, ...update }) => update),
+      documentId,
+    }),
+  ).rejects.toMatchObject(refused);
 });

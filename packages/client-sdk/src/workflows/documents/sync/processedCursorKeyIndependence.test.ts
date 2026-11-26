@@ -108,6 +108,7 @@ async function syncPage(
     updates: input.served,
   });
   const synced = await syncRemoteDocumentResultFromResponse({
+    baselineGroupRun: null,
     execSql: keyingExecSql,
     materializedPlan,
     recoveryPendingUpdatesById: new Map(),

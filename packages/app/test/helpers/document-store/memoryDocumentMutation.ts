@@ -93,13 +93,13 @@ async function stageMutation(input: {
     checkpoint: null,
     tail: [],
   };
-  const coveredRecoveryPendingUpdateIds = input.mutation.historyCheckpoint
-    ? await applyMemoryHistoryCheckpoint({
-        checkpoint: input.mutation.historyCheckpoint,
-        history,
-        pendingUpdates: input.state.pendingUpdates,
-      })
-    : [];
+  if (input.mutation.historyCheckpoint) {
+    await applyMemoryHistoryCheckpoint({
+      checkpoint: input.mutation.historyCheckpoint,
+      history,
+      pendingUpdateCount: input.state.pendingUpdates.length,
+    });
+  }
   for (const updateData of input.mutation.historyUpdates ?? []) {
     history.tail.push({
       id: crypto.randomUUID(),
@@ -120,10 +120,7 @@ async function stageMutation(input: {
     });
   }
   input.historyByLocalId.set(input.mutation.document.id, history);
-  const acceptedIds = new Set([
-    ...input.mutation.acceptedPendingUpdateIds,
-    ...coveredRecoveryPendingUpdateIds,
-  ]);
+  const acceptedIds = new Set(input.mutation.acceptedPendingUpdateIds);
   input.state.pendingUpdates = input.state.pendingUpdates.filter(
     ({ id }) => !acceptedIds.has(id),
   );

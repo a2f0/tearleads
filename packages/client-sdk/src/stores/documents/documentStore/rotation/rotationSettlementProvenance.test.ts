@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   emptyVersionVector,
-  exportFullHistorySnapshot,
-  getUpdateVersionVectors,
+  encodeVersionVector,
+  exportUpdatesSince,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
@@ -21,14 +21,18 @@ import { createDocumentStoreState } from "../state";
 import { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";
 import { settleOrdinaryDocumentUpdatesBeforeRotation } from "./rotationSettlement";
 
-test("rotation refuses to relabel an uncovered checkpoint gap as ordinary", async () => {
+// The queued update starts past the verified base, so the history between
+// them has no proven provenance. A pending base behind the gap would let the
+// outgoing-coverage step queue the gap as one more ordinary update, so the
+// settlement must refuse before that step runs.
+test("rotation refuses to relabel an uncovered local history gap as ordinary", async () => {
   const { close, execSql } = await createTestExecSql(
-    "rotation-settlement-checkpoint-gap",
+    "rotation-settlement-uncovered-gap",
   );
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
-    const localId = "rotation-settlement-checkpoint-gap-local";
+    const localId = "rotation-settlement-uncovered-gap-local";
     await persistFullHistoryDocument({
       doc: fixture.remoteDocument,
       documentId: fixture.writerProjection.documentId,
@@ -55,15 +59,11 @@ test("rotation refuses to relabel an uncovered checkpoint gap as ordinary", asyn
     if (!state.doc || !state.record) {
       throw new Error("Expected initialized document state");
     }
-    const checkpoint = exportFullHistorySnapshot(state.doc);
-    const vectors = getUpdateVersionVectors(checkpoint);
-    expect(
-      await enqueuePendingUpdate(
-        state,
-        checkpoint,
-        vectors.partialEndVersionVector,
-      ),
-    ).toBe(true);
+    const gapEnd = encodeVersionVector(state.doc);
+    state.doc.getText("text").update("local edit past the gap");
+    state.doc.commit();
+    const queuedTail = exportUpdatesSince(state.doc, gapEnd);
+    expect(await enqueuePendingUpdate(state, queuedTail)).toBe(true);
 
     state.pendingBaseVersion = emptyVersionVector();
     await sqlDocumentsPersistence.saveDocument(execSql, {
@@ -82,13 +82,13 @@ test("rotation refuses to relabel an uncovered checkpoint gap as ordinary", asyn
         provenPendingUpdates,
         generation,
       ),
-    ).rejects.toThrow("may be checkpoint-derived");
+    ).rejects.toThrow("cannot settle uncovered local history");
     expect(syncCalls).toBe(0);
     expect(await listPendingUpdates(state)).toHaveLength(1);
     expect(
       (await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId))
         ?.tailUpdates,
-    ).toEqual([{ origin: "local", updateData: bytesToBase64(checkpoint) }]);
+    ).toEqual([{ origin: "local", updateData: bytesToBase64(queuedTail) }]);
   } finally {
     close();
   }

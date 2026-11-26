@@ -21,7 +21,7 @@ The abstraction maps to production at these seams:
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `Edit` | `insertDocumentPendingUpdateWithHistoryInTransaction` gives every local write its own row with a fresh `update_id` |
-| `QueueFullState` | a rotation checkpoint (`enqueueDocumentPendingUpdateWithHistory` with a source version vector) or a remote-reset outbox row; `planQueuedUpdateMerge` never merges either and cuts a run at it |
+| `QueueFullState` | a remote-reset outbox row, the one queued row that carries a whole history; `planQueuedUpdateMerge` never merges it and cuts a run at it. A rotation baseline is built for the request that rotates and never queued |
 | `BeginSubmit` | `selectDocumentSyncOutgoingBatch` sending queued rows in queue order |
 | `Accept` / `Conflicted` | the server storing each new id with its content and answering 409 for a stored id; `assertRetryUpdateMatchesAcceptedContent` |
 | `LoseAck` | a response lost after the server committed the request; the rows stay queued, so the next pass repeats their ids and `isRecoverableDocumentUpdateIdConflict` sends its 409 to recovery |
@@ -53,7 +53,7 @@ accepted, and its settlement unqueues the merged row, so the newer operations
 are lost: `NoLostLocalOps` fails. `ServerIdContentStable` fails one step sooner,
 when the merged row and the in-flight copy share the id.
 `MergeAcrossCheckpoint = TRUE` lets a run skip a queued full-state row, which
-moves later operations ahead of the checkpoint: `MergedRowKeepsPosition`
+moves later operations ahead of it: `MergedRowKeepsPosition`
 fails. `MergeAcrossGap = TRUE` lets a run have a
 per-peer gap. Here recovery settles the middle row of three and re-keys the
 first, and the range export pulls the settled operation back into the merged
@@ -73,8 +73,9 @@ CRDT import tolerates. This is the accepted cross-runtime cost; no durable
 
 Outside the model: the merge byte cap and the per-pass row limit, the rekey
 budget beyond running out of fresh ids, encryption, signatures, and request
-batch limits. A rotation checkpoint and a remote-reset outbox row are one
-`fullState` kind, because the merge treats them alike. The configuration bounds
+batch limits. The `fullState` kind is a remote-reset outbox row; the model is
+unchanged from when a queued rotation checkpoint was one too. The
+configuration bounds
 two runtimes, three operations, three queue rows, and four update ids. TLC
 explores 5,003,291 generated and 833,835 distinct states at depth 24 in about
 20 seconds with one worker. This is exhaustive bounded model checking, not an

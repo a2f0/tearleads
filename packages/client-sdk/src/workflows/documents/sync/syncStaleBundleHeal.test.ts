@@ -1,19 +1,12 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { expect, test } from "bun:test";
 import {
-  createDocument,
-  exportAllUpdates,
-  exportFullHistorySnapshot,
-  getUpdateVersionVectors,
-} from "@tearleads/loro";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
-import {
-  createPendingUpdateRecord,
-  createSyncResponse,
-  writerKeyResolver,
-} from "../../../../test/helpers/data/documentFixtures";
+import { writerKeyResolver } from "../../../../test/helpers/data/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
 import { createLoroPendingUpdate } from "../../../../test/helpers/workflows/documentSyncFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
@@ -22,20 +15,9 @@ import {
   createStaleBundleSyncFixture,
 } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
+import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
-
-let execSql: ExecSql;
-let closeExecSql: () => void;
-
-beforeEach(async () => {
-  ({ close: closeExecSql, execSql } = await createTestExecSql("document-sync"));
-  await ensureDocumentTables(execSql);
-});
-
-afterEach(() => closeExecSql());
 
 function writeHeaderEpoch(update: { writeHeader: Record<string, unknown> }) {
   return Reflect.get(update.writeHeader, "contentKeyEpoch");
@@ -75,10 +57,17 @@ test("buildMaterializedDocumentSyncPlan heals a stale bundle with a fresh key an
     fixture.staleBundle.targets[0]?.wrappedKey,
   );
   // The covering baseline optimizes current-epoch redirects; predecessor KEKs
-  // remain the no-baseline path. The queued update uses the fresh key.
+  // remain the no-baseline path. A short history is a group of one segment,
+  // sent ahead of the queued update, which uses the fresh key.
   expect(request.outgoingUpdates).toHaveLength(2);
-  expect(request.outgoingUpdates[0]?.checkpointKind).toBe("rotate_baseline");
-  expect(request.outgoingUpdates[1]?.id).toBe(pendingUpdate.id);
+  const [baseline, queued] = request.outgoingUpdates;
+  expect(baseline?.baselineId).toBeDefined();
+  expect(baseline?.baselineSegmentIndex).toBe(0);
+  expect(baseline?.baselineSegmentCount).toBe(1);
+  expect(baseline?.baselineSegmentsDigest).toBeDefined();
+  expect(materialized.rotationBaselineUpdateIds).toEqual([baseline?.id ?? ""]);
+  expect(queued?.id).toBe(pendingUpdate.id);
+  expect(queued?.baselineId).toBeUndefined();
   for (const update of request.outgoingUpdates) {
     expect(writeHeaderEpoch(update)).toBe(
       fixture.staleBundle.contentKeyEpoch + 1,
@@ -140,235 +129,83 @@ test("consumers that cannot heal reject a stale content-key bundle outright", as
   ).rejects.toThrow("Document writer projection content-key bundle is stale");
 });
 
-test("a heal holds back superseded pending rotation checkpoints it provably covers", async () => {
-  const fixture = await createStaleBundleSyncFixture();
-  // One live document backs the queued edit, the leftover checkpoint, AND the
-  // recovery snapshot — exactly how the stores wire buildRotationSnapshot.
-  const doc = await createDocument("held-back-checkpoint-source");
-  doc.getText("text").update("stale heal edit");
-  doc.commit();
-  const editUpdate = exportAllUpdates(doc);
-  const editVectors = getUpdateVersionVectors(editUpdate);
-  const pendingEdit = createPendingUpdateRecord({
-    updateData: bytesToBase64(editUpdate),
-    ...editVectors,
-  });
-  const supersededCheckpoint = createPendingUpdateRecord({
-    id: "550e8400-e29b-41d4-a716-446655440777",
-    sourceVersionVector: editVectors.partialEndVersionVector,
-    updateData: bytesToBase64(exportFullHistorySnapshot(doc)),
-    partialStartVersionVector: "{}",
-    partialEndVersionVector: editVectors.partialEndVersionVector,
-  });
+// The server refuses a heal whose baseline does not cover the committed
+// frontier. Nothing on this device can answer that within the pass, so the
+// first refusal is terminal and the queued update keeps its id for a later
+// pass: it is not re-keyed, and no other baseline is built to resubmit.
+test("a heal refused for its baseline's coverage is a terminal submit failure", async () => {
+  // The server marks the bundle stale; the container path itself is current,
+  // so the pass verifies and records it as any sync does.
+  const fixture = await createMaterializedSyncFixture();
+  const staleProjection = {
+    ...fixture.writerProjection,
+    contentKeyBundleStale: true as const,
+  };
+  const { documentId } = staleProjection;
+  const pendingUpdate = await createLoroPendingUpdate("stale heal edit");
+  const submittedRequests: DocumentSyncRequest[] = [];
+  const terminalFailures: DocumentSyncSubmitFailure[] = [];
+  const abandonedReasons: string[] = [];
+  const rekeyedIds: string[] = [];
+  const traceLines: string[] = [];
+  const { close, execSql } = await createTestExecSql("heal-coverage-refusal");
 
-  const materialized = await buildMaterializedDocumentSyncPlan({
-    author: fixture.author,
-    buildRotationSnapshot: async () => exportFullHistorySnapshot(doc),
-    localVersionVector: null,
-    pendingUpdates: [supersededCheckpoint, pendingEdit],
-    signedAt: "2026-07-26T00:00:00.000Z",
-    targetSecretKey: fixture.secretKey,
-    trustedLocalProjection: true,
-    writerProjection: fixture.staleWriterProjection,
-  });
-
-  expect(materialized.healedStaleContentKeyBundle).toBe(true);
-  const { request } = materialized.plan;
-  // Fresh covering baseline + the ordinary edit; the covered checkpoint is
-  // withheld — submitting it would trip the server's covering-baseline gate,
-  // and resubmitting it post-heal could mask the covering baseline.
-  expect(request.outgoingUpdates).toHaveLength(2);
-  expect(request.outgoingUpdates[0]?.checkpointKind).toBe("rotate_baseline");
-  expect(request.outgoingUpdates.map((update) => update.id)).not.toContain(
-    supersededCheckpoint.id,
-  );
-  expect(request.outgoingUpdates[1]?.id).toBe(pendingEdit.id);
-  // The plan reports what it withheld (settled by the heal, since the
-  // baseline subsumes it) and which ack is synthetic.
-  expect(materialized.heldBackPendingUpdateIds).toEqual([
-    supersededCheckpoint.id,
-  ]);
-  expect(materialized.staleRecoveryBaselineUpdateId).toBe(
-    request.outgoingUpdates[0]?.id ?? "",
-  );
-});
-
-test("a heal refuses to settle a checkpoint its snapshot does not cover", async () => {
-  const fixture = await createStaleBundleSyncFixture();
-  // The checkpoint's ops come from a document the recovery snapshot has never
-  // seen — settling it would silently drop those ops.
-  const foreignEdit = await createLoroPendingUpdate("foreign checkpoint ops");
-  const uncoveredCheckpoint = createPendingUpdateRecord({
-    id: "550e8400-e29b-41d4-a716-446655440888",
-    sourceVersionVector: foreignEdit.partialEndVersionVector,
-    updateData: foreignEdit.updateData,
-    partialStartVersionVector: "{}",
-    partialEndVersionVector: foreignEdit.partialEndVersionVector,
-  });
-
-  await expect(
-    buildMaterializedDocumentSyncPlan({
+  try {
+    await ensureDocumentTables(execSql);
+    const synced = await syncRemoteDocument({
+      apiClient: createMockApiClient({
+        getDocumentWriterProjection: async () => staleProjection,
+        syncDocument: async () => {
+          throw new Error("Expected syncDocumentResult to carry the refusal");
+        },
+        syncDocumentResult: async (_documentId, request) => {
+          submittedRequests.push(request);
+          return createMockRequestFailure({
+            code: DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+            message: `POST /documents/${documentId}/sync: 409 : Document content-key rotation baseline does not cover the committed frontier`,
+            status: 409,
+          });
+        },
+      }),
       author: fixture.author,
       buildRotationSnapshot: createFullHistoryRotationSnapshot,
+      documentId,
+      execSql,
       localVersionVector: null,
-      pendingUpdates: [
-        uncoveredCheckpoint,
-        await createLoroPendingUpdate("stuck edit"),
-      ],
-      signedAt: "2026-07-26T00:00:00.000Z",
+      onSyncAbandoned: (reason) => abandonedReasons.push(reason),
+      onSyncTrace: (line) => traceLines.push(line),
+      onTerminalSubmitFailure: (failure) => {
+        terminalFailures.push(failure);
+      },
+      pendingUpdates: [pendingUpdate],
+      rekeyPendingUpdate: async (_execSql, id) => {
+        rekeyedIds.push(id);
+        return crypto.randomUUID();
+      },
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      resolveWriterPublicKey: writerKeyResolver(fixture),
       targetSecretKey: fixture.secretKey,
-      trustedLocalProjection: true,
-      writerProjection: fixture.staleWriterProjection,
-    }),
-  ).rejects.toThrow(
-    "Document stale-bundle recovery snapshot does not cover a queued rotation checkpoint",
-  );
-});
+      writerProjection: staleProjection,
+    });
 
-test("regeneration replaces queued checkpoints with a fresh covering baseline", async () => {
-  const { author, secretKey, writerProjection } =
-    await createMaterializedSyncFixture();
-  const doc = await createDocument("leftover-checkpoint-regenerate");
-  doc.getText("text").update("history behind the checkpoint");
-  doc.commit();
-  const editUpdate = exportAllUpdates(doc);
-  const editVectors = getUpdateVersionVectors(editUpdate);
-  const pendingEdit = createPendingUpdateRecord({
-    updateData: bytesToBase64(editUpdate),
-    ...editVectors,
-  });
-  const leftoverCheckpoint = createPendingUpdateRecord({
-    id: "550e8400-e29b-41d4-a716-446655440aaa",
-    sourceVersionVector: editVectors.partialEndVersionVector,
-    updateData: bytesToBase64(exportFullHistorySnapshot(doc)),
-    partialStartVersionVector: "{}",
-    partialEndVersionVector: editVectors.partialEndVersionVector,
-  });
-
-  const materialized = await buildMaterializedDocumentSyncPlan({
-    author,
-    buildRotationSnapshot: async () => exportFullHistorySnapshot(doc),
-    localVersionVector: null,
-    pendingUpdates: [leftoverCheckpoint, pendingEdit],
-    regenerateQueuedCheckpoints: true,
-    signedAt: "2026-07-26T00:00:00.000Z",
-    targetSecretKey: secretKey,
-    trustedLocalProjection: true,
-    writerProjection,
-  });
-
-  // The stale leftover is replaced by one fresh full-history baseline (which
-  // provably covers it) and settled on success — resubmitting the old
-  // payload could shrink the redirect's baseline coverage. The request stays
-  // non-advancing: it carries the CURRENT bundle at the current epoch, and
-  // the ordinary edit rides along.
-  expect(materialized.healedStaleContentKeyBundle).toBe(false);
-  const { request } = materialized.plan;
-  expect(request.contentKeyBundle?.contentKeyEpoch).toBe(
-    writerProjection.contentKeyBundle.contentKeyEpoch,
-  );
-  expect(request.outgoingUpdates).toHaveLength(2);
-  expect(request.outgoingUpdates[0]?.checkpointKind).toBe("rotate_baseline");
-  expect(request.outgoingUpdates[0]?.id).not.toBe(leftoverCheckpoint.id);
-  expect(request.outgoingUpdates[1]?.id).toBe(pendingEdit.id);
-  expect(materialized.heldBackPendingUpdateIds).toEqual([
-    leftoverCheckpoint.id,
-  ]);
-  expect(materialized.staleRecoveryBaselineUpdateId).toBe(
-    request.outgoingUpdates[0]?.id ?? "",
-  );
-});
-
-test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits", async () => {
-  const {
-    author,
-    resolveProjectionUserKey,
-    secretKey,
-    signingPublicKey,
-    writerProjection,
-  } = await createMaterializedSyncFixture();
-  const doc = await createDocument("coverage-rejected-checkpoint");
-  doc.getText("text").update("interrupted recovery history");
-  doc.commit();
-  const vectors = getUpdateVersionVectors(exportAllUpdates(doc));
-  const leftoverCheckpoint = createPendingUpdateRecord({
-    id: "550e8400-e29b-41d4-a716-446655440bbb",
-    sourceVersionVector: vectors.partialEndVersionVector,
-    updateData: bytesToBase64(exportFullHistorySnapshot(doc)),
-    partialStartVersionVector: "{}",
-    partialEndVersionVector: vectors.partialEndVersionVector,
-  });
-  const submittedRequests: DocumentSyncRequest[] = [];
-  const traceLines: string[] = [];
-
-  const synced = await syncRemoteDocument({
-    apiClient: createMockApiClient({
-      getDocumentWriterProjection: async () => writerProjection,
-      syncDocument: async () => {
-        throw new Error("Expected syncDocumentResult to handle sync retries");
-      },
-      syncDocumentResult: async (documentId, request) => {
-        submittedRequests.push(request);
-
-        if (submittedRequests.length === 1) {
-          const message = `POST /documents/${documentId}/sync: 409 : Document content-key rotation baseline does not cover the committed frontier`;
-          return {
-            kind: "http",
-            method: "POST",
-            path: "mock-request",
-            statusText: "",
-            code: DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
-            message,
-            ok: false,
-            report: () => {},
-            status: 409,
-          };
-        }
-
-        const plan = await buildDocumentSyncPlan({
-          author,
-          contentKeyBundle: writerProjection.contentKeyBundle,
-          documentId,
-          documentKekTargets: writerProjection.documentKekTargets,
-          documentManifest: writerProjection.documentManifest,
-          localVersionVector: null,
-        });
-        return {
-          data: await createSyncResponse({ ...plan, documentId, request }),
-          ok: true,
-        };
-      },
-    }),
-    author,
-    buildRotationSnapshot: async () => exportFullHistorySnapshot(doc),
-    documentId: writerProjection.documentId,
-    execSql,
-    localVersionVector: null,
-    onSyncTrace: (line) => traceLines.push(line),
-    pendingUpdates: [leftoverCheckpoint],
-    resolveProjectionUserKey,
-    targetSecretKey: secretKey,
-    writerProjection,
-    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
-  });
-
-  // First attempt passes the stale leftover through; the server's coverage
-  // gate rejects it; the retry regenerates a fresh covering baseline under a
-  // new id and succeeds, settling the leftover row it subsumes.
-  expect(submittedRequests).toHaveLength(2);
-  expect(submittedRequests[0]?.outgoingUpdates[0]?.id).toBe(
-    leftoverCheckpoint.id,
-  );
-  const regenerated = submittedRequests[1]?.outgoingUpdates[0];
-  expect(regenerated?.checkpointKind).toBe("rotate_baseline");
-  expect(regenerated?.id).not.toBe(leftoverCheckpoint.id);
-  expect(synced?.settledPendingUpdateIds).toContain(leftoverCheckpoint.id);
-  expect(synced?.settledPendingUpdateIds).not.toContain(regenerated?.id ?? "");
-  // The pass narrates itself in clipboard-safe trace lines.
-  expect(traceLines).toContain(
-    `document sync submit failed document=${writerProjection.documentId} status=409 code=${DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict} action=regenerate-checkpoints`,
-  );
-  expect(traceLines).toContain(
-    `document sync checkpoint regeneration document=${writerProjection.documentId} checkpoints=1 updates=0`,
-  );
+    // Attempts remain, and the one refusal still ends the pass.
+    expect(synced).toBeNull();
+    expect(submittedRequests).toHaveLength(1);
+    const [baseline, queued, ...rest] =
+      submittedRequests[0]?.outgoingUpdates ?? [];
+    expect(rest).toEqual([]);
+    expect(baseline?.baselineSegmentCount).toBe(1);
+    expect(queued?.id).toBe(pendingUpdate.id);
+    expect(terminalFailures.map((failure) => failure.code)).toEqual([
+      DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+    ]);
+    expect(terminalFailures[0]?.status).toBe(409);
+    expect(abandonedReasons).toEqual(["the sync submit failed terminally"]);
+    expect(rekeyedIds).toEqual([]);
+    expect(traceLines.at(-1)).toBe(
+      `document sync submit failed document=${documentId} status=409 code=${DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict} action=stop`,
+    );
+  } finally {
+    close();
+  }
 });

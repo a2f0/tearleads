@@ -47,9 +47,14 @@ test("a stale-bundle heal carries a merged queued row after its baseline", async
 
   expect(materialized.healedStaleContentKeyBundle).toBe(true);
   const { outgoingUpdates } = materialized.plan.request;
+  // The baseline's one segment leads, and the merged row follows it.
   expect(
-    outgoingUpdates.map((update) => update.checkpointKind ?? null),
-  ).toEqual(["rotate_baseline", null]);
+    outgoingUpdates.map((update) => update.baselineSegmentIndex ?? null),
+  ).toEqual([0, null]);
+  expect(outgoingUpdates[0]?.baselineSegmentCount).toBe(1);
+  expect(materialized.rotationBaselineUpdateIds).toEqual(
+    outgoingUpdates.slice(0, 1).map((update) => update.id),
+  );
   expect(outgoingUpdates[1]?.id).toBe(merged.id);
   expect(outgoingUpdates[1]?.partialEndVersionVector).toBe(
     merged.partialEndVersionVector,

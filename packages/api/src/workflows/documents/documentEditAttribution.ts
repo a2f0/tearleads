@@ -90,7 +90,7 @@ async function loadDocumentAttributionRows(
         string | null
       >`${jsonTextProperty(sql`${documentContentWriteHeaders.header}`, "writerKeyFingerprint")}`,
       isBaseline: booleanExpression(
-        sql`${documentUpdates.baselineSourceVersionVector} is not null`,
+        sql`${documentUpdates.baselineId} is not null`,
       ),
     })
     .from(documents)

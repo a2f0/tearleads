@@ -20,13 +20,12 @@ function readByteCount(value: unknown): number {
 /**
  * A bound on the bytes each update loads into a sync response page, from the
  * stored lengths of every variable-size part of its entry: the ciphertext
- * (`byte_length`), author fingerprint, version vectors, plaintext hash, a
- * checkpoint's source version vector, and the compact JSON of its write
- * header and authorization targets. JSON never encodes a value in fewer
- * bytes, so a page prefix whose floors overflow the byte ceiling would load
- * more than the ceiling, and nothing past it has to be loaded to find the
- * page. What the floors leave out is fixed-size: keys, ids, epochs, and
- * timestamps. They count an entry's authorization targets even when the
+ * (`byte_length`), author fingerprint, version vectors, plaintext hash, and
+ * the compact JSON of its write header and authorization targets. JSON never
+ * encodes a value in fewer bytes, so a page prefix whose floors overflow the
+ * byte ceiling would load more than the ceiling, and nothing past it has to
+ * be loaded to find the page. What the floors leave out is fixed-size: keys,
+ * ids, epochs, timestamps, and a baseline segment's group fields. They count an entry's authorization targets even when the
  * response omits them (the set the client holds), because the page loads
  * them; such a page can end early by those sets' bytes, and the next page
  * continues it.
@@ -45,7 +44,6 @@ export async function listDocumentUpdateResponseByteFloors(
         + ${textBytes(documentUpdates.partialEndVersionVector)}
         + ${textBytes(documentUpdates.dependencyVersionVector)}
         + ${textBytes(documentUpdates.plaintextHash)}
-        + coalesce(${textBytes(documentUpdates.baselineSourceVersionVector)}, 0)
         + coalesce(${jsonBytes(documentContentWriteHeaders.header)}, 0)
         + coalesce(${jsonBytes(documentContentWriteHeaders.authorizationTargets)}, 0)`,
     })

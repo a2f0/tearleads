@@ -2,64 +2,140 @@ import { expect, test } from "bun:test";
 import {
   createDocument,
   encodeVersionVector,
+  exportFullHistoryIdentity,
   exportFullHistorySnapshot,
+  exportHistorySegments,
   exportUpdatesSince,
+  getImportBlobMetadata,
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
   versionVectorsEqual,
 } from "@tearleads/loro";
+import { SMALL_BASELINE_SEGMENTS } from "../../../../../test/helpers/data/rotationBaselineFixtures";
+import { validateDocumentSyncUpdateImports } from "../../../../data/documents/shared/sync/documentSyncImportVerdicts";
+import type { DecryptedDocumentSyncUpdate } from "../../../../data/documents/shared/sync/documentSyncTypes";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import type { DocumentRecord } from "../../../../workflows/documents";
-import type { DocumentStoreState, DocumentSyncAttempt } from "../state";
+import type {
+  DocumentState,
+  DocumentStoreState,
+  DocumentSyncAttempt,
+} from "../state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import {
   applyIncomingSyncedUpdates,
   importSyncedDocumentUpdates,
 } from "./syncUpdateImport";
 
-test("merges a full-history rotation snapshot into a behind reader with a concurrent local edit", async () => {
-  const author = await createDocument("snapshot-merge-author");
-  const empty = encodeVersionVector(author);
-  author.getText("text").update("base");
-  author.commit();
+/** Each segment as the sync pass hands it to the import, in index order. */
+function baselineSegmentUpdates(
+  document: DocumentState,
+): DecryptedDocumentSyncUpdate[] {
+  const baselineId = crypto.randomUUID();
+  return [...exportHistorySegments(document, SMALL_BASELINE_SEGMENTS)].map(
+    (segment) => ({
+      baselineId,
+      dependencyVersionVector: segment.dependencyVersionVector,
+      id: crypto.randomUUID(),
+      partialEndVersionVector: segment.partialEndVersionVector,
+      partialStartVersionVector: segment.partialStartVersionVector,
+      updateData: segment.update,
+    }),
+  );
+}
 
-  const behindReader = await createDocument("snapshot-merge-reader");
-  importUpdates(behindReader, [exportUpdatesSince(author, empty)]);
-  behindReader.getText("text").insert(4, " local");
+async function authorWithLongHistory(seed: string) {
+  const author = await createDocument(seed);
+  for (let index = 0; index < 40; index += 1) {
+    const text = author.getText("text");
+    text.insert(text.length, `line ${index} of the rotated history\n`);
+    author.commit();
+  }
+  return author;
+}
+
+test("merges a multi-segment rotation baseline into a behind reader with a concurrent local edit", async () => {
+  const author = await authorWithLongHistory("baseline-merge-author");
+
+  const behindReader = await createDocument("baseline-merge-reader");
+  importUpdates(behindReader, [exportUpdatesSince(author, undefined)]);
+  behindReader.getText("text").insert(0, "local ");
   behindReader.commit();
 
-  author.getText("text").insert(4, " remote");
+  author.getText("text").insert(author.getText("text").length, "remote");
   author.commit();
-  const checkpoint = exportFullHistorySnapshot(author);
-  const checkpointVectors = getUpdateVersionVectors(checkpoint);
-  const checkpointEnd = encodeVersionVector(author);
+  const segments = baselineSegmentUpdates(author);
+  expect(segments.length).toBeGreaterThan(1);
+  const baselineEnd = encodeVersionVector(author);
 
   author.getText("text").insert(author.getText("text").length, " later");
   author.commit();
-  const later = exportUpdatesSince(author, checkpointEnd);
-  const laterVectors = getUpdateVersionVectors(later);
+  const later = exportUpdatesSince(author, baselineEnd);
 
   importSyncedDocumentUpdates(behindReader, [
-    {
-      checkpointKind: "rotate_baseline",
-      checkpointPayloadKind: "full_history_snapshot",
-      id: crypto.randomUUID(),
-      ...checkpointVectors,
-      sourceVersionVector: checkpointEnd,
-      updateData: checkpoint,
-    },
+    ...segments,
     {
       id: crypto.randomUUID(),
-      ...laterVectors,
+      ...getUpdateVersionVectors(later),
       updateData: later,
     },
   ]);
 
-  expect(getTextValue(behindReader)).toContain(" local");
-  expect(getTextValue(behindReader)).toContain(" remote");
-  expect(getTextValue(behindReader)).toContain(" later");
+  expect(getTextValue(behindReader)).toStartWith("local ");
+  expect(getTextValue(behindReader)).toContain("remote");
+  expect(getTextValue(behindReader)).toEndWith(" later");
+});
+
+test("a multi-segment rotation baseline imports as update blobs to the history it was cut from", async () => {
+  const author = await authorWithLongHistory("baseline-import-author");
+  const segments = baselineSegmentUpdates(author);
+  expect(segments.length).toBeGreaterThan(1);
+  // A baseline is its history cut into updates, never a snapshot.
+  expect(
+    segments.map((segment) => getImportBlobMetadata(segment.updateData).mode),
+  ).toEqual(segments.map(() => "update"));
+
+  const coldReader = await createDocument("baseline-import-reader");
+  importSyncedDocumentUpdates(coldReader, segments);
+
+  expect(getTextValue(coldReader)).toBe(getTextValue(author));
+  expect(
+    versionVectorsEqual(
+      encodeVersionVector(coldReader),
+      encodeVersionVector(author),
+    ),
+  ).toBe(true);
+  expect(exportFullHistoryIdentity(coldReader)).toEqual(
+    exportFullHistoryIdentity(author),
+  );
+});
+
+test("a snapshot payload served as a rotation baseline is void", async () => {
+  const author = await authorWithLongHistory("baseline-snapshot-author");
+  const snapshot = exportFullHistorySnapshot(author);
+  const snapshotId = crypto.randomUUID();
+  const coldReader = await createDocument("baseline-snapshot-reader");
+
+  const { voided } = await validateDocumentSyncUpdateImports({
+    currentDocument: coldReader,
+    decryptedUpdates: [
+      {
+        baselineId: crypto.randomUUID(),
+        id: snapshotId,
+        ...getUpdateVersionVectors(snapshot),
+        updateData: snapshot,
+      },
+    ],
+  });
+
+  expect(voided.map((entry) => entry.updateId)).toEqual([snapshotId]);
+  expect(voided[0]?.stage).toBe("loro_metadata");
+  expect(String(voided[0]?.error.message)).toContain(
+    "Document update payload is not an update blob",
+  );
+  expect(getTextValue(coldReader)).toBe("");
 });
 
 test("a stale identity response cannot import updates or advance coverage", async () => {

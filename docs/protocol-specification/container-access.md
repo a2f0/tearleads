@@ -270,5 +270,6 @@ the exact status and code. Missing, malformed, and unknown tags are terminal.
 
 ## Document Link And Sync Protocol
 
-The normative link, write-verification, pagination, checkpoint, and conflict
-rules live in [Document Link and Sync Protocol](../document-link-and-sync-protocol.md).
+The normative link, write-verification, rotation-baseline, pagination,
+checkpoint, and conflict rules live in
+[Document Link and Sync Protocol](../document-link-and-sync-protocol.md).

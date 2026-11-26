@@ -97,7 +97,6 @@ export function enqueueMemoryPendingUpdate(input: {
         partialEndVersionVector: input.pendingUpdate.partialEndVersionVector,
         partialStartVersionVector:
           input.pendingUpdate.partialStartVersionVector,
-        sourceVersionVector: input.pendingUpdate.sourceVersionVector ?? null,
         updateData: input.pendingUpdate.updateData,
       },
     ],
@@ -106,7 +105,7 @@ export function enqueueMemoryPendingUpdate(input: {
 
 /**
  * The memory counterpart of `replaceQueuedPendingUpdates`: under the write
- * fence, replace a contiguous run of ordinary local queued rows (starting
+ * fence, replace a contiguous run of local queued rows (starting
  * with the first listed member) with the merged row at the first member's
  * position under a fresh id. Any failed check changes nothing. History tail
  * entries are kept separately here and already replay the same operations.
@@ -130,9 +129,7 @@ export function replaceMemoryQueuedPendingUpdates(input: {
     run.length === memberUpdateIds.length &&
     run.every(
       (row, index) =>
-        row.id === memberUpdateIds[index] &&
-        row.origin === "local" &&
-        row.sourceVersionVector == null,
+        row.id === memberUpdateIds[index] && row.origin === "local",
     ) &&
     memoryDocumentWriteFenceMatches(
       input.document,
@@ -149,7 +146,6 @@ export function replaceMemoryQueuedPendingUpdates(input: {
     id: updateId,
     origin: "local",
     rekeyCount: input.replacement.rekeyCount,
-    sourceVersionVector: null,
   };
   return {
     pendingUpdates: [
