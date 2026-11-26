@@ -1,4 +1,5 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { isUuidV4String } from "@tearleads/validators/util";
 import { canWriteEffectiveAccessLevel } from "../../../data/keying/accessLevel";
 import { createChildContainerState } from "../../../workflows/container-contents/container-state/create/createChild";
 import { deleteContainerState } from "../../../workflows/container-contents/container-state/delete";
@@ -38,6 +39,7 @@ import {
 import { hasAdvancedManagedPrincipalReference } from "../systemContainers/systemContainerPromotion";
 import type {
   ContainerContentsStoreState,
+  CreateChildContainerOptions,
   EnsureSystemContainerOptions,
 } from "../types";
 import { isContainerInSubtree, toContainerNode } from "../utils";
@@ -48,12 +50,15 @@ export async function createChildContainer(
   parentId: string,
   name: string,
   isCurrent: ContainerWriteGuard = () => true,
+  options: CreateChildContainerOptions = {},
 ) {
   const trimmedName = name.trim();
   if (
     state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
-    !trimmedName
+    !trimmedName ||
+    (options.id !== undefined &&
+      (!isUuidV4String(options.id) || state.containersById.has(options.id)))
   ) {
     return null;
   }
@@ -65,6 +70,7 @@ export async function createChildContainer(
   assertLocalChildPathFits(state.containersById, parentId);
 
   const created = await createChildContainerState({
+    childId: options.id,
     createRemote: false,
     name: trimmedName,
     parentState,

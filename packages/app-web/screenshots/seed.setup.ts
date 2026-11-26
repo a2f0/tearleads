@@ -7,7 +7,9 @@ import { seedIdentity } from "./continuity";
 // fixture account on that project's fresh in-memory API exactly as a person
 // seeds their own: the `tearleads` CLI registers the Continuity identity, syncs
 // the pinned dataset into it, and, with `--roster`, gives each group member an
-// account on the roster and in the group. The capture then signs a new browser
+// account on the roster and in the group, shares the dataset's folders with
+// their groups, and has members add their lines to the folders' notes, so the
+// Family note has several authors. The capture then signs a new browser
 // in as that identity, like a second device, and the app downloads what was
 // seeded.
 const CLI = fileURLToPath(new URL("../../cli/src/index.ts", import.meta.url));
