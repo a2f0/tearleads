@@ -315,7 +315,7 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "dependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/api-shared": "workspace:*",
