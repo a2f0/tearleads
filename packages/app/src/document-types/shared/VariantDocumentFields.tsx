@@ -15,26 +15,33 @@ import {
 } from "./variantDocumentFieldModel";
 
 /** The picker that chooses a document's type, shown above its fields. */
-export interface VariantDocumentTypeField {
+export interface VariantDocumentTypeField<Key extends string = string> {
   readonly ariaLabel: string;
-  readonly key: string;
+  readonly key: Key;
   readonly label: string;
   readonly options: ReadonlyArray<DocumentFieldOption>;
 }
 
-type FieldValues = Readonly<Record<string, string>>;
+type FieldValues<Key extends string> = Readonly<Record<Key, string>>;
+type FieldPatch<Key extends string> = Partial<Record<Key, string>>;
 
-interface VariantFieldsViewProps {
+interface VariantFieldsViewProps<Key extends string> {
   disabled: boolean;
-  fields: FieldValues;
+  fields: FieldValues<Key>;
   /** The fields the type offers, each with its label for that type. */
   labeledFields: ReadonlyArray<{
-    field: VariantDocumentFieldDefinition;
+    field: VariantDocumentFieldDefinition<Key>;
     label: string;
   }>;
-  onChange: (patch: FieldValues) => void;
+  onChange: (patch: FieldPatch<Key>) => void;
   ready: boolean;
-  typeField: VariantDocumentTypeField;
+  typeField: VariantDocumentTypeField<Key>;
+}
+
+function patchOf<Key extends string>(key: Key, value: string): FieldPatch<Key> {
+  const patch: FieldPatch<Key> = {};
+  patch[key] = value;
+  return patch;
 }
 
 function optionDisplayValue(
@@ -45,9 +52,11 @@ function optionDisplayValue(
   return label.length > 0 ? label : undefined;
 }
 
-function VariantReadFields(params: VariantFieldsViewProps) {
+function VariantReadFields<Key extends string>(
+  params: VariantFieldsViewProps<Key>,
+) {
   const { fields, typeField } = params;
-  const variant = fields[typeField.key] ?? "";
+  const variant = fields[typeField.key];
   return (
     <StructuredDocumentReadFields
       fields={[
@@ -57,7 +66,7 @@ function VariantReadFields(params: VariantFieldsViewProps) {
           value: variant,
         },
         ...params.labeledFields.map(({ field, label }) => {
-          const value = fields[field.key] ?? "";
+          const value = fields[field.key];
           return {
             displayValue: field.options
               ? optionDisplayValue(field.options, value)
@@ -109,7 +118,9 @@ function VariantEditField(params: {
   );
 }
 
-function VariantEditFields(params: VariantFieldsViewProps) {
+function VariantEditFields<Key extends string>(
+  params: VariantFieldsViewProps<Key>,
+) {
   const { disabled, fields, onChange, ready, typeField } = params;
   const id = useId();
   const typeInputId = `${id}-${typeField.key}`;
@@ -120,10 +131,10 @@ function VariantEditFields(params: VariantFieldsViewProps) {
           ariaLabel={typeField.ariaLabel}
           disabled={disabled}
           id={typeInputId}
-          onChange={(value) => onChange({ [typeField.key]: value })}
+          onChange={(value) => onChange(patchOf(typeField.key, value))}
           options={typeField.options}
           placeholder={ready ? "Select a type" : "Loading..."}
-          value={fields[typeField.key] ?? ""}
+          value={fields[typeField.key]}
         />
       </StructuredDocumentField>
       {params.labeledFields.map(({ field, label }) => (
@@ -133,9 +144,9 @@ function VariantEditFields(params: VariantFieldsViewProps) {
           field={field}
           inputId={`${id}-${field.key}`}
           label={label}
-          onChange={(value) => onChange({ [field.key]: value })}
+          onChange={(value) => onChange(patchOf(field.key, value))}
           ready={ready}
-          value={fields[field.key] ?? ""}
+          value={fields[field.key]}
         />
       ))}
     </StructuredDocumentFields>
@@ -144,29 +155,31 @@ function VariantEditFields(params: VariantFieldsViewProps) {
 
 /**
  * A typed document's fields, read or edited: its type picker, then the fields
- * that type offers (see {@link getVisibleVariantFields}).
+ * that type offers (see {@link getVisibleVariantFields}). `Key` comes from the
+ * kind's fields, so the type picker and every definition must name one of them.
  */
 export function VariantDocumentFields<
-  Field extends VariantDocumentFieldDefinition,
+  Key extends string,
+  Field extends VariantDocumentFieldDefinition<Key>,
 >(params: {
   definitions: ReadonlyArray<Field>;
   disabled: boolean;
-  fields: FieldValues;
+  fields: FieldValues<Key>;
   /** A field's label for the document's type; defaults to its own label. */
   getLabel?: (field: Field, variant: string) => string;
   isEditing: boolean;
-  onChange: (patch: FieldValues) => void;
+  onChange: (patch: FieldPatch<Key>) => void;
   ready: boolean;
-  typeField: VariantDocumentTypeField;
+  typeField: VariantDocumentTypeField<NoInfer<Key>>;
 }) {
   const { fields, getLabel, isEditing, ready, typeField } = params;
   // The fields as they stood when this edit began, so an input shown only for
   // its recorded value stays put while the user clears it.
-  const [atEditStart, setAtEditStart] = useState<FieldValues | null>(null);
+  const [atEditStart, setAtEditStart] = useState<FieldValues<Key> | null>(null);
   if (isEditing && ready && atEditStart === null) setAtEditStart(fields);
   if (!isEditing && atEditStart !== null) setAtEditStart(null);
-  const variant = fields[typeField.key] ?? "";
-  const viewProps: VariantFieldsViewProps = {
+  const variant = fields[typeField.key];
+  const viewProps: VariantFieldsViewProps<Key> = {
     disabled: params.disabled,
     fields,
     labeledFields: getVisibleVariantFields(

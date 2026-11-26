@@ -4,6 +4,8 @@ import {
   getDocumentFieldOptionLabel,
 } from "./documentFieldOptions";
 
+const CLEAR_OPTION_LABEL = "None";
+
 /**
  * The picker for a stored option field. Portaled so the open listbox floats
  * over the pane instead of growing the document's scroll region, and so its
@@ -28,6 +30,9 @@ export function DocumentFieldOptionSelect(params: {
   const hasUnlistedValue =
     stored.length > 0 && !options.some((option) => option.value === stored);
   const menuOptions = [
+    // Every stored field is optional, so a set value can be cleared again;
+    // an empty field shows the placeholder instead of a selected "None".
+    ...(stored.length > 0 ? [{ id: "", label: CLEAR_OPTION_LABEL }] : []),
     ...(hasUnlistedValue
       ? [{ id: stored, label: getDocumentFieldOptionLabel(options, stored) }]
       : []),
