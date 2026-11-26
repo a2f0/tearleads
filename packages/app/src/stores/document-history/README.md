@@ -47,9 +47,10 @@ and a nested document under the past version sees its own live state.
 
 ## Who uploaded a change, and when
 
-Both come from the server's record of signed uploads, read through the live
-document: nothing here is taken from what a change says about itself.
-Offline, unsynced, and unauthenticated documents have neither.
+Until the history is [verified](#verifying-history), both come from the
+server's record of signed uploads, read through the live document: nothing
+here is taken from what a change says about itself. Offline, unsynced, and
+unauthenticated documents have neither.
 
 - **Who.** The timeline names the signed uploader of the selected change
   ([`documentHistoryWriter`](documentHistoryWriter.ts)), resolved from the
@@ -102,6 +103,108 @@ has settled, loaded or failed, later refreshes in the same scope never
 withhold the time again. The scope is the document, account, session, and
 sign-in, while online. Another scope, such as a refreshed sign-in or coming
 back online, starts with a first read of its own.
+
+Once a check has [verified the history](#verifying-history) on this device,
+its ranges take the place of both reads for as long as its verdict stands.
+
+## Verifying history
+
+The history History opens is this device's copy, and nothing has checked it.
+"Verify history" checks it against the signed uploads the server holds,
+through
+[`documents.verifyHistory`](../../../../../docs/developer/client-sdk/document-history.md#verifying-history).
+The check runs only when asked for: it reads the document's whole history
+from the server and rebuilds it on the main thread.
+
+[`useDocumentHistoryVerification`](useDocumentHistoryVerification.ts) drives
+[`documentHistoryVerificationMachine`](documentHistoryVerificationMachine.ts).
+The status line beside the action says which state it is in:
+
+| State | What the user reads | What it means |
+| --- | --- | --- |
+| `idle` | "This is the history stored on this device. It has not been checked." | Nothing was asked. |
+| `checking` | "Checking N of M uploads..." | A check is running. The action is disabled and busy. |
+| `verified` | "Checked against the signed uploads the server holds. This device's copy matches." | Every operation the device and the server both hold is the same in both. It adds that the server holds newer edits, and how many uploads were set aside as void, when either is so. |
+| `mismatch` | "This device's copy differs from the signed uploads." | Some operation differs. "View signed history" shows the history rebuilt from the signed uploads. |
+| `unavailable` | One sentence for each reason, below. | No verdict was reached. |
+| `failed` | "Couldn't check the history." | The check threw. "Try again" starts another. |
+
+| `unavailable` reason | What the user reads |
+| --- | --- |
+| `offline` | "Can't check while offline." |
+| `not_synced` | "Nothing has been uploaded yet." |
+| `epoch_key_unreachable` | "An older key for this document can't be reached from this device, so older history can't be checked." |
+| `rejected` | "The server's response failed a signature or integrity check." |
+| `unsettled` | "This device couldn't finish reading the history. Try again later." |
+| `too_large` | "This history is too large to check on this device." |
+| `interrupted` | "The check was interrupted." A database that is not ready yet reads the same. |
+| `capture_outdated` | "This document has newer edits than the history shown. Load them, then check again." |
+
+`capture_outdated` is the app's own reason. A check reads the device's
+history as it is when the check runs, and reports the version it compared.
+When that is not the newest version of the capture on screen, an edit became
+durable after the capture was taken, so the verdict is not applied to it. The
+versions are compared as sets: their entries come in no set order.
+
+What a verdict does and does not prove is in the SDK's
+[trust limits](../../../../../docs/developer/client-sdk/document-history.md#trust-limits).
+
+### What a verdict changes on screen
+
+- **Who and when.** On `verified` the check's ranges replace the server's
+  attribution in both resolvers above. They have the same shape, but this
+  device built them from write headers it authenticated. On `mismatch` they
+  do so only while the signed replay is on screen: a range is matched by peer
+  and counter, and a mismatch says some operation both histories hold
+  differs, so this device's copy keeps the server's attribution and shows no
+  provenance.
+- **Where each change is held.** The caption says where the server's signed
+  history holds the selected change
+  ([`documentHistoryProvenance`](documentHistoryProvenance.ts)), looking at
+  every one of its operations:
+
+  | Provenance | What the user reads | Meaning |
+  | --- | --- | --- |
+  | `direct` | "This change is in a signed upload." | An ordinary signed upload first carried every operation. |
+  | `baseline` | "This change is only in a key-rotation snapshot, as its signer asserted." | The server holds them all, but at least one only in a rotation baseline. |
+  | `partial` | "Only part of this change is in the server's history." | The server holds some of the operations and not others. |
+  | `absent` | "This change is not in the server's history." | No range covers it: an edit not uploaded yet, or one the server no longer holds. The check cannot tell which. |
+
+- **The device's copy stays on screen.** A `verified` history is the one
+  already shown. Its stops are not the signed replay's: imports split changes
+  differently, and edits not uploaded yet exist only here.
+
+### Viewing the signed history
+
+A `ready` history has a `source`. It is `local` for this device's capture.
+"View signed history" puts the `mismatch` state's `signed` replay on screen
+in its place (`signed-shown`), with the capture kept open as `local`. "Back
+to this device's copy" returns to it (`local-shown`). Either way the history
+opens on its newest stop, and the transport, the restore, and the copy work
+as on any history. No stop of a signed replay counts as the current version,
+so each can be restored.
+
+Two histories are then open, so a replayed stop is accepted only from the
+history on screen: a replay of one that finishes after the other took the
+screen is dropped. Newer edits are still looked for on the device's capture.
+
+### Who closes what
+
+- History closes its own capture, on a reload and when it unmounts. It never
+  closes a signed replay.
+- The verification machine returns its closes as effects, which the hook runs
+  on entering the next state. A signed replay is closed once: when its
+  `mismatch` state is left (a new check, a new capture, or leaving History),
+  or at once when the result that brought it is not taken.
+- A signed replay must be off screen before it is closed. A new capture gets
+  there by reloading History, which drops the replay first. A new check gets
+  there because the signed view offers only the way back.
+
+A check belongs to the capture it was asked about. "Load newer edits", a
+restore, and a change of database or account each bring another capture: the
+check in flight is stopped at its next page, and the verdict is forgotten.
+Only the running check may report progress, settle, or fail, so a check that
+was stopped cannot settle the next one.
 
 ## Restoring
 

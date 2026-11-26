@@ -52,8 +52,15 @@ export function DocumentHistoryTimeline(params: {
   onStep: (delta: -1 | 1) => void;
   onTogglePlay: () => void;
   playing: boolean;
+  /**
+   * Where the server's signed history holds the selected change, once a
+   * check has said.
+   */
+  provenance?: string | null;
   selectedIndex: number;
   stopCount: number;
+  /** Whether the history was checked against the signed uploads. */
+  verification?: ReactNode;
   /** Who uploaded the selected change, when that is known. */
   writer?: ReactNode;
 }) {
@@ -129,9 +136,11 @@ export function DocumentHistoryTimeline(params: {
         <strong>{params.changeTime}</strong>
         {params.changeTimeNote ? <span>{params.changeTimeNote}</span> : null}
         {params.writer}
+        {params.provenance ? <span>{params.provenance}</span> : null}
         {/* Keeps its line while a stop replays, so the document never jumps. */}
         <span>{params.changeSummary?.join(" · ") ?? " "}</span>
       </p>
+      {params.verification}
       {params.actions}
       {params.newerAvailable ? (
         <div className="explorer-document-history-newer">

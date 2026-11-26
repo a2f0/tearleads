@@ -9,6 +9,7 @@ import {
   type DocumentHistoryState,
   INITIAL_DOCUMENT_HISTORY,
   isCurrentDocumentVersion,
+  localDocumentHistory,
   type ShownDocumentHistoryStop,
   transitionDocumentHistory,
 } from "./documentHistoryMachine";
@@ -78,6 +79,9 @@ test("an opened history starts on its newest stop", () => {
   expect(state.shown).toBeNull();
   expect(state.playing).toBe(false);
   expect(state.newerAvailable).toBe(false);
+  // It is this device's copy.
+  expect(state.source).toBe("local");
+  expect(localDocumentHistory(state)).toBe(state.history);
 });
 
 test("a document with no history is unavailable", () => {
@@ -147,15 +151,21 @@ test("stepping moves one stop and stops at either end", () => {
   ).toMatchObject({ selectedIndex: 0 });
 });
 
-test("the stop on screen is accepted only for the selected stop and run", () => {
+test("the stop on screen is accepted only for the selected stop of the history shown", () => {
   const state = ready(3);
+  const { history: open } = state;
 
-  expect(run(state, { run: 1, stop: shown(2), type: "shown" })).toMatchObject({
-    shown: shown(2),
-  });
+  expect(
+    run(state, { history: open, stop: shown(2), type: "shown" }),
+  ).toMatchObject({ shown: shown(2) });
   // A replay that finished after the user moved on.
-  expect(run(state, { run: 1, stop: shown(0), type: "shown" })).toBe(state);
-  expect(run(state, { run: 7, stop: shown(2), type: "shown" })).toBe(state);
+  expect(run(state, { history: open, stop: shown(0), type: "shown" })).toBe(
+    state,
+  );
+  // A replay of a capture that has since been closed and reopened.
+  expect(
+    run(state, { history: history(3), stop: shown(2), type: "shown" }),
+  ).toBe(state);
 });
 
 test("playing from the newest stop starts over from the oldest", () => {
@@ -188,19 +198,19 @@ test("playback advances only after the selected stop is on screen", () => {
 
   const advanced = run(
     playing,
-    { run: 1, stop: shown(0), type: "shown" },
+    { history: playing.history, stop: shown(0), type: "shown" },
     { type: "tick" },
   );
   expect(advanced).toMatchObject({ playing: true, selectedIndex: 1 });
 });
 
 test("playback stops on the newest stop", () => {
-  const finished = ready(
-    3,
-    { type: "play-toggled" },
-    { run: 1, stop: shown(0), type: "shown" },
+  const playing = ready(3, { type: "play-toggled" });
+  const finished = run(
+    playing,
+    { history: playing.history, stop: shown(0), type: "shown" },
     { type: "tick" },
-    { run: 1, stop: shown(1), type: "shown" },
+    { history: playing.history, stop: shown(1), type: "shown" },
     { type: "tick" },
   );
 
@@ -252,15 +262,23 @@ test("only the newest stop of an up-to-date capture is the current version", () 
   expect(isCurrentDocumentVersion(overtaken, 2)).toBe(false);
 });
 
-test("a failed replay fails the history for the current run only", () => {
+test("a failed replay fails the history only if it is the one shown", () => {
   const state = ready(3);
 
   expect(
-    run(state, { message: "closed", run: 1, type: "replay-failed" }),
+    run(state, {
+      history: state.history,
+      message: "closed",
+      type: "replay-failed",
+    }),
   ).toEqual({ message: "closed", run: 1, status: "failed" });
-  expect(run(state, { message: "stale", run: 4, type: "replay-failed" })).toBe(
-    state,
-  );
+  expect(
+    run(state, {
+      history: history(3),
+      message: "stale",
+      type: "replay-failed",
+    }),
+  ).toBe(state);
 });
 
 test("states without an open history ignore transport events", () => {
@@ -275,8 +293,10 @@ test("states without an open history ignore transport events", () => {
     { delta: 1, type: "stepped" },
     { type: "play-toggled" },
     { type: "tick" },
-    { run: 1, stop: shown(0), type: "shown" },
+    { history: history(2), stop: shown(0), type: "shown" },
     { history: history(2), run: 1, type: "opened" },
+    { signed: history(2), type: "signed-shown" },
+    { type: "local-shown" },
   ];
 
   for (const state of [unavailable, failed, INITIAL_DOCUMENT_HISTORY]) {
@@ -285,4 +305,119 @@ test("states without an open history ignore transport events", () => {
       expect(transitionDocumentHistory(state, event)).toBe(state);
     }
   }
+});
+
+/** A device's history playing from stop 1 of 3, and the signed replay. */
+function mismatched() {
+  const local = ready(
+    3,
+    { index: 1, type: "seeked" },
+    { type: "play-toggled" },
+  );
+  const signed = history(5);
+  const showing = run(local, { signed, type: "signed-shown" });
+  if (showing.status !== "ready") throw new Error("expected ready history");
+  return { local, showing, signed };
+}
+
+test("the signed replay takes the screen on its newest stop", () => {
+  const { local, showing, signed } = mismatched();
+
+  expect(showing).toMatchObject({
+    playing: false,
+    run: local.run,
+    selectedIndex: 4,
+    shown: null,
+    source: "signed",
+  });
+  expect(showing.history).toBe(signed);
+  // This device's capture is kept, not closed, for the way back.
+  expect(localDocumentHistory(showing)).toBe(local.history);
+  // Its transport works as it does on any history.
+  expect(run(showing, { delta: -1, type: "stepped" })).toMatchObject({
+    selectedIndex: 3,
+    source: "signed",
+  });
+});
+
+test("this device's copy comes back on its newest stop", () => {
+  const { local, showing } = mismatched();
+  const back = run(showing, { type: "local-shown" });
+
+  expect(back).toMatchObject({
+    playing: false,
+    selectedIndex: 2,
+    shown: null,
+    source: "local",
+  });
+  expect(back.status === "ready" && back.history).toBe(local.history);
+  expect(localDocumentHistory(back)).toBe(local.history);
+});
+
+test("newer edits found under the signed replay are still flagged on the way back", () => {
+  const { showing } = mismatched();
+  const flagged = run(showing, { run: 1, type: "newer-found" });
+
+  expect(flagged).toMatchObject({ newerAvailable: true, source: "signed" });
+  expect(run(flagged, { type: "local-shown" })).toMatchObject({
+    newerAvailable: true,
+    source: "local",
+  });
+});
+
+test("a stop replayed from one history is never shown on the other", () => {
+  const { local, showing, signed } = mismatched();
+  // A replay of this device's stop 2 finishes after the signed replay took
+  // the screen, with stop 2 selected there too.
+  const onSigned = run(showing, { index: 2, type: "seeked" });
+  expect(
+    run(onSigned, { history: local.history, stop: shown(2), type: "shown" }),
+  ).toBe(onSigned);
+  expect(
+    run(onSigned, {
+      history: local.history,
+      message: "closed",
+      type: "replay-failed",
+    }),
+  ).toBe(onSigned);
+  // And the other way round, once the device's copy is back on stop 2.
+  const back = run(showing, { type: "local-shown" });
+  expect(run(back, { history: signed, stop: shown(2), type: "shown" })).toBe(
+    back,
+  );
+  expect(
+    run(back, { history: signed, message: "closed", type: "replay-failed" }),
+  ).toBe(back);
+});
+
+test("a signed replay with nothing to show leaves the device's copy on screen", () => {
+  const state = ready(3);
+
+  expect(run(state, { signed: history(0), type: "signed-shown" })).toBe(state);
+});
+
+test("a source already on screen is not shown again", () => {
+  const { showing } = mismatched();
+  const local = ready(3);
+
+  expect(run(showing, { signed: history(2), type: "signed-shown" })).toBe(
+    showing,
+  );
+  expect(run(local, { type: "local-shown" })).toBe(local);
+});
+
+test("no stop of a signed replay is the document as it is now", () => {
+  const { showing } = mismatched();
+
+  // The device's copy differs from it, so even its newest stop can be
+  // restored.
+  expect(isCurrentDocumentVersion(showing, 4)).toBe(false);
+});
+
+test("reopening while the signed replay is shown drops both histories", () => {
+  const { showing } = mismatched();
+  const reopening = run(showing, { run: 2, type: "open-started" });
+
+  expect(reopening).toEqual({ run: 2, status: "loading" });
+  expect(localDocumentHistory(reopening)).toBeNull();
 });

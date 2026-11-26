@@ -61,4 +61,50 @@ export const EXPLORER_DOCUMENT_HISTORY_LABELS = {
   documentHistoryUploadedBy: "Uploaded by",
   documentHistoryUnavailable:
     "This document has no history on this device yet.",
+  documentHistoryVerifyAction: "Verify history",
+  documentHistoryVerifyAgainAction: "Check again",
+  /** Null before the first page of uploads is read. */
+  documentHistoryVerifyChecking: (
+    progress: { updatesRead: number; updatesTotal: number } | null,
+  ) =>
+    progress === null
+      ? "Checking the signed uploads..."
+      : `Checking ${progress.updatesRead} of ${progress.updatesTotal} uploads...`,
+  documentHistoryVerifyFailed: "Couldn't check the history.",
+  documentHistoryVerifyMismatch:
+    "This device's copy differs from the signed uploads.",
+  documentHistoryVerifyProvenance: {
+    absent: "This change is not in the server's history.",
+    baseline:
+      "This change is only in a key-rotation snapshot, as its signer asserted.",
+    direct: "This change is in a signed upload.",
+    partial: "Only part of this change is in the server's history.",
+  },
+  documentHistoryVerifyRetryAction: "Try again",
+  documentHistoryVerifyServerAhead: "The server also holds newer edits.",
+  documentHistoryVerifyShowLocalAction: "Back to this device's copy",
+  documentHistoryVerifyShowSignedAction: "View signed history",
+  documentHistoryVerifySignedShown:
+    "This is the history rebuilt from the signed uploads. This device's copy differs from it.",
+  documentHistoryVerifyUnavailable: {
+    capture_outdated:
+      "This document has newer edits than the history shown. Load them, then check again.",
+    epoch_key_unreachable:
+      "An older key for this document can't be reached from this device, so older history can't be checked.",
+    interrupted: "The check was interrupted.",
+    not_synced: "Nothing has been uploaded yet.",
+    offline: "Can't check while offline.",
+    rejected: "The server's response failed a signature or integrity check.",
+    too_large: "This history is too large to check on this device.",
+    unsettled:
+      "This device couldn't finish reading the history. Try again later.",
+  },
+  documentHistoryVerifyUnchecked:
+    "This is the history stored on this device. It has not been checked.",
+  documentHistoryVerifyVerified:
+    "Checked against the signed uploads the server holds. This device's copy matches.",
+  documentHistoryVerifyVoid: (count: number) =>
+    count === 1
+      ? "1 upload was set aside as void."
+      : `${count} uploads were set aside as void.`,
 } as const;

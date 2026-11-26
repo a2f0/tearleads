@@ -12,7 +12,9 @@ deployed APIs. The account must already exist on that tier.
 
 The seed passes --roster, so it also seeds the dataset's groups: each group
 member gets an account derived from yours, joins your roster, and takes a
-seat in your organization.
+seat in your organization. It also passes --accept-terms, which agrees to the
+Tearleads Privacy Policy and Terms of Service for each member account it
+creates instead of asking you to type yes.
 
 The CLI keeps its recovery key in the macOS login Keychain, which is locked
 in a shell that is not part of the desktop session (SSH, tmux, screen).
@@ -52,4 +54,4 @@ fi
 bun install
 bun run build:runtime
 bun run tearleads login --env "$target"
-bun run tearleads seed --env "$target" --roster --trace
+bun run tearleads seed --env "$target" --roster --accept-terms --trace
