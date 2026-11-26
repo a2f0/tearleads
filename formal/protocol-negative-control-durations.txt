@@ -37,7 +37,6 @@
 4 baseline-redirect-drops-current-epoch
 4 baseline-redirect-ignores-coverage
 4 baseline-redirect-raw-mode
-4 baseline-redirect-unauthenticated
 4 no-brick-writer-waits-for-fresh-dependent
 4 peer-ownership-forgets-queued-history
 4 peer-ownership-no-relay
