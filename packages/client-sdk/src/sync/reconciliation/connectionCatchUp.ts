@@ -160,8 +160,8 @@ function wakeLaneForDeferredWork(
   planned: boolean,
 ): void {
   if (state.queue.size === 0) {
-    // The initial probe continues only while the queue is empty, and the
-    // lane found it holding deferred entries: nothing else resumes it.
+    // The initial probe runs only while the queue is empty, and the lane
+    // found it holding deferred entries: nothing else resumes the probe.
     if (state.initialDocumentProbe.hasPendingWork()) state.lane?.requestSync();
     return;
   }

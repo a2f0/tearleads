@@ -271,14 +271,18 @@ test("the initial probe is not left waiting by a catch-up that deferred the back
   service.enqueueIdleBackfill();
   await settle();
   await settle();
+  // The probe runs once the queue is empty, and the queue holds what the
+  // catch-up deferred.
+  expect(probed).toEqual([]);
 
-  // The probe reads its listings beside the wait, as it did before lanes
-  // were deferred, and nothing it needs is left for a later enqueue.
-  expect(probed).toEqual([[...KNOWN]]);
-  expect(listings).toEqual([]);
+  // The catch-up's sweep settles every lane without a listing. Nothing is
+  // queued after it, so it is the catch-up that resumes the probe.
   crawl.open();
   await catchUp;
+  await settle();
+  await settle();
   expect(listings).toEqual([]);
+  expect(probed).toEqual([[...KNOWN]]);
   service.stop();
 });
 
