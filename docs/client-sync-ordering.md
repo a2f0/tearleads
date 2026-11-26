@@ -339,7 +339,7 @@ events as disconnected, and a cold `ready=false` tree is never declared.
 
 On every acknowledged reconnect, the client also clears cached writer
 projections. After every acknowledged connection the container store re-lists
-the tree and the reconciler lists every known document lane, owing a read to
+the tree and the reconciler lists the document lanes that moved, owing a read to
 each document whose count or access head moved, which closes the lossy interval
 for link changes and [rotations](./glossary/keys.md#rotate). Native app resume and
 network-path changes deliberately replace the socket first, because WKWebView

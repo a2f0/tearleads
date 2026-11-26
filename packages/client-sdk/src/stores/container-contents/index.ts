@@ -11,6 +11,10 @@ export {
   isRemoteBackedContainerNode,
   isSystemContainerNode,
 } from "./containerState/reconcilableContainer";
+export {
+  getOrCreateTreeCatchUp,
+  type TreeCatchUp,
+} from "./hydration/treeCatchUp";
 export * from "./state";
 export * from "./syncAgent";
 export * from "./types";

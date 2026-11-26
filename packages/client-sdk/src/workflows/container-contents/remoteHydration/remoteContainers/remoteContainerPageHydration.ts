@@ -8,6 +8,10 @@ import { prefetchDestinationProjections } from "../destination/destinationPrefet
 import { cachedDestinationRole } from "../destination/destinationRoleCache";
 import { markContainerParentLaneFetched } from "../lanes/laneFetchMarkers";
 import { fetchContainerParentLaneBatch } from "../lanes/parentLaneFetch";
+import {
+  hasUnusableContinuation,
+  queueNextPage,
+} from "../lanes/parentLanePaging";
 import { warmListedContainerPolicies } from "../principalPolicyCache";
 import {
   applyContainerTombstones,
@@ -193,46 +197,6 @@ export function canHydrateRemoteContainers(
   );
 }
 
-function cursorKey(
-  watermark: NonNullable<ContainerParentHydrationLane["watermark"]>,
-): string {
-  return JSON.stringify([watermark.updatedAt, watermark.id]);
-}
-
-function hasUnusableContinuation({
-  lane,
-  response,
-}: FetchedContainerParentLanePage): boolean {
-  const next = response.nextWatermark;
-  if (!next) return response.hasMore;
-  // Opaque positions can advance with an older business timestamp.
-  // A drained lane may echo its current position, but never an earlier one.
-  if (
-    next.id === lane.watermark?.id &&
-    next.updatedAt === lane.watermark.updatedAt
-  )
-    return response.hasMore;
-  return lane.continuationCursors?.has(cursorKey(next)) === true;
-}
-
-function queueNextPage(
-  { lane, response }: FetchedContainerParentLanePage,
-  skipWatermarkWrite: boolean,
-  queueContinuationLane: (lane: ContainerParentHydrationLane) => void,
-): void {
-  if (response.hasMore && response.nextWatermark) {
-    const continuationCursors = lane.continuationCursors ?? new Set<string>();
-    if (lane.watermark) continuationCursors.add(cursorKey(lane.watermark));
-    continuationCursors.add(cursorKey(response.nextWatermark));
-    queueContinuationLane({
-      parentId: lane.parentId,
-      watermark: response.nextWatermark,
-      skipWatermarkWrite,
-      continuationCursors,
-    });
-  }
-}
-
 async function checkpointPage(input: {
   reconnect?: ReconnectPages | undefined;
   fetchedPage: FetchedContainerParentLanePage;
@@ -252,6 +216,28 @@ async function checkpointPage(input: {
     state: input.state,
     syncLane,
   });
+}
+
+/**
+ * The server republishes a container's row with every write that changes
+ * what its document lane returns, so each row a lane serves past its
+ * watermark owes that container's lane a listing. They are owed before a row
+ * is applied or the watermark passes it, paused folders included: their rows
+ * pass the watermark too. A membership listing serves every row the lane
+ * holds, moved or not, and owes nothing. Returns whether the hydration is
+ * still current.
+ */
+async function oweServedDocumentLanes(
+  input: {
+    fetchedPage: FetchedContainerParentLanePage;
+    host: RemoteContainerHydrationHost;
+    isCurrent?: (() => boolean) | undefined;
+  },
+  served: ReadonlyArray<{ readonly id: string }>,
+): Promise<boolean> {
+  if (input.fetchedPage.lane.membershipOnly) return true;
+  await input.host.requestDocumentLaneListings?.(served.map((item) => item.id));
+  return input.isCurrent?.() !== false;
 }
 
 async function applyContainerParentLanePage(input: {
@@ -308,6 +294,10 @@ async function applyContainerParentLanePage(input: {
   if (tombstoneResult.changedCount > 0) {
     // Prime documents orphaned by this cascade during the current pass.
     host.requestDocumentPriming?.();
+  }
+
+  if (!(await oweServedDocumentLanes(input, remoteContainerItems))) {
+    return { changedCount, outcome: "retry", shouldStop: true };
   }
 
   // Paused folders keep their local state while the lane advances.

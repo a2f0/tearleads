@@ -46,6 +46,11 @@ export type ListedContainerDocumentsApply =
   | {
       /** `null` when the listing held nothing new. */
       readonly documents: ReadonlyArray<DocumentSummary> | null;
+      /**
+       * The listing applied with no candidate left pending, so the lane's
+       * settled mark was saved with its watermark.
+       */
+      readonly settled: boolean;
       readonly status: "applied";
     }
   /**
@@ -156,6 +161,7 @@ export async function applyListedContainerDocuments(
       tombstoneDocumentSummaries.length === 0
         ? null
         : [...discoveredDocuments, ...tombstoneDocumentSummaries],
+    settled: complete,
     status: "applied",
   };
 }

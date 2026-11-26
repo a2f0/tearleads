@@ -8,8 +8,10 @@ import {
 
 /**
  * What a refresh covers. `root` re-lists root containers and reconciles the
- * root catch-up set; `acknowledged` lists every known document lane after an
- * acknowledged connection; `full` also refreshes the whole tree and
+ * root catch-up set. `acknowledged` catches up after an acknowledged
+ * connection: once the tree crawl that connection owes has settled, it lists
+ * the document lanes that are owed a listing, or every known lane when that
+ * crawl did not vouch for the rest. `full` also refreshes the whole tree and
  * revalidates every registered document.
  */
 export type RefreshScope = "root" | "acknowledged" | "full";

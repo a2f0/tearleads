@@ -3,6 +3,7 @@ import { and, eq, inArray, isNotNull, or, type SQL } from "drizzle-orm";
 import {
   containerSyncWatermarks,
   containerSyncWatermarkTables,
+  documentLaneRevalidations,
 } from "../../sqlite/schema/containerSyncWatermarkSchema";
 import {
   type ClientSQLiteDatabase,
@@ -129,6 +130,11 @@ export async function deleteContainerWatermarksInTransaction(
         ),
       ),
     )
+    .run();
+  // A listing owed to a deleted container's lane has nothing left to list.
+  await tx
+    .delete(documentLaneRevalidations)
+    .where(inArray(documentLaneRevalidations.containerId, documentLaneIds))
     .run();
 }
 

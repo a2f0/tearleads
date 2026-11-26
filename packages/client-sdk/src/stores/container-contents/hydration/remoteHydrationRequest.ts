@@ -89,6 +89,8 @@ function createResetRecoveryInput(
 ): RemoteHydrationRequestInput {
   return {
     ...input,
+    // A wait this request sat through was for an earlier connect attempt.
+    connectAttemptSettled: undefined,
     followDiscoveredParentLanes: true,
     onFullyHydrated: undefined,
     parentIds: undefined,
@@ -425,7 +427,7 @@ function startHydration(input: RemoteHydrationRequestInput): Promise<void> {
     stillCurrent: input.reconnect?.isCurrent,
     state,
   })
-    .then(async () => {
+    .then(() => {
       if (!isCurrent()) {
         return 0;
       }

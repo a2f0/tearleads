@@ -9,6 +9,7 @@ import { observeContainerBackgroundHydration } from "./hydration/backgroundHydra
 import { releaseSettledConnectAttemptWaits } from "./hydration/connectAttemptGate";
 import { ReconnectRefresh } from "./hydration/reconnectRefresh";
 import { trackContainerHydration } from "./hydration/trackContainerHydration";
+import { getOrCreateTreeCatchUp } from "./hydration/treeCatchUp";
 import { didContainerWriteRuntimeChange } from "./remoteWrites/writeGeneration";
 import type {
   ContainerContentsStoreRuntime,
@@ -121,6 +122,9 @@ export function createContainerContentsStoreState(
     // acknowledgement's re-list, which is how hints lost earlier are recovered.
     reconnectRefresh: new ReconnectRefresh(
       (initialRuntime.state.serverEventsConnectionGeneration ?? 0) > 0,
+      // Whoever lists document lanes asks whether this crawl vouches for
+      // the lanes whose rows it was not served.
+      getOrCreateTreeCatchUp(initialRuntime.state.domainScope),
     ),
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),

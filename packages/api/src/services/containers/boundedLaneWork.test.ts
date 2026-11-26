@@ -64,3 +64,11 @@ test("a failed lane fails the batch and starts no further lane", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(started).toEqual([0, 1, 2, 3]);
 });
+
+test("a bound that would start no lane is refused", async () => {
+  for (const concurrency of [0, -1, 1.5, Number.NaN]) {
+    await expect(
+      mapLanesBounded(["a"], concurrency, async (lane) => lane),
+    ).rejects.toBeInstanceOf(RangeError);
+  }
+});

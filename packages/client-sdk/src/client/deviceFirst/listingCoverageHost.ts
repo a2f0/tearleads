@@ -1,5 +1,8 @@
 import type { DomainScope } from "../../data/shared/domainScope";
-import { isReconcilableContainerNode } from "../../stores/container-contents";
+import {
+  getOrCreateTreeCatchUp,
+  isReconcilableContainerNode,
+} from "../../stores/container-contents";
 import {
   getOrCreateDocumentListingCoverage,
   requestRemoteSyncsOfRecordsSavedElsewhere,
@@ -19,9 +22,13 @@ export function createListingCoverageHost(
   domainScope: DomainScope,
 ): Pick<
   ReconciliationHost,
-  "reportDocumentLaneListed" | "requestOwedDocumentReads"
+  | "reportDocumentLaneListed"
+  | "requestOwedDocumentReads"
+  | "whenTreeCrawlSettles"
 > {
   return {
+    whenTreeCrawlSettles: () =>
+      getOrCreateTreeCatchUp(domainScope).whenCrawlSettles(),
     reportDocumentLaneListed: (containerId, listed) =>
       getOrCreateDocumentListingCoverage(domainScope).reportLaneListed(
         containerId,
@@ -69,8 +76,9 @@ export function listReconcilableContainerIds(
 }
 
 /**
- * The scope's listing authority: the reconciler lists every reconcilable
- * container's document lane after each acknowledged connection, so a store
+ * The scope's listing authority: after each acknowledged connection the
+ * reconciler lists every reconcilable container's document lane that moved
+ * (a lane a complete tree crawl was not served did not), so a store
  * whose document one of them holds need not probe on its own. It answers
  * from the same list the sweep walks, rebuilt when the tree's node list is
  * replaced or the home organization changes.
