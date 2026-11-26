@@ -19,6 +19,10 @@ import {
   requestDocumentStoreSync,
   resolveDocumentStoreKey,
 } from "../registry";
+import {
+  forwardDocumentStoreLoadedRecord,
+  registerDocumentStoreLoadedRecord,
+} from "../savedElsewhere";
 import type {
   DocumentAttachmentUpload,
   DocumentStore,
@@ -51,6 +55,7 @@ import {
   type DocumentStoreState,
   subscribeToDocumentStore,
 } from "./state";
+import { describeLoadedDocumentRecord } from "./sync/loadedRecord";
 import {
   refreshDocumentStoreSyncLane,
   requestRemoteDocumentStoreSync,
@@ -183,6 +188,9 @@ function registerBackingStoreHooks(input: {
   });
   registerDocumentStoreOpenJoin(input.store, (open) =>
     joinBackingDocumentStoreOpen(input, open),
+  );
+  registerDocumentStoreLoadedRecord(input.store, () =>
+    describeLoadedDocumentRecord(input.state),
   );
   registerInternalDocumentRelink(input.store, (relinkInput, commitSideEffect) =>
     input.withLiveSyncLane(() =>
@@ -336,6 +344,7 @@ export function createDocumentStore(
   );
   const facade = createDocumentStoreFacade(backingStore);
   forwardDocumentStoreOpenJoin(facade, backingStore);
+  forwardDocumentStoreLoadedRecord(facade, backingStore);
   return facade;
 }
 

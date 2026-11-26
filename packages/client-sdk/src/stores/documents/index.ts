@@ -9,4 +9,5 @@ export {
   getOrCreateDocumentListingCoverage,
 } from "./listingCoverage";
 export { hasPendingLocalDocumentWrites } from "./registry";
+export { requestRemoteSyncsOfRecordsSavedElsewhere } from "./savedElsewhere";
 export * from "./types";
