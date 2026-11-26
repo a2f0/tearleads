@@ -125,8 +125,12 @@ and inspect bounded excerpts with `bun run agent:logs <path>`.
    scenario set in `references/measurement.md` under the SQL-capture
    preload, and save per-scenario statement counts and the most repeated
    normalized statements.
-5. Collect PlanetScale evidence (step 2) unless `no-planetscale` was given.
-6. Build a compact known-dispositions index: the request budgets and design
+5. Read the results index of the
+   [performance harness](references/measurement.md#performance-harness) and
+   note each recorded run that bears on a queued slice, with its date and
+   revision. Run its local realtime probes when the hub's slice is queued.
+6. Collect PlanetScale evidence (step 2) unless `no-planetscale` was given.
+7. Build a compact known-dispositions index: the request budgets and design
    decisions in `docs/request-budgets.md` and
    `docs/principal-history-transport.md`, the table and index decisions in
    #2522 and its PRs (#2524 to #2541, including its declined items 7, 22,
@@ -278,7 +282,13 @@ For each verified proposal:
    an existing raw ``executor.execute(sql`...`)`` statement. The
    maintainers prefer builder implementations; flag a raw-statement edit
    so they can defer it.
-5. Order proposals by dependency, and mark protocol leads for hand-off.
+5. Name the measurement that will show the saving once it ships: the
+   statement-budget or plan test whose ceiling drops, the canary phase, or
+   the `perf:*` command and arguments from the
+   [performance harness](references/measurement.md#performance-harness). The
+   implementation PR reports it before and after, and records a `perf:*`
+   run in `packages/performance/results`.
+6. Order proposals by dependency, and mark protocol leads for hand-off.
 
 ## 6. Report
 
