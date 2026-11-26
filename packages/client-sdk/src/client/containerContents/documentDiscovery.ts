@@ -2,6 +2,7 @@ import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { isDatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
 import { requestRegisteredDocumentRemoteSyncs } from "../../stores/documents/registry";
 import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
@@ -191,6 +192,10 @@ export async function discoverContainerDocumentLanesForRuntime({
     loadOwedLaneListings: (containerIds) =>
       findOwedDocumentLaneListings(execSql, containerIds),
     onOutcome,
+    reportSettleFailure: (error) => {
+      if (isDatabaseUnavailableError(error)) return;
+      input.util.logError("Document lane request settle failed", error);
+    },
     settleOwedLaneListing: (owed) =>
       settleOwedDocumentLaneListing(execSql, owed),
   });
