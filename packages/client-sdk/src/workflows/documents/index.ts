@@ -20,6 +20,10 @@ export {
   type VoidedDocumentSyncUpdate,
 } from "../../data/documents/shared/sync/documentUpdateVerdict";
 export { processLoroRuntimeFailures } from "../../data/documents/shared/sync/loroRuntimeFailureLedger";
+export type {
+  PeerRefusal,
+  PeerRefusalKind,
+} from "../../data/documents/shared/sync/peerRefusalRecovery";
 export {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,

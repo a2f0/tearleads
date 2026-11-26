@@ -472,6 +472,8 @@ export type {
   DocumentsWorkflowRuntime,
   IncomingDocumentSyncUpdateValidator,
   LocalAttachmentRecord,
+  PeerRefusal,
+  PeerRefusalKind,
   PendingAttachmentRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,

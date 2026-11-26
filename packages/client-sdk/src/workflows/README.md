@@ -211,7 +211,9 @@ Maintenance uses `orphanBlobs` to retain bytes until their last reference is
 removed; `reclaimDocumentOrphanBlobs(runtime, persistence)` awaits the run.
 An adapter that implements the optional `installPeerRebase` lets the document
 store recover from a peer or dependency refusal by a rebase onto a fresh peer
-or a relay of lost operations; else the refusal is terminal.
+or a relay of lost operations; else the refusal is terminal. A host's own
+`DocumentPeerRebaser` receives the refusal as a `PeerRefusal`, whose `kind`
+is a `PeerRefusalKind`.
 
 ### Deferred initial update
 

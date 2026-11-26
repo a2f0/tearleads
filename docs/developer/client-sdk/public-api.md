@@ -429,8 +429,8 @@ and `settleAttachmentRemovalMarker` (`SettleAttachmentRemovalMarkerInput`,
 ### Peer rebase
 
 `SyncRemoteDocumentRequest.rebaseOntoFreshPeer` takes a `DocumentPeerRebaser`,
-which receives the refusal's `kind` and `peerFrontiers` and resolves to a
-`DocumentPeerRebaseOutcome`
+which receives a `PeerRefusal`, the refusal's `kind` (a `PeerRefusalKind`)
+and `peerFrontiers`, and resolves to a `DocumentPeerRebaseOutcome`
 ([sync](configuration.md#sync-and-container-recitation)); `parked` reports
 `document_peer_restore_awaits_owner` and keeps the queue
 ([peer ownership](../../peer-ownership.md#after-a-stale-recreation)). Adapters
