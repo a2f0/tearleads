@@ -10,32 +10,31 @@ bun run perf:reload
 bun run perf:reload --documents 100,1000 --per-folder 1000
 ```
 
-Two runs on an M2 Pro with Bun 1.4.2 and PostgreSQL 17.12, on `31d9837c9`
-(which includes #3305) plus the contention probe (#3308) and this probe: the
-first from `6e5d84b68`, the second from `ebe38e44c`, which changes only how a
-failed run is reported. Each size had one first reload and three settled
-reloads. Every settled sample made the same requests, so the request columns
-are exact; times and statements are medians.
+Two runs on an M2 Pro with Bun 1.4.2 and PostgreSQL 17.12, from `cc3de1404`:
+`31d9837c9` (which includes #3305) plus the contention probe (#3308) and this
+probe. Each size had one first reload and three settled reloads. Every
+settled sample made the same requests, so the request columns are exact;
+times and statements are medians.
 
 ## Ten notes to a folder
 
 | Notes | Folders | Reload | Requests | Parent lanes | Document listings | Document heads | Settled in | PostgreSQL statements | Local statements |
 | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 10 | 1 | First | 22 | 2 | 2 | 10 | 710 ms | 393 | 1,965 |
-| 10 | 1 | Settled | 8 | 2 | 2 | 0 | 267 ms | 101 | 714 |
-| 100 | 10 | First | 101 | 4 | 2 | 90 | 3,432 ms | 2,299 | 11,138 |
-| 100 | 10 | Settled | 10 | 4 | 2 | 0 | 462 ms | 121 | 2,228 |
-| 1,000 | 100 | First | 940 | 27 | 5 | 900 | 39,341 ms | 22,066 | 109,580 |
-| 1,000 | 100 | Settled | 36 | 27 | 5 | 0 | 2,221 ms | 345 | 17,379 |
+| 10 | 1 | First | 22 | 2 | 2 | 10 | 623 ms | 393 | 1,965 |
+| 10 | 1 | Settled | 8 | 2 | 2 | 0 | 273 ms | 101 | 714 |
+| 100 | 10 | First | 101 | 4 | 2 | 90 | 3,013 ms | 2,299 | 11,138 |
+| 100 | 10 | Settled | 10 | 4 | 2 | 0 | 400 ms | 121 | 2,228 |
+| 1,000 | 100 | First | 940 | 27 | 5 | 900 | 28,829 ms | 22,066 | 109,568 |
+| 1,000 | 100 | Settled | 36 | 27 | 5 | 0 | 2,020 ms | 345 | 17,379 |
 
 ## Every note in one folder
 
 | Notes | Folders | Reload | Requests | Parent lanes | Document listings | Document heads | Settled in | PostgreSQL statements | Local statements |
 | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 100 | 1 | First | 115 | 2 | 5 | 100 | 3,551 ms | 2,577 | 11,814 |
-| 100 | 1 | Settled | 8 | 2 | 2 | 0 | 398 ms | 101 | 1,974 |
-| 1,000 | 1 | First | 945 | 2 | 38 | 900 | 28,799 ms | 22,007 | 100,549 |
-| 1,000 | 1 | Settled | 8 | 2 | 2 | 0 | 1,638 ms | 101 | 14,580 |
+| 100 | 1 | First | 115 | 2 | 5 | 100 | 3,287 ms | 2,577 | 11,814 |
+| 100 | 1 | Settled | 8 | 2 | 2 | 0 | 371 ms | 101 | 1,974 |
+| 1,000 | 1 | First | 945 | 2 | 38 | 900 | 27,188 ms | 22,007 | 100,549 |
+| 1,000 | 1 | Settled | 8 | 2 | 2 | 0 | 1,561 ms | 101 | 14,580 |
 
 Parent lanes are `POST /containers/parent-lanes/query`, document listings
 `POST /containers/documents/query`, and document heads
@@ -64,8 +63,8 @@ first reload follows the notes created since the previous reload: 10, 90 and
   these statements but does not attribute them.
 - **The first reload after creating notes reads each new note's head.** It
   made one document writer-projection read per note created since the previous
-  reload, 900 for 900, as #3256's status update says. That reload took 29 to
-  39 s against this local API and ran about 24 PostgreSQL statements per note.
+  reload, 900 for 900, as #3256's status update says. That reload took 27 to
+  29 s against this local API and ran about 24 PostgreSQL statements per note.
   When those notes are all in one folder, the listing pages through their
   rows, so document listings rose to 38.
 
