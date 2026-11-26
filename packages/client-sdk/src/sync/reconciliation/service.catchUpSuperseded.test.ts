@@ -142,3 +142,22 @@ test("a catch-up superseded while it reads the owed record lists nothing", async
   expect(listings).toEqual([["b"]]);
   service.stop();
 });
+
+test("a superseded catch-up takes no hint out of the queue", async () => {
+  // The second acknowledgement's crawl never settles in this test.
+  const { first, listings, rootRefresh, rootTree, service } =
+    await supersededCatchUp(new Promise<boolean>(() => undefined));
+
+  // A hint is queued just as the superseded sweep's turn comes, before the
+  // lane has run for it.
+  service.enqueueContainer("b", "active", true);
+  rootTree.open();
+  await Promise.all([rootRefresh, first]);
+  await settle();
+  await settle();
+
+  // The sweep listed nothing and never read a plan, so the hint it took
+  // over goes back to the lane at once, not after a retry backoff.
+  expect(listings).toEqual([["b"]]);
+  service.stop();
+});

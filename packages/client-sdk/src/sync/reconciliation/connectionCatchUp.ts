@@ -149,8 +149,8 @@ async function catchUpAfterCrawl(
 }
 
 /**
- * Wakes the lane for entries the catch-up deferred and its sweep did not
- * take. A sweep that never read its plan (the device went offline) took
+ * Wakes the lane for what the catch-up held back: entries it deferred and
+ * its sweep did not take, and the initial document probe. A sweep that never read its plan (the device went offline) took
  * nothing, so the lane runs at once. One that did took the queue first, and
  * may have just handed back a lane it failed, which must wait out its retry
  * backoff: an immediate request would cancel that delay.
@@ -159,7 +159,12 @@ function wakeLaneForDeferredWork(
   state: ReconciliationState,
   planned: boolean,
 ): void {
-  if (state.queue.size === 0) return;
+  if (state.queue.size === 0) {
+    // The initial probe continues only while the queue is empty, and the
+    // lane found it holding deferred entries: nothing else resumes it.
+    if (state.initialDocumentProbe.hasPendingWork()) state.lane?.requestSync();
+    return;
+  }
   if (planned) state.lane?.requestSyncAfter(SWEEP_RETRY_BACKOFF_MS);
   else state.lane?.requestSync();
 }

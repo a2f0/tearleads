@@ -108,8 +108,8 @@ crawl that the same acknowledgement starts already says which folders moved.
   the acknowledgement to the catch-up. A hint's lane, and a folder the user
   opens during the wait, are listed at once. The wait takes no turn among
   the sweeps, so a root or full refresh runs beside it and does not end it.
-  The deferral lasts until the catch-up's sweep takes its turn, so a sweep
-  ahead of it in line lists none of its lanes either. An acknowledgement
+  The deferral lasts until the catch-up's sweep takes its turn, so a root
+  sweep ahead of it in line lists none of its lanes either. An acknowledgement
   that arrives during the wait shares it. One that arrives after the crawl
   settled supersedes the catch-up and waits on a crawl of its own: the
   earlier sweep then lists nothing and counts nothing as reconciled.

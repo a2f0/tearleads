@@ -62,8 +62,8 @@ async function runReconcileLane(
 
   const containerIds = dequeueContainerBatch(state);
   if (containerIds.length === 0) {
-    // Entries left queued wait for the catch-up, whose sweep takes them.
-    if (state.queue.size > 0) return;
+    // Nothing to list now. Entries left queued wait for the catch-up, whose
+    // sweep takes them; the probe does not wait for it.
     await state.initialDocumentProbe.run();
     scheduleProbeContinuation(host, state);
     return;

@@ -256,6 +256,32 @@ test("a catch-up queued across a restart vouches for nothing in the new session"
   service.stop();
 });
 
+test("the initial probe is not left waiting by a catch-up that deferred the backfill", async () => {
+  const probed: string[][] = [];
+  const { crawl, listings, service } = awaitingCrawl({
+    overrides: {
+      listContainerDocumentIds: async (containerIds) => {
+        probed.push([...containerIds]);
+        return new Map(containerIds.map((id) => [id, []]));
+      },
+    },
+  });
+  const catchUp = service.reconcileAcknowledgedConnection();
+  // Coming back online arms the probe and queues every lane, all deferred.
+  service.enqueueIdleBackfill();
+  await settle();
+  await settle();
+
+  // The probe reads its listings beside the wait, as it did before lanes
+  // were deferred, and nothing it needs is left for a later enqueue.
+  expect(probed).toEqual([[...KNOWN]]);
+  expect(listings).toEqual([]);
+  crawl.open();
+  await catchUp;
+  expect(listings).toEqual([]);
+  service.stop();
+});
+
 test("a root refresh during the wait still lists a lane found since", async () => {
   let known: ReadonlyArray<string> = [...KNOWN];
   const { listings, service } = awaitingCrawl({
