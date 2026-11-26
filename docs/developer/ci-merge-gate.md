@@ -23,10 +23,11 @@ jobs of their own, and `Build and test` runs the remaining package tests. The
 API suite runs one backend per job, and every one of these suites splits into
 Bun shards (`--shard=1/3` and so on);
 [`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
-checks that every backend's shards are all present and that a suite's shards
-share their other arguments. A suite whose `test` script passes `--timings`
-splits by the per-file durations committed in its package rather than by file
-count; see [balancing shards by measured time](test-optimization.md#balance-shards-by-measured-time).
+checks that every backend's shards are all present, that a suite's shards
+share their other arguments, and that each sharded suite's `test` script passes
+`--timings` with a committed table, so its shards split by measured per-file
+durations rather than by file count; see
+[balancing shards by measured time](test-optimization.md#balance-shards-by-measured-time).
 The gate requires both jobs, so the suites need no ruleset entries. Turbo
 hashes each shard's arguments, so shards cache independently. Turbo serves
 cached results from the GitHub Actions cache: a pull request reads entries

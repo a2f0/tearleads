@@ -4,8 +4,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   caseDurations,
+  collectSamples,
   formatTimings,
+  isTestJob,
   medianTable,
+  testScriptPaths,
   timedShards,
 } from "../../testing/testTimings";
 
@@ -56,6 +59,49 @@ test("case durations add up per file, per task, across interleaved groups", () =
   expect(Object.fromEntries(tasks[1]?.files ?? [])).toEqual({
     "src/seed.e2e.test.ts": 150752.25,
   });
+});
+
+test("test jobs and script paths are read as CI and package scripts name them", () => {
+  for (const name of [
+    "Build and test",
+    "Test (app 1/3)",
+    "checks / Test (cli 5/5)",
+    "checks / Build and test",
+  ])
+    expect(isTestJob(name), name).toBe(true);
+  for (const name of ["Lint", "Web E2E", "checks / Lint", "Test results"])
+    expect(isTestJob(name), name).toBe(false);
+  expect(
+    testScriptPaths(
+      "API_DATABASE=memory bun test src --parallel=2 --timings=test-timings.json",
+    ),
+  ).toEqual(["src"]);
+  expect(
+    testScriptPaths("bun test src scripts --no-isolate --pass-with-no-tests"),
+  ).toEqual(["src", "scripts"]);
+  expect(() => testScriptPaths("vitest run --timings=t.json")).toThrow(
+    "Expected a bun test script",
+  );
+});
+
+test("a replayed task counts once and other packages are left out", () => {
+  const task = (name: string, hash: string, ms: number) => ({
+    name,
+    hash,
+    files: new Map([["src/a.test.ts", ms]]),
+  });
+  const samples = collectSamples(
+    [
+      task("app", "aaaaaaaaaaaaaaaa", 10),
+      task("app", "aaaaaaaaaaaaaaaa", 10),
+      task("app", "bbbbbbbbbbbbbbbb", 30),
+      task("app", "", 99),
+      task("website", "cccccccccccccccc", 5),
+    ],
+    new Set(["app"]),
+  );
+  expect([...samples.keys()]).toEqual(["app"]);
+  expect(samples.get("app")?.get("src/a.test.ts")).toEqual([10, 30]);
 });
 
 test("a table keeps each file's median in the order Bun writes", () => {
@@ -120,7 +166,8 @@ test("Bun runs every file in exactly one timed shard, as timedShards predicts", 
     };
     writeFileSync(join(root, "timings.json"), formatTimings(table));
     for (const count of [1, 2, 3, 4, 8]) {
-      const predicted = timedShards(table, files, count);
+      const shards = timedShards(table, files, count);
+      const predicted = shards.map(({ files: shard }) => shard);
       const ran = predicted.map((_, index) => {
         const result = Bun.spawnSync(
           [
@@ -139,8 +186,15 @@ test("Bun runs every file in exactly one timed shard, as timedShards predicts", 
       });
       expect(ran, `${count} shards`).toEqual(predicted);
       expect(ran.flat().toSorted(), `${count} shards`).toEqual(files);
+      // The untimed file costs the table's median (the upper one of eight
+      // entries, stale ones included): 1200 ms.
+      expect(shards.reduce((sum, { cost }) => sum + cost, 0)).toBe(
+        900 + 4000 + 10 + 2500 + 700 + 1200 + 1200 + 300,
+      );
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-});
+  // Eighteen short `bun test` processes; a loaded runner needs more than the
+  // default 5 s.
+}, 60_000);

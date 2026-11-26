@@ -111,6 +111,8 @@ const ignoredPathPatterns = [
   /^packages\/validators\/src\/operation\/generatedOpenApi\.ts$/,
   /^formal\/document-sync\/BaselineDominanceTraces\.json$/,
   /^formal\/lean\/vectors\/[^/]+\.json$/,
+  // `bun run generate:test-timings` rewrites these Bun --timings tables.
+  /^packages\/[^/]+\/test-timings\.json$/,
   /^packages\/app-capacitor\/ios\/App\/App\.xcodeproj\/project\.pbxproj$/,
   /^playwright-report\//,
   /^scripts\/checks\/lintSourceShape\.ts$/,

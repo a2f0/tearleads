@@ -230,7 +230,7 @@ test("each long suite runs in exactly one CI job and every shard runs", async ()
 // different tables or arguments could skip a file or run one twice. The table
 // comes from the package's test script, so it sits in the package and Turbo
 // hashes it with the shard's other inputs.
-test("a lane's shards share their arguments and timings table", async () => {
+test("every lane's shards share their arguments and a timings table", async () => {
   const ci = Bun.YAML.parse(
     await Bun.file(`${repoRoot}/.github/workflows/ci.yml`).text(),
   ) as {
@@ -243,36 +243,39 @@ test("a lane's shards share their arguments and timings table", async () => {
       }
     >;
   };
-  const { test: matrix } = ci.jobs;
-  const entries = matrix?.strategy?.matrix?.include ?? [];
-  const lanes = new Map<string, Set<string>>();
+  const { test: testJob } = ci.jobs;
+  const entries = testJob?.strategy?.matrix?.include ?? [];
+  const lanes = new Map<string, { rests: Set<string>; sharded: boolean }>();
   for (const { filter = "", args = "" } of entries) {
-    const rest = args
-      .split(" ")
-      .filter((word) => word && !word.startsWith("--shard="))
-      .join(" ");
-    lanes.set(filter, (lanes.get(filter) ?? new Set()).add(rest));
+    const words = args.split(" ").filter(Boolean);
+    const rest = words.filter((word) => !word.startsWith("--shard="));
+    const lane = lanes.get(filter) ?? { rests: new Set(), sharded: false };
+    lane.rests.add(rest.join(" "));
+    lane.sharded ||= rest.length < words.length;
+    lanes.set(filter, lane);
   }
+  type Manifest = { name: string; scripts?: { test?: string } };
   const manifests = new Map<string, { dir: string; test: string }>();
   for (const path of new Bun.Glob("packages/*/package.json").scanSync(
     repoRoot,
   )) {
-    const { name, scripts } = JSON.parse(
-      await Bun.file(`${repoRoot}/${path}`).text(),
-    );
+    const { name, scripts }: Manifest = await Bun.file(
+      `${repoRoot}/${path}`,
+    ).json();
     manifests.set(name, { dir: dirname(path), test: scripts?.test ?? "" });
   }
-  for (const [lane, rests] of lanes) {
+  for (const [lane, { rests, sharded }] of lanes) {
     expect(rests.size, lane).toBe(1);
     expect([...rests][0], lane).not.toContain("--timings");
     const manifest = manifests.get(lane);
     expect(manifest, lane).toBeDefined();
+    if (!sharded) continue;
+    // Without a table Bun deals the files round-robin, so one shard can draw
+    // a suite's slowest files; a missing table falls back to that silently.
     const table = /--timings=(\S+)/.exec(manifest?.test ?? "")?.[1];
-    if (!table) continue;
-    // A missing table would silently fall back to splitting by file count.
-    const timings = await Bun.file(
-      `${repoRoot}/${manifest?.dir}/${table}`,
-    ).json();
+    expect(table, `${lane} test script passes --timings`).toBeDefined();
+    const timings: { version: number; files: Record<string, number> } =
+      await Bun.file(`${repoRoot}/${manifest?.dir}/${table}`).json();
     expect(timings.version, lane).toBe(1);
     expect(Object.keys(timings.files).length, lane).toBeGreaterThan(0);
   }

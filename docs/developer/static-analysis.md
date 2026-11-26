@@ -5,8 +5,12 @@ Run `bun run check:fast` for the repository's analysis gates. The
 baseline validation, shell-script discovery, the
 [audit usage receipt](audit-usage-receipts.md) examples and skill links, and
 the [combined efficiency audit](combined-efficiency-audits.md) links and
-harness-copy parity of the two efficiency-audit skills; they also run in
-`check:fast`.
+harness-copy parity of the two efficiency-audit skills, and Turbo cache keys
+and CI shard policy. Some fixtures start nested processes: the Turbo cache
+fixtures run `turbo --dry-run`, and the
+[timed-shard fixture](test-optimization.md#balance-shards-by-measured-time)
+runs `bun test --shard --timings` 18 times over a scratch package. They also
+run in `check:fast`.
 
 ## CI and the push gate
 
