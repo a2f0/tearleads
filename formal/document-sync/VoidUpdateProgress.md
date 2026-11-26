@@ -222,7 +222,9 @@ page requested with no version, one baseline, the signed count and digest),
 which `judgeServedBaselineGroups` checks before `Judge` reads a payload, and
 a segment served without the segments it builds on, which
 `settleBaselineGroupVerdicts` tells from a void once `Judge` has read the
-page; both fail the pass without a verdict, as a duplicate update id does;
+page: it is void only when every operation it lacks is one an unapplied
+segment of its group, served earlier in the pull, declared; both fail the
+pass without a verdict, as a duplicate update id does;
 AEAD failures
 and content keys, which [`ContentKeyCommitment`](./ContentKeyCommitment.md)
 checks, so no verdict or cursor depends on the key a reader holds; duplicate
