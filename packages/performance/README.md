@@ -228,7 +228,7 @@ then `--samples` (default 3) `settled` reloads with nothing changed.
 | Field | What it measures |
 | --- | --- |
 | `requests`, `byRoute` | The SDK's API requests, by route template, from `ApiRequestMetrics` |
-| `settledMs` | From building the SDK until its last request finished |
+| `settledMs` | From building the SDK until a request was last seen starting, running or finishing, polled every 25 ms |
 | `database` | PostgreSQL traffic through the counting proxy, as in the realtime probes |
 | `localSql` | Statements the client ran against its local SQLite database |
 

@@ -6,6 +6,12 @@ export interface RequestCount {
   readonly count: number;
 }
 
+/** Largest count first, then by route. */
+export function byCountThenRoute(a: RequestCount, b: RequestCount): number {
+  if (b.count !== a.count) return b.count - a.count;
+  return a.route < b.route ? -1 : 1;
+}
+
 /** Request counts per route template, largest first, then by route. */
 export function requestCounts(
   endpoints: ApiRequestMetricsSnapshot["endpoints"],
@@ -17,7 +23,5 @@ export function requestCounts(
   }
   return [...counts]
     .map(([route, count]) => ({ route, count }))
-    .sort((a, b) =>
-      b.count !== a.count ? b.count - a.count : a.route < b.route ? -1 : 1,
-    );
+    .sort(byCountThenRoute);
 }

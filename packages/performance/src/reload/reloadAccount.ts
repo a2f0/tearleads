@@ -9,6 +9,7 @@ import type { ExecSqlClientLike } from "@tearleads/client-sdk/sqlite";
 import { openLocalDatabase } from "../localDatabase";
 import { createSdkHost } from "../sdkHost";
 import { type RequestCount, requestCounts } from "./requestCounts";
+import { requestTotals, settle } from "./settle";
 
 /** Folders or notes created between waits for queued writes to settle. */
 const CREATE_BATCH = 25;
@@ -16,7 +17,10 @@ const SETTLE_TIMEOUT_MS = 300_000;
 const POLL_MS = 25;
 
 export interface ReloadOutcome {
-  /** From building the SDK until its last request finished. */
+  /**
+   * From building the SDK until the probe last saw a request start, run or
+   * finish, to within one 25 ms poll.
+   */
   readonly settledMs: number;
   readonly requests: number;
   readonly byRoute: readonly RequestCount[];
@@ -60,49 +64,6 @@ async function idle(sdk: Tearleads): Promise<void> {
   const coordinator = getOrCreateDomainSyncCoordinator(sdk.domainScope);
   if (!(await coordinator.waitForIdle({ timeoutMs: SETTLE_TIMEOUT_MS })))
     throw new Error("Queued writes did not settle.");
-}
-
-/** Requests under every identity scope the SDK counted them under. */
-function requestTotals(sdk: Tearleads, metrics: ApiRequestMetrics) {
-  const scopes = new Set([null, sdk.identity.signingFingerprint]);
-  const snapshots = [...scopes].map((scope) => metrics.getSnapshot(scope));
-  return {
-    total: snapshots.reduce((sum, snapshot) => sum + snapshot.total, 0),
-    inFlight: snapshots.reduce((sum, snapshot) => sum + snapshot.inFlight, 0),
-    endpoints: snapshots.flatMap((snapshot) => snapshot.endpoints),
-  };
-}
-
-/**
- * Waits until the SDK's queued work is idle and no request has started or
- * finished for `quietMs`, and returns when its last request finished. Some
- * catch-up work re-arms itself on timers the coordinator does not track, so
- * idle alone does not show that a reload has finished.
- */
-async function settle(
-  sdk: Tearleads,
-  metrics: ApiRequestMetrics,
-  quietMs: number,
-): Promise<number> {
-  const started = performance.now();
-  let seen = requestTotals(sdk, metrics).total;
-  let lastChange = started;
-  let lastRequest = started;
-  for (;;) {
-    await idle(sdk);
-    await Bun.sleep(POLL_MS);
-    const now = performance.now();
-    if (now - started > SETTLE_TIMEOUT_MS)
-      throw new Error("The reload did not settle.");
-    const { total, inFlight } = requestTotals(sdk, metrics);
-    if (total !== seen || inFlight > 0) {
-      seen = total;
-      lastChange = now;
-      lastRequest = now;
-    } else if (now - lastChange >= quietMs) {
-      return lastRequest - started;
-    }
-  }
 }
 
 /** What the app restores from its own storage on a page load. */
@@ -152,9 +113,17 @@ async function register(profile: Profile, local: { close(): void }) {
   }
 }
 
-/** The app's startup over an existing database, until it settles. */
-async function start(profile: Profile, restored: Restored, quietMs: number) {
-  const { sdk, metrics } = openSdk(profile);
+/**
+ * The app's startup over an existing database, until it settles. `started`
+ * is when the SDK was built.
+ */
+async function start(
+  opened: ReturnType<typeof openSdk>,
+  restored: Restored,
+  quietMs: number,
+  started: number,
+): Promise<ReloadOutcome> {
+  const { sdk, metrics } = opened;
   await sdk.identity.importKeyPackage(restored.keyPackage);
   sdk.session.setContext(restored.session);
   const { view } = sdk.deviceFirst.open();
@@ -166,14 +135,21 @@ async function start(profile: Profile, restored: Restored, quietMs: number) {
   // binds it again when it renders the new state.
   sdk.events.setConnected(true);
   view.updateRuntime(sdk.containerContents.workflowRuntime());
-  const settledMs = await settle(sdk, metrics, quietMs);
-  const { total, endpoints } = requestTotals(sdk, metrics);
-  const outcome: ReloadOutcome = {
+  const totals = () =>
+    requestTotals(metrics.getSnapshot, [null, sdk.identity.signingFingerprint]);
+  const settledMs = await settle({
+    started,
+    quietMs,
+    timeoutMs: SETTLE_TIMEOUT_MS,
+    idle: () => idle(sdk),
+    totals,
+  });
+  const { total, endpoints } = totals();
+  return {
     settledMs: Math.round(settledMs),
     requests: total,
     byRoute: requestCounts(endpoints),
   };
-  return { sdk, outcome };
 }
 
 /** Creates folders under the root, as the explorer does, until there are `count`. */
@@ -271,9 +247,11 @@ export async function openReloadAccount(origin: string, quietMs: number) {
     /** Disposes the running SDK and starts a new one, as a page load does. */
     async reload(): Promise<ReloadOutcome> {
       sdk.dispose();
-      const started = await start(profile, restored, quietMs);
-      sdk = started.sdk;
-      return started.outcome;
+      const started = performance.now();
+      const opened = openSdk(profile);
+      // Held before startup, so a failed reload's SDK is the one `close` disposes.
+      sdk = opened.sdk;
+      return await start(opened, restored, quietMs, started);
     },
     close(): void {
       sdk.dispose();

@@ -1,6 +1,6 @@
 import { median } from "../median";
 import type { ReloadMeasurement } from "./measureReload";
-import type { RequestCount } from "./requestCounts";
+import { byCountThenRoute, type RequestCount } from "./requestCounts";
 
 /** One terminal row per measured reload. */
 export function formatReload(measurement: ReloadMeasurement): string {
@@ -35,9 +35,7 @@ function maxByRoute(group: readonly ReloadMeasurement[]): RequestCount[] {
       counts.set(route, Math.max(count, counts.get(route) ?? 0));
   return [...counts]
     .map(([route, count]) => ({ route, count }))
-    .sort((a, b) =>
-      b.count !== a.count ? b.count - a.count : a.route < b.route ? -1 : 1,
-    );
+    .sort(byCountThenRoute);
 }
 
 /** Medians per size and kind of reload; maxima per route. */
