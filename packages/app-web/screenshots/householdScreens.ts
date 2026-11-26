@@ -8,7 +8,7 @@ import {
 import { openDocumentImage } from "./documentImages";
 import { assertImagesDecoded } from "./imageReadiness";
 
-async function openExplorerDocument(
+export async function openExplorerDocument(
   scope: Page | Locator,
   title: string,
 ): Promise<void> {
@@ -44,6 +44,14 @@ function equipmentDetail(expected: EquipmentExpectation) {
     await assertImagesDecoded(
       scope.locator("img.structured-document-slot-preview-image"),
       expected.imageCount,
+    );
+    // The seeded avatar shows its photo, not the type's fallback icon.
+    await assertImagesDecoded(
+      scope.getByRole("img", {
+        name: `Avatar for ${expected.fields.make} ${expected.fields.model}`,
+        exact: true,
+      }),
+      1,
     );
   };
 }

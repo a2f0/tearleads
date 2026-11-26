@@ -1,6 +1,6 @@
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
-import { formatFolderTree } from "./folderTree";
+import { formatFolderTree, uniqueFolderName } from "./folderTree";
 
 function folder(
   id: string,
@@ -52,4 +52,14 @@ test("a shared folder's name cannot inject terminal control sequences", () => {
   expect(formatFolderTree(nodes, "org-1")).toEqual([
     "Shared\\u{001b}[2J\\u{001b}]0;pwned\\u{0007}  evil",
   ]);
+});
+
+describe("uniqueFolderName", () => {
+  test("numbers a name its siblings already use", () => {
+    expect(uniqueFolderName("Vault", new Set(["Other"]))).toBe("Vault");
+    expect(uniqueFolderName("Vault", new Set(["Vault"]))).toBe("Vault (2)");
+    expect(
+      uniqueFolderName("Vault", new Set(["Vault", "Vault (2)", "Vault (4)"])),
+    ).toBe("Vault (3)");
+  });
 });

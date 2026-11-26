@@ -199,3 +199,15 @@ export function formatFolderTree(
   visit(null, 0);
   return lines;
 }
+
+/** `name`, or `name (2)`, `name (3)`, ... when a sibling already has it. */
+export function uniqueFolderName(
+  name: string,
+  siblingNames: ReadonlySet<string>,
+): string {
+  if (!siblingNames.has(name)) return name;
+  for (let suffix = 2; ; suffix++) {
+    const candidate = `${name} (${suffix})`;
+    if (!siblingNames.has(candidate)) return candidate;
+  }
+}
