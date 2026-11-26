@@ -89,6 +89,8 @@ function createResetRecoveryInput(
 ): RemoteHydrationRequestInput {
   return {
     ...input,
+    // A wait this request sat through was for an earlier connect attempt.
+    connectAttemptSettled: undefined,
     followDiscoveredParentLanes: true,
     onFullyHydrated: undefined,
     parentIds: undefined,

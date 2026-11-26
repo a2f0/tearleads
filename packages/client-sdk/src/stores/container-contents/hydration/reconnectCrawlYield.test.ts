@@ -218,3 +218,21 @@ test("a held crawl superseded without an acknowledgement lists in the new genera
   store.releases[0]?.();
   await held;
 });
+
+test("a held crawl superseded while a new attempt is pending waits for it", async () => {
+  const store = createRegainedStore(7);
+  const held = store.crawl(true);
+  await store.settle();
+
+  // The network flaps during the connect: the store's generation moves and
+  // a new attempt replaces the one the crawl waited on.
+  store.state.structuralGeneration += 1;
+  store.connection.pendingConnectAttempt = 8;
+  releaseSettledConnectAttemptWaits(store.state);
+  await store.settle();
+  expect(store.releases).toHaveLength(0);
+
+  store.acknowledge();
+  await held;
+  expect(store.releases).toHaveLength(0);
+});
