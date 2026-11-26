@@ -247,6 +247,14 @@ committed operation threw before, and now relays or parks.
   holds both. Keeping the version across the reset would park that device
   too, with everything else it alone can restore, on a wait no device can
   end. Open (#3263).
+- **Create seeds are known by the queue alone.** A folder's create seed and a
+  registration's first updates are on no record
+  ([what a device knows is committed](#what-a-device-knows-is-committed)). A
+  queued update that sent them again from counter zero would make the device
+  count them unsent, unless it is a relay, whose install records them. The
+  SDK queues no other such update except a remote reset's, which clears the
+  record anyway; a host that queues its own full history over them is not
+  covered.
 - **A relay is one update.** A relay sends everything the device holds from
   the named frontier as one queued update, and the fork's update after a
   rebase is one update too. On a large document that update can exceed the
