@@ -1,7 +1,17 @@
 import type { DocumentHistoryStop } from "@tearleads/client-sdk";
 import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
 
-type AttributionSegments = DocumentEditAttributionResponse["segments"];
+type AttributionSegments = ReadonlyArray<
+  Pick<
+    DocumentEditAttributionResponse["segments"][number],
+    | "authorityKind"
+    | "endCounter"
+    | "peerId"
+    | "startCounter"
+    | "writerKeyFingerprint"
+    | "writerUserId"
+  >
+>;
 
 /** The signing identity whose signed upload first delivered a stop. */
 export interface DocumentHistoryStopWriter {
@@ -10,7 +20,9 @@ export interface DocumentHistoryStopWriter {
 }
 
 /**
- * Resolve who uploaded a stop, from the server's edit-attribution segments.
+ * Resolve who uploaded a stop, from the server's edit-attribution segments
+ * or from the ranges a history verification built on this device, which have
+ * the same shape.
  *
  * A stop is credited only when every one of its operations was first
  * delivered by an ordinary upload from the same signing identity. Anything

@@ -2,6 +2,8 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./appTest";
 import { controlPixels } from "./controlPixels";
 import { measureAttached } from "./domMeasure";
+import { createFolder, createNote } from "./signedInGetInfo";
+import { SIGNED_IN_APP_URL } from "./signedInServer";
 import { themeForeground } from "./themeForeground";
 
 /*
@@ -311,4 +313,74 @@ test("History saves an earlier version as a separate document", async ({
   await expect(addresses(page)).toHaveCount(0);
   await page.goto(documentUrl);
   await expect(addresses(page).getByText(STREET)).toBeVisible();
+});
+
+/*
+ * Verifying history needs a server that holds signed uploads, so this one
+ * test runs on the e2e run's signed-in server (see signedInServer.ts). The
+ * prompts of a fresh profile are answered by `appTest`, as everywhere here.
+ */
+test.describe("signed in", () => {
+  test.use({ baseURL: SIGNED_IN_APP_URL });
+
+  test("History checks an honest document against its signed uploads", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await page.goto("/app/explorer");
+    // Waits for the new identity to be registered: a folder can be created
+    // only once it is.
+    await createFolder(page);
+    // A note with two edits, each uploaded and signed.
+    await createNote(page);
+
+    await page.getByRole("button", { name: "History", exact: true }).click();
+    await expect(page).toHaveURL(/\/documents\/[^/]+\/history$/u);
+    await expect(slider(page)).toBeVisible();
+    await expectSettled(page);
+
+    // Nothing is checked until it is asked for.
+    const verification = page.locator(
+      ".explorer-document-history-verification",
+    );
+    const status = verification.getByRole("status");
+    await expect(status).toHaveText(
+      "This is the history stored on this device. It has not been checked.",
+    );
+    const verify = verification.getByRole("button", {
+      name: "Verify history",
+      exact: true,
+    });
+    const box = await verify.boundingBox();
+    if (!box) throw new Error("Expected a visible Verify history action");
+    expect(box.height).toBeGreaterThanOrEqual(TOUCH_TARGET);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(
+      page.viewportSize()?.width ?? 0,
+    );
+
+    // The check reads the document's raw history from the server: every
+    // retained upload, not the updates an ordinary sync asks for.
+    const read = page.waitForResponse(
+      (response) =>
+        response.status() === 200 &&
+        /\/documents\/[^/]+\/sync$/u.test(new URL(response.url()).pathname) &&
+        response.request().postDataJSON()?.historyMode === "raw",
+    );
+    await verify.click();
+    await read;
+    await expect(status).toHaveText(
+      "Checked against the signed uploads the server holds. This device's copy matches.",
+      { timeout: 30_000 },
+    );
+    // The change on screen was carried by an upload this device verified.
+    await expect(
+      page.locator(".explorer-document-history-caption"),
+    ).toContainText("This change is in a signed upload.");
+    // The device's own copy stays on screen, and can be checked again.
+    await expectSettled(page);
+    await expect(
+      verification.getByRole("button", { name: "Check again", exact: true }),
+    ).toBeEnabled();
+  });
 });
