@@ -101,7 +101,10 @@ crawl that the same acknowledgement starts already says which folders moved.
 - Settling. A listing reads its lane's request before it is sent and settles
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been
-  answered before the write behind it.
+  answered before the write behind it, so each listing is a request of its
+  own: it carries lane ids no other request has, and the API client never
+  answers it from an identical request still in flight. A request whose
+  settling fails stays owed, and the listing still counts as applied.
 - Fallback. When the crawl did not list every lane it queued, did not settle
   within 15 seconds (it cannot start while the store is not ready or after
   the socket dropped again), or the host reports no crawl, nothing vouches
@@ -144,7 +147,7 @@ one tab, a store's document always holds what its record has on disk, and the
 comparison asks for nothing. A local edit another tab has saved and not yet
 submitted cannot be pulled; it arrives with the hint for its accepted write.
 The catch-up also forgets debts of documents the device no longer holds a
-record of.
+record of, and lane requests of containers it does not store.
 [SharedDatabaseListing](../formal/document-sync/SharedDatabaseListing.md)
 models the two tabs.
 
