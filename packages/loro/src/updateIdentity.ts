@@ -1,4 +1,10 @@
-import { idStrToId, type JsonSchema, type LoroDoc } from "loro-crdt";
+import {
+  idStrToId,
+  type JsonSchema,
+  LoroDoc,
+  type OpId,
+  type PeerID,
+} from "loro-crdt";
 import {
   decodeVersionVector,
   encodeVersionVector,
@@ -9,55 +15,81 @@ import {
   versionVectorsEqual,
 } from "./document";
 import { serializeCanonicalHistory } from "./historyCanonicalization";
+import { runLoroImport } from "./importRefusal";
 import { isLoroRuntimeFailure } from "./runtimeFailure";
-import { operationSpans } from "./versionRange";
+import { type OperationSpan, operationSpans } from "./versionRange";
 
+type Version = ReturnType<typeof decodeVersionVector>;
+
+/**
+ * What the range `[startVersion, endVersion)` of `history` depends on outside
+ * itself: for each peer, the last such operation.
+ */
 function rangeDependencyFrontiers(
   history: JsonSchema,
-  startVersion: ReturnType<typeof decodeVersionVector>,
-  endVersion: ReturnType<typeof decodeVersionVector>,
-) {
-  const externalDependencies = new Map<string, ReturnType<typeof idStrToId>>();
+  startVersion: Version,
+  endVersion: Version,
+): OpId[] {
+  const last = new Map<PeerID, number>();
   for (const change of history.changes) {
     for (const dependencyId of change.deps) {
-      const dependency = idStrToId(dependencyId);
-      const rangeEnd = endVersion.get(dependency.peer);
-      const rangeStart = startVersion.get(dependency.peer) ?? 0;
-      if (
-        rangeEnd !== undefined &&
-        dependency.counter >= rangeStart &&
-        dependency.counter < rangeEnd
-      ) {
-        continue;
-      }
-      externalDependencies.set(dependencyId, dependency);
+      const { counter, peer } = idStrToId(dependencyId);
+      const rangeEnd = endVersion.get(peer);
+      const rangeStart = startVersion.get(peer) ?? 0;
+      const inRange =
+        rangeEnd !== undefined && counter >= rangeStart && counter < rangeEnd;
+      if (!inRange && counter > (last.get(peer) ?? -1)) last.set(peer, counter);
     }
   }
-  return [...externalDependencies.values()];
+  return [...last].map(([peer, counter]) => ({ counter, peer }));
 }
 
 /**
- * `range` replayed onto `doc` forked at `frontiers`. Holders of the same
- * operations can split them differently by the path that imported them, as a
- * reader holding part of a change does when a snapshot brings the rest.
- * Replayed onto one prefix, equal operations split alike, and an operation's
- * content is kept.
+ * The operations the range `[startVersion, endVersion)` of `history` builds
+ * on, as `doc` holds them: everything its dependencies descend from, less
+ * the range itself. Another peer's operation that a later part of the range
+ * depends on can itself depend on an earlier part, so the range is cut out
+ * rather than assumed absent.
  */
-function replayedRange(
+function rangeDependencySpans(
   doc: LoroDoc,
-  frontiers: ReturnType<typeof rangeDependencyFrontiers>,
-  range: JsonSchema,
-  startVersion: ReturnType<typeof decodeVersionVector>,
-  endVersion: ReturnType<typeof decodeVersionVector>,
-): string {
-  const replay = doc.forkAt(frontiers);
+  history: JsonSchema,
+  startVersion: Version,
+  endVersion: Version,
+): OperationSpan[] {
+  const frontiers = rangeDependencyFrontiers(history, startVersion, endVersion);
+  const spans: OperationSpan[] = [];
+  for (const [peer, held] of doc.frontiersToVV(frontiers).toJSON()) {
+    const end = endVersion.get(peer);
+    // The range holds nothing of a peer its end does not name.
+    const start = end === undefined ? held : (startVersion.get(peer) ?? 0);
+    const before = Math.min(held, start);
+    if (before > 0) spans.push({ id: { counter: 0, peer }, len: before });
+    if (end !== undefined && held > end) {
+      spans.push({ id: { counter: end, peer }, len: held - end });
+    }
+  }
+  return spans;
+}
+
+/**
+ * A scratch document holding what the range builds on and none of the range.
+ * Dependencies that descend from the range wait in it, pending, until an
+ * import brings the range. So whatever it then exports for the range came
+ * from that import: Loro refuses a held id reused with other content, but
+ * takes one reused with another commit time or message as already held, and
+ * a document that held part of the range would report its own.
+ */
+function documentBeforeRange(doc: LoroDoc, spans: OperationSpan[]): LoroDoc {
+  const before = new LoroDoc();
+  if (spans.length === 0) return before;
   try {
-    replay.importJsonUpdates(range);
-    return serializeCanonicalHistory(
-      replay.exportJsonUpdates(startVersion, endVersion, false),
-    );
-  } finally {
-    replay.free();
+    const dependencies = doc.export({ mode: "updates-in-range", spans });
+    runLoroImport(() => before.import(dependencies));
+    return before;
+  } catch (error) {
+    before.free();
+    throw error;
   }
 }
 
@@ -68,11 +100,13 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
 
 /**
  * Prove that an update or snapshot blob contains the document's exact
- * operations for its declared version-vector range. Rebuild from the exact
- * prefix and compare canonical operation identity across current update and
- * snapshot forms without letting same-peer/counter conflicts hide in an import.
- * A Loro runtime failure (`isLoroRuntimeFailure`) is thrown, not reported as a
- * mismatch.
+ * operations for its declared version-vector range. The blob is imported
+ * into a scratch document that holds what the range builds on and none of
+ * the range, and the range it then holds is compared with the document's in
+ * canonical form, so the blob's encoding and the way either side groups the
+ * operations do not matter, and nothing the blob says can hide behind an
+ * operation the comparison already held. A Loro runtime failure
+ * (`isLoroRuntimeFailure`) is thrown, not reported as a mismatch.
  */
 export function updateMatchesDocumentHistory(
   doc: LoroDoc,
@@ -116,12 +150,10 @@ export function updateMatchesDocumentHistory(
       endVersion,
       false,
     );
-    const frontiers = rangeDependencyFrontiers(
-      expectedRange,
-      startVersion,
-      endVersion,
+    candidate = documentBeforeRange(
+      doc,
+      rangeDependencySpans(doc, expectedRange, startVersion, endVersion),
     );
-    candidate = doc.forkAt(frontiers);
     if (metadata.mode === "snapshot" || metadata.mode === "shallow-snapshot") {
       importSnapshot(candidate, update);
     } else {
@@ -132,14 +164,9 @@ export function updateMatchesDocumentHistory(
         encodeVersionVector(candidate),
         metadata.partialEndVersionVector,
       ) &&
-      replayedRange(
-        doc,
-        frontiers,
+      serializeCanonicalHistory(
         candidate.exportJsonUpdates(startVersion, endVersion, false),
-        startVersion,
-        endVersion,
-      ) ===
-        replayedRange(doc, frontiers, expectedRange, startVersion, endVersion)
+      ) === serializeCanonicalHistory(expectedRange)
     );
   } catch (error) {
     // The runtime failing proves nothing about the update.

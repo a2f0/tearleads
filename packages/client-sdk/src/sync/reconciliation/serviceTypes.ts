@@ -104,7 +104,9 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
    * Asks the registered store of every document a listing still owes a read
    * to probe. The catch-up after an acknowledged connection ends with it, so
    * a debt this process did not record itself (another tab sharing the
-   * database listed the row) still reaches this process's open stores.
+   * database listed the row) still reaches this process's open stores. A
+   * debt that tab already settled is gone, so the host also asks each open
+   * store that lacks content its record has on disk.
    */
   requestOwedDocumentReads?: (() => Promise<void>) | undefined;
   /** Refresh the container tree from the server (explicit refresh). */

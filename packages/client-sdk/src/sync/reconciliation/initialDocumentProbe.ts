@@ -1,3 +1,4 @@
+import { MAX_CONTAINER_DOCUMENT_LANES } from "@tearleads/validators/request";
 import type { ReconciliationClock } from "./clock";
 
 export interface InitialDocumentProbeBatchInput {
@@ -14,9 +15,14 @@ export interface InitialDocumentProbeBatchResult {
 
 export interface InitialDocumentProbeHost {
   readonly clock: ReconciliationClock;
+  /**
+   * Each container's authoritative current document ids, read from no
+   * watermark in one batched listing. A lane that could not be listed maps
+   * to `null` or is absent.
+   */
   readonly listContainerDocumentIds: (
-    containerId: string,
-  ) => Promise<ReadonlyArray<string> | null>;
+    containerIds: ReadonlyArray<string>,
+  ) => Promise<ReadonlyMap<string, ReadonlyArray<string> | null>>;
   readonly probeUndiscoveredDocumentsBatch: (
     input: InitialDocumentProbeBatchInput,
   ) => Promise<InitialDocumentProbeBatchResult>;
@@ -38,6 +44,8 @@ export interface InitialDocumentProbe {
 }
 
 const MAX_INITIAL_DOCUMENT_LISTING_ATTEMPTS = 3;
+/** Lanes one unit lists together: one listing request's worth. */
+const INITIAL_DOCUMENT_LISTING_BATCH_SIZE = MAX_CONTAINER_DOCUMENT_LANES;
 const INITIAL_DOCUMENT_LISTING_RETRY_BASE_DELAY_MS = 1_000;
 
 interface InitialDocumentProbeState {
@@ -244,7 +252,37 @@ function readListedDocumentIds(
   return state.listedDocumentIds;
 }
 
-async function listNextEligibleContainer(input: {
+/** Counts one failed listing of `containerId` and schedules its retry. */
+function recordListingFailure(
+  host: InitialDocumentProbeHost,
+  state: InitialDocumentProbeState,
+  containerId: string,
+): void {
+  const attempts = (state.listingAttemptsByContainer.get(containerId) ?? 0) + 1;
+  state.listingAttemptsByContainer.set(containerId, attempts);
+  // Retry transient listing failures with bounded, seconds-scale backoff.
+  // Exhausted lanes are skipped until prerequisites are regained so healthy
+  // lanes can converge without suppressing the failed lane forever.
+  if (attempts >= MAX_INITIAL_DOCUMENT_LISTING_ATTEMPTS) {
+    state.skippedContainerIds.add(containerId);
+    state.eligibleContainerIds.delete(containerId);
+    state.listingAttemptsByContainer.delete(containerId);
+    state.listingRetryNotBeforeByContainer.delete(containerId);
+    return;
+  }
+  const retryDelayMs =
+    INITIAL_DOCUMENT_LISTING_RETRY_BASE_DELAY_MS * 2 ** (attempts - 1);
+  state.listingRetryNotBeforeByContainer.set(
+    containerId,
+    host.clock.now() + retryDelayMs,
+  );
+}
+
+/**
+ * Lists the next batch of eligible containers still awaiting an
+ * authoritative listing, in one request. Returns whether a batch was due.
+ */
+async function listNextEligibleContainers(input: {
   readonly eligibleIds: ReadonlyArray<string>;
   readonly host: InitialDocumentProbeHost;
   readonly runGeneration: number;
@@ -252,49 +290,36 @@ async function listNextEligibleContainer(input: {
 }): Promise<boolean> {
   const { eligibleIds, host, runGeneration, state } = input;
   const nowMs = host.clock.now();
-  const containerId = eligibleIds.find(
-    (id) =>
-      !state.listedDocumentIdsByContainer.has(id) &&
-      (state.listingRetryNotBeforeByContainer.get(id) ?? 0) <= nowMs,
-  );
-  if (!containerId) {
+  const containerIds = eligibleIds
+    .filter(
+      (id) =>
+        !state.listedDocumentIdsByContainer.has(id) &&
+        (state.listingRetryNotBeforeByContainer.get(id) ?? 0) <= nowMs,
+    )
+    .slice(0, INITIAL_DOCUMENT_LISTING_BATCH_SIZE);
+  if (containerIds.length === 0) {
     return false;
   }
 
-  let documentIds: ReadonlyArray<string> | null;
+  let listed: ReadonlyMap<string, ReadonlyArray<string> | null>;
   try {
-    documentIds = await host.listContainerDocumentIds(containerId);
+    listed = await host.listContainerDocumentIds(containerIds);
   } catch {
-    documentIds = null;
+    listed = new Map();
   }
   if (state.generation !== runGeneration) {
     return true;
   }
-  if (documentIds === null) {
-    const attempts =
-      (state.listingAttemptsByContainer.get(containerId) ?? 0) + 1;
-    state.listingAttemptsByContainer.set(containerId, attempts);
-    // Retry transient listing failures with bounded, seconds-scale backoff.
-    // Exhausted lanes are skipped until prerequisites are regained so healthy
-    // lanes can converge without suppressing the failed lane forever.
-    if (attempts >= MAX_INITIAL_DOCUMENT_LISTING_ATTEMPTS) {
-      state.skippedContainerIds.add(containerId);
-      state.eligibleContainerIds.delete(containerId);
-      state.listingAttemptsByContainer.delete(containerId);
-      state.listingRetryNotBeforeByContainer.delete(containerId);
-    } else {
-      const retryDelayMs =
-        INITIAL_DOCUMENT_LISTING_RETRY_BASE_DELAY_MS * 2 ** (attempts - 1);
-      state.listingRetryNotBeforeByContainer.set(
-        containerId,
-        host.clock.now() + retryDelayMs,
-      );
+  for (const containerId of containerIds) {
+    const documentIds = listed.get(containerId) ?? null;
+    if (documentIds === null) {
+      recordListingFailure(host, state, containerId);
+      continue;
     }
-    return true;
+    state.listingAttemptsByContainer.delete(containerId);
+    state.listingRetryNotBeforeByContainer.delete(containerId);
+    state.listedDocumentIdsByContainer.set(containerId, new Set(documentIds));
   }
-  state.listingAttemptsByContainer.delete(containerId);
-  state.listingRetryNotBeforeByContainer.delete(containerId);
-  state.listedDocumentIdsByContainer.set(containerId, new Set(documentIds));
   return true;
 }
 
@@ -311,7 +336,7 @@ async function runProbe(
   try {
     const eligibleIds = [...state.eligibleContainerIds];
     if (
-      await listNextEligibleContainer({
+      await listNextEligibleContainers({
         eligibleIds,
         host,
         runGeneration,
@@ -358,9 +383,10 @@ async function runProbe(
 }
 
 /**
- * Runs one bounded unit per call: first one authoritative container listing,
- * then one local candidate batch. Incremental discovery watermarks are never
- * used as evidence that a document is absent from the server.
+ * Runs one bounded unit per call: first one batched authoritative listing of
+ * up to a request's worth of containers, then one local candidate batch.
+ * Incremental discovery watermarks are never used as evidence that a document
+ * is absent from the server.
  *
  * The eligible set is replaceable because local hydration can become ready
  * before the remote tree crawl has surfaced every container. Growth before

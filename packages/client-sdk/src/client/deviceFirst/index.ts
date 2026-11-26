@@ -121,11 +121,11 @@ function createInitialDocumentProbeHost(
   | "reportInitialDocumentProbeComplete"
 > {
   return {
-    listContainerDocumentIds: (containerId) => {
+    listContainerDocumentIds: (containerIds) => {
       const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
       return listAllContainerDocumentIdsFromApi({
         apiClient: runtime.apiClient,
-        containerId,
+        containerIds,
         reportErrors: false,
       });
     },

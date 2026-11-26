@@ -82,14 +82,16 @@ identity type-tags binary, string, and structural values so distinct operation
 payloads cannot collapse to the same serialized identity. Each change's
 recorded commit time is part of that identity, so the same operations under
 different times are a different history. Two holders of the same operations
-can split them into different runs by the path that imported them, as a
-reader that held part of a change does when a checkpoint brings the rest, so
-the identity replays each history into an empty document before comparing.
+can split them into different runs and changes by the path that imported them,
+as a reader that held part of a change does when a checkpoint brings the rest,
+so the identity regroups each history's operations into one
+[canonical form](../packages/loro/README.md#history-identity) before comparing.
 It detects a forged
 checkpoint that reuses genuine version-vector identities, and per-row range
 comparison proves that each queued binary delta contains the live document's
-exact operations. The comparison reconstructs a partial peer range from its
-external dependency frontiers, so an honest local delta authored on a remotely
+exact operations. The comparison imports a partial peer range into a scratch
+document that holds what the range depends on and none of the range, so an
+honest local delta authored on a remotely
 restored baseline remains verifiable without widening the delta's declared
 range. This proof completes before a dependent local edit can be re-encrypted
 or published.

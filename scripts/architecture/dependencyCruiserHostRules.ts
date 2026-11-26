@@ -18,6 +18,7 @@ export const hostDependencyRules = [
         (root) =>
           ![
             packageSourceRoot.performance,
+            packageSourceRoot.api,
             packageSourceRoot.apiShared,
             packageSourceRoot.clientSdk,
             packageSourceRoot.sqliteWorker,
@@ -47,6 +48,20 @@ export const hostDependencyRules = [
     to: {
       path: packageSourceRoot.apiShared,
       pathNot: "^packages/api-shared/src/adapters/postgresTransport\\.ts$",
+    },
+  },
+  {
+    name: "performance-consumes-api-test-runtime",
+    severity: "error",
+    comment:
+      "The realtime probe boots the API in-process through its published test runtime, as the bob-and-alice harness does.",
+    from: {
+      path: packageSourceRoot.performance,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: packageSourceRoot.api,
+      pathNot: "^packages/api/src/appTestRuntime\\.ts$",
     },
   },
   {

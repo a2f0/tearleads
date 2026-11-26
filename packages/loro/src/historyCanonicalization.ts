@@ -1,230 +1,121 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { type JsonOp, type JsonSchema, LoroDoc } from "loro-crdt";
-import { recordChangeTimestamps } from "./changeTimestamps";
+import {
+  idStrToId,
+  type JsonChange,
+  type JsonSchema,
+  type PeerID,
+} from "loro-crdt";
+import {
+  compareCanonicalIdentity,
+  serializeCanonicalHistoryValue,
+} from "./historyCanonicalValue";
+import { type CanonicalOperation, RunEncoder } from "./historyUnitRuns";
 
-type CanonicalHistoryValue =
-  | readonly ["array", CanonicalHistoryValue[]]
-  | readonly ["bigint", string]
-  | readonly ["boolean", boolean]
-  | readonly ["bytes", string]
-  | readonly [
-      "map",
-      Array<readonly [CanonicalHistoryValue, CanonicalHistoryValue]>,
-    ]
-  | readonly ["null"]
-  | readonly ["number", string]
-  | readonly ["object", Array<readonly [string, CanonicalHistoryValue]>]
-  | readonly ["string", string]
-  | readonly ["undefined"];
-
-function compareCanonicalIdentity(left: string, right: string): number {
-  return left < right ? -1 : Number(left > right);
+interface CanonicalChange {
+  readonly deps: string[];
+  readonly id: string;
+  readonly lamport: number;
+  readonly msg: string | null;
+  readonly ops: CanonicalOperation[];
+  readonly timestamp: number;
 }
 
-function canonicalHistoryValue(value: unknown): CanonicalHistoryValue {
-  if (value === null) return ["null"];
-  if (value === undefined) return ["undefined"];
-  if (typeof value === "boolean") return ["boolean", value];
-  if (typeof value === "bigint") return ["bigint", value.toString()];
-  if (typeof value === "number") {
-    return ["number", Object.is(value, -0) ? "-0" : String(value)];
-  }
-  if (typeof value === "string") return ["string", value];
-  if (value instanceof Uint8Array) {
-    return ["bytes", bytesToBase64(value)];
-  }
-  if (Array.isArray(value)) {
-    return ["array", value.map(canonicalHistoryValue)];
-  }
-  if (value instanceof Map) {
-    const entries = [...value.entries()].map(
-      ([key, item]) =>
-        [canonicalHistoryValue(key), canonicalHistoryValue(item)] as const,
-    );
-    entries.sort((left, right) => {
-      const leftIdentity = JSON.stringify(left);
-      const rightIdentity = JSON.stringify(right);
-      return compareCanonicalIdentity(leftIdentity, rightIdentity);
-    });
-    return ["map", entries];
-  }
-  if (typeof value === "object") {
-    return [
-      "object",
-      Object.keys(value)
-        .sort()
-        .map(
-          (key) =>
-            [key, canonicalHistoryValue(Reflect.get(value, key))] as const,
-        ),
-    ];
-  }
-  throw new Error(`Unsupported Loro history value type: ${typeof value}`);
+/** A canonical change still taking units: its first unit's facts and its runs. */
+interface OpenChange {
+  readonly change: JsonChange;
+  readonly counter: number;
+  readonly encoder: RunEncoder;
 }
 
-function serializeCanonicalHistoryValue(value: unknown): string {
-  return JSON.stringify(canonicalHistoryValue(value));
+interface PeerChange {
+  readonly change: JsonChange;
+  readonly counter: number;
 }
-
-function canonicalHistoryOperation(operation: JsonOp): JsonOp {
-  const { content } = operation;
-  // Coalesced backspaces use negative lengths. Slicing that run to one
-  // deletion can produce -1 where the original update used +1: both delete
-  // the same element at the same position. Direction still matters for
-  // longer runs, and application values must retain their literal contents.
-  if (content.type === "delete" && "len" in content && content.len === -1) {
-    return { ...operation, content: { ...content, len: 1 } };
-  }
-  return operation;
-}
-
-type InsertContent = Extract<JsonOp["content"], { type: "insert" }>;
-type TextInsert = Extract<InsertContent, { text: string }>;
-type ListInsert = Extract<InsertContent, { pos: number; value: unknown }>;
-type ListValues = Extract<ListInsert["value"], readonly unknown[]>;
 
 /**
- * A run of continuing inserts into a text or a list, the two kinds Loro
- * groups by path: its first operation's content and every part.
+ * Whether the first unit of `next` continues the canonical change `open`: it
+ * depends on the counter before it and nothing else, its Lamport time is the
+ * next one, and it carries the same commit time and message. Those are the
+ * facts of every unit after a change's first, so a change Loro stored in two
+ * parts, or a reader received in two updates, reads as the one it is. A
+ * change with any other dependency, time or message starts a canonical
+ * change for every holder.
  */
-type InsertRun =
-  | {
-      readonly kind: "text";
-      readonly content: TextInsert;
-      readonly first: JsonOp;
-      readonly texts: string[];
+function continuesChange(
+  open: OpenChange,
+  next: PeerChange,
+  peer: PeerID,
+): boolean {
+  const { change, counter } = next;
+  return (
+    change.deps.length === 1 &&
+    change.deps[0] === `${counter - 1}@${peer}` &&
+    change.lamport === open.change.lamport + (counter - open.counter) &&
+    change.timestamp === open.change.timestamp &&
+    (change.msg ?? null) === (open.change.msg ?? null)
+  );
+}
+
+function closeChange(open: OpenChange): CanonicalChange {
+  const { deps, id, lamport, msg, timestamp } = open.change;
+  return {
+    // Dependencies are a set: the order Loro lists them in is not a fact.
+    deps: [...deps].sort(compareCanonicalIdentity),
+    id,
+    lamport,
+    msg: msg ?? null,
+    ops: open.encoder.finish(),
+    timestamp,
+  };
+}
+
+/** One peer's changes, in counter order, as its canonical changes. */
+function canonicalPeerChanges(
+  peer: PeerID,
+  changes: readonly PeerChange[],
+): CanonicalChange[] {
+  const canonical: CanonicalChange[] = [];
+  let open: OpenChange | null = null;
+  for (const next of changes) {
+    if (open === null || !continuesChange(open, next, peer)) {
+      if (open !== null) canonical.push(closeChange(open));
+      open = { ...next, encoder: new RunEncoder() };
     }
-  | {
-      readonly kind: "list";
-      readonly content: ListInsert;
-      readonly first: JsonOp;
-      readonly values: ListValues;
-    };
-
-/** The run `operation` starts, or null when it is no text or list insert. */
-function startRun(operation: JsonOp): InsertRun | null {
-  const { container, content } = operation;
-  if (content.type !== "insert" || !("pos" in content)) return null;
-  if (container.endsWith(":Text") && "text" in content) {
-    return { content, first: operation, kind: "text", texts: [content.text] };
+    for (const operation of next.change.ops) open.encoder.push(operation);
   }
-  if (
-    container.endsWith(":List") &&
-    "value" in content &&
-    Array.isArray(content.value)
-  ) {
-    return {
-      content,
-      first: operation,
-      kind: "list",
-      values: [...content.value],
-    };
-  }
-  return null;
+  if (open !== null) canonical.push(closeChange(open));
+  return canonical;
 }
 
 /**
- * Whether `next` continues `run`, extending it when it does: an insert of the
- * same kind into the same container that starts where the run ends. A run's
- * length is the distance from its first counter to the next operation's, in
- * the unit its position counts in.
+ * The canonical form of `history`, a whole history or the range one export
+ * holds. It depends only on the history's units, one per operation counter:
+ * what each did, and the dependencies, Lamport time, commit time and message
+ * it carries. How Loro grouped the units into operations and changes varies
+ * with the path that brought them and leaves no trace here, and each run and
+ * canonical change says exactly what its units are, so two histories share a
+ * form only when they hold the same units.
+ *
+ * An export's `start_version` is left out: it is the frontier of the range's
+ * start as the exporting document sees it, which a holder of more peers
+ * reports differently for the same range. A range's first counters say where
+ * it starts.
  */
-function extendRun(run: InsertRun, next: JsonOp): boolean {
-  const part = startRun(next);
-  if (
-    part === null ||
-    next.container !== run.first.container ||
-    part.content.pos !== run.content.pos + (next.counter - run.first.counter)
-  ) {
-    return false;
-  }
-  if (run.kind === "text" && part.kind === "text") {
-    run.texts.push(...part.texts);
-    return true;
-  }
-  if (run.kind === "list" && part.kind === "list") {
-    // Not a spread: an insert can hold more values than a call takes.
-    for (const value of part.values) run.values.push(value);
-    return true;
-  }
-  return false;
-}
-
-/**
- * The one operation a run's inserts join into. Only the inserted content
- * changes: the container, first counter and position are the first
- * operation's.
- */
-function runOperation(run: InsertRun): JsonOp {
-  const { container, counter } = run.first;
-  return run.kind === "text"
-    ? {
-        container,
-        content: { ...run.content, text: run.texts.join("") },
-        counter,
-      }
-    : { container, content: { ...run.content, value: run.values }, counter };
-}
-
-/**
- * A change's operations with every run of continuing inserts joined into
- * one. Loro groups consecutive inserts by the path that brought them: a
- * writer holds what it typed across two uploads as one operation, a reader
- * of those uploads holds two, and an export regroups either. Joined, every
- * holder of the same inserts serializes them alike. Loro groups deletes the
- * same way for every holder.
- */
-function joinContinuingInserts(operations: readonly JsonOp[]): JsonOp[] {
-  const joined: JsonOp[] = [];
-  let run: InsertRun | null = null;
-  for (const operation of operations) {
-    if (run !== null && extendRun(run, operation)) continue;
-    if (run !== null) joined.push(runOperation(run));
-    run = startRun(operation);
-    if (run === null) joined.push(operation);
-  }
-  if (run !== null) joined.push(runOperation(run));
-  return joined;
-}
-
 export function serializeCanonicalHistory(history: JsonSchema): string {
-  const canonicalChanges = history.changes
-    .map((sourceChange) => {
-      const change = {
-        ...sourceChange,
-        ops: joinContinuingInserts(
-          sourceChange.ops.map(canonicalHistoryOperation),
-        ),
-      };
-      return { change, identity: serializeCanonicalHistoryValue(change) };
-    })
-    .sort((left, right) =>
-      compareCanonicalIdentity(left.identity, right.identity),
-    )
-    .map(({ change }) => change);
-  return serializeCanonicalHistoryValue({
-    ...history,
-    changes: canonicalChanges,
-  });
-}
-
-/**
- * The canonical identity of `history` as an empty document segments it.
- * Documents holding the same operations can split them differently by the
- * path that imported them: a snapshot imported into a populated document, or
- * a batch repeating operations already held, keeps adjacent operations apart
- * that other imports merge. Replaying the history segments it the same way
- * for every holder, and keeps every operation's content.
- */
-export function serializeReplayedHistory(history: JsonSchema): string {
-  const replay = new LoroDoc();
-  try {
-    recordChangeTimestamps(replay);
-    replay.importJsonUpdates(history);
-    return serializeCanonicalHistory(
-      replay.exportJsonUpdates(undefined, undefined, false),
-    );
-  } finally {
-    replay.free();
+  const byPeer = new Map<PeerID, PeerChange[]>();
+  for (const change of history.changes) {
+    const { counter, peer } = idStrToId(change.id);
+    const changes = byPeer.get(peer);
+    if (changes) changes.push({ change, counter });
+    else byPeer.set(peer, [{ change, counter }]);
   }
+  const changes = [...byPeer.entries()]
+    .sort(([left], [right]) => compareCanonicalIdentity(left, right))
+    .flatMap(([peer, peerChanges]) =>
+      canonicalPeerChanges(
+        peer,
+        peerChanges.sort((left, right) => left.counter - right.counter),
+      ),
+    );
+  const { peers, schema_version } = history;
+  return serializeCanonicalHistoryValue({ changes, peers, schema_version });
 }
