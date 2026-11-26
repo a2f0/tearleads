@@ -82,3 +82,19 @@ outside the model, and was outside the listing it replaces too: access gained
 or lost through a principal policy changes each row's effective access level
 without republishing the row, and a listing from a watermark returned nothing
 for it before this change as well.
+
+The model has one server that answers every listing from its current state.
+Two things production does are assumptions here, not checked properties. A
+document-lane listing is assumed to see everything the crawl's page saw: it
+carries no publication floor, so a listing answered from an older snapshot
+than the page that served the container's row would settle the request
+without the change. Production reads one primary database with no query
+cache. And a listing is assumed to be answered by its own request:
+production gives each listing lane ids of its own, so the API client never
+answers it from an identical request already in flight.
+
+The only tree listing in the model is the crawl an acknowledgement owes,
+which the catch-up's sweep follows. A hint's tree listing, a start's, or a
+retried crawl's owes lanes the same way with no sweep behind it; those
+requests wait for the next acknowledged connection or the next start's
+resume, so `DebtsSettle` describes requests a catch-up's crawl recorded.

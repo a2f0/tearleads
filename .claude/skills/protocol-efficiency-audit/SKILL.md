@@ -119,7 +119,11 @@ inspect bounded excerpts with `bun run agent:logs <path>`.
    recorder on, in the background, as described in
    [`references/measurement.md`](references/measurement.md). Save the
    per-endpoint tables as the measured baseline. Reuse completed logs only
-   after resume validation.
+   after resume validation. Then read the results index of the
+   [performance harness](references/measurement.md#performance-harness) and
+   note each recorded run that bears on a queued slice, with its date and
+   revision. Run its local realtime probes when `discovery-and-hints` is
+   queued.
 4. On the first batch, read `docs/protocol-specification/`,
    `docs/client-sync-ordering.md`, `docs/request-budgets.md`, and the
    "Request costs" section of `docs/developer/current-principal-consumers.md`.
@@ -228,7 +232,13 @@ For each verified proposal:
    silently regress.
 3. List the formal models in `formal/models.md` whose assumptions it changes.
    Do not modify models; name the follow-up.
-4. Order proposals by dependency: a table retirement that needs a response
+4. Name the measurement that will show the saving once it ships: the canary
+   phase and ceiling, the statement-budget test, or the `perf:*` command and
+   arguments from the
+   [performance harness](references/measurement.md#performance-harness). The
+   implementation PR reports it before and after, and records a `perf:*`
+   run in `packages/performance/results`.
+5. Order proposals by dependency: a table retirement that needs a response
    shape change lists that change as a prerequisite.
 
 ## 5. Report

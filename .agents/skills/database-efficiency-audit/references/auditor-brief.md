@@ -84,7 +84,10 @@ maintainers prefer builder implementations; name a raw-statement edit
 plainly.
 
 Measurement: follow the statement-capture, plan, and probe instructions in
-<MEASUREMENT_REFERENCE>. The capture preload is at <CAPTURE_PRELOAD>. Group
+<MEASUREMENT_REFERENCE>. The capture preload is at <CAPTURE_PRELOAD>. The
+performance-harness results the coordinator noted for this slice are in the
+shared measurement directory; never run a `perf:*` command against a
+deployed tier. Group
 a canary capture by request and bind hash before counting repeats: a
 per-phase total hides the same key read twice in one request. A probe reads
 every path it uses from the environment, inputs and fixture ids included,
