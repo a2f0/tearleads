@@ -18,6 +18,16 @@ export interface CanaryRun {
   /** The run's complete output, private beside the report. */
   readonly log: string;
   readonly phases: readonly PhaseMetrics[];
+  /**
+   * With `--statements`, for a passed run: the capture file and statements
+   * per phase, or null per phase when the capture's phase markers do not
+   * match the profile (a truncated capture, or a test that replaced
+   * `console.info`).
+   */
+  readonly statements: {
+    readonly capture: string;
+    readonly perPhase: readonly number[] | null;
+  } | null;
 }
 
 export interface CanaryReport {
@@ -38,6 +48,8 @@ export interface CanaryReport {
   readonly options: {
     readonly canaries: readonly string[];
     readonly samples: number;
+    readonly statements: boolean;
+    readonly paramHash: boolean;
   };
   readonly boundary: string;
   readonly summary: readonly PhaseSummary[];
@@ -58,10 +70,25 @@ function isCanaryReport(value: unknown): value is CanaryReport {
   );
 }
 
-/** Reads a saved canary report, checking only what a comparison relies on. */
+/**
+ * Reads a saved canary report, checking only what a comparison relies on.
+ * A report that did not complete is missing canaries, which a comparison
+ * would show as removed, so it is refused.
+ */
 export async function loadCanaryReport(path: string): Promise<CanaryReport> {
   const value: unknown = JSON.parse(await readFile(path, "utf8"));
   if (!isCanaryReport(value))
     throw new Error(`${path} is not a request-volume canary report.`);
-  return value;
+  if (value.status !== "complete")
+    throw new Error(
+      `${path} is a ${value.status} report; compare only complete ones.`,
+    );
+  // Reports saved before statement capture have no per-phase statements.
+  return {
+    ...value,
+    summary: value.summary.map((phase) => ({
+      ...phase,
+      statements: phase.statements ?? null,
+    })),
+  };
 }

@@ -15,6 +15,8 @@ export interface PhaseSummary {
   readonly requests: Range;
   readonly requestBytes: Range;
   readonly responseBytes: Range;
+  /** API statements in the phase, when every sample captured them. */
+  readonly statements: Range | null;
   /** Per endpoint; a sample without the endpoint counts 0 for each. */
   readonly byRequest: Readonly<Record<string, EndpointSummary>>;
 }
@@ -28,10 +30,17 @@ export interface EndpointSummary {
 export interface CanarySample {
   readonly canary: string;
   readonly phases: readonly PhaseMetrics[];
+  /** Statements per phase, in the same order, when captured. */
+  readonly statements?: { readonly perPhase: readonly number[] | null } | null;
 }
 
 function range(values: readonly number[]): Range {
   return { min: Math.min(...values), max: Math.max(...values) };
+}
+
+function capturedRange(counts: readonly (number | undefined)[]): Range | null {
+  const captured = counts.filter((count) => count !== undefined);
+  return captured.length === counts.length ? range(captured) : null;
 }
 
 function sortedKeys(keys: Iterable<string>): string[] {
@@ -60,11 +69,12 @@ export function summarizePhases(
       label: string;
       occurrence: number;
       phases: PhaseMetrics[];
+      statements: (number | undefined)[];
     }
   >();
   for (const sample of samples) {
     const seen = new Map<string, number>();
-    for (const phase of sample.phases) {
+    for (const [index, phase] of sample.phases.entries()) {
       const occurrence = seen.get(phase.label) ?? 0;
       seen.set(phase.label, occurrence + 1);
       const identity = {
@@ -73,17 +83,23 @@ export function summarizePhases(
         occurrence,
       };
       const key = phaseKey(identity);
-      const group = groups.get(key) ?? { ...identity, phases: [] };
+      const group = groups.get(key) ?? {
+        ...identity,
+        phases: [],
+        statements: [],
+      };
       group.phases.push(phase);
+      group.statements.push(sample.statements?.perPhase?.[index]);
       groups.set(key, group);
     }
   }
-  return [...groups.values()].map(({ phases, ...identity }) => ({
+  return [...groups.values()].map(({ phases, statements, ...identity }) => ({
     ...identity,
     samples: phases.length,
     requests: range(phases.map((phase) => phase.total)),
     requestBytes: range(phases.map((phase) => phase.bodyBytes.request)),
     responseBytes: range(phases.map((phase) => phase.bodyBytes.response)),
+    statements: capturedRange(statements),
     byRequest: Object.fromEntries(
       sortedKeys(phases.flatMap((phase) => Object.keys(phase.byRequest))).map(
         (request) => {
@@ -182,6 +198,9 @@ export function phaseChanged(change: PhaseChange): boolean {
     change.endpoints.length > 0 ||
     !sameRange(before.requests, after.requests) ||
     !sameRange(before.requestBytes, after.requestBytes) ||
-    !sameRange(before.responseBytes, after.responseBytes)
+    !sameRange(before.responseBytes, after.responseBytes) ||
+    (before.statements !== null &&
+      after.statements !== null &&
+      !sameRange(before.statements, after.statements))
   );
 }

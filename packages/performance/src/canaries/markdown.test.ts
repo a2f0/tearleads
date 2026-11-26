@@ -15,7 +15,7 @@ const phase = (label: string, count: number): PhaseMetrics => ({
   repeatedPaths: [],
 });
 
-function report(counts: number[]): CanaryReport {
+function report(counts: number[], statements = false): CanaryReport {
   const runs = counts.map((count, index) => ({
     canary: "Upload",
     file: "src/Upload.test.tsx",
@@ -26,6 +26,7 @@ function report(counts: number[]): CanaryReport {
     tests: { pass: 1, fail: 0 },
     log: "/private/upload.log",
     phases: [phase("upload", count), phase("upload", 1)],
+    statements: statements ? { capture: "c", perPhase: [10 * count, 4] } : null,
   }));
   return {
     schemaVersion: 1,
@@ -37,7 +38,12 @@ function report(counts: number[]): CanaryReport {
     revision: "0123456789abcdef",
     dirty: false,
     runtime: { bun: "1.4.2", platform: "darwin", arch: "arm64", cpu: "M2" },
-    options: { canaries: [], samples: counts.length },
+    options: {
+      canaries: [],
+      samples: counts.length,
+      statements,
+      paramHash: false,
+    },
     boundary: "Boundary",
     summary: summarizePhases(runs),
     runs,
@@ -90,4 +96,18 @@ test("summarizes a removed phase in one row", () => {
   });
   expect(markdown).toContain("| Upload | upload | 3 → removed |");
   expect(markdown).not.toContain("## Upload");
+});
+
+test("adds a statements column when the runs captured statements", () => {
+  const markdown = formatCanaryReport(report([2, 3], true));
+  expect(markdown).toContain(
+    "| Phase | Requests | Request bytes | Response bytes | Statements |",
+  );
+  expect(markdown).toContain("| upload | 2–3 | 3,000–4,500 | 20 | 20–30 |");
+  expect(formatCanaryReport(report([2]))).not.toContain("Statements");
+  const comparison = formatComparison(
+    comparePhases(report([3], true).summary, report([2], true).summary),
+    { before: "b", after: "a" },
+  );
+  expect(comparison).toContain("| 30 → 20 (-10) |");
 });

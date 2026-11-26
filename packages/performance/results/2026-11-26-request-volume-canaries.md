@@ -9,8 +9,9 @@ proposal's base revision.
 
 Counts are proxied API requests and body bytes, headers excluded, against
 PGlite and the in-memory object store. Dual-pane canaries sum both panes.
-The offline phases of `DeviceFirstOfflineRequestVolume` and the explorer
-openings in `DualPaneProvider.sharing` sent no requests and are left out.
+The offline phases of `DeviceFirstOfflineRequestVolume` and the
+`create empty folder` and explorer-opening phases of
+`DualPaneProvider.sharing` sent no requests and are left out.
 `test total` in the sharing canary spans its earlier phases.
 
 | Canary | Phase | Requests | Request bytes | Response bytes |

@@ -8,6 +8,7 @@ first. Raw reports stay private under `.test_files/performance/`.
 
 | Date | Experiment | Target |
 | --- | --- | --- |
+| 2026-11-26 | [Canary statement capture](2026-11-26-canary-statements.md) | Local, M2 Pro |
 | 2026-11-26 | [Request-volume canaries](2026-11-26-request-volume-canaries.md) | Local, M2 Pro |
 | 2026-11-26 | [Document reload](2026-11-26-document-reload.md) | Local, M2 Pro |
 | 2026-11-25 | [Realtime hub contention](2026-11-25-realtime-hub-contention.md) | Local, M2 Pro |
