@@ -30,6 +30,7 @@ import { READ_MODEL_STAMP_NEGATIVE_CONTROLS } from "./protocolReadModelStampNega
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
 import { RESTART_PROBE_NEGATIVE_CONTROLS } from "./protocolRestartProbeNegativeControls";
 import { SESSION_RETRY_NEGATIVE_CONTROLS } from "./protocolSessionRetryNegativeControls";
+import { STAGED_BASELINE_NEGATIVE_CONTROLS } from "./protocolStagedBaselineNegativeControls";
 import { STAGE_PROMOTION_NEGATIVE_CONTROLS } from "./protocolStagePromotionNegativeControls";
 import { SYNC_LANE_NEGATIVE_CONTROLS } from "./protocolSyncLaneNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
@@ -314,6 +315,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A dishonest server can serve a signed successor that reintroduces an older group reference (#2266).",
   },
   ...EMPTY_FRONTIER_NEGATIVE_CONTROLS,
+  ...STAGED_BASELINE_NEGATIVE_CONTROLS,
 ];
 
 export type { ParsedConfig } from "./protocolNegativeControlConfig";

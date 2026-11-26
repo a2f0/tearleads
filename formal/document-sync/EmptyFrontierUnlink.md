@@ -26,8 +26,8 @@ The abstraction maps to production at these seams:
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
-| `CheckCoveringUnlink` / `RejectCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline`, which refuses a group it did not insert whole |
-| `BaselineAccepted` | the frontier comparison in `assertAtomicRotationBaselineCoversCommittedFrontier`, against the coverage `requireOutgoingBaselineGroup` reads from the segments' spans |
+| `CheckCoveringUnlink` / `RejectCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline`, which refuses a group it did not insert whole. A baseline whose earlier segments were staged goes through the same two: the first locks and checks the stage (`lockStagedBaselineForCommit`), the second commits it ahead of the final segment (`promoteStagedBaselineSegments`) |
+| `BaselineAccepted` | the frontier comparison in `assertAtomicRotationBaselineCoversCommittedFrontier`, against the coverage `requireOutgoingBaselineGroup` reads from the segments' spans, or `assertStagedBaselineCoversCommittedFrontier` reads from a stage's |
 | `BeginLinkAdvance` / `LinkAdvancesEpoch` / `RejectLinkAdvance` | `assertLinkKeepsCommittedContentKeyEpoch` inside `advanceDocumentLinkSet` |
 | `FrontierEmpty` | `hasCommittedDocumentUpdate`, the emptiness proof both gates share |
 | `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |

@@ -134,6 +134,10 @@ Model-specific gaps:
   overclaims; decoders, dependencies, and runtime failures are
   `VoidUpdateProgress`'s. A writer that signs a cursor past its own history
   is outside it.
+- `StagedBaselineCommit` has one rotator and one document, so a foreign or
+  stale stage's refusals are not exercised, and it has no clock: expiries are
+  bounded, not timed. Its eventual commit holds under bounded writes and does
+  not show a rotation that keeps pace with an unbounded writer.
 - `DiscoveryLaneResumption` fixes the server's documents before sign-in and
   bounds crashes and deferrals. A peer write after a lane settles, and a hint
   for it lost to a reload, are outside it; `DocumentListingConvergence`
