@@ -61,6 +61,9 @@ Write the rest of the body in this order:
      edit to an existing raw `sql` statement, named as such;
    - whether deploying it needs a database reset (any change to an API
      baseline does, including an index drop);
+   - how to measure it once it ships: the test ceiling, canary phase, or
+     `perf:*` command whose before and after the implementation PR
+     reports;
    - prerequisites among the proposals, by number;
    - twin paths it generalizes to.
 6. **Candidates pending verification** (interim issues only): each

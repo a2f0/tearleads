@@ -5,6 +5,7 @@ import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
+import { DocumentLaneRevalidationRepository } from "../../data/persistence/container-contents/documentLaneRevalidations";
 import { DocumentListingRevalidationRepository } from "../../data/persistence/documents/documentListingRevalidationRepository";
 import {
   createDomainScope,
@@ -89,6 +90,16 @@ test("a catch-up asks the stores a listing owes and the stores another tab saved
   expect(owed.remoteSyncs()).toBe(1);
   expect(savedElsewhere.remoteSyncs()).toBe(1);
   expect(current.remoteSyncs()).toBe(0);
+});
+
+test("a catch-up forgets the lane listings owed to containers it does not store", async () => {
+  const lanes = new DocumentLaneRevalidationRepository(execSql);
+  // A tree listing owed this lane before its row was refused.
+  await lanes.request(["never-stored"]);
+
+  await hostFor({}).requestOwedDocumentReads?.();
+
+  expect(await lanes.listOwedContainerIds()).toEqual(new Set());
 });
 
 test("a catch-up of another scope or an unready database asks nothing", async () => {

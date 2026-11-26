@@ -4,7 +4,7 @@ The `tearleads` command line: a Tearleads client for the terminal, built on the
 [client SDK](../client-sdk/README.md). It signs in to an existing account
 with the account's recovery key and works on it like any other device.
 
-It is workspace-only for now and runs from source with Bun on macOS.
+It is workspace-only for now and runs from source with Bun on macOS or Linux.
 
 ## Quick start
 
@@ -20,8 +20,16 @@ bun run tearleads ls
 ```
 
 `login` reads the recovery key (seed phrase) without echoing it, or from
-piped stdin, checks that it signs in, and saves it in the macOS login
-Keychain under `com.tearleads.cli.recovery-key`. `logout` removes it.
+piped stdin, checks that it signs in, and saves it under
+`com.tearleads.cli.recovery-key`: in the macOS login Keychain, or on Linux in
+the desktop keyring (GNOME Keyring, or another Secret Service). `logout`
+removes it.
+
+On Linux, the keyring is the one logging in to the desktop unlocks; Linux Mint,
+Ubuntu, and other GNOME-based desktops include it and libsecret. Run the CLI
+from a terminal in that desktop session. Outside one, such as over SSH with
+nobody logged in to the desktop, the keyring is locked or unreachable, and a
+command that needs the saved key fails with the keyring's reason.
 
 ## Usage
 
@@ -29,7 +37,8 @@ Keychain under `com.tearleads.cli.recovery-key`. `logout` removes it.
 Usage: tearleads <command> [--env production|staging|development] [--org <id>] [--trace]
 
 Commands:
-  login    Save a recovery key (seed phrase) for the target in the Keychain.
+  login    Save a recovery key (seed phrase) for the target in the macOS
+           Keychain or the Linux desktop keyring.
   register Create the account for a recovery key, then save it like login.
   logout   Remove the target's saved recovery key.
   whoami   Show the signed-in user, signing fingerprint, and organization.
@@ -61,9 +70,10 @@ without asking, which is the only way to agree when no terminal can ask, such as
 with `--key-stdin`. Nothing is asked when the account already exists.
 
 `--key-stdin` reads a one-time recovery key for `register`, `seed`, or
-`verify-seed` and keeps it out of the Keychain. `--api-url <origin>` points
-those commands at an API other than the named targets, such as a test API on
-a random port; it requires `--key-stdin`, so no saved key is ever sent there.
+`verify-seed` and keeps it out of the Keychain or keyring. `--api-url <origin>`
+points those commands at an API other than the named targets, such as a test
+API on a random port; it requires `--key-stdin`, so no saved key is ever sent
+there.
 Plain `http` is accepted only for a loopback host.
 
 ```sh
@@ -73,7 +83,7 @@ printf '%s\n' "$RECOVERY_KEY" |
 
 ## Seed an account with Continuity
 
-From the repository root on macOS, run the Quick start install and build steps,
+From the repository root, run the Quick start install and build steps,
 then choose the environment where the account already exists.
 
 ```sh
@@ -84,9 +94,9 @@ bun run tearleads seed --env staging
 Paste the account's recovery key at the login prompt. For production, use
 `--env production` on both commands; for a local API, `--env development`.
 `scripts/dev/seedFromContinuity.sh <dev|staging|prod>` runs the install,
-build, login, and traced `seed --roster --accept-terms` in one step, unlocking
-the login Keychain first for shells outside the desktop session (SSH, tmux,
-screen); see [Roster and groups](#roster-and-groups) for the seats that costs.
+build, login, and traced `seed --roster --accept-terms` in one step, on macOS
+unlocking the login Keychain first for shells outside the desktop session (SSH,
+tmux, screen); see [Roster and groups](#roster-and-groups) for the seats that costs.
 `--accept-terms` agrees to the Privacy Policy and Terms of Service for each
 member account the seed creates, without asking. Once the command
 reports success, open the web app in that environment and sign in with the
@@ -178,8 +188,9 @@ bun run tearleads restore-keepass vault.kdbx --name "Family Vault" --key-file va
 ```
 
 `scripts/dev/restoreKeepass.sh <dev|staging|prod> <file.kdbx> [options]` runs
-the install, build, login, and traced restore in one step, unlocking the login
-Keychain first for shells outside the desktop session (SSH, tmux, screen), as
+the install, build, login, and traced restore in one step, on macOS unlocking
+the login Keychain first for shells outside the desktop session (SSH, tmux,
+screen), as
 `scripts/dev/seedFromContinuity.sh` does for `seed`. It passes `--name` and
 `--key-file` through and resolves relative paths from the directory you run it
 in. Run it from a terminal: it prompts for the recovery key and then the master
@@ -206,7 +217,7 @@ with AES or ChaCha20, but not Twofish or KeePass 1.x `.kdb` files.
 
 Like `seed`, it writes only to your personal organization, has a 65-minute
 limit, and revokes its session when interrupted. It signs in with the key
-`login` saved, so it runs on macOS and takes neither `--key-stdin` nor
+`login` saved, so it runs on macOS or Linux and takes neither `--key-stdin` nor
 `--api-url`. `--trace` names passcodes by position, never by title or URL, but
 SDK log lines in it can include folder names, which are the database's group
 names; see [Tracing](#tracing).
@@ -251,8 +262,9 @@ Names from the API are printed with control characters escaped.
 you paused, so it never downloads paused content.
 
 The recovery key is the whole identity: anyone holding it can act as you.
-It reaches the Keychain through `security -i` on stdin, never through a
-process argument.
+On macOS it reaches the Keychain through `security -i` on stdin, never through
+a process argument. On Linux it goes to the keyring through libsecret inside
+the CLI process (`Bun.secrets`).
 
 ## Tests
 

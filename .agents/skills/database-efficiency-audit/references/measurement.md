@@ -5,6 +5,36 @@ audited revision with a fresh SDK dist, and saved under
 `<audit-directory>/measurements/`. A saving no source reproduces is Traced or
 Estimated.
 
+## Performance harness
+
+`packages/performance` holds the repository's repeatable performance
+experiments, run as root `perf:*` scripts. Its
+[README](../../../../packages/performance/README.md) explains each one, and
+its [results index](../../../../packages/performance/results/README.md) lists
+every recorded run, newest first. Read the index while building the
+baseline. A recorded result was measured at its own revision and tier: it
+gives production unit costs and ranks leads, but only a run at the audited
+revision makes a proposal Measured.
+
+| Task | Measures | Use in this audit |
+| --- | --- | --- |
+| `bun run perf:realtime` | Statements, round trips, rows, and bytes per realtime hub interest pass, counted at the PostgreSQL wire of a local database | The hub's container-interest reads (`realtime/containerInterest*`) in `api-access-and-projections`. They never reach `api.request.cost` or the canaries |
+| `bun run perf:realtime-contention` | How long other sockets wait while those passes run | Whether a statement or row saving there also shortens the hub's stalls |
+| `bun run perf:database` | One warm driver exchange through Hyperdrive, against the same statements batched in one exchange | Turning a serial round-trip saving into production latency |
+| `bun run perf:provision --cloudflare` | Statements and database wait per registration and login request on a deployed tier | Production statements per request in `api-auth-and-registration`, beside the PGlite capture |
+
+The realtime probes need only a scratch database the audit creates, which
+the audit request authorizes. Seeding a 10,000-folder tree takes over an
+hour; reuse a seeded scratch database with `--reuse` when one exists, and
+record which. `perf:database` deploys a temporary Worker and `perf:provision`
+creates persistent accounts on a deployed tier, so run them only with the
+user's approval; otherwise cite the latest result and its date.
+
+Statements inside one transaction run serially, so each one removed there
+saves one exchange. Multiply by the warm exchange cost in the latest
+`perf:database` result (about 5 ms in production on 2026-10-26) to state a
+latency, labelled Estimated unless the change itself was measured.
+
 ## Inventories
 
 Take these once per revision:
@@ -263,7 +293,9 @@ variable that could expand to nothing.
   evidence that the ceiling is the minimum.
 - A statement count is not a latency. Report counts and say whether the
   statements are serial (inside a transaction or awaited in sequence) or
-  concurrent; claim latency only when measured.
+  concurrent; claim latency only when measured, or derive it from
+  `perf:database` as the [performance harness](#performance-harness)
+  section describes and label it Estimated.
 - A fixture size is not production size. State it beside every count and
   plan, and say how the count scales with organization, tree, or history
   size when the code makes that clear.

@@ -21,8 +21,9 @@ so running it again restores a second copy rather than updating the first.
 
 The CLI keeps its recovery key in the macOS login Keychain, which is locked
 in a shell that is not part of the desktop session (SSH, tmux, screen).
-`security` prompts for the macOS login password; other platforms have no
-login Keychain, so the unlock is skipped there.
+`security` prompts for the macOS login password. On Linux the CLI keeps the
+key in the desktop keyring, which logging in to the desktop unlocks, so the
+unlock is skipped there; run the script from a terminal in that session.
 EOF
 }
 
