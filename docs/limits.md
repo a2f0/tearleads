@@ -283,8 +283,13 @@ writer waiting on another authorized member:
   the server serves the group whole, and its queued writes with them. A
   pass that fails on its first page has already sent its writes: the server
   commits them and other members receive them, but the device settles
-  nothing from a failed page, keeps them queued, and sends them again each
-  pass. Past the first page a pull's continuation stands, and the device
+  nothing from a failed page and keeps them queued. Each later pass encrypts
+  them again, so the API refuses the reused update ids with
+  `document_sync_update_id_conflict`, and the pass's read-only
+  [recovery pull](./sync-edge-cases.md#edge-cases) fails on the same page:
+  two requests a pass, no second commit, and no spend of the recovery
+  budget. Once the page is whole, that pull settles each write by its
+  content. Past the first page a pull's continuation stands, and the device
   sends no writes while it does. No other member can clear either.
 - **Rotation deaths past either limit.** A device whose rotation of a
   document is [unavailable](./rotation-deaths.md#unavailable-rotation) leaves

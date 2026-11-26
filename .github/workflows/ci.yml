@@ -146,53 +146,11 @@ jobs:
           FASTLANE_SKIP_UPDATE_CHECK: "1"
         run: bun scripts/testing/runVerifiedTurbo.ts test --filter=app-capacitor
 
-  # The pure TLC passes, one runner each, so a model change (a Turbo miss) costs
-  # the longer pass rather than lengthening Lint by both.
+  # The TLC passes run off Lint, split into model shards; see the workflow.
   models:
-    name: Protocol models (${{ matrix.check }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        check: [check:protocol-models, check:protocol-negative-controls]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up model tooling
-        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
-        with:
-          version: 2026.11.8
-          install_args: bun java github:tlaplus/tlaplus
-          cache: true
-
-      - name: Key the Turbo cache to this runtime
-        run: echo "CI_TOOLCHAIN=bun-$(bun --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
-
-      - name: Serve the Turbo remote cache from the Actions cache
-        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
-        with:
-          server-port: 0
-
-      - name: Install dependencies
-        run: sh scripts/lib/installDependencies.sh
-
-      - name: Run model check
-        env:
-          CI_TURBO_PROTOCOL_CACHE: "1"
-          MODEL_CHECK: ${{ matrix.check }}
-          PROTOCOL_TLC_FAILURE_LOG_DIR: ${{ runner.temp }}/tlc-failures
-        run: bun scripts/checks/runCachedProtocolCheck.ts "$MODEL_CHECK"
-
-      # A failing model's full TLC log, which the job's stdout can cut short.
-      - name: Upload failing TLC logs
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: tlc-failure-logs-${{ strategy.job-index }}
-          path: ${{ runner.temp }}/tlc-failures
-          if-no-files-found: ignore
+    uses: ./.github/workflows/protocol-models.yml
+    with:
+      force: ${{ inputs.force || github.event_name == 'workflow_dispatch' }}
 
   # The suites too long to share a runner run in `test`; this job keeps the
   # remaining package tests alongside the TypeScript and web builds.
@@ -247,7 +205,7 @@ jobs:
         run: >-
           bun scripts/testing/runVerifiedTurbo.ts test
           --filter='!@tearleads/api' --filter='!app' --filter='!@tearleads/client-sdk'
-          --filter='!@tearleads/bob-and-alice'
+          --filter='!@tearleads/bob-and-alice' --filter='!@tearleads/cli'
 
       - name: Build web application
         run: bun run --cwd packages/app-web build
@@ -260,6 +218,11 @@ jobs:
   # Turbo hashes the passed arguments, so each shard whose inputs match an
   # earlier run on this branch or main replays from the cache instead of
   # running.
+  # A package whose test script passes --timings splits by the per-file
+  # durations committed beside it instead of by file count. The CLI shards run
+  # one file at a time: each seed e2e file runs the whole Continuity seed
+  # against an in-process API, and their timeouts allow about 3x one file's
+  # usual time.
   test:
     name: Test (${{ matrix.suite }})
     runs-on: ubuntu-latest
@@ -268,33 +231,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - suite: api 1/3
-            filter: "@tearleads/api"
-            args: --shard=1/3
-          - suite: api 2/3
-            filter: "@tearleads/api"
-            args: --shard=2/3
-          - suite: api 3/3
-            filter: "@tearleads/api"
-            args: --shard=3/3
-          - suite: app 1/2
-            filter: app
-            args: --shard=1/2
-          - suite: app 2/2
-            filter: app
-            args: --shard=2/2
-          - suite: client-sdk 1/2
-            filter: "@tearleads/client-sdk"
-            args: --shard=1/2
-          - suite: client-sdk 2/2
-            filter: "@tearleads/client-sdk"
-            args: --shard=2/2
-          - suite: bob-and-alice 1/2
-            filter: "@tearleads/bob-and-alice"
-            args: --shard=1/2
-          - suite: bob-and-alice 2/2
-            filter: "@tearleads/bob-and-alice"
-            args: --shard=2/2
+          - { suite: api 1/3, filter: "@tearleads/api", args: --shard=1/3 }
+          - { suite: api 2/3, filter: "@tearleads/api", args: --shard=2/3 }
+          - { suite: api 3/3, filter: "@tearleads/api", args: --shard=3/3 }
+          - { suite: app 1/2, filter: app, args: --shard=1/2 }
+          - { suite: app 2/2, filter: app, args: --shard=2/2 }
+          - { suite: client-sdk 1/2, filter: "@tearleads/client-sdk", args: --shard=1/2 }
+          - { suite: client-sdk 2/2, filter: "@tearleads/client-sdk", args: --shard=2/2 }
+          - { suite: bob-and-alice 1/2, filter: "@tearleads/bob-and-alice", args: --shard=1/2 }
+          - { suite: bob-and-alice 2/2, filter: "@tearleads/bob-and-alice", args: --shard=2/2 }
+          - { suite: cli 1/5, filter: "@tearleads/cli", args: --shard=1/5 }
+          - { suite: cli 2/5, filter: "@tearleads/cli", args: --shard=2/5 }
+          - { suite: cli 3/5, filter: "@tearleads/cli", args: --shard=3/5 }
+          - { suite: cli 4/5, filter: "@tearleads/cli", args: --shard=4/5 }
+          - { suite: cli 5/5, filter: "@tearleads/cli", args: --shard=5/5 }
 
     steps:
       - name: Checkout
@@ -339,13 +289,19 @@ jobs:
             bun scripts/testing/runVerifiedTurbo.ts test "--filter=$SUITE_FILTER"
           fi
 
-  # The web app's browser suite. Turbo replays a pass whose inputs match an
-  # earlier run on this branch or main, so only changes that reach app-web or
-  # the API it signs in against run Playwright.
+  # The web app's browser suite. Playwright deals whole spec files to shards by
+  # test count, not time; four keep the slowest near a third of the suite. Turbo
+  # hashes the shard argument, so a shard replays until a change reaches it.
   e2e:
-    name: Web E2E
+    name: Web E2E (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/4, 2/4, 3/4, 4/4]
+    env:
+      E2E_SHARD: ${{ matrix.shard }}
 
     steps:
       - name: Checkout
@@ -376,14 +332,17 @@ jobs:
       - name: Install dependencies
         run: sh scripts/lib/installDependencies.sh
 
+      # Only the shard's browsers: most shards need Chromium alone.
       - name: Install Playwright browsers
         run: |
           # The runner's Azure mirror has timed out fetching WebKit dependencies.
           printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
-          bun run --cwd packages/app-web playwright install --with-deps chromium firefox webkit
+          browsers=$(bun packages/app-web/scripts/e2eShardBrowsers.ts "$E2E_SHARD")
+          # shellcheck disable=SC2086
+          bun run --cwd packages/app-web playwright install --with-deps $browsers
 
       - name: Run E2E tests
-        run: bun run test:turbo:e2e
+        run: bun scripts/testing/runVerifiedTurbo.ts e2e --filter=app-web -- "--shard=$E2E_SHARD"
 
       # Playwright keeps a failing spec's trace and page snapshot
       # (playwright.config.ts); the job log alone cannot show what the page did.
@@ -391,7 +350,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: web-e2e-test-results-${{ github.run_attempt }}
+          name: web-e2e-test-results-${{ strategy.job-index }}-${{ github.run_attempt }}
           path: packages/app-web/test-results
           if-no-files-found: ignore
           retention-days: 14

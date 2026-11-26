@@ -23,7 +23,7 @@ import type {
 } from "../../../data/documents/shared/sync/documentSyncTypes";
 import {
   continuedBaselineGroupRun,
-  pullPageVersion,
+  pullPageRequest,
 } from "../../../data/documents/shared/sync/pullContinuation";
 import {
   type DocumentSyncPullContinuation,
@@ -76,14 +76,10 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     author: input.author,
     execSql: input.execSql,
     historyMode: input.historyMode,
-    localVersionVector: pullPageVersion(
-      input.localVersionVector,
-      input.pullContinuation,
-    ),
+    ...pullPageRequest(input.localVersionVector, input.pullContinuation),
     maxPageUpdates: input.maxPageUpdates,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     processedThroughUpdateId: input.processedThroughUpdateId,
-    pullCursor: input.pullContinuation?.cursor,
     onSyncTrace: input.onSyncTrace,
     pendingUpdates: [],
     signedAt: input.signedAt,
@@ -193,15 +189,11 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     documentKekTargets: persisted.documentKekTargets,
     documentManifest: persisted.documentManifest,
     historyMode: input.historyMode,
-    localVersionVector: pullPageVersion(
-      input.localVersionVector,
-      input.pullContinuation,
-    ),
+    ...pullPageRequest(input.localVersionVector, input.pullContinuation),
     maxPageUpdates: input.maxPageUpdates,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     outgoingUpdates: [],
     processedThroughUpdateId: input.processedThroughUpdateId,
-    pullCursor: input.pullContinuation?.cursor,
     signedAt: input.signedAt,
   });
   const request = limitDocumentSyncRequestBytes(plan.request);

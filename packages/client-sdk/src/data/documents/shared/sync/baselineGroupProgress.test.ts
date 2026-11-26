@@ -146,7 +146,7 @@ test("a page is cold when it was requested with no version and nothing ahead of 
     baselineId: "b",
     digest: "d",
     nextIndex: 1,
-    unapplied: false,
+    unapplied: [],
   };
   const later = (run: BaselineGroupRun | null) =>
     isColdPullPage({ localVersionVector: null, pullCursor: "cursor", run });
@@ -167,18 +167,19 @@ test("a page is cold when it was requested with no version and nothing ahead of 
   ).toBe(false);
 });
 
-// The run remembers that a segment went unapplied for as long as the pull
-// stays inside that group, on a page that serves nothing new of it too.
-test("a run keeps its unapplied mark while the pull stays in its group", async () => {
+// The run remembers what its unapplied segments declared for as long as the
+// pull stays inside that group, on a page that serves nothing new of it too.
+test("a run keeps its unapplied operations while the pull stays in its group", async () => {
   const whole = await group("baseline-a", 4);
   const run = await judge([at(whole, 0), at(whole, 1)], {
     pullComplete: false,
   });
   if (!run) throw new Error("Expected a run");
-  const marked = { ...run, unapplied: true };
+  const unapplied = [{ endCounter: 9, peerId: "7", startCounter: 3 }];
+  const marked = { ...run, unapplied };
   expect(
     await judge([at(whole, 2)], { pullComplete: false, run: marked }),
-  ).toMatchObject({ nextIndex: 3, unapplied: true });
+  ).toMatchObject({ nextIndex: 3, unapplied });
   expect(await judge([], { pullComplete: false, run: marked })).toEqual(marked);
   // Another group starts unmarked.
   const other = await group("baseline-b", 3);
@@ -187,7 +188,7 @@ test("a run keeps its unapplied mark while the pull stays in its group", async (
       pullComplete: false,
       run: marked,
     }),
-  ).toMatchObject({ baselineId: "baseline-b", unapplied: false });
+  ).toMatchObject({ baselineId: "baseline-b", unapplied: [] });
 });
 
 test("a whole group passes, among ordinary updates and other groups", async () => {
@@ -364,6 +365,6 @@ test("a reader that sent a version is held to what it can know", async () => {
     baselineId: "baseline-a",
     digest: null,
     nextIndex: 2,
-    unapplied: false,
+    unapplied: [],
   });
 });

@@ -215,7 +215,9 @@ async function judgePageUpdate(
     );
     verdicts.voided.push({
       ...voided,
-      ...(judgement.missingDependency ? { missingDependency: true } : {}),
+      ...(judgement.missingOperations.length > 0
+        ? { missingOperations: judgement.missingOperations }
+        : {}),
       ...(judgement.preemptedPeerId === null
         ? {}
         : { preemptedPeerId: judgement.preemptedPeerId }),

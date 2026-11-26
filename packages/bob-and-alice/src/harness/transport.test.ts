@@ -78,3 +78,48 @@ test("the device proxy preserves compressed HTTP response bytes", async () => {
     await upstream.stop(true);
   }
 });
+
+test("the device proxy rewrites a matching JSON request and records the one sent", async () => {
+  const upstream = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: async (request) =>
+      Response.json({
+        authorization: request.headers.get("authorization"),
+        body: await request.json(),
+      }),
+  });
+  const transport = new DeviceTransport(upstream.url.origin);
+  transport.rewriteRequests(
+    (request) => request.path === "/sync",
+    (body) => ({ ...Object(body), maxPageUpdates: 1 }),
+  );
+  const send = async (path: string): Promise<unknown> => {
+    const response = await fetch(transport.origin + path, {
+      method: "POST",
+      headers: {
+        authorization: "test-authorization",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ outgoingUpdates: [] }),
+    });
+    return response.json();
+  };
+  try {
+    expect(await send("/sync")).toEqual({
+      authorization: "test-authorization",
+      body: { maxPageUpdates: 1, outgoingUpdates: [] },
+    });
+    expect(await send("/other")).toEqual({
+      authorization: "test-authorization",
+      body: { outgoingUpdates: [] },
+    });
+    expect(transport.history.map(({ body }) => body)).toEqual([
+      { outgoingUpdates: [] },
+      { outgoingUpdates: [] },
+    ]);
+  } finally {
+    transport.dispose();
+    await upstream.stop(true);
+  }
+});

@@ -54,7 +54,9 @@
     "clean:local-caches:dry-run": "bun scripts/dev/cleanLocalCaches.ts --dry-run",
     "generate:openapi": "bun run --cwd packages/validators generate:openapi",
     "generate:protocol-traces": "bun scripts/protocol/generateBaselineDominanceTraces.ts",
+    "generate:protocol-durations": "bun scripts/protocol/generateProtocolDurations.ts",
     "generate:protocol-proof-vectors": "bun scripts/protocol/generateTransparencyVectors.ts",
+    "generate:test-timings": "bun scripts/testing/refreshTestTimings.ts",
     "lint:api-migrations": "bun scripts/checks/lintApiMigrations.ts",
     "lint:architecture": "bun scripts/architecture/lintArchitecture.ts",
     "lint:binary-files": "agent-tool checks binaries",
@@ -96,7 +98,6 @@
     "test:openapi:compatibility": "sh scripts/checks/testOpenApiCompatibility.sh",
     "test:postgres-concurrency": "sh scripts/checks/testPostgresConcurrency.sh",
     "test:native-android-ci": "sh scripts/checks/testNativePurchaseBridge.sh android",
-    "test:native-ios-ci": "sh scripts/checks/testNativePurchaseBridge.sh ios",
     "test:windows-ci": "bun run --cwd packages/app-electrobun prepare:devkit && bun test ./packages/app-electrobun/scripts/cefMonitorExpression.test.ts ./packages/app-electrobun/scripts/verifyWindowsArtifacts.test.ts ./packages/app-electrobun/scripts/windowsSourceMapStaging.test.ts ./packages/app-electrobun/scripts/sentryReleaseSource.test.ts && pwsh -NoProfile -NonInteractive -File packages/app-electrobun/scripts/testWindowsPortConflict.ps1",
     "test:protocol-conformance": "sh scripts/checks/testProtocolConformance.sh",
     "test:protocol-models": "sh scripts/checks/testProtocolModels.sh",
@@ -128,6 +129,7 @@
     "perf:realtime-contention": "bun run --cwd packages/performance realtime:contention",
     "perf:reload": "bun run --cwd packages/performance reload",
     "perf:canaries": "bun run --cwd packages/performance canaries",
+    "perf:statements": "bun run --cwd packages/performance statements",
     "tearleads": "bun run --cwd packages/cli start"
   },
   "workspaces": [

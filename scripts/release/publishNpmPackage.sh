@@ -21,9 +21,8 @@ public access. <package> is its directory under packages/:
 The build uses a temporary directory that is removed on exit. Merging a
 version bump to main publishes each package from its workflow,
 .github/workflows/<package>-publish.yml; use this command to publish by hand.
-ship-pr bumps changed package versions; for other releases, bump the version
-in the package's package.json before publishing. Then authenticate with
-npm login using an account that owns the @tearleads scope.
+Bump the version in the package's package.json before publishing, then
+authenticate with npm login using an account that owns the @tearleads scope.
 
 Options:
   --dry-run     Build and preview npm's publish without uploading.

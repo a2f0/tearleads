@@ -180,7 +180,11 @@ const baseConfig = {
       project: ["src/**/*.ts"],
     },
     "packages/performance": {
-      entry: ["src/**/*.test.ts", "src/database/worker.ts"],
+      entry: [
+        "src/**/*.test.ts",
+        "src/database/worker.ts",
+        "src/statements/capturePreload.ts",
+      ],
       project: ["src/**/*.ts"],
     },
     "packages/ui": {
@@ -320,6 +324,8 @@ const productionConfig = {
         "src/realtime/contention/index.ts!",
         "src/reload/index.ts!",
         "src/canaries/index.ts!",
+        "src/statements/index.ts!",
+        "src/statements/capturePreload.ts!",
       ],
       project: productionProject,
     },

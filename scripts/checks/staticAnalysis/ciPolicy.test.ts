@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { ciDiffRange, ciScopes } from "../ciPolicy";
 
 const repoRoot = resolve(import.meta.dir, "../../..");
@@ -226,6 +226,58 @@ test("each long suite runs in exactly one CI job and every shard runs", async ()
   }
 });
 
+// Bun cuts the path-sorted files by the timings table, so shards that read
+// different tables or arguments could skip a file or run one twice. The table
+// comes from the package's test script, so it sits in the package and Turbo
+// hashes it with the shard's other inputs.
+test("a lane's shards share their arguments and timings table", async () => {
+  const ci = Bun.YAML.parse(
+    await Bun.file(`${repoRoot}/.github/workflows/ci.yml`).text(),
+  ) as {
+    jobs: Record<
+      string,
+      {
+        strategy?: {
+          matrix?: { include?: { filter?: string; args?: string }[] };
+        };
+      }
+    >;
+  };
+  const { test: matrix } = ci.jobs;
+  const entries = matrix?.strategy?.matrix?.include ?? [];
+  const lanes = new Map<string, Set<string>>();
+  for (const { filter = "", args = "" } of entries) {
+    const rest = args
+      .split(" ")
+      .filter((word) => word && !word.startsWith("--shard="))
+      .join(" ");
+    lanes.set(filter, (lanes.get(filter) ?? new Set()).add(rest));
+  }
+  const manifests = new Map<string, { dir: string; test: string }>();
+  for (const path of new Bun.Glob("packages/*/package.json").scanSync(
+    repoRoot,
+  )) {
+    const { name, scripts } = JSON.parse(
+      await Bun.file(`${repoRoot}/${path}`).text(),
+    );
+    manifests.set(name, { dir: dirname(path), test: scripts?.test ?? "" });
+  }
+  for (const [lane, rests] of lanes) {
+    expect(rests.size, lane).toBe(1);
+    expect([...rests][0], lane).not.toContain("--timings");
+    const manifest = manifests.get(lane);
+    expect(manifest, lane).toBeDefined();
+    const table = /--timings=(\S+)/.exec(manifest?.test ?? "")?.[1];
+    if (!table) continue;
+    // A missing table would silently fall back to splitting by file count.
+    const timings = await Bun.file(
+      `${repoRoot}/${manifest?.dir}/${table}`,
+    ).json();
+    expect(timings.version, lane).toBe(1);
+    expect(Object.keys(timings.files).length, lane).toBeGreaterThan(0);
+  }
+});
+
 test("the required gate always evaluates all jobs and platform workflows are callable", async () => {
   const root = `${import.meta.dir}/../../..`;
   const ci = Bun.YAML.parse(
@@ -252,9 +304,8 @@ test("the required gate always evaluates all jobs and platform workflows are cal
   expect(suites?.if).toBeUndefined();
   // The push gate runs no tests, so the browser suite runs only here.
   expect(e2e?.if).toBeUndefined();
-  expect(e2e?.steps?.map(({ run }) => run)).toContain("bun run test:turbo:e2e");
   expect(windows?.if).toBeUndefined();
-  for (const job of ["windows", "native"]) {
+  for (const job of ["windows", "native", "models"]) {
     const path = ci.jobs[job]?.uses;
     expect(path).toBeDefined();
     const platform = Bun.YAML.parse(
@@ -264,6 +315,46 @@ test("the required gate always evaluates all jobs and platform workflows are cal
     };
     expect(platform.on).toHaveProperty("workflow_call");
   }
+});
+
+test("Web E2E runs every Playwright shard through verified Turbo", async () => {
+  const ci = Bun.YAML.parse(
+    await Bun.file(`${repoRoot}/.github/workflows/ci.yml`).text(),
+  ) as {
+    jobs: Record<
+      string,
+      {
+        strategy?: { "fail-fast"?: boolean; matrix?: { shard?: string[] } };
+        env?: Record<string, string>;
+        steps?: { name?: string; run?: string; with?: { name?: string } }[];
+      }
+    >;
+  };
+  const { e2e } = ci.jobs;
+  const shards = e2e?.strategy?.matrix?.shard ?? [];
+  // Every spec runs exactly once: the shards are 1/N through N/N.
+  expect(shards.length).toBeGreaterThan(1);
+  expect(shards).toEqual(
+    Array.from(
+      { length: shards.length },
+      (_, i) => `${i + 1}/${shards.length}`,
+    ),
+  );
+  expect(e2e?.strategy?.["fail-fast"]).toBe(false);
+  // Written apart so the literal is not mistaken for a template placeholder.
+  expect(e2e?.env).toEqual({ E2E_SHARD: "$" + "{{ matrix.shard }}" });
+  const step = (name: string) => e2e?.steps?.find((s) => s.name === name);
+  expect(step("Run E2E tests")?.run).toBe(
+    'bun scripts/testing/runVerifiedTurbo.ts e2e --filter=app-web -- "--shard=$E2E_SHARD"',
+  );
+  // Browsers come from the same shard's listing, so none it runs is missing.
+  expect(step("Install Playwright browsers")?.run).toContain(
+    'e2eShardBrowsers.ts "$E2E_SHARD"',
+  );
+  // Shards fail independently, so each keeps its own failure output.
+  expect(step("Upload Playwright failure output")?.with?.name).toContain(
+    "$" + "{{ strategy.job-index }}",
+  );
 });
 
 test("Lint checks a pull request's branch name without interpolating it", async () => {

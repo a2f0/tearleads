@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-const { NATIVE_RELEASE_TIER } = process.env;
+const { CAPACITOR_WEB_DIR, NATIVE_RELEASE_TIER } = process.env;
 const nativeReleaseTier = (NATIVE_RELEASE_TIER ?? "production")
   .trim()
   .toLowerCase();
@@ -17,7 +17,9 @@ const appId = isStagingRelease
 const config: CapacitorConfig = {
   appId,
   appName: isStagingRelease ? "TL Staging" : "Tearleads",
-  webDir: "dist",
+  // The iOS compile check syncs a placeholder page instead of the web build;
+  // see scripts/checks/testNativePurchaseBridge.sh.
+  webDir: CAPACITOR_WEB_DIR || "dist",
   server: {
     androidScheme: "https",
     iosScheme: "https",

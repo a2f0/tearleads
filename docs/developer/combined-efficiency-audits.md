@@ -18,14 +18,13 @@ gates, rules, batching limits, and
    checkout outside the repository tree, set up once: `bun install`, the
    Electrobun devkit prepare step, and the client SDK build. Neither audit
    installs, rebuilds, edits, or removes that checkout.
-2. Run the request-volume canaries once for both audits, by hand from
-   [`packages/app`](../../packages/app/), with the profile variables from
-   the protocol skill's measurement reference and the SQL capture preload
-   from the database skill's: `bun run perf:canaries` runs the same files
-   but cannot load the preload. Extract the preload from the audited
-   revision's copy of the skill: it changes between revisions.
-   Set `SQL_CAPTURE_PARAM_HASH=1` so either audit can tell a repeated key
-   from a different one; the hashes stay in the private directory.
+2. Run the request-volume canaries once for both audits, from the shared
+   checkout, with `bun run perf:canaries --statements --param-hash`. Each
+   canary's log holds the request profile the protocol audit reads and its
+   capture the statements the database audit reads. The parameter hashes
+   let either audit tell a repeated key from a different one; they stay in
+   the checkout's private `.test_files/performance/` and the audits'
+   measurement directories.
 3. Give each audit its own audit directory, run ID, usage ledger, scratch
    directories, and scratch databases. Share only the checkout, the canary
    output, and a lock for heavy runs (canaries, multi-file test runs), so the

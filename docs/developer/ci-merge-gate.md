@@ -18,43 +18,82 @@ entry points. `Lint` passes pull-request names to
 `agent-tool branch check --pre-push` as stdin ref tuples, so the policy also
 applies to pull requests from clones without hooks.
 
-The API, app, client SDK, and bob-and-alice suites run in `Test (...)` jobs of
-their own, and `Build and test` runs the remaining package tests. The API suite
-runs one backend per job, and every one of these suites splits into Bun shards
-(`--shard=1/3` and so on);
+The API, app, client SDK, bob-and-alice, and CLI suites run in `Test (...)`
+jobs of their own, and `Build and test` runs the remaining package tests. The
+API suite runs one backend per job, and every one of these suites splits into
+Bun shards (`--shard=1/3` and so on);
 [`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
-checks that every backend's shards are all present. The gate requires both jobs,
-so the suites need no ruleset entries. Turbo hashes each shard's arguments, so
-shards cache independently. Turbo serves cached results from the GitHub Actions
-cache: a pull request reads entries written on its own ref or on `main`, while
-`main` never reads an entry a pull request wrote. The nightly `Uncached tests`
-workflow calls the entire CI workflow with `force: true`, including Postgres,
+checks that every backend's shards are all present and that a suite's shards
+share their other arguments. A suite whose `test` script passes `--timings`
+splits by the per-file durations committed in its package rather than by file
+count; see [balancing shards by measured time](test-optimization.md#balance-shards-by-measured-time).
+The gate requires both jobs, so the suites need no ruleset entries. Turbo
+hashes each shard's arguments, so shards cache independently. Turbo serves
+cached results from the GitHub Actions cache: a pull request reads entries
+written on its own ref or on `main`, while `main` never reads an entry a pull
+request wrote. The nightly `Uncached tests` workflow calls the entire CI
+workflow with `force: true`, including Postgres,
 Windows, native bridge compiles, and [protocol models](../../formal/README.md).
 Manual workflow dispatches also bypass the cache.
 
-CI runs the Postgres concurrency probe, Windows CEF persistence probe, and native
-purchase bridge compiles as dedicated root Turbo tasks. Each caches a successful
+CI runs the Postgres concurrency probe, Windows CEF persistence probe, and
+Android purchase bridge compile as dedicated root Turbo tasks, and the iOS
+compile as `app-capacitor#test:native-ios-ci`. Each caches a successful
 verification without build artifacts, keyed on its workspace source dependencies
 and external scripts. Windows and native tasks also hash the hosted
 runner image version; Postgres hashes the service image. The native release tests
 in `Lint` reuse the same `app-capacitor#test` task as `Build and test`.
 
-The two pure TLC model passes run in the `Protocol models (...)` jobs, one per
-pass, with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them
+The iOS compile syncs a placeholder page instead of the web build, which only
+the Android check builds and syncs. Its key therefore covers app-capacitor's
+manifest, iOS project, Capacitor configuration, and locked plugin versions, but
+not the web sources or workspace dependencies. It is a package task because
+Turbo hashes the root manifest into every root task; app-capacitor's manifest
+stays in, since it holds the check's command and Capacitor's sync hooks. It
+keeps no Xcode build state between runs: restoring DerivedData from the Actions
+cache still rebuilt every object file under the runner's Xcode 16.4.
+
+The two pure TLC model passes run in the `Protocol models (...)` jobs of the
+reusable [`protocol-models.yml`](../../.github/workflows/protocol-models.yml)
+workflow with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them
 (`CI_DEFER_PROTOCOL_MODELS=1`). Their inputs include the formal models,
 registry, checker scripts, tool pins, and Java runtime identity. The wrapper
 validates the installed Java version and jar digest before every lookup,
-including cache hits. Implementation projections, conformance tests, and other
+including cache hits. The models split across three jobs
+(`PROTOCOL_MODEL_SHARD=1/3` to `3/3`) by their
+[recorded durations](../../formal/README.md), each overlapping two TLC runs;
+the negative controls run in one job overlapping four
+(`PROTOCOL_TLC_PARALLELISM=4`; local runs default to two and check every
+model). Each JVM's heap is capped so the overlapping runs fit in the runner's
+memory, and each job starts its longest runs first. The shard and the
+parallelism are part of the task hash, so each shard caches on its own and
+changing either reruns the affected jobs.
+[`protocolModelShards.test.ts`](../../scripts/checks/staticAnalysis/protocolModelShards.test.ts)
+checks that the shards in the workflow cover the registry, each model exactly
+once.
+Implementation projections, conformance tests, and other
 static checks still run in `Lint`. Local
 [`check:fast`](./verification.md#before-a-push) and the direct model commands
 still execute TLC.
 
-`Web E2E` runs the app-web Playwright suite in Chromium and the themed
-control tests in Firefox and WebKit through
-`bun run test:turbo:e2e`. Its Turbo task depends on the app-web workspace
-builds and the API's runtime sources, so a pass replays from the cache until a
-change reaches either. The [push gate](./static-analysis.md#ci-and-the-push-gate)
-runs no tests, so CI is the only place this suite runs automatically.
+The `Web E2E (...)` jobs run the app-web Playwright suite in Chromium and the
+themed control tests in Firefox and WebKit, split into Playwright shards
+(`--shard=1/4` and so on) passed to the app-web `e2e` Turbo task. Playwright
+deals whole spec files to shards by test count, not time, and the first
+quarter of the tests holds many quick ones, so it takes four shards for the
+slowest to hold about a third of the suite's time. Each shard keeps
+Playwright's default two workers beside its three app servers and the API, and
+installs only the browsers its listing uses
+([`e2eShardBrowsers.ts`](../../packages/app-web/scripts/e2eShardBrowsers.ts)).
+[`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
+checks that every shard runs, and each shard's log ends with its spec files'
+summed test times, slowest first, for rebalancing. The gate requires the
+job's aggregate result, so the shards need no ruleset entries. The Turbo task
+depends on the app-web workspace builds and the API's runtime sources, so each
+shard replays from the cache until a change reaches either. The
+[push gate](./static-analysis.md#ci-and-the-push-gate) runs no tests, so CI is
+the only place this suite runs automatically; `bun run test:turbo:e2e` runs it
+whole locally.
 
 Website-only source changes leave application unit-test and platform-verification
 hashes unchanged. Version bumps also invalidate client bundle and browser-test
@@ -80,10 +119,17 @@ selection. The shared `agent-tool ci gate` command evaluates
 required jobs and binds conditional jobs to the classifier’s exact outputs. A
 platform job may be skipped only when successful change detection explicitly
 marked it irrelevant. A failed, cancelled, missing, or unexpectedly skipped job
-fails the gate. Changes to workflows, CI scripts, tool pins,
-[`package.json`](../../package.json), or [`bun.lock`](../../bun.lock) exercise
-every lane. CI runs on pull requests and `main` pushes only, so a feature-branch
-push does not duplicate the pull-request run.
+fails the gate. Changes to workflows, CI scripts, tool pins, or
+[`package.json`](../../package.json) exercise every lane. So does a
+[`bun.lock`](../../bun.lock) change, unless it only rewrites workspace
+`version` fields, as a hand version bump does: the
+classifier compares the merge base's and head's lockfiles with those fields
+removed, so a dependency, resolution, integrity, or workspace-set change still
+selects every lane, and a lockfile it cannot read or parse counts as changed.
+A version bump inside a lane's paths, such as
+[`packages/app-capacitor`](../../packages/app-capacitor/), still
+selects that lane. CI runs on pull requests and `main` pushes only, so a
+feature-branch push does not duplicate the pull-request run.
 
 Require the aggregate gate rather than a path-filtered workflow: GitHub leaves
 checks from skipped workflows pending, while skipped jobs can count as passing.
@@ -98,7 +144,7 @@ checks and API errors stop the merge. This also protects standalone helper
 calls, where waiting only for the checks a ruleset requires would be
 insufficient. It does not require the branch to contain the base's newest
 commit: a base that moved during CI needs integration only when GitHub reports
-a conflict or `versions check` fails against the live base. Two PRs that pass
+a conflict. Two PRs that pass
 separately can break `main` together, so CI also runs on every `main` push and
 the `ship-pr` skill starts from `agent-tool repo base-health`. Update
 [`agent-tool.json`](../../agent-tool.json) together with the ruleset when a

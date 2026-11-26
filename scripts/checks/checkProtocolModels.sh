@@ -10,6 +10,25 @@ fail() {
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) ||
   fail "could not resolve the protocol check script directory."
 
+# --list prints the runs to check, in launch order, without resolving Java.
+LIST_ONLY=
+case "$#:${1:-}" in
+  0:) ;;
+  1:--list) LIST_ONLY=1 ;;
+  *) fail "usage: checkProtocolModels.sh [--list]" ;;
+esac
+
+# CI splits the registry across runners: PROTOCOL_MODEL_SHARD=<index>/<count>
+# checks only the runs assigned to that shard. Unset, it checks them all.
+MODEL_SHARD=${PROTOCOL_MODEL_SHARD:-1/1}
+shard_index=${MODEL_SHARD%%/*}
+shard_count=${MODEL_SHARD#*/}
+shard_usage="PROTOCOL_MODEL_SHARD must read <index>/<count>, such as 1/2."
+case "$MODEL_SHARD" in [1-9]*/[1-9]*) ;; *) fail "$shard_usage" ;; esac
+case "$shard_index$shard_count" in *[!0-9]*) fail "$shard_usage" ;; esac
+[ "$shard_index" -le "$shard_count" ] ||
+  fail "PROTOCOL_MODEL_SHARD $MODEL_SHARD names a shard past its count."
+
 for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 REPO_ROOT=$(CDPATH='' cd -P -- "$SCRIPT_DIR/../.." && pwd -P) ||
   fail "Protocol model checks must run inside a Git repository."
@@ -151,12 +170,117 @@ unregistered_model=$(sed -n '1p' "$UNREGISTERED_MODELS")
 mv "$SORTED_MODELS" "$REGISTERED_MODELS" ||
   fail "could not finalize the protocol model registry."
 
+# Longest first: a long model that starts late stretches the check past every
+# other run, so runs start in descending order of the seconds each took,
+# recorded in $DURATIONS_PATH. A model with no recorded duration starts first,
+# since it may be long, and ties keep registry order. The durations decide only
+# when a check finishes and which shard checks a run, never whether it is
+# checked. They are only a hint: an entry for a pair the registry no longer
+# lists, left by a renamed or removed model, is ignored with a note naming it,
+# and weighs nothing in the shards. A malformed or repeated entry still fails.
+DURATIONS_PATH=formal/protocol-model-durations.txt
+RECORDED_DURATIONS=$CHECK_ROOT/recorded-durations.txt
+DURATION_PAIRS=$CHECK_ROOT/duration-pairs.txt
+STALE_DURATIONS=$CHECK_ROOT/stale-durations.txt
+RANKED_MODELS=$CHECK_ROOT/ranked-models.txt
+SCHEDULED_MODELS=$CHECK_ROOT/scheduled-models.txt
+: >"$RECORDED_DURATIONS"
+: >"$DURATION_PAIRS"
+: >"$STALE_DURATIONS"
+if [ -f "$DURATIONS_PATH" ]; then
+  line_number=0
+  while IFS= read -r duration_line || [ -n "$duration_line" ]; do
+    line_number=$((line_number + 1))
+    case "$duration_line" in
+      ''|'#'*) continue ;;
+    esac
+    duration_seconds=${duration_line%% *}
+    duration_pair=${duration_line#* }
+    case "$duration_seconds" in
+      ''|*[!0-9]*)
+        fail "$DURATIONS_PATH:$line_number must read '<seconds> model|config'."
+        ;;
+    esac
+    case "$duration_pair" in
+      ''|*[[:space:]]*)
+        fail "$DURATIONS_PATH:$line_number must read '<seconds> model|config'."
+        ;;
+    esac
+    ! grep -Fqx -- "$duration_pair" "$DURATION_PAIRS" ||
+      fail "$DURATIONS_PATH:$line_number repeats $duration_pair."
+    printf '%s\n' "$duration_pair" >>"$DURATION_PAIRS"
+    if grep -Fqx -- "$duration_pair" "$REGISTERED_MODELS"; then
+      printf '%s %s\n' "$duration_seconds" "$duration_pair" >>"$RECORDED_DURATIONS"
+    else
+      printf '%s\n' "$duration_pair" >>"$STALE_DURATIONS"
+    fi
+  done <"$DURATIONS_PATH"
+fi
+if [ -s "$STALE_DURATIONS" ]; then
+  # Best effort, like every report line (see report_line), and on stderr so
+  # --list prints only runs.
+  printf 'Note: %s lists runs %s does not register, ignored: %s. Regenerate it with bun run generate:protocol-durations <log>...\n' \
+    "$DURATIONS_PATH" "$REGISTRY_PATH" "$(tr '\n' ' ' <"$STALE_DURATIONS" | sed 's/ $//')" | cat >&2 || :
+fi
+# Each line becomes "unrecorded seconds registry-position pair" for sorting.
+awk -v durations="$RECORDED_DURATIONS" '
+  BEGIN {
+    while ((getline entry < durations) > 0) {
+      split(entry, field, " ")
+      seconds[field[2]] = field[1]
+    }
+  }
+  $0 in seconds { print 0, seconds[$0], NR, $0; next }
+  { print 1, 0, NR, $0 }' "$REGISTERED_MODELS" >"$RANKED_MODELS" ||
+  fail "could not rank the registered models."
+# Sharding deals the runs, in that order, to the shard with the least recorded
+# work so far (the lowest-numbered on a tie). A run weighs its seconds plus one;
+# an unrecorded run weighs as much as the longest recorded one. Every shard
+# computes the same assignment, so each run lands in exactly one shard.
+ASSIGNED_MODELS=$CHECK_ROOT/assigned-models.txt
+LC_ALL=C sort -k1,1nr -k2,2nr -k3,3n "$RANKED_MODELS" |
+  awk -v shards="$shard_count" '
+    {
+      unrecorded[NR] = $1
+      seconds[NR] = $2
+      pair[NR] = $4
+      if (!$1 && $2 > longest) longest = $2
+    }
+    END {
+      for (shard = 1; shard <= shards; shard++) work[shard] = 0
+      for (run = 1; run <= NR; run++) {
+        lightest = 1
+        for (shard = 2; shard <= shards; shard++)
+          if (work[shard] < work[lightest]) lightest = shard
+        work[lightest] += (unrecorded[run] ? longest : seconds[run]) + 1
+        print lightest, pair[run]
+      }
+    }' >"$ASSIGNED_MODELS" || fail "could not order the registered models."
+# Scheduling reorders the registry and must never drop a model from it.
+[ "$(wc -l <"$ASSIGNED_MODELS")" -eq "$(wc -l <"$REGISTERED_MODELS")" ] ||
+  fail "scheduling the registered models lost some of them."
+awk -v shard="$shard_index" '$1 == shard { print $2 }' "$ASSIGNED_MODELS" \
+  >"$SCHEDULED_MODELS" || fail "could not select shard $MODEL_SHARD."
+mv "$SCHEDULED_MODELS" "$REGISTERED_MODELS" ||
+  fail "could not schedule the registered models."
+
+if [ -n "$LIST_ONLY" ]; then
+  cat "$REGISTERED_MODELS"
+  exit 0
+fi
+
 TLC_PARALLELISM=${PROTOCOL_TLC_PARALLELISM:-2}
 case "$TLC_PARALLELISM" in
   *[!0-9]*) fail "PROTOCOL_TLC_PARALLELISM must be a positive integer." ;;
 esac
 [ "$TLC_PARALLELISM" -ge 1 ] ||
   fail "PROTOCOL_TLC_PARALLELISM must be a positive integer."
+# Each JVM's heap share of physical memory, as tlcHeapPercent in
+# scripts/protocol/tlcTools.ts computes it: overlapping runs share 75 percent,
+# and up to three keep the JVM's default 25.
+TLC_HEAP_PERCENT=$((75 / TLC_PARALLELISM))
+[ "$TLC_HEAP_PERCENT" -le 25 ] || TLC_HEAP_PERCENT=25
+[ "$TLC_HEAP_PERCENT" -ge 1 ] || TLC_HEAP_PERCENT=1
 
 if [ -z "${JAVA_BIN:-}" ] || [ -z "${TLA_TOOLS_ROOT:-}" ]; then
   command -v mise >/dev/null 2>&1 ||
@@ -217,6 +341,7 @@ run_model() {
   run_state_path=$CHECK_ROOT/model-$1
   mkdir "$run_state_path" "$run_state_path/java-tmp"
   "$JAVA_BIN" -XX:+UseParallelGC \
+    "-XX:MaxRAMPercentage=$TLC_HEAP_PERCENT" \
     "-Djava.io.tmpdir=$run_state_path/java-tmp" \
     "-Djdk.net.hosts.file=$TLC_HOSTS_FILE" \
     -jar "$TLA_TOOLS_JAR" \
@@ -238,10 +363,10 @@ run_model() {
 }
 
 # Up to $TLC_PARALLELISM runs overlap. A finished run posts its index to a FIFO,
-# which frees its slot. Output is replayed in registry order once every earlier
+# which frees its slot. Output is replayed in launch order once every earlier
 # run has finished, so the log reads the same at any parallelism. After a
 # failure no new run starts and the in-flight ones finish; the first failure in
-# registry order sets the exit status.
+# launch order sets the exit status.
 DONE_FIFO=$CHECK_ROOT/done
 mkfifo "$DONE_FIFO"
 exec 3<>"$DONE_FIFO"
@@ -342,4 +467,8 @@ if [ -n "$failed_index" ]; then
   exit "$failed_status"
 fi
 
-report_line "Checked $model_count protocol model configuration(s)."
+if [ "$shard_count" -gt 1 ]; then
+  report_line "Checked $model_count protocol model configuration(s) in shard $MODEL_SHARD."
+else
+  report_line "Checked $model_count protocol model configuration(s)."
+fi

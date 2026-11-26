@@ -124,7 +124,9 @@ map (normalized SQL shortened to its table and predicate, count, total time,
 rows read per returned, index used), and `<RECENT_COMMITS>` with commits
 since the deployed revision that touch the slice. Point `<BASELINE_FILE>`,
 `<MEASUREMENT_DIR>`, `<MEASUREMENT_REFERENCE>` (this skill's
-`references/measurement.md`), and `<CAPTURE_PRELOAD>` at absolute paths.
+`references/measurement.md`), and `<CAPTURE_PRELOAD>` (the audited
+checkout's `packages/performance/src/statements/capturePreload.ts`) at
+absolute paths.
 Give each concurrent auditor its own `<SCRATCH_DB>`.
 
 ## Waste classes to sweep

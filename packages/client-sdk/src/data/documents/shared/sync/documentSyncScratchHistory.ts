@@ -8,6 +8,7 @@ import {
   LoroImportUnresolvedDependenciesError,
   LoroReusedOperationIdError,
   listVersionVectorSpans,
+  mergeVersionVectors,
   satisfiesVersionVector,
   updateMatchesDocumentHistory,
   versionVectorsEqual,
@@ -15,6 +16,7 @@ import {
 import { assertDecryptedDocumentUpdateMetadata } from "../documentUpdateIntegrity";
 import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
 import { importDecryptedDocumentSyncUpdates } from "./documentSyncUpdateImport";
+import type { DocumentOperationSpan } from "./documentUpdateVerdict";
 
 export type SyncDocument = Awaited<ReturnType<typeof createDocument>>;
 
@@ -40,13 +42,14 @@ export type ScratchJudgement =
   | {
       readonly failure: unknown;
       /**
-       * Whether the update could not join because the reader lacks an
-       * operation its signed start or signed dependencies name. An import
-       * that leaves operations pending with both held is not this: the
-       * payload itself skips operations, which is its writer's doing and
-       * the same for every reader.
+       * The operations the reader lacks that the update's signed start or
+       * signed dependencies name: for each such peer, the counters from the
+       * reader's own to the one named. Empty when the reader holds both. An
+       * import that then leaves operations pending is the payload itself
+       * skipping operations, which is its writer's doing and the same for
+       * every reader.
        */
-      readonly missingDependency: boolean;
+      readonly missingOperations: readonly DocumentOperationSpan[];
       /**
        * Set when the update reuses ids of operations this device wrote under
        * its own peer with other operations: a writer committed them as it.
@@ -87,36 +90,48 @@ function totalBytes(updates: readonly DecryptedDocumentSyncUpdate[]): number {
 }
 
 /**
- * Whether `update` starts past an operation `held` lacks on one of its own
- * peers. Loro would keep such an update pending inside the scratch document,
- * so it is judged from its metadata alone. A blob whose metadata does not
- * decode is left to the import, which fails before changing anything.
+ * The start `update`'s blob declares. Null when its metadata does not
+ * decode: that blob is left to the import, which fails before changing
+ * anything.
  */
-function startsPastHeldCounters(
-  held: string,
-  update: DecryptedDocumentSyncUpdate,
-): boolean {
-  let start: string;
+function declaredStart(update: DecryptedDocumentSyncUpdate): string | null {
   try {
-    start = getImportBlobMetadata(update.updateData).partialStartVersionVector;
+    return getImportBlobMetadata(update.updateData).partialStartVersionVector;
   } catch (error) {
     if (isLoroRuntimeFailure(error)) throw error;
-    return false;
+    return null;
   }
-  return !satisfiesVersionVector(held, start);
 }
 
-/** Whether `held` lacks an operation `update` signs a dependency on. */
-function lacksDeclaredDependency(
+/**
+ * The operations the vectors in `named` name that `held` lacks: for each
+ * such peer, the counters from the reader's own to the highest one named. A
+ * vector that does not decode names none.
+ */
+function missingOperations(
   held: string,
-  update: DecryptedDocumentSyncUpdate,
-): boolean {
-  try {
-    return !satisfiesVersionVector(held, update.dependencyVersionVector);
-  } catch (error) {
-    if (isLoroRuntimeFailure(error)) throw error;
-    return false;
+  named: readonly string[],
+): DocumentOperationSpan[] {
+  const missing = new Map<string, DocumentOperationSpan>();
+  for (const vector of named) {
+    let lacked: DocumentOperationSpan[];
+    try {
+      lacked = listVersionVectorSpans({
+        partialEndVersionVector: mergeVersionVectors([held, vector]),
+        partialStartVersionVector: held,
+      });
+    } catch (error) {
+      if (isLoroRuntimeFailure(error)) throw error;
+      continue;
+    }
+    for (const span of lacked) {
+      const known = missing.get(span.peerId);
+      if (!known || known.endCounter < span.endCounter) {
+        missing.set(span.peerId, span);
+      }
+    }
   }
+  return [...missing.values()];
 }
 
 /**
@@ -141,11 +156,11 @@ function importVoid(
   failure: unknown,
   scratchChanged: boolean,
   preemptedPeerId: string | null = null,
-  missingDependency = false,
+  missing: readonly DocumentOperationSpan[] = [],
 ): ScratchVoid {
   return {
     failure,
-    missingDependency,
+    missingOperations: missing,
     preemptedPeerId,
     scratchChanged,
     stage: "loro_import",
@@ -183,8 +198,16 @@ function judgeOnScratch(
   own: OwnPeer,
 ): ScratchJudgement {
   const held = encodeVersionVector(document);
-  if (startsPastHeldCounters(held, update)) {
-    return importVoid(new Error(MISSING_DEPENDENCY_MESSAGE), false, null, true);
+  // Loro would keep an update that starts past the reader's counters pending
+  // inside the scratch document, so it is judged from its metadata alone.
+  const start = declaredStart(update);
+  if (start !== null && !satisfiesVersionVector(held, start)) {
+    return importVoid(
+      new Error(MISSING_DEPENDENCY_MESSAGE),
+      false,
+      null,
+      missingOperations(held, [start, update.dependencyVersionVector]),
+    );
   }
   const changed = () =>
     !versionVectorsEqual(encodeVersionVector(document), held);
@@ -200,7 +223,7 @@ function judgeOnScratch(
         new Error(MISSING_DEPENDENCY_MESSAGE, { cause: error }),
         true,
         null,
-        lacksDeclaredDependency(held, update),
+        missingOperations(held, [update.dependencyVersionVector]),
       );
     }
     if (error instanceof LoroReusedOperationIdError) {
@@ -235,7 +258,7 @@ function judgeUpdate(
     }
     return {
       failure: error,
-      missingDependency: false,
+      missingOperations: [],
       preemptedPeerId: null,
       scratchChanged: false,
       stage: "loro_metadata",

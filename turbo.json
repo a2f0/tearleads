@@ -20,7 +20,11 @@
         ".mise.toml",
         "mise.lock"
       ],
-      "env": ["TLC_JAVA_RUNTIME", "PROTOCOL_TLC_PARALLELISM"],
+      "env": [
+        "TLC_JAVA_RUNTIME",
+        "PROTOCOL_TLC_PARALLELISM",
+        "PROTOCOL_MODEL_SHARD"
+      ],
       "passThroughEnv": [
         "JAVA_BIN",
         "TLA_TOOLS_ROOT",
@@ -72,16 +76,6 @@
       ],
       "env": ["ImageOS", "ImageVersion"],
       "passThroughEnv": ["ANDROID_HOME", "ANDROID_SDK_ROOT", "JAVA_HOME"],
-      "outputs": []
-    },
-    "//#test:native-ios-ci": {
-      "dependsOn": ["app-capacitor#sources"],
-      "inputs": [
-        "scripts/**",
-        "!scripts/localstack/data/**",
-        ".github/workflows/native-purchase-bridges.yml"
-      ],
-      "env": ["ImageOS", "ImageVersion", "DEVELOPER_DIR"],
       "outputs": []
     },
     "//#test:postgres-concurrency": {

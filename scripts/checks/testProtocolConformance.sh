@@ -25,6 +25,7 @@ exec bun test \
   protocol/restartProbeTraceModule.test.ts \
   protocol/protocolNegativeControls.test.ts \
   protocol/tlcTools.test.ts \
+  protocol/tlcDurations.test.ts \
   protocol/leanTools.test.ts \
   protocol/failFastPool.test.ts \
   protocol/noBrickTraceModule.test.ts \

@@ -14,6 +14,7 @@ config_path=
 metadir_path=
 tmpdir_path=
 hosts_path=
+heap_percent=
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -27,6 +28,7 @@ while [ "$#" -gt 0 ]; do
       ;;
     -Djava.io.tmpdir=*) tmpdir_path=${1#-Djava.io.tmpdir=} ;;
     -Djdk.net.hosts.file=*) hosts_path=${1#-Djdk.net.hosts.file=} ;;
+    -XX:MaxRAMPercentage=*) heap_percent=${1#-XX:MaxRAMPercentage=} ;;
     *.tla) model_path=$1 ;;
   esac
   shift
@@ -40,7 +42,7 @@ done
 # Real TLC resolves this host's name, which must not reach the system resolver.
 grep -q " $(hostname) " "$hosts_path" 2>/dev/null || exit 2
 
-printf '%s|%s|%s|%s|%s\n' "$model_path" "$config_path" "$metadir_path" "$tmpdir_path" "$$" >>"$FAKE_JAVA_LOG"
+printf '%s|%s|%s|%s|%s|%s\n' "$model_path" "$config_path" "$metadir_path" "$tmpdir_path" "$$" "$heap_percent" >>"$FAKE_JAVA_LOG"
 
 # A long model: keep this PID alive without reacting to SIGINT, as TLC does in a
 # background job.
