@@ -113,7 +113,7 @@ const WHOLE: BaselineGroupRun = {
   baselineId: BASELINE_ID,
   digest: "a".repeat(64),
   nextIndex: 2,
-  unapplied: false,
+  unapplied: [],
 };
 
 // The server leaves out of a page every update whose operations the page's

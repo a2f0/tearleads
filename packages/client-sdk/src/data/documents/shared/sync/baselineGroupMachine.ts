@@ -16,6 +16,7 @@
  * so the reader follows a group in part: indices only rise, and a final
  * segment's count must fit its index.
  */
+import type { DocumentOperationSpan } from "./documentUpdateVerdict";
 
 /**
  * The group a page ended inside, carried to the pull's next page. Its
@@ -32,12 +33,14 @@ export interface BaselineGroupRun {
   /** One past the index of the last segment served. */
   readonly nextIndex: number;
   /**
-   * Whether a segment of the group served so far in this pull was not
-   * accepted. A later segment that cannot join the reader's history is then
-   * its writer's doing, not a segment the server left out. The machine does
-   * not set it; the pass does, once it has the page's verdicts.
+   * The operations that segments of the group, served so far in this pull,
+   * declared and the reader did not take: at most one span a peer, in peer
+   * order. A later segment that cannot join the reader's history for want
+   * of these alone is its writer's doing, not a segment the server left
+   * out. The machine does not set it; the pass does, once it has the
+   * page's verdicts (`settleBaselineGroupVerdicts`).
    */
-  readonly unapplied: boolean;
+  readonly unapplied: readonly DocumentOperationSpan[];
 }
 
 export type BaselineGroupFault =
@@ -232,7 +235,7 @@ export function baselineGroupRunOf(
       baselineId: state.baselineId,
       digest: state.digest,
       nextIndex: state.nextIndex,
-      unapplied: false,
+      unapplied: [],
     };
   }
   return state.status === "partial"
@@ -240,7 +243,20 @@ export function baselineGroupRunOf(
         baselineId: state.baselineId,
         digest: null,
         nextIndex: state.lastIndex + 1,
-        unapplied: false,
+        unapplied: [],
       }
     : null;
+}
+
+/**
+ * Whether a page that starts in `state` continues a group followed whole.
+ * The pass asks for such a page with no version (`pullPageRequest`) and
+ * judges it as a cold one (`isColdPullPage`). Both decide it here, from the
+ * state of the run the page's own cursor continues, so a page is never
+ * asked for one way and judged the other.
+ */
+export function continuesWholeBaselineGroup(
+  state: BaselineGroupState,
+): boolean {
+  return state.status === "whole";
 }

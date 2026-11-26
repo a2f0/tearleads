@@ -229,14 +229,10 @@ async function judgeDocumentSyncResponseUpdates(
   return {
     baselineGroupRun: settleBaselineGroupVerdicts({
       appliedUpdateIds: new Set(decryptedUpdates.map(({ id }) => id)),
-      missingDependencyUpdateIds: new Set(
-        importVerdicts.voided
-          .filter((entry) => entry.missingDependency)
-          .map((entry) => entry.updateId),
-      ),
       nextRun: baselineGroupRun,
       run: input.baselineGroupRun,
       updates: input.response.updates,
+      voided: importVerdicts.voided,
     }),
     decryptedUpdates,
     deferred: importVerdicts.deferredUpdateIds.length > 0,
