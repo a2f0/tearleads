@@ -143,6 +143,7 @@ export async function saveDocumentRecord(
     attachmentStaging: options.attachmentStaging,
     clearSyncFailure: options.clearSyncFailure,
     ...(commitSideEffect ? { commitSideEffect } : {}),
+    committedVersions: options.committedVersions,
     containerId: state.runtime.state.containerId,
     currentDoc,
     currentRecord: state.record,

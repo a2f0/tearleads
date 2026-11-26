@@ -350,7 +350,7 @@ test("a baseline that is not whole cannot enable the redirect", async () => {
   expect(await coverageOf(documentId)).toBe(vv3);
 });
 
-// Every epoch advance normally carries a rotate_baseline, but a sync-carried
+// Every epoch advance normally carries a rotation baseline, but a sync-carried
 // content-key bundle can advance the epoch alone. With no current-epoch
 // baseline the redirect must be unable to fire — a prior-epoch baseline,
 // however valid, must not stand in — so nothing is ever omitted.

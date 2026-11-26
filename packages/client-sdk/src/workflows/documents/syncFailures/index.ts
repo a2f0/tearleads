@@ -1,9 +1,7 @@
 import {
   DOCUMENT_SYNC_ERROR_CODES,
-  type DocumentPeerFrontier,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
-  isDocumentPeerRebaseErrorCode,
 } from "@tearleads/validators/response";
 import {
   isUpstreamDeletedDocumentSyncFailure,
@@ -14,6 +12,10 @@ import type {
   DocumentSyncPlan,
   MaterializedDocumentSyncPlan,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
+import {
+  type PeerRefusal,
+  peerRefusalOf,
+} from "../../../data/documents/shared/sync/peerRefusalRecovery";
 import {
   type DocumentSyncCommitLsnMode,
   type DocumentSyncPullContinuation,
@@ -68,7 +70,7 @@ type FailedDocumentSyncAction =
       readonly kind: "rebase_peer";
       /** Reported as terminal when the rebase finds nothing to cut. */
       readonly failure: DocumentSyncSubmitFailure;
-      readonly peerFrontiers: readonly DocumentPeerFrontier[];
+      readonly refusal: PeerRefusal;
     };
 
 const SUBMIT_FAILURE_TRACE_ACTIONS = {
@@ -171,16 +173,13 @@ async function classifyFailedDocumentSyncAction(input: {
   }
 
   // Another user owns a peer this request extends, or it depends on an op
-  // nobody committed. The pass rebases the record's unsent ops past the named
-  // peers' frontiers onto a fresh peer and ends; the next pass sends the
-  // rebased update. Ending spends no retry, so the last attempt rebases too.
-  const peerFrontiers = input.failure.peerFrontiers ?? [];
-  if (
-    input.canRebaseOntoFreshPeer === true &&
-    isDocumentPeerRebaseErrorCode(input.failure.code) &&
-    peerFrontiers.length > 0
-  ) {
-    return { failure: input.failure, kind: "rebase_peer", peerFrontiers };
+  // nobody committed. The pass hands the named frontiers to the host, which
+  // rebases the record's unsent ops onto a fresh peer or relays ops the
+  // server lost, and ends; the next pass sends the new queue. Ending spends
+  // no retry, so the last attempt recovers too.
+  const refusal = peerRefusalOf(input.failure);
+  if (input.canRebaseOntoFreshPeer === true && refusal) {
+    return { failure: input.failure, kind: "rebase_peer", refusal };
   }
 
   input.failure.report();

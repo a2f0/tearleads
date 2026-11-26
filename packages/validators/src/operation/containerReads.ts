@@ -123,7 +123,7 @@ export const listContainerParentLanesOperation = defineJsonOperation({
   id: "containers.parentLanes.query",
   summary: "List containers by parent lane",
   description:
-    "Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to four requested parent lanes, each with its own watermark. Clients use it to discover and incrementally refresh the folder tree. Any signed-in user may call it; access is checked per container.",
+    "Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to 32 requested parent lanes, each with its own watermark. Clients use it to discover and incrementally refresh the folder tree. Any signed-in user may call it; access is checked per container.",
   method: "POST",
   params: z.strictObject({}),
   path: "/containers/parent-lanes/query",

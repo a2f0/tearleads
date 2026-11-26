@@ -90,6 +90,8 @@ async function collectVerifiedRawHistoryForRotation(input: {
       rebuiltDocument,
       voids,
     });
+    // Read before anything local is imported: only what the pull served.
+    const servedVersion = encodeVersionVector(rebuiltDocument);
     // The rebuild outlived every page: earlier deaths were not its to keep.
     await noteBesideRotation(
       input.state,
@@ -105,6 +107,7 @@ async function collectVerifiedRawHistoryForRotation(input: {
       consumedPullContinuation,
       currentRecord: input.currentRecord,
       rebuiltDocument,
+      servedVersion,
       synced,
       voids,
       writerProjectionGeneration,
@@ -198,6 +201,7 @@ function installRotationRecovery(input: {
         currentRecord: collection.currentRecord,
         generation,
         rebuiltDoc: collection.rebuiltDocument,
+        servedVersion: collection.servedVersion,
         state,
         synced: collection.synced,
         writerProjectionGeneration: collection.writerProjectionGeneration,

@@ -177,7 +177,7 @@ describeSchema(
 
 describeSchema(
   ListContainerParentLanesRequestSchema,
-  "Up to four parent lanes to list, each with its own watermark and page size.",
+  "Up to 32 parent lanes to list, each with its own watermark and page size.",
 );
 
 describeSchema(

@@ -6,12 +6,15 @@ import {
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../projectors";
 import { trackerGraphTimestamp } from "../shared/timeSeriesGraphData";
 import { loadContinuityAssets } from "./continuityAssets";
+import { appendNoteAddition, continuityFolders } from "./continuityFolders";
 import { continuityGroups } from "./continuityRoster";
 import { continuityDocuments, type SeedDocument } from "./seedDocuments";
 
 interface Detail {
   readonly title: string;
   readonly imageCount?: number;
+  readonly attributeCount?: number;
+  readonly avatar?: string;
 }
 
 function project(document: SeedDocument) {
@@ -62,6 +65,7 @@ test("pinned Continuity yields every promised document, title, image, and tracke
     ["appliance", expected.appliances],
     ["weight", [expected.weight]],
     ["blood_pressure", [expected.bloodPressure]],
+    ["passcode", expected.passcodes],
   ];
   for (const [kind, details] of promised) {
     const ofKind = documents.filter((document) => document.kind === kind);
@@ -74,9 +78,16 @@ test("pinned Continuity yields every promised document, title, image, and tracke
       const [document] = matches;
       if (!document) throw new Error(`Missing fixture for ${detail.title}`);
       expect(document.attachments).toHaveLength(detail.imageCount ?? 0);
-      for (const { measuredAt = "" } of document.rows ?? []) {
-        expect(Number.isFinite(trackerGraphTimestamp(measuredAt))).toBe(true);
+      if (kind === "passcode") {
+        expect(document.rows ?? []).toHaveLength(detail.attributeCount ?? 0);
+      } else {
+        for (const { measuredAt = "" } of document.rows ?? []) {
+          expect(Number.isFinite(trackerGraphTimestamp(measuredAt))).toBe(true);
+        }
       }
+      expect(document.attachments.find(({ avatar }) => avatar)?.file).toBe(
+        detail.avatar,
+      );
       for (const attachment of document.attachments) {
         expect((await readAttachment(attachment.file)).length).toBeGreaterThan(
           0,
@@ -133,4 +144,31 @@ test("pinned Continuity groups resolve to the roster names the screenshot run as
       ),
     })),
   ).toEqual(expected.groups);
+});
+
+test("pinned Continuity folders hold notes whose additions produce the promised text", async () => {
+  const { spec, readAttachment } = await loadContinuityAssets();
+  const expected = JSON.parse(
+    new TextDecoder().decode(await readAttachment("expectations.json")),
+  );
+  const authors = new Map(
+    (spec.contacts ?? []).map(({ id, fields }) => [
+      id,
+      `${fields.firstName} ${fields.lastName}`,
+    ]),
+  );
+  expect(
+    continuityFolders(spec).map(({ name, grants, notes }) => ({
+      name,
+      grants,
+      notes: notes.map(({ document, additions }) => ({
+        title: project(document).title,
+        text: additions.reduce(
+          (text, { text: line }) => appendNoteAddition(text, line) ?? text,
+          document.text ?? "",
+        ),
+        authors: additions.map(({ author }) => authors.get(author)),
+      })),
+    })),
+  ).toEqual(expected.folders);
 });

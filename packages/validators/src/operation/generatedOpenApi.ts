@@ -712,7 +712,7 @@ export type paths = {
         put?: never;
         /**
          * List containers by parent lane
-         * @description Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to four requested parent lanes, each with its own watermark. Clients use it to discover and incrementally refresh the folder tree. Any signed-in user may call it; access is checked per container.
+         * @description Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to 32 requested parent lanes, each with its own watermark. Clients use it to discover and incrementally refresh the folder tree. Any signed-in user may call it; access is checked per container.
          */
         post: operations["containers.parentLanes.query"];
         delete?: never;
@@ -3343,7 +3343,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description Up to four parent lanes to list, each with its own watermark and page size. */
+        /** @description Up to 32 parent lanes to list, each with its own watermark and page size. */
         ListContainerParentLanesRequest: {
             lanes: {
                 laneId: string;

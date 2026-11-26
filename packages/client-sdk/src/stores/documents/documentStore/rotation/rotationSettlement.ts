@@ -1,6 +1,7 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@tearleads/loro";
 import {
   createDocumentSyncLoroWindow,
+  documentSyncCommittedVersions,
   type PendingUpdateRecord,
   settleDocumentSyncLoroWindow,
 } from "../../../../workflows/documents";
@@ -147,6 +148,7 @@ async function persistStagedSettlement(input: {
     },
     {
       acceptedPendingUpdateIds: syncAttempt.synced.settledPendingUpdateIds,
+      committedVersions: documentSyncCommittedVersions(syncAttempt.synced),
       expectedSyncState: {
         pullContinuation: syncAttempt.consumedPullContinuation,
         record: syncAttempt.requestRecord,

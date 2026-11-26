@@ -61,12 +61,14 @@ test("remote reset rebinds only the purged organization to its replacement", asy
         appKind: "documents",
         localId: "old-local",
         documentId: "shared-old-document-id",
+        committedVersion: "seen-committed",
         updatedAt: STALE,
       },
       {
         appKind: "documents",
         localId: "keep-local",
         documentId: "keep-document-id",
+        committedVersion: "seen-committed",
         updatedAt: STALE,
       },
       {
@@ -127,8 +129,11 @@ test("remote reset rebinds only the purged organization to its replacement", asy
       .select()
       .from(documents)
       .where(eq(documents.localId, "old-local"));
+    // The reset queues the whole history as unsent, so the record forgets
+    // what it saw the old server document commit.
     expect(resetDocument).toEqual(
       expect.objectContaining({
+        committedVersion: null,
         documentId: null,
         recoveryDocumentId: "shared-old-document-id",
       }),
@@ -139,6 +144,7 @@ test("remote reset rebinds only the purged organization to its replacement", asy
       .where(eq(documents.localId, "keep-local"));
     expect(keptDocument).toEqual(
       expect.objectContaining({
+        committedVersion: "seen-committed",
         documentId: "keep-document-id",
         recoveryDocumentId: null,
       }),

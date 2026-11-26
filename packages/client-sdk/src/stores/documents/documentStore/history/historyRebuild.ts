@@ -18,10 +18,12 @@ import {
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
 
 /**
- * Machinery for reconstructing a full-history document from a verified remote
- * pull. Used by the rotation preflight (rotation.ts): it pulls the remote op
- * log, replays it into a fresh document alongside the durable local queue,
- * and installs the rebuilt document — preserving op identity end to end.
+ * Installs a full-history document rebuilt from a verified raw remote pull.
+ * The rotation preflight (rotation/index.ts) pulls the remote op log into a
+ * fresh document, proves the live history against it, and installs it
+ * here, preserving op identity end to end. Queued ordinary updates are
+ * committed and pulled again before the install; they are never installed
+ * from the queue.
  */
 
 export async function installRebuiltDocument(input: {
@@ -29,6 +31,11 @@ export async function installRebuiltDocument(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   generation: DocumentStoreSyncGeneration;
   rebuiltDoc: DocumentState;
+  /**
+   * The rebuilt document's version when its raw pull completed, before any
+   * other import: what the server served, recorded as committed.
+   */
+  servedVersion: string;
   state: DocumentStoreState;
   synced: SyncRemoteDocumentResult;
   /** `state.writerProjectionGeneration` when the recovery pull started. */
@@ -61,6 +68,10 @@ export async function installRebuiltDocument(input: {
     },
     {
       acceptedPendingUpdateIds: input.synced.settledPendingUpdateIds,
+      // What every page of the raw pull served, so the server holds all
+      // of it. Never the rebuilt document's own version: an operation the
+      // rebuild held beyond the pull would be counted committed unsent.
+      committedVersions: [input.servedVersion],
       expectedSyncState: {
         pullContinuation: input.consumedPullContinuation,
         record: input.currentRecord,

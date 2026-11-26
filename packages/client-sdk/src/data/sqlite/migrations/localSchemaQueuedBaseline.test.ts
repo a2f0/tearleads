@@ -7,9 +7,9 @@ import { migrateLocalSchema } from "./migrateLocalSchema";
 
 const CREATED_AT = "2026-11-25T00:00:00.000Z";
 
-// The version-12 shape: the current table with the vector that marked a
+// The version-14 shape: the current table with the vector that marked a
 // queued rotation baseline.
-const VERSION_12_HISTORY_UPDATES = `CREATE TABLE "document_history_updates" (
+const VERSION_14_HISTORY_UPDATES = `CREATE TABLE "document_history_updates" (
   "id" TEXT,
   "app_kind" TEXT NOT NULL,
   "local_id" TEXT NOT NULL,
@@ -24,8 +24,8 @@ const VERSION_12_HISTORY_UPDATES = `CREATE TABLE "document_history_updates" (
   PRIMARY KEY ("id")
 )`;
 
-const VERSION_12_STEPS = localSchemaMigrations.filter(
-  (migration) => migration.version <= 12,
+const VERSION_14_STEPS = localSchemaMigrations.filter(
+  (migration) => migration.version <= 14,
 );
 
 function historyUpdateColumns(
@@ -36,13 +36,13 @@ function historyUpdateColumns(
   );
 }
 
-test("step 13 drops the queued baseline vector and keeps a version-12 queue", async () => {
+test("step 15 drops the queued baseline vector and keeps a version-14 queue", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-queued-baseline",
   );
   try {
-    await migrateLocalSchema(execSql, { migrations: VERSION_12_STEPS });
-    await execSql(VERSION_12_HISTORY_UPDATES);
+    await migrateLocalSchema(execSql, { migrations: VERSION_14_STEPS });
+    await execSql(VERSION_14_HISTORY_UPDATES);
     await execSql(
       `CREATE UNIQUE INDEX "document_history_updates_update_id_idx"
          ON "document_history_updates" ("update_id")
@@ -102,12 +102,12 @@ test("step 13 drops the queued baseline vector and keeps a version-12 queue", as
   }
 });
 
-test("step 13 skips a database that never created the history table", async () => {
+test("step 15 skips a database that never created the history table", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-queued-baseline-absent",
   );
   try {
-    await migrateLocalSchema(execSql, { migrations: VERSION_12_STEPS });
+    await migrateLocalSchema(execSql, { migrations: VERSION_14_STEPS });
     // Another table makes the database one with user data, not a fresh one.
     await execSql('CREATE TABLE "unrelated" ("id" TEXT PRIMARY KEY)');
 

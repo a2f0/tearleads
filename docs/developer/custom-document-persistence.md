@@ -103,16 +103,53 @@ must not enqueue the optional outgoing update.
 `installPeerRebase(...)` is optional. Without it a sync the server refuses
 with `document_sync_peer_owned` or `document_sync_dependency_uncommitted`
 records a terminal failure; with it the
-document store [rebases onto a fresh peer](../advisory-op-spans.md#rebasing-onto-a-fresh-peer)
-and retries. In one transaction, it confirms the record still has the expected
-`documentId` and `recoveryGeneration`, that no checkpoint or history row
-ends past `readVersion`, and that exactly the `queuedUpdateIds` are still
-queued, then replaces every history row with the supplied
-checkpoint and one queued outgoing update, deletes the scope's void rows and
-preemption notices, and, for a `document` record, stores `peerSalt`, sets the
-pending base and snapshot end to the checkpoint's frontier, and advances
-`recoveryGeneration`. It returns false and writes nothing when any check fails
-or `stillCurrent()` is false at commit.
+document store [rebases onto a fresh peer](../peer-ownership.md#rebasing-onto-a-fresh-peer),
+or [relays](../peer-ownership.md#after-a-stale-recreation) operations the
+server lost, and retries.
+
+Its input is a union keyed on `kind`, `"fork"` or `"relay"`, and only a fork
+carries `checkpoint` and `record`. An adapter written for the earlier
+fork-only input must branch on `kind` and handle `"relay"`; it must not read
+`checkpoint` on a relay. In one transaction, it confirms the record still has
+the expected `documentId` and `recoveryGeneration`, that no checkpoint or
+history row ends past `readVersion`, and that exactly the `queuedUpdateIds`
+are still queued. For
+`"fork"` it then replaces every history row with the supplied checkpoint and
+one queued outgoing update, deletes the scope's void rows and preemption
+notices, and, for a `document` record, stores `peerSalt`, sets the pending base
+and snapshot end to the checkpoint's frontier, and advances
+`recoveryGeneration`. For `"relay"` it stops queueing every queued update,
+dropping an outbox row and keeping a history-tail row as history, and queues
+`pendingUpdate` as an outbox row; the rest of the record, its checkpoint, its
+void rows, and `recoveryGeneration` stay. For either kind it raises the
+record's `committedVersion` by the input's `committedVersion`. It returns
+false and writes nothing when any check fails or `stillCurrent()` is false at
+commit.
+
+The record keeps `committedVersion` (`DocumentRecord.committedVersion`): per
+peer, the highest counter a sync settlement showed the server to hold
+([peer ownership](../peer-ownership.md#what-a-device-knows-is-committed)). A
+peer refusal is judged against it wherever the queue sends committed
+operations again, so an adapter that installs peer rebases must maintain it:
+
+- Wherever the adapter settles accepted updates, in `commitDocumentMutation`
+  with or without a lost compare-and-set and in `settleAcceptedPendingUpdates`,
+  it raises `committedVersion` in the same transaction by every version in the
+  input's `committedVersions`: what the response showed the server to hold,
+  the spans of the acknowledged updates and of the served updates the pass
+  accepted. Raising merges the [version vectors](../glossary/content.md#version-vector)
+  and keeps the higher counter on each peer.
+- `installPeerRebase` raises it the same way by its input's
+  `committedVersion`, what the device knew when it planned the recovery.
+- No other write changes it. Do not store it from the `document` a save
+  supplies: that record may predate the last settlement.
+- `discardDocumentToShell` clears it with the history it described.
+- `loadDocument` and `loadDocumentWithHistoryRestoreState` return it; the
+  recovery reads it from there, not from a record in memory.
+
+`ContainerContentsPersistence` follows the same rule for a folder's metadata
+record in `commitMetadataMutation` and `settleAcceptedMetadataPendingUpdates`,
+and returns it from `loadContainerMetadataState`.
 
 `settleAcceptedPendingUpdates(...)` removes acknowledged updates from the queue
 only while the canonical record still has the response's security identity and

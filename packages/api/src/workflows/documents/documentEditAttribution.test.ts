@@ -133,7 +133,7 @@ function attributionShape(
 }
 
 // Exercise earliest-span-wins across a rotation: alice edits, then bob uploads
-// a rotate_baseline re-asserting the peer from zero. The re-assertion must not
+// a rotation baseline re-asserting the peer from zero. The re-assertion must not
 // take authorship credit for operations the server received from alice first.
 test("attributes original uploads ahead of a rotation baseline re-assertion", async () => {
   const { early, late } = await buildVersions();
@@ -166,7 +166,7 @@ test("attributes original uploads ahead of a rotation baseline re-assertion", as
     updateId: aliceUpdateId,
   });
 
-  // bob rotates the key (new epoch) and uploads a rotate_baseline that
+  // bob rotates the key (new epoch) and uploads a rotation baseline that
   // re-asserts the whole peer [0,10) at a later server sequence.
   const baselineUpdateId = await insertUpdate({
     baseline: true,

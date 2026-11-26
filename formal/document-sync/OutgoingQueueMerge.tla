@@ -120,9 +120,9 @@ Edit(rt) ==
   /\ nextId' = nextId + 1
   /\ UNCHANGED << server, lane, sent, toRekey >>
 
-(* A rotation checkpoint (a row with a source version vector) or a         *)
-(* remote-reset outbox row: the runtime's full history, never mergeable.   *)
-(* The merge treats both alike, so one row kind stands for both.          *)
+(* A remote-reset outbox row: the runtime's full history, never mergeable.  *)
+(* A rotation baseline is built for the request that rotates and never     *)
+(* queued, so no other queued row carries a whole history.                 *)
 QueueFullState(rt) ==
   /\ doc[rt] # {}
   /\ nextSeq <= MaxRows

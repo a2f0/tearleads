@@ -227,6 +227,41 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     version: 12,
   },
   {
+    // A device judges a peer refusal against what it has seen the server
+    // commit, which the record now keeps (#3263). No record written before
+    // this step has one, so the column starts null: nothing is known
+    // committed until the next sync settlement. It is unindexed.
+    name: "add_document_committed_version",
+    up: async (execSql, context) => {
+      if (await context.hasTable("documents")) {
+        await execSql(
+          'ALTER TABLE "documents" ADD COLUMN "committed_version" TEXT',
+        );
+      }
+    },
+    version: 13,
+  },
+  {
+    // The catch-up after an acknowledged connection now lists only the
+    // document lanes that are owed a listing: those a tree listing showed
+    // moved, and those never settled (#3256). An earlier SDK listed every
+    // lane instead, and its tree listings advanced without owing anything.
+    // If it stopped between a tree listing and that sweep, no record says
+    // which lanes the sweep still owed. Mark every document lane unsettled,
+    // so each is listed once more from its cursor. No step creates
+    // `document_lane_revalidations`: its ensure does, after migrating.
+    name: "relist_document_lanes_once_for_owed_lanes",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("container_sync_watermarks"))) return;
+      await execSql(
+        `UPDATE container_sync_watermarks
+            SET checked_at = NULL
+          WHERE lane_kind = 'container_documents'`,
+      );
+    },
+    version: 14,
+  },
+  {
     // A rotation baseline is an ordered group of updates built for the
     // request that rotates and never queued (#3238), so no queued row is a
     // baseline and nothing reads the vector that marked one. The column is
@@ -243,7 +278,7 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
         'ALTER TABLE "document_history_updates" DROP COLUMN "source_version_vector"',
       );
     },
-    version: 13,
+    version: 15,
   },
 ];
 

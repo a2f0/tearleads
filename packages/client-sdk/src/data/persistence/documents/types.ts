@@ -169,6 +169,15 @@ export interface DocumentsPersistence
       attachmentRemoval?: AttachmentRemovalRows | undefined;
       attachmentStaging?: AttachmentStagingRows | undefined;
       clearSyncFailure?: boolean | undefined;
+      /**
+       * Versions this settlement saw the server hold: the spans of the
+       * outgoing updates it acknowledged and of the served updates the pass
+       * accepted. Merge them into the record's `committedVersion`, per peer
+       * the highest counter, in this transaction, and again wherever a lost
+       * comparison still settles the accepted updates. Never write that
+       * column from `document`.
+       */
+      committedVersions?: readonly string[] | undefined;
       document: StoredDocumentRecord;
       expectedRecord: StoredDocumentRecord;
       historyCheckpoint?:
@@ -202,6 +211,8 @@ export interface DocumentsPersistence
   settleAcceptedPendingUpdates: (
     execSql: ExecSql,
     input: {
+      /** Merged into `committedVersion` with the settlement; see above. */
+      committedVersions?: readonly string[] | undefined;
       expectedRecord: StoredDocumentRecord;
       pendingUpdateIds: readonly string[];
     },

@@ -18,6 +18,22 @@ export interface DocumentExpectation {
 
 export interface EquipmentExpectation extends DocumentExpectation {
   fields: { make: string; model: string; serialNumber: string };
+  /** The photo the item shows as its avatar. */
+  avatar: string;
+}
+
+export interface PasscodeExpectation {
+  title: string;
+  fields: Readonly<Record<string, string>>;
+  attributeCount: number;
+}
+
+export interface FolderNoteExpectation {
+  title: string;
+  /** The note once every member's line is in. */
+  text: string;
+  /** Roster names of the members who add lines, in order. */
+  authors: readonly string[];
 }
 
 export interface TrackerExpectation {
@@ -46,6 +62,12 @@ export const seedExpectations = JSON.parse(
   bloodPressure: TrackerExpectation;
   /** Each group's name and its members' roster names (`firstName lastName`). */
   groups: ReadonlyArray<{ name: string; members: readonly string[] }>;
+  passcodes: PasscodeExpectation[];
+  folders: ReadonlyArray<{
+    name: string;
+    grants: ReadonlyArray<{ group: string; access: string }>;
+    notes: FolderNoteExpectation[];
+  }>;
 };
 
 // These positional IDs are the website gallery's explicit fixture contract.
@@ -65,10 +87,23 @@ const galleryMatches = Object.entries(galleryTitles).every(([kind, titles]) => {
   );
 });
 
+// The authorship and history captures need a folder note that members of a
+// writing group add to, and the passcode capture one with extra attributes.
+const sharedNote = seedExpectations.folders
+  .find(({ grants }) => grants.some(({ access }) => access === "write"))
+  ?.notes.find(({ authors }) => authors.length >= 2);
+
 if (
-  seedExpectations.schemaVersion !== 3 ||
+  seedExpectations.schemaVersion !== 4 ||
   !seedExpectations.groups.some((group) => group.members.length > 0) ||
   !galleryMatches ||
+  !sharedNote ||
+  !seedExpectations.passcodes.some(
+    ({ attributeCount }) => attributeCount > 0,
+  ) ||
+  ![...seedExpectations.tools, ...seedExpectations.appliances].every(
+    ({ avatar }) => avatar,
+  ) ||
   seedExpectations.weight.rowCount < 2 ||
   seedExpectations.bloodPressure.rowCount < 2
 ) {

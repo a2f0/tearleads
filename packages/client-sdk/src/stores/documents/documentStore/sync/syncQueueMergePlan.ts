@@ -141,8 +141,7 @@ function toMergeGroup(run: MergeRun): QueuedUpdateMergeGroup {
  * Plan which queued rows to merge. Only the first `limits.maxRows` rows in
  * queue order are inspected; later rows are never proven. They are grouped
  * into maximal runs of consecutive mergeable rows: ordinary local rows (not
- * outbox, not a rotation checkpoint) within the size cap that the live
- * document proves. A run is cut at any other row, where a shared peer's
+ * outbox) within the size cap that the live document proves. A run is cut at any other row, where a shared peer's
  * ranges would leave a gap (overlaps are fine), or where the summed data
  * would pass the cap. Only runs of two or more rows become groups.
  */

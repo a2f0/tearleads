@@ -139,7 +139,7 @@ The stored shapes enforce:
   (`update_id` plus the queue columns). A local database without `update_id`
   is refused at startup with the obsolete-schema error, and edits it had not
   synced are discarded with the reset. No queued row is a rotation baseline,
-  so local schema step 13 (`drop_queued_baseline_source_version`) drops the
+  so local schema step 15 (`drop_queued_baseline_source_version`) drops the
   `source_version_vector` column that marked one.
 - Login challenges are signed for the API origin
   (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`,

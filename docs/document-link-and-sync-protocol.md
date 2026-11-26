@@ -419,9 +419,9 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 | -------------------------------------------- | ---------------------------------------------- |
 | `document_sync_baseline_group_invalid`       | Terminal failure; a later pass rebuilds it.    |
 | `document_sync_checkpoint_coverage_conflict` | Terminal failure; a later pass heals again.    |
-| `document_sync_dependency_uncommitted`       | Move unsent ops off the named peers, retry.    |
+| `document_sync_dependency_uncommitted`       | Recover from the peer refusal, retry.          |
 | `document_sync_descendant_rekeys_required`   | Commit the container rekeys standalone, retry. |
-| `document_sync_peer_owned`                   | Move unsent ops off the named peers, retry.    |
+| `document_sync_peer_owned`                   | Recover from the peer refusal, retry or park.  |
 | `document_sync_state_stale`                  | Refetch the writer projection and replan.      |
 | `document_sync_update_id_conflict`           | Run pending-update ID recovery.                |
 | `document_sync_conflict`                     | Report the terminal conflict without retrying. |
@@ -468,5 +468,14 @@ neither committed nor carried by an earlier update of the request) is refused
 whole with `document_sync_dependency_uncommitted` and the same
 `peerFrontiers[]`, and the client recovers the same way. A request refused for
 both carries `document_sync_peer_owned`. Other conflict codes ignore
-`peerFrontiers`. The rules are in
-[advisory op spans](./advisory-op-spans.md#what-the-server-checks).
+`peerFrontiers`.
+
+A frontier below what the client has seen committed on that peer means a
+billing purge and a recreation from a stale copy lost operations, and the
+client does not move anything onto a fresh peer: that would write committed
+operations again. For `document_sync_dependency_uncommitted` it queues the
+lost operations again under their own peers and resubmits. For
+`document_sync_peer_owned` it keeps its queue and waits until a device of the
+peer's owner has republished the peer. The rules are in
+[advisory op spans](./advisory-op-spans.md#what-the-server-checks) and the
+recovery in [peer ownership](./peer-ownership.md#after-a-stale-recreation).

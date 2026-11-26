@@ -12,6 +12,7 @@ import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentSyncVerdictOutcome,
+  documentSyncCommittedVersions,
   noteDocumentSyncLoroWorkFailed,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,
@@ -138,6 +139,9 @@ function documentSyncSaveOptions(
       syncAttempt.synced,
       syncAttempt.outgoingUpdateCount,
     ),
+    // What this response showed the server to hold; the save's transaction
+    // raises the record's committed version with it.
+    committedVersions: documentSyncCommittedVersions(syncAttempt.synced),
     expectedSyncState: {
       pullContinuation: syncAttempt.consumedPullContinuation,
       record: syncAttempt.requestRecord,

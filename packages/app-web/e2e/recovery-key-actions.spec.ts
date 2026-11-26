@@ -177,11 +177,13 @@ test("windowed recovery key actions keep a control-height row and a larger glyph
   await expectHoverHighlight(menu);
 });
 
-test("the new-identity backup prompt centers the menu at the form's width", async ({
+// Stacked, as on a phone; wider, the prompt sets the menu beside the revealed
+// key (recovery-key-backup-layout.spec.ts).
+test("the stacked new-identity backup prompt centers the menu at the form's width", async ({
   page,
 }) => {
   test.setTimeout(60_000);
-  await page.setViewportSize({ width: 900, height: 900 });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/app/identity-manager/recovery-key");
   await page
     .getByRole("button", { name: "Create new identity", exact: true })

@@ -296,15 +296,15 @@ epochs throw `DocumentRawHistoryUnavailableError`.
 
 A request may pass `rebaseOntoFreshPeer`, a `DocumentPeerRebaser`. When the
 API refuses the pass with `document_sync_peer_owned` or
-`document_sync_dependency_uncommitted` and names
-`peerFrontiers`, the pass hands them to it and returns `null`. The hook moves
-the document's unsent operations onto a fresh peer
-([peer ownership](../../advisory-op-spans.md#rebasing-onto-a-fresh-peer)) and
-returns `"rebased"` or `"superseded"`, after which the host requests another
-pass, or `"nothing_to_cut"`, which, like a refusal without frontiers or a
-request without the hook, reports the failure to `onTerminalSubmitFailure`.
-A hook that throws reports it too, and the error propagates. Built-in document
-stores and container metadata pass their own hook.
+`document_sync_dependency_uncommitted` and names `peerFrontiers`, the pass
+hands it `{ kind, peerFrontiers }` and returns `null`. The hook recovers
+([peer ownership](../../peer-ownership.md#rebasing-onto-a-fresh-peer)) and
+returns `"rebased"`, `"relayed"`, or `"superseded"`, after which the host
+requests another pass; `"parked"`, which leaves the queue and reports
+`document_peer_restore_awaits_owner`; or `"nothing_to_cut"` or
+`"nothing_to_relay"`, which, like a refusal without frontiers or a request
+without the hook, report the failure to `onTerminalSubmitFailure`. A throw
+reports it too and propagates. Built-in stores and metadata pass their own.
 
 Custom [sync lanes](../../glossary/sync.md#sync-lane) may provide
 `SyncLaneConfig.priority()`: lower finite numbers start first within a

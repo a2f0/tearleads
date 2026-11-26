@@ -121,7 +121,7 @@ for the exact-length rule.
 | Response page | 48 MiB (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES`), of which 16 MiB is envelope (`MAX_DOCUMENT_SYNC_RESPONSE_ENVELOPE_BYTES`) | API. Sized so the page and its serialized copy both fit the 128 MB Workers isolate. A page is sized from stored byte lengths before it loads, so it holds at most the 32 MiB update share plus 64 entries' fixed-size fields. | Pagination. |
 | Updates per response page | 64 (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES`); a request's `maxPageUpdates`, 1 to 64, lowers it but never raises it | Validators bound `maxPageUpdates`; API: [`workflows/documents/mutations/syncResponseUpdates.ts`](../packages/api/src/workflows/documents/mutations/syncResponseUpdates.ts) serves the smaller. The SDK asks for 1 while it [isolates](#loro-runtime) updates a death left unattributed. | Pagination via the pull cursor. |
 | Pull cursor length | 512 (`MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH`) | Validators. | Refusal. |
-| Refused peers named per refusal | 64 (`MAX_DOCUMENT_PEER_FRONTIERS`, [`validators/src/response/documentSyncError.ts`](../packages/validators/src/response/documentSyncError.ts)) in the `peerFrontiers` of a 409 `document_sync_peer_owned` or `document_sync_dependency_uncommitted` | API: [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) names the first 64 refused peers in canonical order, each with the frontier committed before the request; the response schema bounds the list. | Pagination. The client [rebases](./advisory-op-spans.md#rebasing-onto-a-fresh-peer) the named peers onto a fresh peer, and its retry draws a refusal naming the rest. |
+| Refused peers named per refusal | 64 (`MAX_DOCUMENT_PEER_FRONTIERS`, [`validators/src/response/documentSyncError.ts`](../packages/validators/src/response/documentSyncError.ts)) in the `peerFrontiers` of a 409 `document_sync_peer_owned` or `document_sync_dependency_uncommitted` | API: `judgeDocumentPeerSpans` in [`validators/src/documentPeerSpans.ts`](../packages/validators/src/documentPeerSpans.ts), called from [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts), names the first 64 refused peers in canonical order, each with the frontier committed before the request; the response schema bounds the list. | Pagination. The client [recovers](./peer-ownership.md#rebasing-onto-a-fresh-peer) on the named peers, by a rebase onto a fresh peer or a relay, and its retry draws a refusal naming the rest. |
 | Span and peer-owner rows per insert statement | 8,192 (`DOCUMENT_PEER_ROWS_PER_INSERT`, [`api/src/documents/documentPeerRowChunks.ts`](../packages/api/src/documents/documentPeerRowChunks.ts)) | API: [`documents/documentUpdateSpans.ts`](../packages/api/src/documents/documentUpdateSpans.ts) inserts one span row per peer of each new update's declared span, and [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) one owner row per peer the write claims, in statements of at most this many rows inside the write's transaction. Document sync and a link-set mutation's rotation baseline both write through them. Postgres binds at most 65,535 parameters to one statement, and a span row binds five. | More statements in the same transaction; nothing is refused, so a write's rows are bounded only by its request body. A rotation baseline has span rows for every peer in the document's history, and nothing caps that history: see [the known defect](#known-defect-unbounded-document-history). |
 
 ## Loro runtime
@@ -267,6 +267,20 @@ writer waiting on another authorized member:
   members: one it starts is refused, and a queued move it cannot prove parks,
   until a new judge (a decoder or void-rules change) starts the count over. It
   still opens, edits, and syncs the document, and no other device waits on it.
+- **A peer a stale recreation claimed.** After a billing purge, the owner's
+  recovery from a stale copy can leave the server with less of a
+  [peer](./glossary/sync.md#peer-owner) than another device saw committed,
+  and claim that peer for the owner. A device whose queue depends on the lost
+  operations may not send them, because another user owns the peer, and must
+  not write them again under a fresh peer: every device that still holds the
+  originals would then hold both copies. It parks under
+  `document_peer_restore_awaits_owner` until a device of the peer's owner
+  republishes the peer, keeps the document readable and editable, and submits
+  its queue again on every pass. Each of those requests is refused whole, so
+  the device also receives no remote edits to the document while parked. If no
+  such device holds the lost operations it stays parked until its user
+  discards the local edits
+  ([after a stale recreation](./peer-ownership.md#after-a-stale-recreation)).
 
 For the single-path case within the carried-rekey bound, the model in
 [InaccessibleIntermediateRepair.md](../formal/container-keying/InaccessibleIntermediateRepair.md)
@@ -274,7 +288,10 @@ proves the writer is eventually unblocked with fairness only on its own step.
 Outside it, that model's `rotation-without-descendant-repairs-bricks-leaf-writer`
 control is the exact behaviour, and it violates the liveness property by
 design. Nothing schedules the lazy repair; whichever capable member writes
-beneath the stale level first performs it. See
+beneath the stale level first performs it. The stale-recreation park is
+modeled in [PeerOwnership.md](../formal/document-sync/PeerOwnership.md), whose
+liveness property excuses a device only while it awaits the owner of a peer
+whose history fell. See
 [NoBrickedDevice.md](../formal/container-keying/NoBrickedDevice.md) for the
 invariant and [client-sdk.md](./developer/client-sdk/public-api.md#public-api-entry-points)
 for how the SDK reports the parked state.

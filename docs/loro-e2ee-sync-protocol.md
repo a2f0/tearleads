@@ -147,6 +147,8 @@ reports `commitLsnMode: "tracked"`, which retains the normal
 `commitLsn >= minLsn` requirement; the protocol's `"untracked"` mode, with the
 `0/0` reset sentinel, is for a backend without a portable WAL position.
 
+![One sync round trip: the client seals and sends its pending updates with the head it expects; the server checks that head, appends the updates with their version-vector spans in one transaction, and returns the updates the client lacks, which the client verifies, decrypts, and imports.](./diagrams/document-sync-round-trip.svg)
+
 The sync response carries no [rewrap](./glossary/keys.md#rewrap) or
 [rotate](./glossary/keys.md#rotate) directive. Clients derive that decision from
 the signed link-set manifest, current KEK targets,
@@ -217,8 +219,7 @@ bundles and can target current group/org keys, but
 signed policy state to remain usable; missing policy state fails closed instead
 of degrading to expanded user recipients.
 
-For the access-plane model, see
-[access-plane.md](./access-plane.md).
+For the access-plane model, see [access-plane.md](./access-plane.md).
 
 ## Why This Boundary Matters
 
@@ -437,9 +438,8 @@ encrypted Loro diffs to answer attachment questions.
 
 Human-meaningful attachment semantics such as `front`, `back`, `cover`, or
 `inline` are not server-visible; the visible field is an opaque `slotId`.
-Authoritative attach/detach state therefore lives beside Loro, not inside
-opaque encrypted diffs; note content may carry a slot reference only for the
-editor.
+Authoritative attach/detach state therefore lives beside Loro, not inside opaque
+encrypted diffs; note content may carry a slot reference only for the editor.
 
 Consequently:
 

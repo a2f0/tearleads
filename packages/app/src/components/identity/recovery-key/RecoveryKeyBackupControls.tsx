@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { RecoveryKeyDisclosureDialog } from "./RecoveryKeyDisclosureDialog";
 import { RecoveryKeyDisplay } from "./RecoveryKeyDisplay";
 import type { RecoveryKeyDisclosureState } from "./useRecoveryKeyDisclosure";
@@ -10,16 +11,24 @@ import "./RecoveryKeyBackup.css";
  */
 export function RecoveryKeyBackupControls({
   disclosure,
+  feedback,
+  placeholder,
   seedPhrase,
 }: {
   readonly disclosure: RecoveryKeyDisclosureState;
+  /** The last action's outcome, at the head of what the menu reveals. */
+  readonly feedback?: ReactNode;
+  /** Stands where the passphrase and its QR code show, while neither does. */
+  readonly placeholder?: ReactNode;
   readonly seedPhrase: string | null;
 }) {
   return (
     <>
       <RecoveryKeyDisplay
+        feedback={feedback}
         onHide={disclosure.hide}
         onRequestDisclosure={disclosure.requestDisclosure}
+        placeholder={placeholder}
         qrRevealed={disclosure.qrRevealed}
         revealed={disclosure.revealed}
         seedPhrase={seedPhrase}

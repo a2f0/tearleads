@@ -4,16 +4,17 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
+import { requestDocumentLaneListings } from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordination";
 import { persistContainerState } from "./containerState/containerStatePersistence";
 import { createTreeRefreshMethods } from "./hydration/remoteHydrationRefresh";
 import {
-  createChildContainer,
   deleteContainer,
   ensureSystemContainer,
   moveContainer,
   renameContainer,
 } from "./operations";
+import { createChildMethod } from "./operations/createChildMethod";
 import { emptyTrash } from "./operations/emptyTrashOperation";
 import {
   prepareContainerGroupRewrap,
@@ -102,6 +103,9 @@ function createContainerContentsStoreSyncHost(
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;
     },
+    // Durable only: the next catch-up, or the owed-lane resume, lists them.
+    requestDocumentLaneListings: (containerIds) =>
+      requestDocumentLaneListings(state.runtime.infra.execSql, containerIds),
     requestMetadataRevalidation: (request) =>
       oweContainerMetadataRead(state, request),
     updateSnapshot: () => updateContainerContentsSnapshot(state),
@@ -321,13 +325,7 @@ export function createContainerWriteMethods(
 ): ContainerWriteMethods {
   return {
     ...createContainerSharingMethods(state, syncAgent),
-    createChild: (parentId, name) =>
-      chainContainerWrite(
-        state,
-        (isCurrent) =>
-          createChildContainer(state, syncAgent, parentId, name, isCurrent),
-        [parentId],
-      ),
+    createChild: createChildMethod(state, syncAgent),
     deleteContainer: createDeleteContainerMethod(state, syncAgent),
     purgeContainer: (containerId, options) =>
       chainPurgeAfterScopeMoves(
