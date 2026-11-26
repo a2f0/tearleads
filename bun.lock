@@ -191,7 +191,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.116",
+      "version": "0.1.117",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -315,8 +315,9 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "dependencies": {
+        "@tearleads/api": "workspace:*",
         "@tearleads/api-shared": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",

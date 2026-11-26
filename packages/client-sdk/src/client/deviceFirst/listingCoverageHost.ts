@@ -3,14 +3,20 @@ import {
   getOrCreateTreeCatchUp,
   isReconcilableContainerNode,
 } from "../../stores/container-contents";
-import { getOrCreateDocumentListingCoverage } from "../../stores/documents";
+import {
+  getOrCreateDocumentListingCoverage,
+  requestRemoteSyncsOfRecordsSavedElsewhere,
+} from "../../stores/documents";
 import { requestRegisteredDocumentRemoteSyncs } from "../../stores/documents/registry";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import type {
   ReconciliationHost,
   ReconciliationService,
 } from "../../sync/reconciliation";
-import { listOwedDocumentListingReads } from "../../workflows/documents";
+import {
+  forgetUnheldDocumentListingReads,
+  listOwedDocumentListingReads,
+} from "../../workflows/documents";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 
 /** What the reconciler tells the scope's listing coverage, and asks of it. */
@@ -39,10 +45,16 @@ export function createListingCoverageHost(
       ) {
         return;
       }
+      const { execSql } = input.infra;
       requestRegisteredDocumentRemoteSyncs(
         domainScope,
-        await listOwedDocumentListingReads(input.infra.execSql),
+        await listOwedDocumentListingReads(execSql),
       );
+      // A debt another tab already settled leaves nothing to read above, and
+      // this tab's open copy of that document is still the older one.
+      await requestRemoteSyncsOfRecordsSavedElsewhere(domainScope, execSql);
+      // Housekeeping comes last, so its failure costs no read.
+      await forgetUnheldDocumentListingReads(execSql);
     },
   };
 }

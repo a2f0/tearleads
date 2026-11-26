@@ -117,5 +117,6 @@ a withheld cursor and resumed pulls behave as in
 same cursor. Outside the model: a lane the client cannot list, whose registered
 documents are probed directly; a store with no listing authority or with no
 completed pull, which probes as [RestartProbeConvergence](./RestartProbeConvergence.md)
-describes; several documents per lane and lane paging; and a second tab that
-shares the database, whose listing consumes the row for both.
+describes; and several documents per lane and lane paging. A second runtime
+that shares the database, whose listing consumes the row for both, is
+[SharedDatabaseListing](./SharedDatabaseListing.md)'s subject.
