@@ -29,6 +29,8 @@ import {
   CONTROL_DURATIONS_PATH,
   longestFirst,
   parseTlcDurations,
+  registeredDurations,
+  staleDurationsNote,
 } from "./tlcDurations";
 import { resolveTlcTools, runTlcAsync, tlcParallelism } from "./tlcTools";
 
@@ -118,14 +120,17 @@ function recordedDurations(): Map<string, number> {
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error));
   }
-  for (const id of durations.keys()) {
-    if (!ids.has(id)) {
-      fail(
-        `${CONTROL_DURATIONS_PATH} lists ${id}, which is not a registered negative control.`,
-      );
-    }
+  const registered = registeredDurations(durations, ids);
+  if (registered.stale.length > 0) {
+    console.log(
+      staleDurationsNote(
+        CONTROL_DURATIONS_PATH,
+        "the negative-control registry",
+        registered.stale,
+      ),
+    );
   }
-  return durations;
+  return registered.durations;
 }
 
 // Overlapped runs finish in completion order, so progress lines interleave.

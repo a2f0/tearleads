@@ -195,22 +195,37 @@ for parallelism in 1 2; do
     fail "models were not reported in launch order at parallelism $parallelism."
 done
 
-# A malformed entry, or one for a pair the registry does not list, fails
-# before any run starts.
-for durations_line in \
-  '30 formal/zeta/Missing.tla|formal/zeta/Missing.cfg' \
+# A malformed or repeated entry fails before any run starts.
+for durations_lines in \
   'thirty formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' \
   '30formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' \
-  '30 formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg trailing'; do
+  '30 formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg trailing' \
+  '30  formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' \
+  '30 formal/zeta/Missing.tla|formal/zeta/Missing.cfg
+20 formal/zeta/Missing.tla|formal/zeta/Missing.cfg'; do
   install_registry valid.txt
-  printf '%s\n' "$durations_line" >"$DURATIONS_FILE"
+  printf '%s\n' "$durations_lines" >"$DURATIONS_FILE"
   if durations_output=$(run_check 2>&1); then
-    fail "the duration entry '$durations_line' was accepted."
+    fail "the duration entries '$durations_lines' were accepted."
   fi
-  assert_contains "$durations_output" "formal/protocol-model-durations.txt:1"
+  assert_contains "$durations_output" "formal/protocol-model-durations.txt:"
   [ ! -e "$JAVA_LOG" ] ||
-    fail "the duration entry '$durations_line' launched Java anyway."
+    fail "the duration entries '$durations_lines' launched Java anyway."
 done
+
+# Durations only order the runs, so an entry for a pair the registry no longer
+# lists, left by a renamed or removed model, is ignored with a note naming it,
+# and the check still runs every registered model exactly once.
+install_registry valid.txt
+printf '%s\n' \
+  '90 formal/zeta/Missing.tla|formal/zeta/Missing.cfg' \
+  '30 formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' >"$DURATIONS_FILE"
+stale_output=$(run_check 2>&1) ||
+  fail "a stale duration entry failed the check."
+assert_contains "$stale_output" "ignored: formal/zeta/Missing.tla|formal/zeta/Missing.cfg."
+assert_contains "$stale_output" "Checked 3 protocol model configuration(s)."
+[ "$(cut -d '|' -f 1,2 "$JAVA_LOG" | LC_ALL=C sort)" = "$expected_runs" ] ||
+  fail "a stale duration entry changed which models ran."
 rm -f "$DURATIONS_FILE"
 
 # CI's stdout can be non-blocking, so a report write may fail. That must never

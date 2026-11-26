@@ -155,14 +155,19 @@ mv "$SORTED_MODELS" "$REGISTERED_MODELS" ||
 # other run, so runs start in descending order of the seconds each took,
 # recorded in $DURATIONS_PATH. A model with no recorded duration starts first,
 # since it may be long, and ties keep registry order. The order decides only
-# when the check finishes, never what it checks. An entry for a pair the
-# registry does not list fails, so a renamed or removed model leaves no stale
-# entry behind.
+# when the check finishes, never what it checks. The durations are only a hint:
+# an entry for a pair the registry no longer lists, left by a renamed or
+# removed model, is ignored with a note naming it. A malformed or repeated
+# entry still fails, since it means the file was edited by hand.
 DURATIONS_PATH=formal/protocol-model-durations.txt
 RECORDED_DURATIONS=$CHECK_ROOT/recorded-durations.txt
+DURATION_PAIRS=$CHECK_ROOT/duration-pairs.txt
+STALE_DURATIONS=$CHECK_ROOT/stale-durations.txt
 RANKED_MODELS=$CHECK_ROOT/ranked-models.txt
 SCHEDULED_MODELS=$CHECK_ROOT/scheduled-models.txt
 : >"$RECORDED_DURATIONS"
+: >"$DURATION_PAIRS"
+: >"$STALE_DURATIONS"
 if [ -f "$DURATIONS_PATH" ]; then
   line_number=0
   while IFS= read -r duration_line || [ -n "$duration_line" ]; do
@@ -177,10 +182,25 @@ if [ -f "$DURATIONS_PATH" ]; then
         fail "$DURATIONS_PATH:$line_number must read '<seconds> model|config'."
         ;;
     esac
-    grep -Fqx -- "$duration_pair" "$REGISTERED_MODELS" ||
-      fail "$DURATIONS_PATH:$line_number lists $duration_pair, which $REGISTRY_PATH does not register."
-    printf '%s %s\n' "$duration_seconds" "$duration_pair" >>"$RECORDED_DURATIONS"
+    case "$duration_pair" in
+      ''|*[[:space:]]*)
+        fail "$DURATIONS_PATH:$line_number must read '<seconds> model|config'."
+        ;;
+    esac
+    ! grep -Fqx -- "$duration_pair" "$DURATION_PAIRS" ||
+      fail "$DURATIONS_PATH:$line_number repeats $duration_pair."
+    printf '%s\n' "$duration_pair" >>"$DURATION_PAIRS"
+    if grep -Fqx -- "$duration_pair" "$REGISTERED_MODELS"; then
+      printf '%s %s\n' "$duration_seconds" "$duration_pair" >>"$RECORDED_DURATIONS"
+    else
+      printf '%s\n' "$duration_pair" >>"$STALE_DURATIONS"
+    fi
   done <"$DURATIONS_PATH"
+fi
+if [ -s "$STALE_DURATIONS" ]; then
+  # Best effort, like every report line; see report_line below.
+  printf 'Note: %s lists runs %s does not register, ignored: %s. Regenerate it with bun run generate:protocol-durations <log>...\n' \
+    "$DURATIONS_PATH" "$REGISTRY_PATH" "$(tr '\n' ' ' <"$STALE_DURATIONS" | sed 's/ $//')" | cat || :
 fi
 # Each line becomes "unrecorded seconds registry-position pair" for sorting.
 awk -v durations="$RECORDED_DURATIONS" '

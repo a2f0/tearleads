@@ -32,7 +32,9 @@ Both TLC checks start their longest runs first, by the seconds recorded in
 [`protocol-model-durations.txt`](./protocol-model-durations.txt) and
 [`protocol-negative-control-durations.txt`](./protocol-negative-control-durations.txt),
 so a long run never starts last and stretches the check. A run with no entry
-starts before all of them, and a stale entry fails the check. Model results
+starts before all of them. The files only order runs, so an entry for a run
+nothing registers any more, left by a rename or removal, is ignored with a note
+naming it; a malformed or repeated entry fails the check. Model results
 print in that launch order. After adding a slow model or control, or when a
 check's log shows the order has drifted, rewrite both files from a CI
 `Protocol models (...)` job log or local check output:

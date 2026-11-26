@@ -2,7 +2,7 @@
  * Recorded TLC run durations, which the protocol checks use to start their
  * longest runs first: once runs overlap, a long run that starts late stretches
  * a check past every other run. Durations steer only the order runs start in,
- * never what a check runs.
+ * never what a check runs, so an entry for a run nothing registers is ignored.
  *
  * Each file holds `<seconds> <key>` lines, longest first. A model run is keyed
  * by its `model|config` registry pair, a negative control by its id.
@@ -67,6 +67,34 @@ export function longestFirst<T>(
         left.index - right.index,
     )
     .map(({ item }) => item);
+}
+
+/**
+ * The recorded durations for registered keys, and the keys nothing registers
+ * any more. Durations only order runs, so an entry a renamed or removed run
+ * left behind is ignored rather than failing the check; `staleDurationsNote`
+ * names it so a refresh is obvious.
+ */
+export function registeredDurations(
+  durations: ReadonlyMap<string, number>,
+  registered: ReadonlySet<string>,
+): { durations: Map<string, number>; stale: string[] } {
+  const kept = new Map<string, number>();
+  const stale: string[] = [];
+  for (const [key, seconds] of durations) {
+    if (registered.has(key)) kept.set(key, seconds);
+    else stale.push(key);
+  }
+  return { durations: kept, stale };
+}
+
+/** The one line a check prints for ignored entries, as the model check does. */
+export function staleDurationsNote(
+  path: string,
+  registry: string,
+  stale: readonly string[],
+): string {
+  return `Note: ${path} lists runs ${registry} does not register, ignored: ${stale.join(" ")}. Regenerate it with bun run generate:protocol-durations <log>...`;
 }
 
 function finishedSeconds(text: string): number | undefined {

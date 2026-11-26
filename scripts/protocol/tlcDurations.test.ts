@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { NEGATIVE_CONTROLS } from "./protocolNegativeControls";
 import {
   CONTROL_DURATIONS_PATH,
   durationsFromCheckOutput,
@@ -9,6 +8,8 @@ import {
   longestFirst,
   MODEL_DURATIONS_PATH,
   parseTlcDurations,
+  registeredDurations,
+  staleDurationsNote,
 } from "./tlcDurations";
 
 const repoRoot = join(import.meta.dir, "../..");
@@ -92,24 +93,34 @@ test("reads model and control durations from check output and CI logs", () => {
 
 // The checks also refuse a stale entry; this keeps the committed files tidy
 // before a check runs.
-test("the recorded durations name only registered runs", () => {
-  const registry = readFileSync(
-    join(repoRoot, "formal/protocol-models.txt"),
-    "utf8",
-  ).split("\n");
-  const models = parseTlcDurations(
-    readFileSync(join(repoRoot, MODEL_DURATIONS_PATH), "utf8"),
-    MODEL_DURATIONS_PATH,
-  );
-  for (const pair of models.keys()) {
-    expect(registry).toContain(pair);
+// The committed files must parse, but may name runs a rename or removal on
+// another branch left behind: the checks ignore those rather than failing.
+test("the recorded duration files parse", () => {
+  for (const path of [MODEL_DURATIONS_PATH, CONTROL_DURATIONS_PATH]) {
+    expect(
+      parseTlcDurations(readFileSync(join(repoRoot, path), "utf8"), path).size,
+    ).toBeGreaterThan(0);
   }
-  const ids = new Set(NEGATIVE_CONTROLS.map(({ id }) => id));
-  const controls = parseTlcDurations(
-    readFileSync(join(repoRoot, CONTROL_DURATIONS_PATH), "utf8"),
-    CONTROL_DURATIONS_PATH,
+});
+
+test("ignores recorded durations for runs nothing registers", () => {
+  const recorded = new Map([
+    ["kept", 30],
+    ["renamed", 90],
+    ["removed", 5],
+  ]);
+  const { durations, stale } = registeredDurations(
+    recorded,
+    new Set(["kept", "unrecorded"]),
   );
-  for (const id of controls.keys()) {
-    expect(ids.has(id), id).toBe(true);
-  }
+  expect([...durations]).toEqual([["kept", 30]]);
+  expect(stale).toEqual(["renamed", "removed"]);
+  // The stale entries order nothing; the unrecorded run still starts first.
+  expect(longestFirst(["kept", "unrecorded"], durations, (id) => id)).toEqual([
+    "unrecorded",
+    "kept",
+  ]);
+  expect(staleDurationsNote("formal/d.txt", "the registry", stale)).toBe(
+    "Note: formal/d.txt lists runs the registry does not register, ignored: renamed removed. Regenerate it with bun run generate:protocol-durations <log>...",
+  );
 });
