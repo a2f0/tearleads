@@ -249,18 +249,19 @@ including the ones the push gate leaves out, in a few minutes.
 
 ## Package versions
 
-`bun run agent-tool versions prepare <base-oid>` bumps each changed workspace
-one patch beyond its version on the merge base. Keep `versions.packages` in
-[`agent-tool.json`](../../agent-tool.json) equal to every workspace in the root
-[`package.json`](../../package.json): explicit package selection replaces
-automatic discovery. The private root manifest is deliberately absent, so a
-change confined to root files bumps nothing, and concurrent pull requests no
-longer collide on a root version. Its `version` field stays as it is and
-nothing reads it.
+Pull requests do not bump workspace versions, so concurrent pull requests never
+collide on a version or re-integrate the base to take a new one. To release
+`@tearleads/client-sdk` or `@tearleads/windowing`, bump that package's `version`
+by hand and refresh `bun.lock` with `bun install`; its publish workflow
+publishes a version newer than npm's `latest`. The SDK ships the workspace
+packages it imports, so bump its version to release changes to them too. The
+private root [`package.json`](../../package.json) keeps its `version` field as
+it is, and nothing reads it.
 
 Web, Capacitor, and Electrobun capture every workspace's manifest version at
-build time for System Monitor's **Environment** tab and copied support report;
-the `app` package's version identifies a client build.
+build time for System Monitor's **Environment** tab and copied support report.
+Those versions change only when bumped by hand, so they do not identify a
+client build.
 [`packageVersions.ts`](../../scripts/lib/packageVersions.ts) reads the root
 manifest only for its workspace list. Their build hashes include all workspace
 manifests so cached bundles cannot report stale package versions.

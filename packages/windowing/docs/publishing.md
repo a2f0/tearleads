@@ -73,10 +73,9 @@ bun run publish:npm windowing --tag next --otp 123456
 Run `package:smoke` separately before a release to verify the packed package in
 an external consumer. It needs the network to install the consumer dependencies.
 
-`ship-pr` bumps changed workspace packages before review and merge; the generated
-manifest copies `version` from [`package.json`][workspace-manifest]. For a release
-outside that flow, bump the version yourself before publishing. The manifest
-names this repository,
+Pull requests do not bump versions: to release, bump `version` in
+[`package.json`][workspace-manifest] by hand, which the generated manifest
+copies. The manifest names this repository,
 which npm requires of a version with provenance, and declares
 `"license": "UNLICENSED"`.
 
