@@ -12,6 +12,7 @@ test("default blob object store uses memory when unconfigured", async () => {
   const { uploadId } = await store.createMultipartUpload({
     key: "blob-stages/runtime-default",
   });
+  if (!store.uploadPart) throw new Error("Expected API part uploads");
   const part = await store.uploadPart({
     body: {
       byteLength: 15,
@@ -82,7 +83,9 @@ test("default blob object store creates S3 adapter from env", () => {
   });
 
   expect(store).toHaveProperty("createMultipartUpload");
-  expect(store).toHaveProperty("uploadPart");
+  expect(store).toHaveProperty("createUploadPartUrl");
+  // R2 receives part bytes from clients; the API never carries them.
+  expect(store).not.toHaveProperty("uploadPart");
 });
 
 test("default blob object store normalizes S3 prefix boundaries", async () => {

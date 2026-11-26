@@ -3,7 +3,6 @@ import {
   CompleteMultipartUploadCommand,
   GetObjectCommand,
   ListPartsCommand,
-  UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import {
   blobObjectBytes,
@@ -18,27 +17,26 @@ import { sha256Hex } from "../utils/sha256";
 import { BlobObjectStoreError } from "./blobObjectStore";
 import { createS3BlobObjectStore } from "./s3BlobObjectStore";
 
+test("S3 blob object store takes parts only through signed uploads", () => {
+  const { store } = createFakeS3BlobObjectStore();
+
+  expect(store.uploadPart).toBeUndefined();
+  expect(store.createUploadPartUrl).toBeFunction();
+});
+
 test("S3 blob object store completes multipart uploads by part number", async () => {
-  const { client, store } = createFakeS3BlobObjectStore();
+  const { client, store, uploadPart } = createFakeS3BlobObjectStore();
   const { uploadId } = await store.createMultipartUpload({
     key: "blob-stages/s3-complete",
   });
-  const secondPart = await store.uploadPart({
-    body: {
-      byteLength: 7,
-      bytes: blobObjectBytes("-second"),
-      sha256: await sha256Hex("-second"),
-    },
+  const secondPart = await uploadPart({
+    bytes: blobObjectBytes("-second"),
     key: "blob-stages/s3-complete",
     partNumber: 2,
     uploadId,
   });
-  const firstPart = await store.uploadPart({
-    body: {
-      byteLength: 5,
-      bytes: blobObjectBytes("first"),
-      sha256: await sha256Hex("first"),
-    },
+  const firstPart = await uploadPart({
+    bytes: blobObjectBytes("first"),
     key: "blob-stages/s3-complete",
     partNumber: 1,
     uploadId,
@@ -93,20 +91,11 @@ test("S3 blob object store completes multipart uploads by part number", async ()
 });
 
 test("S3 blob object store hashes completed binary multipart bytes", async () => {
-  const { client, store } = createFakeS3BlobObjectStore();
-  const key = "blob-stages/s3-streamed-part";
+  const { store, uploadPart } = createFakeS3BlobObjectStore();
+  const key = "blob-stages/s3-binary-part";
   const bytes = Uint8Array.from([0, 0xff, 0x80, 0x0a, 0x00, 0x41]);
   const { uploadId } = await store.createMultipartUpload({ key });
-  const part = await store.uploadPart({
-    body: {
-      byteLength: bytes.byteLength,
-      bytes,
-      sha256: await sha256Hex(bytes),
-    },
-    key,
-    partNumber: 1,
-    uploadId,
-  });
+  const part = await uploadPart({ bytes, key, partNumber: 1, uploadId });
 
   const completed = await store.completeMultipartUpload({
     expected: {
@@ -122,11 +111,6 @@ test("S3 blob object store hashes completed binary multipart bytes", async () =>
     byteLength: bytes.byteLength,
     sha256: await sha256Hex(bytes),
   });
-
-  const uploadCommand = client.commands.find(
-    (command) => command instanceof UploadPartCommand,
-  ) as CommandWithInput | undefined;
-  expect(typeof uploadCommand?.input.Body).not.toBe("string");
   const stored = await store.getObjectStream(key);
   expect(stored).not.toBeNull();
   if (!stored) {
@@ -137,136 +121,20 @@ test("S3 blob object store hashes completed binary multipart bytes", async () =>
   );
 });
 
-test("S3 blob object store sends buffered part bytes with their byte length", async () => {
-  // Regression guard: streaming the request body straight to the object store
-  // segfaults Bun when the upload connection resets mid-part. The route buffers
-  // the part with Bun's native body read and hands the bytes to the store, which
-  // sends them as an in-memory Uint8Array (rewindable, so the SDK can retry a
-  // reset part) with the byte length as the content length.
-  const { client, store } = createFakeS3BlobObjectStore();
-  const key = "blob-stages/s3-buffered-part";
-  const bytes = "buffered-streamed-part";
-  const { uploadId } = await store.createMultipartUpload({ key });
-
-  const part = await store.uploadPart({
-    body: {
-      byteLength: Buffer.byteLength(bytes, "utf8"),
-      bytes: blobObjectBytes(bytes),
-      sha256: await sha256Hex(bytes),
-    },
-    key,
-    partNumber: 1,
-    uploadId,
-  });
-
-  const uploadCommand = client.commands.find(
-    (command) => command instanceof UploadPartCommand,
-  ) as CommandWithInput | undefined;
-  expect(typeof uploadCommand?.input.Body).not.toBe("string");
-  expect(uploadCommand?.input.Body).toBeInstanceOf(Uint8Array);
-  expect(uploadCommand?.input.ContentLength).toBe(
-    Buffer.byteLength(bytes, "utf8"),
-  );
-
-  await store.completeMultipartUpload({
-    expected: {
-      byteLength: Buffer.byteLength(bytes, "utf8"),
-      sha256: await sha256Hex(bytes),
-    },
-    key,
-    parts: [{ etag: part.etag, partNumber: 1 }],
-    uploadId,
-  });
-  expect(await readBlobObjectText(store, key)).toBe(bytes);
-});
-
-test("S3 blob object store rejects a part whose bytes mismatch the declared length", async () => {
-  // The declared byte-length header must match the bytes the route buffered; a
-  // mismatch means a truncated or corrupt part and is rejected before upload.
-  const { store } = createFakeS3BlobObjectStore();
-  const key = "blob-stages/s3-mismatched-part";
-  const bytes = "buffered-streamed-part";
-  const { uploadId } = await store.createMultipartUpload({ key });
-
-  await expect(
-    store.uploadPart({
-      body: {
-        byteLength: 4,
-        bytes: blobObjectBytes(bytes),
-        sha256: await sha256Hex(bytes),
-      },
-      key,
-      partNumber: 1,
-      uploadId,
-    }),
-  ).rejects.toThrow(/byteLength mismatch/);
-});
-
-test("S3 blob object store rejects a part declared above the size ceiling", async () => {
-  // A part declaring more than the ceiling is rejected up front, before the
-  // declared length is compared against the buffered bytes.
-  const { store } = createFakeS3BlobObjectStore();
-  const key = "blob-stages/s3-huge-part";
-  const { uploadId } = await store.createMultipartUpload({ key });
-
-  await expect(
-    store.uploadPart({
-      body: {
-        byteLength: 200 * 1024 * 1024,
-        bytes: blobObjectBytes("unused"),
-        sha256: await sha256Hex("unused"),
-      },
-      key,
-      partNumber: 1,
-      uploadId,
-    }),
-  ).rejects.toThrow(/exceeds the maximum/);
-});
-
-test("S3 blob object store rejects an out-of-range part number before buffering", async () => {
-  // An invalid part number must fail on the number, not after draining the
-  // (upload-sized) body — proving the guard runs before the stream is read.
-  const { store } = createFakeS3BlobObjectStore();
-  const key = "blob-stages/s3-bad-part-number";
-  const bytes = "buffered-streamed-part";
-  const { uploadId } = await store.createMultipartUpload({ key });
-
-  await expect(
-    store.uploadPart({
-      body: {
-        byteLength: Buffer.byteLength(bytes, "utf8"),
-        bytes: blobObjectBytes(bytes),
-        sha256: await sha256Hex(bytes),
-      },
-      key,
-      partNumber: 10_001,
-      uploadId,
-    }),
-  ).rejects.toThrow(/Invalid multipart part number/);
-});
-
 test("S3 blob object store follows list parts pagination", async () => {
-  const { client, store } = createFakeS3BlobObjectStore();
+  const { client, store, uploadPart } = createFakeS3BlobObjectStore();
   client.listPartsPageSize = 1;
   const { uploadId } = await store.createMultipartUpload({
     key: "blob-stages/s3-paginated-list",
   });
-  await store.uploadPart({
-    body: {
-      byteLength: 5,
-      bytes: blobObjectBytes("first"),
-      sha256: await sha256Hex("first"),
-    },
+  await uploadPart({
+    bytes: blobObjectBytes("first"),
     key: "blob-stages/s3-paginated-list",
     partNumber: 1,
     uploadId,
   });
-  await store.uploadPart({
-    body: {
-      byteLength: 6,
-      bytes: blobObjectBytes("second"),
-      sha256: await sha256Hex("second"),
-    },
+  await uploadPart({
+    bytes: blobObjectBytes("second"),
     key: "blob-stages/s3-paginated-list",
     partNumber: 2,
     uploadId,

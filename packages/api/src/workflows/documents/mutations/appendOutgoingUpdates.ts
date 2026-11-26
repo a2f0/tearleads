@@ -3,7 +3,7 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { documentUpdates } from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
-import { inArray } from "drizzle-orm";
+import { type AnyColumn, inArray, sql } from "drizzle-orm";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import { storeDocumentContentWriteHeader } from "../../../access/write/documentContentKeyStore";
 import { claimDocumentPeers } from "../../../documents/documentPeerOwners";
@@ -109,6 +109,16 @@ async function insertNewDocumentUpdates(input: {
   return insertedUpdateIds;
 }
 
+function contentSha256(column: AnyColumn) {
+  return sql<string>`encode(sha256(convert_to(${column}, 'UTF8')), 'hex')`;
+}
+
+/**
+ * A request names ids, not sizes: loading the named rows' content would let
+ * one sync pull every named update (each up to the request ceiling, from any
+ * document) into the isolate before the document check below. Postgres
+ * digests the content columns instead, and only the digests come back.
+ */
 async function loadExistingDocumentUpdateRows(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
@@ -116,13 +126,19 @@ async function loadExistingDocumentUpdateRows(input: {
 }) {
   const existingRows = await input.executor
     .select({
+      dependencyVersionVectorSha256: contentSha256(
+        documentUpdates.dependencyVersionVector,
+      ),
       documentId: documentUpdates.documentId,
-      encryptedData: documentUpdates.encryptedData,
-      dependencyVersionVector: documentUpdates.dependencyVersionVector,
+      encryptedDataSha256: contentSha256(documentUpdates.encryptedData),
       id: documentUpdates.id,
-      partialEndVersionVector: documentUpdates.partialEndVersionVector,
-      partialStartVersionVector: documentUpdates.partialStartVersionVector,
-      plaintextHash: documentUpdates.plaintextHash,
+      partialEndVersionVectorSha256: contentSha256(
+        documentUpdates.partialEndVersionVector,
+      ),
+      partialStartVersionVectorSha256: contentSha256(
+        documentUpdates.partialStartVersionVector,
+      ),
+      plaintextHashSha256: contentSha256(documentUpdates.plaintextHash),
     })
     .from(documentUpdates)
     .where(inArray(documentUpdates.id, input.updateIds));

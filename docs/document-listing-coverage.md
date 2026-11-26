@@ -74,12 +74,22 @@ An SDK that predates the debt advanced lane watermarks without this check, so
 a local schema migration forgets every document-lane cursor once. Each lane
 then lists from its start, which checks every row.
 
-Two tabs that share one database share its lane watermarks. The tab that
-lists a row records the debt and pulls; the other tab's listing no longer
-returns the row. Its catch-up ends by reading the debt table, so it pulls a
-debt the first tab has not settled yet, but once that tab's pull settles the
-debt, the second tab's open store keeps its older in-memory copy until a hint,
-a write of its own, or a reload. Before listings covered documents, that
-tab's own reconnect probe refreshed it; this gap is open.
+Two tabs that share one database share its lane watermarks, its debts and
+each saved record, but each keeps its own copy of an open document in memory.
+The tab that lists a row records the debt and pulls; the other tab's listing
+no longer returns the row. So a catch-up ends with two checks. It reads the
+debt table, which finds a debt the first tab has not settled yet. And it
+compares each open store's document in memory with the frontier its record
+has on disk, which finds a document the first tab has already pulled and
+settled: the store is asked for one pull. That pull cites the store's own
+version, because the shared cursor was recorded with a version the store does
+not cover and is withheld, so the server returns what the copy lacks. With
+one tab, a store's document always holds what its record has on disk, and the
+comparison asks for nothing. A local edit another tab has saved and not yet
+submitted cannot be pulled; it arrives with the hint for its accepted write.
+The catch-up also forgets debts of documents the device no longer holds a
+record of.
+[SharedDatabaseListing](../formal/document-sync/SharedDatabaseListing.md)
+models the two tabs.
 
 [metadata-debt]: ./client-sync-ordering.md#container-metadata-under-lost-hints

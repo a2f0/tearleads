@@ -10,6 +10,8 @@ export {
   createRequireAuth,
   createSessionTokenIssuer,
 } from "./middleware/session";
+export { authorizeContainerAccessWithWorkflow } from "./realtime/containerInterestAccess";
+export { createRealtimeGateway } from "./realtime/realtimeGateway";
 export { createWebSocketTicketConsumer } from "./realtime/wsTicket";
 export { createRouteApp, routeApp } from "./routeApp";
 export { getDefaultApiServiceRuntime } from "./services/runtime";

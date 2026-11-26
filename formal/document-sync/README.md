@@ -185,6 +185,16 @@ reads a lagging replica serves, and that the client eventually holds the
 server's version. See the
 [production mapping and negative controls](./DocumentListingConvergence.md).
 
+[`SharedDatabaseListing.tla`](./SharedDatabaseListing.tla) adds a second
+runtime on the same database, such as a second browser tab. The two share the
+lane watermark, the debt and the saved record, and each keeps its own copy of
+the open document. One runtime's listing consumes the row for both and its
+pull settles the debt for both, so a catch-up also asks a store for a pull
+when the saved record holds content its copy lacks. TLC checks that a
+connected runtime's stale copy always has something of its own left to oblige
+a read, and that every runtime's copy converges. See the
+[production mapping and negative control](./SharedDatabaseListing.md).
+
 ## Epoch Advances Without a Covering Baseline
 
 [`EmptyFrontierUnlink.tla`](./EmptyFrontierUnlink.tla)

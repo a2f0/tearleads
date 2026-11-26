@@ -79,7 +79,13 @@ export interface BlobObjectStore {
     readonly key: string;
     readonly uploadId: string;
   }): Promise<readonly BlobObjectPart[]>;
-  uploadPart(input: {
+  /**
+   * Accepts part bytes carried by the API. Only a store that cannot sign
+   * upload URLs (the in-memory store) has it: a store with
+   * `createUploadPartUrl` receives parts from the client directly, and the
+   * API never holds their bytes.
+   */
+  uploadPart?(input: {
     readonly key: string;
     readonly partNumber: number;
     readonly body: BlobObjectUploadPartBody;
@@ -95,12 +101,9 @@ interface MultipartUploadState {
 
 const MAX_S3_PART_NUMBER = 10_000;
 
-// Upper bound on a single multipart part buffered in memory before it is sent to
-// the object store. The route rejects an over-declared part before buffering,
-// the server caps the request body at this size (see index.ts
-// maxRequestBodySize), and the S3 store enforces it again on the buffered bytes
-// — together they replace the mid-read ceiling the old streaming reader
-// enforced, without the Bun native-stream defect.
+// Upper bound on a part the API carries for a store without signed uploads.
+// The development server caps every request body at this size (see index.ts
+// maxRequestBodySize) before the part route buffers it.
 export const MAX_UPLOAD_PART_BYTES = MAX_MULTIPART_BLOB_PART_BYTES;
 
 export function blobObjectChunkToStream(
@@ -271,7 +274,7 @@ function createListParts(
 
 function createUploadPart(
   uploads: Map<string, MultipartUploadState>,
-): BlobObjectStore["uploadPart"] {
+): NonNullable<BlobObjectStore["uploadPart"]> {
   return async ({ body, key, partNumber, uploadId }) => {
     requireValidPartNumber(partNumber);
     const bytes = body.bytes;
@@ -311,7 +314,9 @@ function createUploadPart(
   };
 }
 
-export function createMemoryBlobObjectStore(): BlobObjectStore {
+/** The in-memory store cannot sign, so it takes parts through the API. */
+export function createMemoryBlobObjectStore(): BlobObjectStore &
+  Required<Pick<BlobObjectStore, "uploadPart">> {
   const objects = new Map<string, Uint8Array>();
   const uploadIdsByKey = new Map<string, string>();
   const uploads = new Map<string, MultipartUploadState>();
