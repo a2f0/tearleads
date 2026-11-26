@@ -1,3 +1,4 @@
+import { median } from "../../median";
 import type { ContentionMeasurement } from "./measureContention";
 
 const mebibytes = (bytes: number) => (bytes / 1_048_576).toFixed(1);
@@ -35,14 +36,6 @@ interface ContentionSummary {
   readonly medianCpuMs: number;
   readonly maxPeakHeapDeltaBytes: number;
   readonly bytesReturned: number;
-}
-
-function median(values: readonly number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2
-    ? (sorted[middle] ?? 0)
-    : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
 }
 
 /** Medians per pass, size and socket count; maxima for the worst stall. */

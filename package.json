@@ -126,6 +126,7 @@
     "perf:database": "bun run --cwd packages/performance database",
     "perf:realtime": "bun run --cwd packages/performance realtime",
     "perf:realtime-contention": "bun run --cwd packages/performance realtime:contention",
+    "perf:reload": "bun run --cwd packages/performance reload",
     "tearleads": "bun run --cwd packages/cli start"
   },
   "workspaces": [
