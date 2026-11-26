@@ -108,7 +108,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /containers/documents/query": 4,
     "GET /containers": 0,
     // Four held descendants re-cite the shared root and publish refresh hints.
-    "POST /containers/parent-lanes/query": 11,
+    // Measured 3: each crawl lists its parent lanes in one request.
+    "POST /containers/parent-lanes/query": 4,
     "GET /auth/user-identity/:userId": 0,
     "POST /auth/ws-ticket": 0,
     // Includes classifying a newly visible root, fresh container info, and

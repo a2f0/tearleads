@@ -44,6 +44,11 @@ transactions recheck the durable binding; a conflicting dormant record is
 refused, never purged. Page hydration prefetches newly discovered folders'
 projections four at a time; verification stays sequential.
 
+A pass lists its queued parent lanes up to 32 to a request, the server's
+bound, and asks each lane for its share of the 500 rows one request may
+return: 100 for up to five lanes, 15 in a full batch. A lane with more
+children continues in a later request of the same pass.
+
 A page with a concurrently changed live item or tombstone remains
 unacknowledged: its watermark and restoration-completion callback must not
 advance. Independent pages and newly discovered child lanes still run, so an
