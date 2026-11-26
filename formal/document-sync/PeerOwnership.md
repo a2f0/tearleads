@@ -114,7 +114,7 @@ uncommitted dependencies.
 
 | Model action or predicate | Production implementation |
 | --- | --- |
-| `Submit` / `Refuses` / `Preempting` / `Uncommitted` | `claimDocumentPeers`, called from `appendDocumentUpdates` with the request's newly verified updates while the document head lock is held; its pure core `judgeDocumentPeerSpans` (in `@tearleads/validators`) walks each update's declared dependencies, then its spans, in request order and raises each frontier as it goes |
+| `Submit` / `Refuses` / `Preempting` / `Uncommitted` | `claimDocumentPeers`, called from `appendDocumentUpdates` with the request's newly verified updates while the document head lock is held; its pure core `judgeDocumentPeerSpans` (in the validators package) walks each update's declared dependencies, then its spans, in request order and raises each frontier as it goes |
 | `Owner` | a `document_peer_owners` row (`documentPeerOwners`), written by `claimDocumentPeers` when a span past the frontier extends an unowned peer |
 | `Frontier` | `readCommittedDocumentPeers`, which reads each named peer's highest committed span end with its owner row |
 | `RefusedPeers` / `refusal` | the 409 `document_sync_peer_owned`, or `document_sync_dependency_uncommitted` when no span is refused, whose `peerFrontiers` name at most `MAX_DOCUMENT_PEER_FRONTIERS` refused peers with the frontier committed before the request, which rolls back |
