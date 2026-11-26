@@ -307,7 +307,8 @@ Shipping rules on top of the shared skills:
 - **Versions**: pull requests do not bump package versions. To release
   `@tearleads/client-sdk` or `@tearleads/windowing`, which publish when their
   version passes npm's `latest`, bump that `version` by hand and refresh
-  `bun.lock` with `bun install`.
+  `bun.lock` with `bun install`. Just before merging, confirm it is still newer
+  than live `main` and npm: no check stops two PRs taking one version.
 - **Titles**: PR titles and squash subjects follow `commitlint.config.mts`. The
   helper checks type and length only, so also run
   `printf '%s\n' "$TITLE" | bun run agent-tool bun x commitlint -- --config commitlint.config.mts`.

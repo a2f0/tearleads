@@ -249,19 +249,21 @@ including the ones the push gate leaves out, in a few minutes.
 
 ## Package versions
 
-Pull requests do not bump workspace versions, so concurrent pull requests never
-collide on a version or re-integrate the base to take a new one. To release
-`@tearleads/client-sdk` or `@tearleads/windowing`, bump that package's `version`
-by hand and refresh `bun.lock` with `bun install`; its publish workflow
-publishes a version newer than npm's `latest`. The SDK ships the workspace
-packages it imports, so bump its version to release changes to them too. The
-private root [`package.json`](../../package.json) keeps its `version` field as
-it is, and nothing reads it.
+Pull requests do not bump workspace versions, so they no longer re-integrate
+the base to take a new one. To release `@tearleads/client-sdk` or
+`@tearleads/windowing`, bump that package's `version` by hand and refresh
+`bun.lock` with `bun install`; its publish workflow publishes a version newer
+than npm's `latest`. The SDK ships the workspace packages it imports, so bump
+its version to release changes to them too. No check stops two release pull
+requests from taking the same version, and the second would merge without
+publishing, so just before merging confirm the bump is still newer than live
+`main` and npm's `latest`. The private root [`package.json`](../../package.json)
+keeps its `version` field as it is, and nothing reads it.
 
 Web, Capacitor, and Electrobun capture every workspace's manifest version at
 build time for System Monitor's **Environment** tab and copied support report.
 Those versions change only when bumped by hand, so they do not identify a
-client build.
+client build; the Git commit in the same build information does.
 [`packageVersions.ts`](../../scripts/lib/packageVersions.ts) reads the root
 manifest only for its workspace list. Their build hashes include all workspace
 manifests so cached bundles cannot report stale package versions.
