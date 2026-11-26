@@ -79,6 +79,7 @@ test("response validation precedes guarded conflict recovery mutations", async (
     let rekeyCount = 0;
     let current = true;
     const commonInput = {
+      baselineGroupRun: null,
       execSql,
       materializedPlan,
       recoveryPendingUpdatesById: new Map([[updateId, localUpdate]]),

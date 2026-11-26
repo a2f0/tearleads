@@ -116,7 +116,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
           documentManifestBundle: "{}",
           contentKeyBundle: "{}",
           documentKekTargets: "{}",
-          pullContinuation: '[1,"tracked","0/22","doc-page-2"]',
+          pullContinuation: '[2,"tracked","0/22","doc-page-2",null]',
           updatedAt: stale,
         },
         {

@@ -261,6 +261,37 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 14,
   },
+  {
+    // A rotation baseline is an ordered group of updates built for the
+    // request that rotates and never queued (#3238), so no queued row is a
+    // baseline and nothing reads the vector that marked one. The column is
+    // unindexed and unconstrained. A table without it (never created, or one
+    // from before the unified update log, which the schema check refuses
+    // next) has nothing to drop. No shipped writer ever set the vector. A
+    // row that has one is a queued snapshot baseline: with the column gone
+    // it would read as an ordinary queued update whose payload is a
+    // snapshot, which no reader takes. This step cannot rewrite it, so a
+    // database that holds one is refused and needs a reset.
+    name: "drop_queued_baseline_source_version",
+    up: async (execSql) => {
+      const column = await execSql(
+        "SELECT name FROM pragma_table_info('document_history_updates') WHERE name = 'source_version_vector'",
+      );
+      if (column.length === 0) return;
+      const queuedBaseline = await execSql(
+        'SELECT 1 FROM "document_history_updates" WHERE "source_version_vector" IS NOT NULL LIMIT 1',
+      );
+      if (queuedBaseline.length > 0) {
+        throw new Error(
+          "Local database holds a queued rotation baseline, which is obsolete; reset the local database before continuing",
+        );
+      }
+      await execSql(
+        'ALTER TABLE "document_history_updates" DROP COLUMN "source_version_vector"',
+      );
+    },
+    version: 15,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

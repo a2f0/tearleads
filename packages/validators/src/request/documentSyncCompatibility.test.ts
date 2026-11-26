@@ -123,9 +123,13 @@ test("document sync request guard preserves cross-field rules", () => {
   const update = valid.outgoingUpdates[0];
   const incompleteCheckpointRequest = {
     ...valid,
-    outgoingUpdates: [
-      { ...update, checkpointKind: "rotate_baseline" as const },
-    ],
+    outgoingUpdates: [{ ...update, baselineSegmentIndex: 0 }],
+  };
+  const oneSegmentBaseline = {
+    baselineId: "550e8400-e29b-41d4-a716-446655440222",
+    baselineSegmentCount: 1,
+    baselineSegmentIndex: 0,
+    baselineSegmentsDigest: "ab".repeat(32),
   };
 
   expect(isDocumentSyncRequest({})).toBe(false);
@@ -137,13 +141,27 @@ test("document sync request guard preserves cross-field rules", () => {
       outgoingUpdates: [
         {
           ...update,
-          checkpointKind: "rotate_baseline",
-          checkpointPayloadKind: "full_history_snapshot",
-          sourceVersionVector: '{"actor":1}',
+          ...oneSegmentBaseline,
         },
       ],
     }),
   ).toBe(true);
+  for (const outOfRange of [
+    { baselineSegmentIndex: 64 },
+    { baselineSegmentIndex: -1 },
+    { baselineSegmentIndex: 0.5 },
+    { baselineSegmentCount: 0 },
+    { baselineSegmentCount: 65 },
+    { baselineSegmentsDigest: "AB".repeat(32) },
+    { baselineId: "not-a-uuid" },
+  ]) {
+    expect(
+      isDocumentSyncRequest({
+        ...valid,
+        outgoingUpdates: [{ ...update, ...oneSegmentBaseline, ...outOfRange }],
+      }),
+    ).toBe(false);
+  }
   expect(isDocumentSyncRequest(incompleteCheckpointRequest)).toBe(false);
   const incompleteCheckpointResult = DocumentSyncRequestSchema.safeParse(
     incompleteCheckpointRequest,
@@ -153,7 +171,8 @@ test("document sync request guard preserves cross-field rules", () => {
     expect(incompleteCheckpointResult.error.issues).toEqual([
       {
         code: "custom",
-        message: "checkpoint fields must be absent or form a rotation baseline",
+        message:
+          "baseline fields must be absent, mark a baseline segment, or mark a baseline's final segment",
         path: ["outgoingUpdates", 0],
       },
     ]);
@@ -407,12 +426,12 @@ test("document sync response guard preserves permissive envelope behavior", () =
   ).toBe(false);
 });
 
-test("document sync response guard preserves checkpoint rules", () => {
+test("document sync response guard preserves baseline segment rules", () => {
   const valid = createSyncResponse();
   const update = valid.updates[0];
   const incompleteCheckpointResponse = {
     ...valid,
-    updates: [{ ...update, checkpointKind: "rotate_baseline" as const }],
+    updates: [{ ...update, baselineSegmentIndex: 0 }],
   };
 
   expect(
@@ -421,9 +440,8 @@ test("document sync response guard preserves checkpoint rules", () => {
       updates: [
         {
           ...update,
-          checkpointKind: "rotate_baseline",
-          checkpointPayloadKind: "full_history_snapshot",
-          sourceVersionVector: '{"actor":1}',
+          baselineId: "550e8400-e29b-41d4-a716-446655440222",
+          baselineSegmentIndex: 0,
         },
       ],
     }),
@@ -437,7 +455,8 @@ test("document sync response guard preserves checkpoint rules", () => {
     expect(incompleteCheckpointResult.error.issues).toEqual([
       {
         code: "custom",
-        message: "checkpoint fields must be absent or form a rotation baseline",
+        message:
+          "baseline fields must be absent, mark a baseline segment, or mark a baseline's final segment",
         path: ["updates", 0],
       },
     ]);

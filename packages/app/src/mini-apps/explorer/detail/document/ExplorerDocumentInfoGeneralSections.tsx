@@ -111,7 +111,7 @@ function formatContributorOps(contributor: {
       ? EXPLORER_LABELS.documentInfoContributorOpSingular
       : EXPLORER_LABELS.documentInfoContributorOpPlural
   }`;
-  // A contributor credited only via a rotate_baseline re-assertion is the first
+  // A contributor credited only via a rotation baseline segment is the first
   // signed uploader of those ops, not a proven author — flag that distinction.
   return contributor.hasDirectAuthority
     ? edits
@@ -207,7 +207,7 @@ function formatBlameCharacters(writer: {
   hasDirectAuthority: boolean;
 }): string {
   const characters = formatCharacterCount(writer.characterCount);
-  // A writer credited only via a rotate_baseline re-assertion is the first signed
+  // A writer credited only via a rotation baseline segment is the first signed
   // uploader of those characters, not a proven author — flag that distinction.
   return writer.hasDirectAuthority
     ? characters
@@ -305,7 +305,7 @@ function blameRunTitle(
   const identity =
     getExplorerAttributionWriterTitle(range, resolveUserLabel) ??
     `${range.writerUserId} · ${range.writerKeyFingerprint}`;
-  // A run credited only via a rotate_baseline re-assertion is the first signed
+  // A run credited only via a rotation baseline segment is the first signed
   // uploader of that span, not a proven author — carry the same caveat the
   // Contributors/Character Blame rows show.
   return range.authorityKind === "baseline"

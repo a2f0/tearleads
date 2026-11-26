@@ -1,10 +1,8 @@
 import { z } from "zod";
 import {
-  classifyDocumentSyncCheckpointFields,
-  DOCUMENT_SYNC_CHECKPOINT_FIELD_SET_ISSUE_MESSAGE,
-  DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND,
-  DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND,
-} from "../documentSyncCheckpoint";
+  classifyDocumentBaselineSegmentFields,
+  DOCUMENT_BASELINE_SEGMENT_FIELD_SET_ISSUE_MESSAGE,
+} from "../documentBaselineSegment";
 import {
   documentSyncResponseCommitLsnModeRefinement,
   documentSyncResponseCommitLsnSentinelRefinement,
@@ -89,12 +87,10 @@ export const DocumentSyncUpdateResponseSchema =
         DocumentContentKeyTargetResponseSchema,
       ).optional(),
       authorFingerprint: z.string(),
-      checkpointKind: z
-        .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND)
-        .optional(),
-      checkpointPayloadKind: z
-        .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
-        .optional(),
+      baselineId: z.string().min(1).optional(),
+      baselineSegmentCount: positiveIntegerSchema.optional(),
+      baselineSegmentIndex: nonNegativeIntegerSchema.optional(),
+      baselineSegmentsDigest: z.string().min(1).optional(),
       coversThroughUpdateId: z.string().optional(),
       createdAt: z.string(),
       dependencyVersionVector: z.string(),
@@ -104,13 +100,12 @@ export const DocumentSyncUpdateResponseSchema =
       partialEndVersionVector: z.string(),
       partialStartVersionVector: z.string(),
       plaintextHash: nonEmptyStringSchema,
-      sourceVersionVector: z.string().min(1).optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {
-      if (classifyDocumentSyncCheckpointFields(update) === "invalid") {
+      if (classifyDocumentBaselineSegmentFields(update) === "invalid") {
         context.addIssue({
           code: "custom",
-          message: DOCUMENT_SYNC_CHECKPOINT_FIELD_SET_ISSUE_MESSAGE,
+          message: DOCUMENT_BASELINE_SEGMENT_FIELD_SET_ISSUE_MESSAGE,
         });
       }
     }),

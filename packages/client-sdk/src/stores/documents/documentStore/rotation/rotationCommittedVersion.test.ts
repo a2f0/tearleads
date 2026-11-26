@@ -115,8 +115,8 @@ for (const queuedEdit of [false, true]) {
 }
 
 // No rotation installs a rebuild that holds an operation the server did not
-// serve: a queued ordinary edit is committed and pulled again first, and a
-// queued checkpoint is never imported. The install still records the version
+// serve: a queued ordinary edit is committed and pulled again first. The
+// install still records the version
 // the raw pull served, not the rebuilt document's own version, so it stays
 // right if a rebuild ever does hold more.
 test("the rebuild install records only what the raw pull served", async () => {

@@ -16,7 +16,8 @@ import {
 } from "../../../data/documents/shared/responses";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import {
-  isCheckpointCoverageConflict,
+  canRecoverDocumentUpdateIdConflict,
+  canRetryDocumentSyncConflict,
   isDocumentManifestAlreadyExistsConflict,
   isRecoverableDocumentUpdateIdConflict,
 } from "./syncFailureClassification";
@@ -147,43 +148,31 @@ test("code-less update id conflicts fail closed — messages are diagnostics, no
   ).toBe(false);
 });
 
-test("checkpoint regeneration requires the exact coverage code", () => {
-  expect(
-    isCheckpointCoverageConflict(
-      failure(
-        DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
-        "Diagnostic changed",
-      ),
-    ),
-  ).toBe(true);
-  expect(
-    isCheckpointCoverageConflict(
-      failure(
-        undefined,
-        "Document content-key rotation baseline does not cover the committed frontier",
-      ),
-    ),
-  ).toBe(false);
-  expect(
-    isCheckpointCoverageConflict(failure("unknown_code", "Diagnostic")),
-  ).toBe(false);
-  expect(
-    isCheckpointCoverageConflict(
-      failure(
-        ` ${DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict} `,
-        "Diagnostic",
-      ),
-    ),
-  ).toBe(false);
-  expect(
-    isCheckpointCoverageConflict(
-      failure(
-        DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
-        "Diagnostic",
-        503,
-      ),
-    ),
-  ).toBe(false);
+// A baseline is built for the request that rotates, so a pass has no other
+// one to send in its place: a refused baseline is neither retried nor
+// recovered, even with attempts left and updates queued.
+test("a refused rotation baseline is neither retried nor recovered", () => {
+  for (const code of [
+    DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+    DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
+  ]) {
+    const refusal = failure(code, "Diagnostic changed");
+    expect(
+      canRetryDocumentSyncConflict({
+        attempt: 1,
+        failure: refusal,
+        maxAttempts: 3,
+      }),
+    ).toBe(false);
+    expect(
+      canRecoverDocumentUpdateIdConflict({
+        attempt: 1,
+        failure: refusal,
+        maxAttempts: 3,
+        pendingUpdateCount: 1,
+      }),
+    ).toBe(false);
+  }
 });
 
 test("document lost-response adoption requires the exact manifest code", () => {

@@ -3,7 +3,6 @@ import {
   createDocument,
   encodeVersionVector,
   exportAllUpdates,
-  exportFullHistorySnapshot,
   exportUpdatesSince,
 } from "@tearleads/loro";
 import {
@@ -76,25 +75,13 @@ test("createPendingUpdateFields keeps a real edit delta", async () => {
   );
 });
 
-test("createPendingUpdateFields keeps a full-history baseline", async () => {
+test("createPendingUpdateFields keeps a whole-history update export", async () => {
   const doc = await createDocument("documentsync-test-seed-3");
-  doc.getText("text").update("baseline content");
-  const baseline = exportFullHistorySnapshot(doc);
+  doc.getText("text").update("whole history");
 
-  const fields = createPendingUpdateFields(baseline, encodeVersionVector(doc));
+  const fields = createPendingUpdateFields(exportAllUpdates(doc));
   expect(fields).not.toBeNull();
-});
-
-test("createPendingUpdateFields rejects a non-snapshot rotation baseline", async () => {
-  const doc = await createDocument("documentsync-test-seed-4");
-  doc.getText("text").update("baseline content");
-
-  // An updates-mode export is never a self-contained baseline: replaying it
-  // requires history the reader may not have, so rotation must refuse it and
-  // demand a full-history snapshot.
-  expect(() =>
-    createPendingUpdateFields(exportAllUpdates(doc), encodeVersionVector(doc)),
-  ).toThrow("full-history Loro snapshot");
+  expect(fields?.partialEndVersionVector).toBe(encodeVersionVector(doc));
 });
 
 test("document update hints require the current scoped contract", () => {

@@ -1,4 +1,1 @@
-export type {
-  DocumentCheckpointKind,
-  SyncDocumentOutgoingUpdate,
-} from "./validators";
+export type { SyncDocumentOutgoingUpdate } from "./validators";

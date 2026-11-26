@@ -86,7 +86,6 @@ test("document sync outgoing batches fit the serialized request byte limit", () 
         partialEndVersionVector: vector,
         partialStartVersionVector: vector,
         plaintextHash: `plaintext-${index}`,
-        sourceVersionVector: vector,
         writeHeader: { index },
       }),
     ),

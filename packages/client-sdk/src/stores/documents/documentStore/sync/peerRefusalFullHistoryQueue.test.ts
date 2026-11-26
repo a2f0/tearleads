@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
   decodeVersionVector,
   encodeVersionVector,
-  exportFullHistorySnapshot,
+  exportAllUpdates,
   getTextValue,
   versionVectorsEqual,
 } from "@tearleads/loro";
@@ -22,8 +22,8 @@ import { documentStorePeerRebaser } from "./peerRebase";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 // No queued update may lower what a device knows is committed (#3263). One
-// that sends a peer again from counter zero, as a rotation baseline or a
-// republished history does, would by the queue alone make the device count
+// that sends a peer again from counter zero, as a republished history does,
+// would by the queue alone make the device count
 // nothing on that peer as committed: a frontier that fell would read as an
 // ordinary one and the rebase would write committed operations again. The
 // record's committed version, which the settlement below raised, prevents it.
@@ -45,9 +45,9 @@ afterEach(() => close());
 
 /**
  * A remote note whose "base" the server acknowledged, with " more" queued
- * after it and, in front of both, a full-history baseline from counter zero.
+ * after it and the whole history queued again from counter zero.
  */
-async function noteWithQueuedBaseline() {
+async function noteWithQueuedFullHistory() {
   const domainScope = createDomainScope();
   await openHistoryTestStore(
     execSql,
@@ -77,13 +77,9 @@ async function noteWithQueuedBaseline() {
   if (!state.doc || !recordPeer) throw new Error("expected a loaded note");
   const committed = encodeVersionVector(state.doc);
   await setDocumentText(state, () => undefined, "base more");
-  const end = encodeVersionVector(state.doc);
-  const baseline = createPendingUpdateFields(
-    exportFullHistorySnapshot(state.doc),
-    end,
-  );
-  if (!baseline) throw new Error("expected a full-history baseline");
-  await repository.enqueueDocumentPendingUpdate(SCOPE, baseline);
+  const fullHistory = createPendingUpdateFields(exportAllUpdates(state.doc));
+  if (!fullHistory) throw new Error("expected a full-history update");
+  await repository.enqueueDocumentPendingUpdate(SCOPE, fullHistory);
   return { committed, domainScope, recordPeer, state };
 }
 
@@ -138,7 +134,7 @@ async function storedCommittedVersion(): Promise<string> {
 
 test("parks at a frontier that fell although a full history is queued", async () => {
   const { committed, domainScope, recordPeer, state } =
-    await noteWithQueuedBaseline();
+    await noteWithQueuedFullHistory();
   const liveDoc = state.doc;
   const queue = await listPendingUpdates(state);
   const before = await storedRecord();
@@ -174,7 +170,7 @@ test("parks at a frontier that fell although a full history is queued", async ()
 });
 
 test("has nothing to relay for a lost dependency a queued full history already sends", async () => {
-  const { recordPeer, state } = await noteWithQueuedBaseline();
+  const { recordPeer, state } = await noteWithQueuedFullHistory();
   const liveDoc = state.doc;
   const queue = await listPendingUpdates(state);
   const before = await storedRecord();

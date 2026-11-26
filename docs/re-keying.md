@@ -61,9 +61,10 @@ exact key targets. Clients generate keys and create the wraps.
   wrapped for the expanded set of folders.
 - **Moving a document** links it to the destination, then unlinks it from
   the source. Unlinking rotates the DEK. The client wraps the new key for the
-  remaining folders and submits an encrypted snapshot of the document (the
-  *baseline*) with the unlink. A document with no committed updates can skip
-  the baseline. Later edits use the new DEK. Older updates keep their keys.
+  remaining folders and submits the document's history again, encrypted under
+  the new key (the *baseline*), with the unlink. A document with no committed
+  updates can skip the baseline. Later edits use the new DEK. Older updates
+  keep their keys.
 - **An existing attachment** has immutable encrypted bytes and a separate
   wrapped content key. Its wraps can change as its active bindings change.
   Changing the key that encrypted the bytes requires replacing or

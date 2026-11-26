@@ -5,6 +5,7 @@ import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordMetadataHash,
+  startDocumentBaselineSegmentsDigest,
 } from "@tearleads/crypto";
 import {
   createDocument,
@@ -21,10 +22,16 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";
 import { currentDocumentLinkRows } from "./currentDocumentLinks";
 import type { CreatedDocumentFixture } from "./documentAcknowledgementFixture";
+import {
+  type BaselineSegmentFields,
+  type BaselineSegmentRange,
+  baselineSegmentRanges,
+  createSignedBaselineGroup,
+} from "./documentBaselineGroups";
 import {
   CONTENT_KEY_COMMITMENT_FIXTURE,
   signWithDocumentEnvelope,
@@ -92,6 +99,22 @@ async function createSignedOrdinaryUpdate(input: {
   const organizationId = String(
     Reflect.get(input.created.accessManifest.state, "organizationId"),
   );
+  // A checkpoint is a baseline of one segment: the whole group.
+  const baselineId = crypto.randomUUID();
+  const baselineFields: BaselineSegmentFields | undefined = input.checkpoint
+    ? {
+        baselineId,
+        baselineSegmentCount: 1,
+        baselineSegmentIndex: 0,
+        baselineSegmentsDigest: await startDocumentBaselineSegmentsDigest({
+          baselineId,
+          documentId: input.created.id,
+        }),
+        ...(input.coversThroughUpdateId === undefined
+          ? {}
+          : { coversThroughUpdateId: input.coversThroughUpdateId }),
+      }
+    : undefined;
   const { encryptedData, writeHeader } = await signWithDocumentEnvelope(
     `encrypted-sync-audit-update:${id}`,
     {
@@ -121,14 +144,7 @@ async function createSignedOrdinaryUpdate(input: {
         contentRecordId: id,
       }),
       metadataHash: await computeDocumentContentRecordMetadataHash({
-        ...(input.checkpoint
-          ? {
-              checkpointKind: "rotate_baseline" as const,
-              checkpointPayloadKind: "full_history_snapshot" as const,
-              coversThroughUpdateId: input.coversThroughUpdateId,
-              sourceVersionVector: vectors.partialEndVersionVector,
-            }
-          : {}),
+        ...baselineFields,
         dependencyVersionVector,
         documentId: input.created.id,
         partialEndVersionVector: vectors.partialEndVersionVector,
@@ -145,6 +161,7 @@ async function createSignedOrdinaryUpdate(input: {
     input.contentKeyCommitment,
   );
   return {
+    baselineFields,
     dependencyVersionVector,
     encryptedData,
     id,
@@ -157,6 +174,7 @@ async function createSignedOrdinaryUpdate(input: {
 export async function createSignedDocumentSyncRequest(input: {
   /** Defaults to the root alone; the update's header cites every path. */
   readonly authorizingContainerPathRefs?: ContainerPathRefs | undefined;
+  /** Signs the update as a rotation baseline of one segment. */
   readonly checkpoint?: boolean;
   /**
    * The commitment the update's envelope and any carried bundle declare;
@@ -216,16 +234,7 @@ export async function createSignedDocumentSyncRequest(input: {
       localVersionVector: null,
       outgoingUpdates: [
         {
-          ...(input.checkpoint
-            ? {
-                checkpointKind: "rotate_baseline" as const,
-                checkpointPayloadKind: "full_history_snapshot" as const,
-                ...(input.coversThroughUpdateId === undefined
-                  ? {}
-                  : { coversThroughUpdateId: input.coversThroughUpdateId }),
-                sourceVersionVector: update.vectors.partialEndVersionVector,
-              }
-            : {}),
+          ...update.baselineFields,
           dependencyVersionVector: update.dependencyVersionVector,
           encryptedData: update.encryptedData,
           id: update.id,
@@ -266,87 +275,43 @@ export async function createFirstUpdateSyncRequest(input: {
   };
 }
 
+/**
+ * An unlink's rotation baseline: one signed group whose segments reach
+ * `coverage`, by default the document's committed frontier, cut into
+ * `segments` pieces. `ranges` signs exactly those ranges instead.
+ */
 export async function createSignedAtomicRotationBaseline(input: {
   readonly dependencyManifestHashes: readonly string[];
   readonly accessManifestHash: string;
   readonly contentKeyCommitment?: string | undefined;
   readonly contentKeyEpoch: number;
+  /** The version the group's segments reach together. */
+  readonly coverage?: string | undefined;
   readonly coversThroughUpdateId?: string | undefined;
   readonly documentId: string;
   readonly organizationId: string;
+  readonly override?: Parameters<
+    typeof createSignedBaselineGroup
+  >[0]["override"];
   readonly owner: TestUser;
-  readonly sourceVersionVector?: string;
+  readonly ranges?: readonly BaselineSegmentRange[] | undefined;
+  /** How many segments to cut the coverage into; one when absent. */
+  readonly segments?: number | undefined;
   readonly targetHash: string;
-}): Promise<DocumentOutgoingUpdate> {
+}): Promise<DocumentOutgoingUpdate[]> {
   const rows = await db
     .select({
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
     })
     .from(documentUpdates)
     .where(eq(documentUpdates.documentId, input.documentId));
-  const sourceVersionVector =
-    input.sourceVersionVector ??
+  const coverage =
+    input.coverage ??
     mergeVersionVectors(rows.map((row) => row.partialEndVersionVector));
-  const id = crypto.randomUUID();
-  const partialStartVersionVector = emptyVersionVector();
-  const plaintextHash = `plaintext-hash:${id}`;
-  const { encryptedData, writeHeader } = await signWithDocumentEnvelope(
-    `encrypted-rotation-baseline:${id}`,
-    {
-      version: 1,
-      dependencyManifestHashes: [...input.dependencyManifestHashes].sort(),
-      organizationId: input.organizationId,
-      objectKind: "document",
-      objectId: input.documentId,
-      accessManifestHash: input.accessManifestHash,
-      contentKeyEpoch: input.contentKeyEpoch,
-      targetHash: input.targetHash,
-      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-      contentRecordId: id,
-      nonceDomainHash: await computeContentRecordNonceDomainHash({
-        version: 1,
-        organizationId: input.organizationId,
-        objectKind: "document",
-        objectId: input.documentId,
-        contentKeyEpoch: input.contentKeyEpoch,
-        encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-        contentRecordId: id,
-      }),
-      metadataHash: await computeDocumentContentRecordMetadataHash({
-        checkpointKind: "rotate_baseline",
-        checkpointPayloadKind: "full_history_snapshot",
-        coversThroughUpdateId: input.coversThroughUpdateId,
-        dependencyVersionVector: emptyVersionVector(),
-        documentId: input.documentId,
-        partialEndVersionVector: sourceVersionVector,
-        partialStartVersionVector,
-        plaintextHash,
-        sourceVersionVector,
-        updateId: id,
-      }),
-      writerUserId: input.owner.userId,
-      writerDeviceId: "test-device",
-      writerKeyFingerprint: input.owner.fingerprint,
-      signedAt: "2026-07-14T12:00:00.000Z",
-    },
-    input.owner.signing.signingPrivateKey,
-    input.contentKeyCommitment,
-  );
-  return {
-    checkpointKind: "rotate_baseline",
-    checkpointPayloadKind: "full_history_snapshot",
-    ...(input.coversThroughUpdateId === undefined
-      ? {}
-      : { coversThroughUpdateId: input.coversThroughUpdateId }),
-    id,
-    dependencyVersionVector: emptyVersionVector(),
-    encryptedData,
-    partialStartVersionVector,
-    partialEndVersionVector: sourceVersionVector,
-    plaintextHash,
-    sourceVersionVector,
-    writeHeader: { ...writeHeader },
-  };
+  return createSignedBaselineGroup({
+    ...input,
+    ranges: input.ranges ?? baselineSegmentRanges(coverage, input.segments),
+  });
 }
 
 export async function expectStaleAtomicUnlinkRollsBack(input: {
@@ -379,7 +344,12 @@ export async function expectStaleAtomicUnlinkRollsBack(input: {
     db
       .select({ id: documentUpdates.id })
       .from(documentUpdates)
-      .where(eq(documentUpdates.id, request.rotationBaseline?.id ?? "missing")),
+      .where(
+        inArray(
+          documentUpdates.id,
+          (request.rotationBaseline ?? []).map((segment) => segment.id),
+        ),
+      ),
     currentDocumentLinkRows(input.documentId),
   ]);
   expect(manifest).toHaveLength(0);

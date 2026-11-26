@@ -18,6 +18,7 @@ import {
   sortDocumentTargets,
   targetEnvelopeReference,
 } from "../../../data/documents/shared/readers";
+import { documentBaselineSegmentFields } from "../../../data/documents/shared/sync/baselineSegment";
 import type {
   BuildDocumentSyncPlanInput,
   DocumentSyncPlan,
@@ -163,24 +164,13 @@ export async function signDocumentOutgoingUpdate(input: {
   );
 
   return {
-    ...(input.update.checkpointKind === undefined
-      ? {}
-      : { checkpointKind: input.update.checkpointKind }),
-    ...(input.update.checkpointPayloadKind === undefined
-      ? {}
-      : { checkpointPayloadKind: input.update.checkpointPayloadKind }),
-    ...(input.update.coversThroughUpdateId === undefined
-      ? {}
-      : { coversThroughUpdateId: input.update.coversThroughUpdateId }),
+    ...documentBaselineSegmentFields(input.update),
     id: input.update.id,
     dependencyVersionVector: input.update.dependencyVersionVector,
     encryptedData: input.update.encryptedData,
     partialStartVersionVector: input.update.partialStartVersionVector,
     partialEndVersionVector: input.update.partialEndVersionVector,
     plaintextHash: input.update.plaintextHash,
-    ...(input.update.sourceVersionVector === undefined
-      ? {}
-      : { sourceVersionVector: input.update.sourceVersionVector }),
     writeHeader: readCanonicalRecord(
       writeHeader,
       "Document outgoing write header",

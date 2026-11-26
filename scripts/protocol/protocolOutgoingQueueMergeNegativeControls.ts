@@ -16,7 +16,7 @@ export const OUTGOING_QUEUE_MERGE_NEGATIVE_CONTROLS: readonly NegativeControl[] 
       config: "formal/document-sync/OutgoingQueueMerge.cfg",
       constants: { MergeAcrossCheckpoint: "TRUE" },
       expect: { kind: "invariant", name: "MergedRowKeepsPosition" },
-      why: "Merging rows on both sides of a queued rotation checkpoint or outbox row moves later operations ahead of it (#2851).",
+      why: "Merging rows on both sides of a queued outbox row moves later operations ahead of it (#2851).",
     },
     {
       id: "outgoing-merge-across-span-gap",

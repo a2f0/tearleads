@@ -76,8 +76,8 @@ Every retained document update and every attachment blob carries the writer
 device's [signed write header](./glossary/content.md#signed-write-header), and clients
 verify it on every synced record (see [Write Integrity](#write-integrity)).
 Integrity of accepted history therefore does not rest on server bookkeeping. The
-server keeps no separate audit ledger: a nullable `document_updates` column only
-marks which retained updates are
+server keeps no separate audit ledger: nullable `document_updates` columns only
+mark which retained updates are segments of
 [rotation baselines](./glossary/keys.md#rotation-baseline), and `blob_audit_objects`
 registers every blob generation an attachment binding referenced.
 
@@ -104,39 +104,57 @@ The access change itself should advance the document `accessEpoch`.
 The winning rotate baseline does not decide the new epoch number. It populates
 content for an epoch that already exists because authorization state changed.
 
-### Baselines Carry Frontier Metadata
+### A Baseline Is A Group Of Segments
 
-Baseline updates can carry the source
-[version vector](./glossary/content.md#version-vector) / causal frontier used to
-build the proposed baseline. The writer's signed metadata hash commits to that
-frontier, and the update row repeats it so the server can find baselines without
-parsing write headers. Readers recompute the metadata hash from the served
-frontier, so a frontier altered in storage fails verification.
+A rotation baseline is an ordered group of ordinary update records, its
+segments. Each segment is an `update`-mode Loro blob with its own update id,
+envelope, and signed write header, written at the new content-key epoch.
+Imported in index order into an empty document, the segments rebuild the
+whole history their writer proved. A small history is one segment.
 
-The server does not turn that source frontier into a compare-and-set gate on
+Each segment's signed content-record metadata places it in the group. Every
+segment carries `baselineId` and `baselineSegmentIndex`. The final segment
+also carries `baselineSegmentCount`, `baselineSegmentsDigest` (a hash chain
+over the segments before it), and, optionally, `coversThroughUpdateId`. An
+ordinary update carries none of the five. The metadata hash covers them with
+the rest of the signed metadata, so they reach the AES-GCM associated data
+and the write-header signature. The update row repeats them so the server can
+find a group's segments and judge them together. Readers recompute the
+metadata hash from the served fields, so a field altered in storage fails
+verification. The
+[group rules](./document-link-and-sync-protocol.md#rotation-baseline-groups)
+define the fields, the digest, what the API admits, and what a reader checks.
+
+What a group covers is not signed. It is derived: for each peer, the highest
+end among the segments' signed `partialEndVersionVector`s. A group's spans
+run gapless from zero, so that version names every operation the group holds.
+The server does not turn that coverage into a compare-and-set gate on
 accepted sync updates. A retained client that loses a rotate race adopts the
 canonical bundle and re-emits from local CRDT state if needed.
 
-A baseline can also sign its author's processed cursor as
+The final segment can also sign its author's processed cursor as
 `coversThroughUpdateId`: every update committed at or before it was imported
-into the snapshot or void for its author. The rotation gates and the redirect
-ask the source frontier to cover only the updates committed after that
-cursor, so an update whose op span overclaims no longer refuses every
-rotation ([advisory op spans](./advisory-op-spans.md#rotations-and-unlinks)).
+into the history the baseline carries or void for its author. The rotation
+gates and the redirect ask the group to cover only the updates committed
+after that cursor, so an update whose op span overclaims does not refuse
+every rotation
+([advisory op spans](./advisory-op-spans.md#rotations-and-unlinks)). A
+baseline whose author voided every update is one empty segment that signs
+its cursor.
 
 ### Declared Coverage Is Trusted, Not Verified
 
-Normal sync can omit older ciphertext when an authenticated replayable baseline
-(`isAuthenticatedReplayableBaseline`) declares coverage that dominates every
-older update. The server retains every original encrypted document update;
-there is no document-payload GC or pruner.
+Normal sync can omit older ciphertext when the latest whole baseline at the
+current content-key epoch (`loadLatestStoredDocumentBaselineGroup`) covers
+every older update. The server retains every original encrypted document
+update; there is no document-payload GC or pruner.
 
-Under [E2EE](./loro-e2ee-sync-protocol.md) the server cannot open the baseline
-snapshot, so it cannot verify that its ciphertext carries the operations it
-claims to cover. A malicious authorized writer can redirect readers away from
-older ciphertext. Because version vectors describe causal shape rather than
-content, a rotation-capable writer can also sign a full-history snapshot with
-the same frontier but fabricated prior plaintext.
+Under [E2EE](./loro-e2ee-sync-protocol.md) the server cannot open a segment,
+so it cannot verify that the ciphertext carries the operations its spans
+declare. A malicious authorized writer can redirect readers away from older
+ciphertext. Because version vectors describe causal shape rather than
+content, a rotation-capable writer can also sign a baseline whose segments
+declare the same spans but carry fabricated prior plaintext.
 
 The resulting risk has these bounds:
 
@@ -146,16 +164,17 @@ The resulting risk has these bounds:
   [sealed keyring](./glossary/keys.md#container-kek-keyring), so any authorized
   writer can read old history and could substitute content while preserving the
   visible version-vector shape
-- the declaration is durable and attributable: the baseline's signed write
-  header commits to its frontier through the metadata hash and names the
-  writer device. Signed ciphertext hashes and a record-key-derived HMAC
-  attribute each retained update, but that per-update commitment is not
-  comparable to a full-history snapshot's commitment. A current-epoch reader
-  can compare a baseline's frontier to its claim. Raw read-only sync can
-  retrieve retained ciphertext without redirection, but only when the client
-  can unwrap every historical epoch key
+- the declaration is durable and attributable: each segment's signed write
+  header commits to its spans and its place in the group through the metadata
+  hash and names the writer device. Signed ciphertext hashes and a
+  record-key-derived HMAC attribute each retained update, but an ordinary
+  update's commitment is not comparable to that of a segment carrying the
+  same operations again. A current-epoch reader checks each segment's
+  declared span against its payload, as it does for any update. Raw read-only
+  sync can retrieve retained ciphertext without redirection, but only when
+  the client can unwrap every historical epoch key
 
-Any authorized writer may author `rotate_baseline`, keeping lazy healing
+Any authorized writer may author a rotation baseline, keeping lazy healing
 independent of an administrator or original creator. A client that distrusts a
 baseline can use [raw recovery](./raw-document-history-recovery.md) to
 reconstruct from retained ordinary updates without redirection. Inner author
@@ -270,16 +289,16 @@ Every accepted document update stores the writer's signed write header in
 - the access manifest hash and [key-target hash](./glossary/keys.md#target-hash)
   the write was authorized under, plus the dependency manifest hashes it cites
 - `ciphertextHash` over the encrypted record
-- `metadataHash` over the update id, both partial version vectors, the
-  record-key-derived plaintext HMAC, and, for a baseline, its checkpoint kind
-  and source version vector
+- `metadataHash` over the update id, the partial and dependency version
+  vectors, the record-key-derived plaintext HMAC, and, for a baseline
+  segment, its baseline fields
 - the writer's user id, device id, and signing-key fingerprint, and `signedAt`
 
 The API verifies the header before it accepts an update. Every client verifies
 it again on every synced update: it recomputes the ciphertext hash and the
 metadata hash from the served record and checks the writer's signature
 ([`packages/client-sdk/src/data/documents/shared/sync/syncResponses.ts`](../packages/client-sdk/src/data/documents/shared/sync/syncResponses.ts)).
-A tampered ciphertext, version vector, plaintext HMAC, or baseline frontier
+A tampered ciphertext, version vector, plaintext HMAC, or baseline field
 therefore [fails closed](./glossary/access.md#fail-closed) on the client, and a
 tampered baseline cannot redirect a reader to partial state.
 
@@ -346,42 +365,52 @@ The persistence seams are:
 - live blob bytes in `blobs`
 
 The server retains every original encrypted document update in
-`document_updates`. Rotation baselines are full-history Loro snapshots, not
-flattened state-only snapshots.
+`document_updates`. A rotation baseline carries the full operation history
+as update segments, not a flattened state-only snapshot.
 
 ### Rotation baselines in `document_updates`
 
-A retained update that carries `checkpointKind` stores its signed
-`sourceVersionVector` in the nullable `baseline_source_version_vector` column
-of its own `document_updates` row, and its signed `coversThroughUpdateId`, if
-any, in `baseline_covers_through_update_id`; every other update leaves both
-null. The
-checkpoint and payload kinds are the rotation constants, so they are not
-stored. A partial index on `(document_id, sequence)` where the column is set
-serves the redirect.
+A baseline's segments are ordinary `document_updates` rows, with their
+`document_update_spans` rows and write headers. One statement inserts them
+in index order, so `sequence` rises with the index. Nullable columns hold
+each segment's signed
+[baseline fields](#a-baseline-is-a-group-of-segments), and an ordinary update
+leaves all five null:
 
-Three readers consume it:
+- `baseline_id` and `baseline_segment_index`, on every segment
+- `baseline_segment_count` and `baseline_segments_digest`, on the final
+  segment only
+- `baseline_covers_through_update_id`, on a final segment that signs a cursor
+
+No column stores what a group covers: the redirect merges the segments' end
+version vectors. A partial index on `(document_id, sequence)` where
+`baseline_id` is set lists a document's segments for the redirect. A unique
+partial index on `(baseline_id, baseline_segment_index)` keeps two rows from
+taking one place in a group, so a new group that reuses a committed group's
+`baselineId` is refused as a write conflict.
+
+Three readers consume the columns:
 
 - the coverage-gated baseline redirect
   ([`documentSyncBaselineRedirect.ts`](../packages/api/src/documents/documentSyncBaselineRedirect.ts)),
-  which picks the newest replayable baseline by update sequence
+  which picks the latest whole group at the current content-key epoch
+  ([`documentStoredBaselineGroup.ts`](../packages/api/src/documents/documentStoredBaselineGroup.ts))
 - the sync response
   ([`syncResponseUpdates.ts`](../packages/api/src/workflows/documents/mutations/syncResponseUpdates.ts)),
-  which echoes a served baseline's checkpoint metadata
+  which returns each served segment's baseline fields
 - edit attribution
   ([`documentEditAttribution.ts`](../packages/api/src/documents/documentEditAttribution.ts)),
-  which flags spans a baseline first delivered as re-assertions rather than
-  authorship
+  which flags spans a baseline segment first delivered as re-assertions
+  rather than authorship
 
-The redirect and the sync response recompute the signed metadata hash from the
-constant kinds, these columns, and the update row before they serve a
-baseline, so a tampered column fails closed.
+The redirect and the sync response recompute the signed metadata hash from
+these columns and the update row, so a tampered column fails closed: the
+redirect skips the group, and a pull that would serve the row fails
+([serving](./document-link-and-sync-protocol.md#serving-and-the-redirect)).
 
-The write contract marks baselines explicitly on outgoing updates:
-`checkpointKind: "rotate_baseline"`, `checkpointPayloadKind:
-"full_history_snapshot"`, and `sourceVersionVector` are present together or
-absent together, and `coversThroughUpdateId` only with them. Only marked
-updates set the columns.
+The write contract marks segments explicitly on outgoing updates with the
+[baseline segment fields](./document-link-and-sync-protocol.md#rotation-baseline-groups).
+Only marked updates set the columns.
 
 ### `blob_audit_objects`
 
@@ -432,7 +461,7 @@ The server does **not** promise:
 The server promises:
 
 - every accepted document update is retained with its signed write header
-- every retained baseline is marked with its signed source frontier
+- every retained baseline segment is marked with its signed baseline fields
 - every blob generation an attachment referenced stays registered to its
   organization after live pruning
 
@@ -448,13 +477,13 @@ When new active-epoch updates are accepted, the transaction:
 - verifies and stores each update's signed write header in
   `document_content_write_headers`
 - writes `document_updates` and `document_update_spans`
-- sets `baseline_source_version_vector`, and
-  `baseline_covers_through_update_id` when the baseline signs a cursor, on
-  each newly inserted update marked as a baseline, in the same insert
+- sets the baseline columns on each newly inserted update marked as a
+  baseline segment, in the same insert
 
 Only updates the transaction inserts are written, so a retried sync stays
-idempotent. An unlink that carries an atomic rotation baseline uses the same
-append.
+idempotent. A baseline's segments commit together in that transaction or not
+at all. An unlink's rotation baseline uses the same append, and the unlink
+is refused unless the append inserted every segment.
 
 #### blob attachment bind/detach
 

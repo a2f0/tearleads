@@ -2,6 +2,7 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import { assertDocumentManifestBundleConsistent } from "../../../data/documents/shared/readers";
 import { isDocumentSyncRequestLimitError } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
+import { pullPageVersion } from "../../../data/documents/shared/sync/pullContinuation";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
@@ -84,7 +85,6 @@ export async function planDocumentSyncAttempt(input: {
   /** The processed cursor the request may carry; see `processedCursor.ts`. */
   processedThroughUpdateId?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
-  regenerateQueuedCheckpoints: boolean;
   sync: RemoteDocumentSyncPass;
   failureBlocksQueuedWrites: boolean;
   writerProjection: DocumentWriterProjectionResponse;
@@ -109,7 +109,10 @@ export async function planDocumentSyncAttempt(input: {
       buildWithProjection: (projection) =>
         buildRemoteDocumentSyncPlan({
           pendingUpdates,
-          localVersionVector: input.localVersionVector,
+          localVersionVector: pullPageVersion(
+            input.localVersionVector,
+            input.pullContinuation,
+          ),
           preparedRekeys:
             projection === prepared.projection ? prepared.plans : undefined,
           minLsn: resolvePullContinuationMinLsn(
@@ -119,7 +122,6 @@ export async function planDocumentSyncAttempt(input: {
           processedThroughUpdateId: input.processedThroughUpdateId,
           pullCursor: input.pullContinuation?.cursor,
           projection,
-          regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
           sync: input.sync,
         }),
       documentId: input.sync.documentId,
