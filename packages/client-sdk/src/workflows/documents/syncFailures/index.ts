@@ -35,7 +35,6 @@ import {
   canRecoverDocumentUpdateIdConflict,
   canRetryDocumentSyncConflict,
   handleUpstreamDeletedDocumentSyncFailure,
-  isCheckpointCoverageConflict,
   type RemoteDocumentDeletionHandler,
   shouldRetrySyncWithFreshWriterProjection,
   type TerminalSubmitFailureHandler,
@@ -67,7 +66,6 @@ type FailedDocumentSyncAction =
       readonly kind: "recover_update_id_conflict";
       readonly recoveryPendingUpdatesById: Map<string, PendingUpdateRecord>;
     }
-  | { readonly kind: "regenerate_queued_checkpoints" }
   | {
       readonly kind: "rebase_peer";
       /** Reported as terminal when the rebase finds nothing to cut. */
@@ -78,7 +76,6 @@ type FailedDocumentSyncAction =
 const SUBMIT_FAILURE_TRACE_ACTIONS = {
   rebase_peer: "rebase-peer",
   recover_update_id_conflict: "recover-update-ids",
-  regenerate_queued_checkpoints: "regenerate-checkpoints",
 } as const;
 
 type DocumentSyncAttemptSubmission =
@@ -94,7 +91,6 @@ type DocumentSyncAttemptSubmission =
 async function resolveFailedDocumentSyncAction(input: {
   attempt: number;
   canRebaseOntoFreshPeer?: boolean | undefined;
-  canRegenerateQueuedCheckpoints?: boolean | undefined;
   documentId: string;
   failure: DocumentSyncSubmitFailure;
   maxAttempts: number;
@@ -120,7 +116,6 @@ async function resolveFailedDocumentSyncAction(input: {
 async function classifyFailedDocumentSyncAction(input: {
   attempt: number;
   canRebaseOntoFreshPeer?: boolean | undefined;
-  canRegenerateQueuedCheckpoints?: boolean | undefined;
   documentId: string;
   failure: DocumentSyncSubmitFailure;
   maxAttempts: number;
@@ -177,14 +172,6 @@ async function classifyFailedDocumentSyncAction(input: {
     };
   }
 
-  if (
-    input.attempt < input.maxAttempts &&
-    input.canRegenerateQueuedCheckpoints === true &&
-    isCheckpointCoverageConflict(input.failure)
-  ) {
-    return { kind: "regenerate_queued_checkpoints" };
-  }
-
   // Another user owns a peer this request extends, or it depends on an op
   // nobody committed. The pass hands the named frontiers to the host, which
   // rebases the record's unsent ops onto a fresh peer or relays ops the
@@ -204,7 +191,6 @@ async function submitDocumentSyncAttempt(input: {
   apiClient: DocumentSyncApi;
   attempt: number;
   canRebaseOntoFreshPeer?: boolean | undefined;
-  canRegenerateQueuedCheckpoints?: boolean | undefined;
   documentId: string;
   expectedCommitLsnMode?: DocumentSyncCommitLsnMode | undefined;
   maxAttempts: number;
@@ -247,7 +233,6 @@ async function submitDocumentSyncAttempt(input: {
   return resolveFailedDocumentSyncAction({
     attempt: input.attempt,
     canRebaseOntoFreshPeer: input.canRebaseOntoFreshPeer,
-    canRegenerateQueuedCheckpoints: input.canRegenerateQueuedCheckpoints,
     documentId: input.documentId,
     failure: submitted,
     maxAttempts: input.maxAttempts,

@@ -8,7 +8,10 @@
 (* A mutation that weakens Dominated, Older, or the raw-mode serve rule    *)
 (* changes these exported behaviors and therefore fails either the trace   *)
 (* fixture drift check or the kernel replay. The exported baseline flag is *)
-(* the readable, authenticated baseline the kernels receive as coverage.   *)
+(* the readable baseline, a whole signed group, whose coverage the kernels *)
+(* receive. Which segment carries an update, and which segments are        *)
+(* stored, are not exported: they decide whether a group is readable, and  *)
+(* the kernels see only that.                                              *)
 EXTENDS BaselineDominance, TLC
 
 ASSUME Peers = {"a", "b"}

@@ -1,5 +1,6 @@
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
+import type { BaselineGroupRun } from "./baselineGroupMachine";
 import type { DocumentSyncApi, DocumentSyncPlan } from "./documentSyncTypes";
 import type {
   DocumentSyncCommitLsnMode,
@@ -37,8 +38,16 @@ type DocumentSyncSubmission =
   | DocumentSyncSubmitFailure
   | null;
 
+/**
+ * The continuation a page's response leaves for the pull's next page, or
+ * null when the pull is complete. `baselineGroupRun` is the pass result's:
+ * the rotation baseline the page ended inside, which the next page's
+ * segments are checked against. A caller that drops it still pulls, but the
+ * rest of that baseline is checked only as a reader that holds part of it.
+ */
 export function readPullContinuation(
   response: DocumentSyncResponse,
+  baselineGroupRun?: BaselineGroupRun | null,
 ): DocumentSyncPullContinuation | null {
   const cursor = requirePullPage(response).nextCursor;
   if (cursor === null) return null;
@@ -48,6 +57,7 @@ export function readPullContinuation(
     );
   }
   return {
+    ...(baselineGroupRun ? { baselineGroupRun } : {}),
     commitLsn: response.commitLsn,
     commitLsnMode: response.commitLsnMode,
     cursor,

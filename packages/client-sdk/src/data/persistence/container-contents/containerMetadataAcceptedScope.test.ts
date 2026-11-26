@@ -43,7 +43,6 @@ test("metadata settlement cannot delete another container's pending id", async (
         containerId: "container-a",
         partialEndVersionVector: "end-a",
         partialStartVersionVector: "start-a",
-        sourceVersionVector: null,
         updateData: "update-a",
       });
     const foreignB = await sqlContainerContentsPersistence.enqueuePendingUpdate(
@@ -52,7 +51,6 @@ test("metadata settlement cannot delete another container's pending id", async (
         containerId: "container-b",
         partialEndVersionVector: "end-b",
         partialStartVersionVector: "start-b",
-        sourceVersionVector: null,
         updateData: "update-b",
       },
     );

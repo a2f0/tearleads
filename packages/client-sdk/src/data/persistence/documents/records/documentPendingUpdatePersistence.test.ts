@@ -34,7 +34,6 @@ test("settling an outbox update removes it from the update log", async () => {
       updateData: "update-1",
       partialStartVersionVector: "start-vector-1",
       partialEndVersionVector: "end-vector-1",
-      sourceVersionVector: null,
     });
 
     await records.settleDocumentPendingUpdate(pendingUpdate?.id ?? "");
@@ -163,7 +162,6 @@ test("document pending update cleanup is scoped by app kind and local id", async
         updateData,
         partialStartVersionVector: `${updateData}-start`,
         partialEndVersionVector: `${updateData}-end`,
-        sourceVersionVector: `${updateData}-source`,
       });
     }
 
@@ -177,7 +175,7 @@ test("document pending update cleanup is scoped by app kind and local id", async
     ).resolves.toMatchObject([
       {
         updateData: "other-app-update",
-        sourceVersionVector: "other-app-update-source",
+        partialEndVersionVector: "other-app-update-end",
       },
     ]);
     await expect(
@@ -185,7 +183,7 @@ test("document pending update cleanup is scoped by app kind and local id", async
     ).resolves.toMatchObject([
       {
         updateData: "other-local-update",
-        sourceVersionVector: "other-local-update-source",
+        partialEndVersionVector: "other-local-update-end",
       },
     ]);
   } finally {

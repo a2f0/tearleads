@@ -1,5 +1,9 @@
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
-import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
+import {
+  createDocument,
+  exportFullHistorySnapshot,
+  importUpdates,
+} from "@tearleads/loro";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { getOnlyTarget } from "../data/documentFixtures";
@@ -57,4 +61,23 @@ export async function createFullHistoryRotationSnapshot(): Promise<Uint8Array> {
   doc.getText("text").update("healed content");
   doc.commit();
   return exportFullHistorySnapshot(doc);
+}
+
+/**
+ * A document two writers took turns editing, with enough history that a
+ * baseline cut at `SMALL_BASELINE_SEGMENTS` has several segments.
+ */
+export async function createInterleavedHistoryDocument(name: string) {
+  const document = await createDocument(name);
+  const peer = await createDocument(`${name}-peer`);
+  for (let round = 0; round < 12; round += 1) {
+    document.getText("text").insert(0, `first writer round ${round} lorem\n`);
+    document.commit();
+    peer.getText("text").insert(0, `second writer round ${round} ipsum\n`);
+    peer.commit();
+    importUpdates(document, [peer.export({ mode: "update" })]);
+    importUpdates(peer, [document.export({ mode: "update" })]);
+  }
+  peer.free();
+  return document;
 }

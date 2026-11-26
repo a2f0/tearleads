@@ -104,9 +104,10 @@ usage reset. A concise `checkpoint.md` indexes these files:
   source references, Measured/Traced/Estimated status, verifier, probe path
   and command, observed numbers, impact, risk, capability notes, and pending
   verification. Keep refuted candidates with a short reason.
-- `measurements/`: canary logs with the profile recorder on, per-endpoint
-  tables extracted from them, statement-count runs, census outputs, exit
-  codes, and the revision and dist timestamp they were taken at.
+- `measurements/`: the `perf:canaries` report and its logs, per-endpoint
+  tables extracted from them, `harness.md` and the realtime probe reports,
+  statement-count runs, census outputs, exit codes, and the revision and
+  dist timestamp they were taken at.
 - Per-work-item directories: reports, small probes, and test logs. Workers
   write only their own probes and logs, and return their report as their
   final message; the coordinator saves it as `report.md` there and

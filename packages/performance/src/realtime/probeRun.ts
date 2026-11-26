@@ -1,10 +1,6 @@
 import { runInProcessProbe } from "../inProcessProbe";
-import {
-  loadSeededTree,
-  type SeededTree,
-  saveJson,
-  seedFileName,
-} from "./artifacts";
+import { saveJson } from "../reportFiles";
+import { loadSeededTree, type SeededTree, seedFileName } from "./artifacts";
 import type { InProcessApi } from "./inProcessApi";
 import type { PostgresTraffic } from "./postgresWire";
 import { seedTree } from "./run";

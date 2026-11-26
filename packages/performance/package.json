@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/performance",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -11,7 +11,8 @@
     "test": "bun test src",
     "realtime": "bun src/realtime/index.ts",
     "realtime:contention": "bun src/realtime/contention/index.ts",
-    "reload": "bun src/reload/index.ts"
+    "reload": "bun src/reload/index.ts",
+    "canaries": "bun src/canaries/index.ts"
   },
   "dependencies": {
     "@tearleads/api": "workspace:*",

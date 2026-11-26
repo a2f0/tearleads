@@ -6,16 +6,17 @@
  * signed by a writer (writerUserId/writerKeyFingerprint in its write header).
  * The same (peer,counter) can be covered by MORE than one update — a writer's
  * delta exports from their full version vector, so a signed batch can re-assert
- * ops other peers authored, and a rotate_baseline re-asserts every peer from
- * counter 0. Attributing from the latest/widest covering span would let a
- * re-asserter (or a baseline author) be credited with another member's edits —
+ * ops other peers authored, and a rotation baseline's segments re-assert
+ * every peer from counter 0. Attributing from the latest/widest covering span
+ * would let a re-asserter (or a baseline author) be credited with another
+ * member's edits —
  * verifiable-but-WRONG, the worst audit failure.
  *
  * So attribution resolves each op to the EARLIEST covering span by server
  * receive order (document_updates.sequence): the first signed batch that
  * delivered the op. That writer is the authoritative first uploader. We also
  * surface authorityKind: "baseline" when the earliest covering update is a
- * rotate_baseline (a re-assertion / snapshot, never proof of authorship) vs
+ * rotation baseline segment (a re-assertion, never proof of authorship) vs
  * "direct" for an ordinary incremental update (normally the author's own edit).
  * Callers should treat "direct" as "first signed uploader", not as a
  * cryptographic proof that this exact member typed these characters.
@@ -33,7 +34,7 @@ export interface AttributionSpanInput {
   readonly sequence: number;
   readonly writerUserId: string;
   readonly writerKeyFingerprint: string;
-  /** The covering update is a rotate_baseline checkpoint. */
+  /** The covering update is a rotation baseline segment. */
   readonly isBaseline: boolean;
   /** When the server stored the update (document_updates.created_at), ISO. */
   readonly createdAt: string;

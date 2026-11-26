@@ -112,10 +112,9 @@ export interface DocumentsPersistence
   readonly orphanBlobs: DocumentOrphanBlobPersistence;
   /**
    * The adapter guarantees that recovery checkpoint replacement, selection of
-   * covered local history, rejection of unproven ordinary pending rows, and
-   * quarantine of every queued checkpoint artifact share the guarded
-   * `commitDocumentMutation` transaction, which also advances the canonical
-   * recovery generation. An unrelated history tail not covered by the rebuild
+   * covered local history, and rejection of unproven ordinary pending rows
+   * share the guarded `commitDocumentMutation` transaction, which also
+   * advances the canonical recovery generation. An unrelated history tail not covered by the rebuild
    * must abort that transaction.
    */
   readonly supportsAtomicRecoveryHistoryPruning: boolean;

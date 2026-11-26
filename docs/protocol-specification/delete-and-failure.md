@@ -96,10 +96,18 @@ The protocol is fail-closed:
 - stale manifest heads, stale key targets, and stale recipient keys return
   conflicts
 - an unlink whose [rotation baseline](../glossary/keys.md#rotation-baseline)
-  does not cover every committed update, or that carries none while updates
-  are committed, returns `409 document_unlink_rotation_baseline_stale`; the
-  client proves the full history again and retries instead of resubmitting the
-  refused snapshot
+  does not cover every update committed after its signed cursor, or that
+  carries none while updates are committed, returns
+  `409 document_unlink_rotation_baseline_stale`; the client proves the full
+  history again and retries instead of resubmitting the refused baseline
+- a sync or unlink whose rotation baseline is not one whole group (its
+  segments break a
+  [group rule](../document-link-and-sync-protocol.md#group-rules)) returns
+  `409 document_sync_baseline_group_invalid` and commits nothing; a sync
+  whose whole group does not cover the committed frontier returns
+  `409 document_sync_checkpoint_coverage_conflict`
+- a reader served a rotation baseline that breaks its group rules fails the
+  sync pass instead of voiding an update
 - a sync or unlink whose update extends a Loro peer past its committed
   frontier when another user is the peer's
   [owner](../glossary/sync.md#peer-owner) returns

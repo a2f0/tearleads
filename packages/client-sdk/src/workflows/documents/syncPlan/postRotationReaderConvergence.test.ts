@@ -1,19 +1,15 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
-  exportFullHistorySnapshot,
+  exportFullHistoryIdentity,
+  getImportBlobMetadata,
   getTextValue,
-  getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
-import {
-  createPendingUpdateRecord,
-  createSignedSyncResponseUpdate,
-  createSyncResponse,
-} from "../../../../test/helpers/data/documentFixtures";
+import { createSignedSyncResponseUpdate } from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { createServedRotationBaseline } from "../../../../test/helpers/workflows/servedRotationBaseline";
 import { decryptDocumentSyncUpdatesByEpoch } from "../../../data/documents/shared/crypto";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
@@ -25,7 +21,7 @@ import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
  * pre-rotation container-KEK epoch). A revoke rotates the container KEK and the
  * document content key to epoch N+1, and a NEW reader is granted under N+1. On
  * the newcomer's first sync the server's frontier diff has no readable-epoch
- * filter, so it returns BOTH the post-rotation rotate_baseline (epoch N+1, which
+ * filter, so it returns BOTH the post-rotation rotation baseline (epoch N+1, which
  * the newcomer CAN decrypt) AND the pre-rotation updates (epoch N, which the
  * newcomer canNOT decrypt — it holds no wrap for the superseded KEK epoch).
  *
@@ -48,32 +44,29 @@ test("a post-rotation reader is stranded: one undecryptable epoch fails the whol
   const baselineDocument = await createDocument("post-rotation-baseline");
   baselineDocument.getText("text").update("post-rotation baseline state");
   baselineDocument.commit();
-  const baselineBytes = exportFullHistorySnapshot(baselineDocument);
-  const baselineVectors = getUpdateVersionVectors(baselineBytes);
 
-  // The post-rotation rotate_baseline: full state re-encrypted under the new
-  // content-key epoch, which the newcomer holds the key for.
+  // The post-rotation baseline: the whole history as one segment, encrypted
+  // under the new content-key epoch, which the newcomer holds the key for.
   const materialized = await buildMaterializedDocumentSyncPlan({
     author,
     localVersionVector: null,
-    pendingUpdates: [
-      createPendingUpdateRecord({
-        updateData: bytesToBase64(baselineBytes),
-        partialEndVersionVector: baselineVectors.partialEndVersionVector,
-        partialStartVersionVector: baselineVectors.partialStartVersionVector,
-        sourceVersionVector: encodeVersionVector(baselineDocument),
-      }),
-    ],
+    pendingUpdates: [],
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
     trustedLocalProjection: true,
     writerProjection,
   });
-  const response = await createSyncResponse(materialized.plan);
+  const baseline = await createServedRotationBaseline({
+    author,
+    contentKey: materialized.contentKey,
+    document: baselineDocument,
+    plan: materialized.plan,
+    writerProjection,
+  });
   const newEpoch = materialized.plan.contentKeyEpoch;
-  const baselineUpdate = response.updates[0];
-  if (!baselineUpdate) {
-    throw new Error("Expected a baseline update in the sync response");
+  const [baselineUpdate, ...otherSegments] = baseline.updates;
+  if (!baselineUpdate || otherSegments.length > 0) {
+    throw new Error("Expected a served baseline of one segment");
   }
 
   // A pre-rotation update under an epoch the newcomer cannot unwrap.
@@ -99,13 +92,22 @@ test("a post-rotation reader is stranded: one undecryptable epoch fails the whol
     updates: [baselineUpdate],
   });
   expect(baselineOnly).toHaveLength(1);
-  const baselineUpdateData = baselineOnly[0]?.updateData;
-  if (!baselineUpdateData) {
+  const [decryptedBaseline] = baselineOnly;
+  if (!decryptedBaseline) {
     throw new Error("Expected decrypted baseline update data");
   }
+  expect(decryptedBaseline.baselineId).toBe(baseline.baselineId);
+  // The segment is an update blob, imported as any served update is.
+  expect(getImportBlobMetadata(decryptedBaseline.updateData).mode).toBe(
+    "update",
+  );
   const newcomer = await createDocument("post-rotation-newcomer");
-  importUpdates(newcomer, [baselineUpdateData]);
+  importUpdates(newcomer, [decryptedBaseline.updateData]);
   expect(getTextValue(newcomer)).toBe("post-rotation baseline state");
+  expect(encodeVersionVector(newcomer)).toBe(baseline.version);
+  expect(exportFullHistoryIdentity(newcomer)).toBe(
+    exportFullHistoryIdentity(baselineDocument),
+  );
 
   // The mixed batch identifies the undecryptable sibling and yields no
   // plaintext, so the newcomer cannot advance around the missing epoch.

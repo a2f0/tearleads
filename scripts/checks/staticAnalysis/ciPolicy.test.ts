@@ -304,7 +304,6 @@ test("the required gate always evaluates all jobs and platform workflows are cal
   expect(suites?.if).toBeUndefined();
   // The push gate runs no tests, so the browser suite runs only here.
   expect(e2e?.if).toBeUndefined();
-  expect(e2e?.steps?.map(({ run }) => run)).toContain("bun run test:turbo:e2e");
   expect(windows?.if).toBeUndefined();
   for (const job of ["windows", "native"]) {
     const path = ci.jobs[job]?.uses;
@@ -316,6 +315,46 @@ test("the required gate always evaluates all jobs and platform workflows are cal
     };
     expect(platform.on).toHaveProperty("workflow_call");
   }
+});
+
+test("Web E2E runs every Playwright shard through verified Turbo", async () => {
+  const ci = Bun.YAML.parse(
+    await Bun.file(`${repoRoot}/.github/workflows/ci.yml`).text(),
+  ) as {
+    jobs: Record<
+      string,
+      {
+        strategy?: { "fail-fast"?: boolean; matrix?: { shard?: string[] } };
+        env?: Record<string, string>;
+        steps?: { name?: string; run?: string; with?: { name?: string } }[];
+      }
+    >;
+  };
+  const { e2e } = ci.jobs;
+  const shards = e2e?.strategy?.matrix?.shard ?? [];
+  // Every spec runs exactly once: the shards are 1/N through N/N.
+  expect(shards.length).toBeGreaterThan(1);
+  expect(shards).toEqual(
+    Array.from(
+      { length: shards.length },
+      (_, i) => `${i + 1}/${shards.length}`,
+    ),
+  );
+  expect(e2e?.strategy?.["fail-fast"]).toBe(false);
+  // Written apart so the literal is not mistaken for a template placeholder.
+  expect(e2e?.env).toEqual({ E2E_SHARD: "$" + "{{ matrix.shard }}" });
+  const step = (name: string) => e2e?.steps?.find((s) => s.name === name);
+  expect(step("Run E2E tests")?.run).toBe(
+    'bun scripts/testing/runVerifiedTurbo.ts e2e --filter=app-web -- "--shard=$E2E_SHARD"',
+  );
+  // Browsers come from the same shard's listing, so none it runs is missing.
+  expect(step("Install Playwright browsers")?.run).toContain(
+    'e2eShardBrowsers.ts "$E2E_SHARD"',
+  );
+  // Shards fail independently, so each keeps its own failure output.
+  expect(step("Upload Playwright failure output")?.with?.name).toContain(
+    "$" + "{{ strategy.job-index }}",
+  );
 });
 
 test("Lint checks a pull request's branch name without interpolating it", async () => {

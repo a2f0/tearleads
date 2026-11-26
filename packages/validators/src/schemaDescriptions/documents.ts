@@ -94,24 +94,26 @@ describeSchema(
   DocumentOutgoingUpdateSchema,
   "One encrypted Loro update a client uploads, with its signed write header.",
   {
-    checkpointKind:
-      "`rotate_baseline` when the update is a rotation baseline; absent for an ordinary update.",
-    checkpointPayloadKind:
-      "`full_history_snapshot` for a rotation baseline; absent otherwise.",
+    baselineId:
+      "The rotation baseline the update is a segment of: an ordered group of updates that together carry the document's whole history at the epoch a rotation opened. Signed in the content-record metadata; absent for an ordinary update.",
+    baselineSegmentCount:
+      "On a baseline's final segment only, how many segments the baseline has. Signed in the content-record metadata.",
+    baselineSegmentIndex:
+      "The segment's place in its baseline, from zero. Signed in the content-record metadata. A request sends a baseline's segments together, in index order.",
+    baselineSegmentsDigest:
+      "On a baseline's final segment only, the digest of the segments before it: a hash chain over each one's index, update id, metadata hash and ciphertext hash, started from the document and baseline ids. Signed in the content-record metadata, so a reader that holds every segment can tell none was dropped, replaced or reordered.",
     coversThroughUpdateId:
-      "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor.",
+      "On a baseline's final segment, its author's processed cursor: every update committed up to this one was imported into the baseline or void for the author, so the segments must cover only later updates. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline that declares no operations, the one empty segment of an author who voided every update through the cursor.",
     dependencyVersionVector:
-      "Version vector of the operations the update depends on outside itself: one past each peer's latest such operation, as Loro decodes the payload's start frontiers. Signed in the content-record metadata. The server refuses an update that depends on an operation it has not committed (`document_sync_dependency_uncommitted`), and a reader voids one whose payload depends on other operations. Empty on a rotation baseline.",
+      "Version vector of the operations the update depends on outside itself: one past each peer's latest such operation, as Loro decodes the payload's start frontiers. Signed in the content-record metadata. The server refuses an update that depends on an operation it has not committed (`document_sync_dependency_uncommitted`), and a reader voids one whose payload depends on other operations. A baseline segment depends only on its baseline's earlier segments.",
     encryptedData:
       "Base64 ciphertext of the update under the document content key.",
     id: "Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical.",
     partialEndVersionVector:
-      "Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on a rotation baseline that signs `coversThroughUpdateId`.",
+      "Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on the one segment of an empty baseline, which signs `coversThroughUpdateId`.",
     partialStartVersionVector: "Version vector the update starts from.",
     plaintextHash:
       "Hash of the plaintext update, committed by the write header.",
-    sourceVersionVector:
-      "For a rotation baseline, the frontier its snapshot covers.",
     writeHeader:
       "Signed write header binding the ciphertext to the document, access manifest, content-key epoch, target hash, and writer.",
   },
@@ -158,10 +160,15 @@ describeSchema(
     authorizationTargets:
       "Container KEK targets the write was authorized against. Omitted when the write header's `targetHash` equals the request's `expectedTargetHash`; the client refills them from the content-key bundle it holds and re-hashes them against the signed hash.",
     authorFingerprint: "Signing key fingerprint of the writer.",
-    checkpointKind: "`rotate_baseline` when the update is a rotation baseline.",
-    checkpointPayloadKind: "`full_history_snapshot` for a rotation baseline.",
+    baselineId:
+      "The rotation baseline the update is a segment of; absent for an ordinary update.",
+    baselineSegmentCount:
+      "On a baseline's final segment, how many segments the baseline has.",
+    baselineSegmentIndex: "The segment's place in its baseline, from zero.",
+    baselineSegmentsDigest:
+      "On a baseline's final segment, the signed digest of the segments before it.",
     coversThroughUpdateId:
-      "For a rotation baseline, the signed processed cursor it was written with.",
+      "On a baseline's final segment, the signed processed cursor it was written with.",
     dependencyVersionVector:
       "Version vector of the operations the update depends on outside itself, as its writer signed it; every one was committed when the update was accepted.",
     encryptedData: "Base64 ciphertext of the update.",
@@ -170,8 +177,6 @@ describeSchema(
     partialStartVersionVector: "Version vector the update starts from.",
     plaintextHash:
       "Hash of the plaintext update, committed by the write header.",
-    sourceVersionVector:
-      "For a rotation baseline, the frontier its snapshot covers.",
     writeHeader: "The update's signed write header.",
   },
 );
@@ -208,7 +213,7 @@ describeSchema(
 
 describeSchema(
   DocumentSyncErrorResponseSchema,
-  "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer or off uncommitted dependencies, or stop.",
+  "A refused sync. The code tells the client what to do: rebuild a malformed rotation baseline or one that no longer covers the committed updates, commit rekeys first, replan, recover update ids, move ops off another user's peer or off uncommitted dependencies, or stop.",
   {
     peerFrontiers:
       "With `document_sync_peer_owned`, up to 64 peers another user owns that the request extends; with `document_sync_dependency_uncommitted`, up to 64 peers the request depends on past their committed frontier. Each carries the frontier committed before the request.",
@@ -273,7 +278,7 @@ describeSchema(
     expectedManifestHash:
       "Hash of the link-set manifest this mutation derives.",
     rotationBaseline:
-      "For an unlink, a rotation baseline covering every committed update after its signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link.",
+      "For an unlink, the segments of one rotation baseline in index order, together covering every committed update after the final segment's signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link.",
     targetContainerPathRefs: "Path to the container being linked or unlinked.",
   },
 );

@@ -287,13 +287,6 @@ test("rotation aborts when another pane supersedes its durable pull settlement",
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
     if (!state.doc) throw new Error("Expected full-history document");
-    await enqueuePendingUpdate(
-      state,
-      exportFullHistorySnapshot(state.doc),
-      encodeVersionVector(state.doc),
-    );
-    const queuedCheckpoint = (await listPendingUpdates(state))[0];
-    if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
     const losingDocument = state.doc;
     let requestedSyncCount = 0;
     state.syncLane = {
@@ -308,9 +301,7 @@ test("rotation aborts when another pane supersedes its durable pull settlement",
     expect(state.pullContinuation).toEqual(durableContinuation);
     expect(state.doc).not.toBe(losingDocument);
     expect(state.doc && getTextValue(state.doc)).toBe("other pane winner");
-    expect(
-      (await listPendingUpdates(state)).map((update) => update.id),
-    ).toEqual([queuedCheckpoint.id]);
+    expect(await listPendingUpdates(state)).toEqual([]);
     expect(requestedSyncCount).toBe(1);
   } finally {
     close();
