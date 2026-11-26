@@ -55,7 +55,7 @@ export interface Frame {
   readonly documentId?: unknown;
 }
 
-export function frameIds(frame: Frame | undefined): number {
+function frameIds(frame: Frame | undefined): number {
   return Array.isArray(frame?.containerIds) ? frame.containerIds.length : 0;
 }
 

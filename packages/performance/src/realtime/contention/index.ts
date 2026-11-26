@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   // Without this secret the API keys verification markers to this process,
   // so markers earlier runs stored never match and the first pass verifies
   // every manifest in full. Unset, that pass is the same in every run.
-  delete process.env.DOCUMENT_SYNC_CURSOR_HMAC_KEY;
+  Reflect.deleteProperty(process.env, "DOCUMENT_SYNC_CURSOR_HMAC_KEY");
   const measurements: ContentionMeasurement[] = [];
   await runRealtimeProbe({
     scenario: "realtime-hub-contention",
