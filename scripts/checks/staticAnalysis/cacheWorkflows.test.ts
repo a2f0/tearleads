@@ -16,7 +16,7 @@ interface Workflow {
           CI_DEFER_PROTOCOL_MODELS?: string;
         };
       }[];
-      strategy?: { matrix?: { check?: string[] } };
+      strategy?: { matrix?: { include?: { check?: string }[] } };
     }
   >;
 }
@@ -38,7 +38,7 @@ test("nightly CI forces every cacheable lane, including reusable platform workfl
   const force =
     "$" + "{{ inputs.force || github.event_name == 'workflow_dispatch' }}";
   expect(ci.env?.TURBO_FORCE).toBe(force);
-  for (const name of ["windows", "native"]) {
+  for (const name of ["windows", "native", "models"]) {
     const job = ci.jobs[name];
     expect(job?.with?.force).toBe(force);
     const path = job?.uses;
@@ -59,7 +59,9 @@ test("nightly CI forces every cacheable lane, including reusable platform workfl
 
 test("CI opts into cached model checks and native release tests use the shared task", async () => {
   const ci = await workflow("ci");
-  const { lint, models } = ci.jobs;
+  const { lint, models: caller } = ci.jobs;
+  expect(caller?.uses).toBe("./.github/workflows/protocol-models.yml");
+  const { models } = (await workflow("protocol-models")).jobs;
   const steps = lint?.steps ?? [];
   // Lint leaves the TLC passes to the models job, which caches them.
   expect(
@@ -70,7 +72,8 @@ test("CI opts into cached model checks and native release tests use the shared t
     run?.includes("runCachedProtocolCheck.ts"),
   );
   expect(check?.env?.CI_TURBO_PROTOCOL_CACHE).toBe("1");
-  expect(models?.strategy?.matrix?.check?.toSorted()).toEqual([
+  const checks = models?.strategy?.matrix?.include?.map(({ check }) => check);
+  expect([...new Set(checks)].toSorted()).toEqual([
     "check:protocol-models",
     "check:protocol-negative-controls",
   ]);

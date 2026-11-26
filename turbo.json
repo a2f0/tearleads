@@ -20,7 +20,11 @@
         ".mise.toml",
         "mise.lock"
       ],
-      "env": ["TLC_JAVA_RUNTIME", "PROTOCOL_TLC_PARALLELISM"],
+      "env": [
+        "TLC_JAVA_RUNTIME",
+        "PROTOCOL_TLC_PARALLELISM",
+        "PROTOCOL_MODEL_SHARD"
+      ],
       "passThroughEnv": [
         "JAVA_BIN",
         "TLA_TOOLS_ROOT",

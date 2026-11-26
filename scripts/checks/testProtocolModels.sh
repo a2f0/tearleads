@@ -19,7 +19,7 @@ assert_contains() {
 
 # The assertions below pick their own parallelism and failure-log directory;
 # values exported by the caller must not change them.
-unset PROTOCOL_TLC_PARALLELISM PROTOCOL_TLC_FAILURE_LOG_DIR
+unset PROTOCOL_TLC_PARALLELISM PROTOCOL_TLC_FAILURE_LOG_DIR PROTOCOL_MODEL_SHARD
 
 SOURCE_ROOT=$(CDPATH='' cd -P -- "$(dirname -- "$0")/../.." && pwd -P)
 FIXTURE_ROOT=$SOURCE_ROOT/scripts/checks/fixtures/protocolModels
@@ -75,8 +75,9 @@ run_check() (
     FAKE_FAIL_STATUS="${FAKE_FAIL_STATUS:-}" \
     PROTOCOL_TLC_FAILURE_LOG_DIR="${PROTOCOL_TLC_FAILURE_LOG_DIR:-}" \
     PROTOCOL_TLC_PARALLELISM="${PROTOCOL_TLC_PARALLELISM:-}" \
+    PROTOCOL_MODEL_SHARD="${PROTOCOL_MODEL_SHARD:-}" \
     TLA_TOOLS_JAR_SHA256="${TLA_TOOLS_JAR_SHA256:-$FIXTURE_JAR_SHA256}" \
-    "$CHECK_SCRIPT"
+    "$CHECK_SCRIPT" "$@"
 )
 
 run_check_with_mise() (
@@ -227,6 +228,74 @@ assert_contains "$stale_output" "Checked 3 protocol model configuration(s)."
 [ "$(cut -d '|' -f 1,2 "$JAVA_LOG" | LC_ALL=C sort)" = "$expected_runs" ] ||
   fail "a stale duration entry changed which models ran."
 rm -f "$DURATIONS_FILE"
+
+# Shards split the registry by recorded work. With Alpha recorded at 10 s,
+# Zeta at 30 s, and AlphaBroad unrecorded, so weighing as much as Zeta, two
+# shards get AlphaBroad and Alpha, then Zeta, and a fourth shard of three runs
+# is empty. The stale 900 s entry weighs nothing: counted as the longest, it
+# would move Alpha to Zeta's shard. At every count each run, the unrecorded one
+# included, lands in exactly one shard, and --list names that shard's runs in
+# launch order without starting Java.
+SHARD_RUNS=$TEST_ROOT/shard-runs.txt
+expected_two_shards='1 formal/alpha/Alpha.tla|formal/alpha/AlphaBroad.cfg
+1 formal/alpha/Alpha.tla|formal/alpha/Alpha.cfg
+2 formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg'
+for shard_count in 1 2 3 4; do
+  : >"$SHARD_RUNS"
+  shard_index=1
+  while [ "$shard_index" -le "$shard_count" ]; do
+    shard=$shard_index/$shard_count
+    install_registry valid.txt
+    printf '%s\n' \
+      '900 formal/zeta/Missing.tla|formal/zeta/Missing.cfg' \
+      '10 formal/alpha/Alpha.tla|formal/alpha/Alpha.cfg' \
+      '30 formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg' >"$DURATIONS_FILE"
+    shard_list=$(PROTOCOL_MODEL_SHARD=$shard run_check --list 2>"$TEST_ROOT/list.err")
+    assert_contains "$(cat "$TEST_ROOT/list.err")" "ignored: formal/zeta/Missing.tla|formal/zeta/Missing.cfg."
+    [ ! -e "$JAVA_LOG" ] || fail "--list started Java for shard $shard."
+    shard_output=$(PROTOCOL_MODEL_SHARD=$shard PROTOCOL_TLC_PARALLELISM=1 run_check)
+    shard_launches=
+    [ ! -e "$JAVA_LOG" ] || shard_launches=$(cut -d '|' -f 1,2 "$JAVA_LOG")
+    [ "$shard_launches" = "$shard_list" ] ||
+      fail "shard $shard ran other models than --list named."
+    shard_size=0
+    [ -z "$shard_list" ] || shard_size=$(printf '%s\n' "$shard_list" | wc -l | tr -d '[:space:]')
+    if [ "$shard_count" -eq 1 ]; then
+      assert_contains "$shard_output" "Checked $shard_size protocol model configuration(s)."
+    else
+      assert_contains "$shard_output" "Checked $shard_size protocol model configuration(s) in shard $shard."
+    fi
+    [ -z "$shard_list" ] ||
+      printf '%s\n' "$shard_list" | sed "s/^/$shard_index /" >>"$SHARD_RUNS"
+    shard_index=$((shard_index + 1))
+  done
+  [ "$(cut -d ' ' -f 2 "$SHARD_RUNS" | LC_ALL=C sort)" = "$expected_runs" ] ||
+    fail "$shard_count shard(s) did not check every registered model exactly once."
+  if [ "$shard_count" -eq 2 ]; then
+    [ "$(cat "$SHARD_RUNS")" = "$expected_two_shards" ] ||
+      fail "two shards did not split the models by recorded work."
+  fi
+done
+rm -f "$DURATIONS_FILE"
+
+# A malformed shard, or extra arguments, fail before any run starts.
+for invalid_shard in 0/2 3/2 1 1/0 a/2 1/2/3 01/2 ' 1/2' -1/2; do
+  install_registry valid.txt
+  if shard_output=$(PROTOCOL_MODEL_SHARD=$invalid_shard run_check 2>&1); then
+    fail "PROTOCOL_MODEL_SHARD='$invalid_shard' was accepted."
+  fi
+  assert_contains "$shard_output" "PROTOCOL_MODEL_SHARD"
+  [ ! -e "$JAVA_LOG" ] ||
+    fail "PROTOCOL_MODEL_SHARD='$invalid_shard' started Java anyway."
+done
+for invalid_arguments in --all '--list --list'; do
+  install_registry valid.txt
+  # shellcheck disable=SC2086 # Each case is a list of words.
+  if usage_output=$(run_check $invalid_arguments 2>&1); then
+    fail "the arguments '$invalid_arguments' were accepted."
+  fi
+  assert_contains "$usage_output" "usage: checkProtocolModels.sh [--list]"
+done
 
 # CI's stdout can be non-blocking, so a report write may fail. That must never
 # abort the check: a pass still exits 0 and a failure keeps TLC's status.
