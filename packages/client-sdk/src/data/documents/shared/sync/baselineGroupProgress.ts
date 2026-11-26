@@ -51,15 +51,19 @@ function isEmptyVersion(localVersionVector: string | null): boolean {
  * names no processed cursor. A later page is cold only as the continuation
  * of a group followed whole, which the pass requests with no version
  * (`pullPageVersion`); what a host put in a later page's version is not
- * taken as a reason to hold the server to a whole group.
+ * taken as a reason to hold the server to a whole group. Every page of a
+ * raw-history pull is cold: the pass sends none of them a version or a
+ * processed cursor, so each group it reaches is served whole.
  */
 export function isColdPullPage(input: {
+  readonly historyMode?: "raw" | undefined;
   readonly localVersionVector: string | null;
   readonly processedThroughUpdateId?: string | undefined;
   readonly pullCursor?: string | undefined;
   readonly run: BaselineGroupRun | null | undefined;
 }): boolean {
   if (!isEmptyVersion(input.localVersionVector)) return false;
+  if (input.historyMode === "raw") return true;
   return input.pullCursor === undefined
     ? input.processedThroughUpdateId === undefined
     : input.run != null && input.run.digest !== null;

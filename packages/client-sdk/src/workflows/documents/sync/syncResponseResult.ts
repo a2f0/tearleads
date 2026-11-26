@@ -178,6 +178,7 @@ export function baselineGroupRunAfterPage(input: {
   const { request } = input.plan;
   return judgeServedBaselineGroups({
     cold: isColdPullPage({
+      historyMode: request.historyMode,
       localVersionVector: request.localVersionVector,
       processedThroughUpdateId: request.processedThroughUpdateId,
       pullCursor: request.pullCursor,

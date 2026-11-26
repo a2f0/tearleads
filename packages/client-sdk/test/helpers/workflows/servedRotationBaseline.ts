@@ -1,5 +1,7 @@
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   exportFullHistorySnapshot,
+  getImportBlobMetadata,
   type HistorySegmentSizes,
 } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
@@ -28,7 +30,9 @@ type ServedUpdate = DocumentSyncResponse["updates"][number];
  * unless `segmentSizes` is small), each encrypted under the plan's content
  * key. `segmentIds` names the segments' update ids, in order, where a test
  * needs to know them; `emptyWithCursor` signs a document with no operations
- * as the one empty segment an all-void history gives.
+ * as the one empty segment an all-void history gives. `segmentPayloads`
+ * signs those update blobs as the segments instead, each with the vectors
+ * its own bytes declare, for a group no honest writer cuts.
  */
 export async function createServedRotationBaseline(input: {
   readonly author: DocumentCreateAuthor;
@@ -44,6 +48,7 @@ export async function createServedRotationBaseline(input: {
     | "organizationId"
   >;
   readonly segmentIds?: readonly string[] | undefined;
+  readonly segmentPayloads?: readonly Uint8Array[] | undefined;
   readonly segmentSizes?: HistorySegmentSizes | undefined;
   readonly signedAt?: string | undefined;
   readonly writerProjection: DocumentWriterProjectionResponse;
@@ -60,10 +65,18 @@ export async function createServedRotationBaseline(input: {
     segmentSizes: input.segmentSizes,
     snapshot: exportFullHistorySnapshot(input.document),
   });
+  const cut =
+    input.segmentPayloads?.map((payload) => {
+      const vectors = getImportBlobMetadata(payload);
+      return {
+        id: crypto.randomUUID(),
+        partialEndVersionVector: vectors.partialEndVersionVector,
+        partialStartVersionVector: vectors.partialStartVersionVector,
+        updateData: bytesToBase64(payload),
+      };
+    }) ?? history.segments;
   const segments = (
-    history.segments.length === 0
-      ? [emptyRotationBaselineSegment()]
-      : history.segments
+    cut.length === 0 ? [emptyRotationBaselineSegment()] : cut
   ).map((segment, index) => ({
     ...segment,
     id: input.segmentIds?.[index] ?? segment.id,

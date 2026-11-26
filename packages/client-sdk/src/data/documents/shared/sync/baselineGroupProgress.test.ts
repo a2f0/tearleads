@@ -153,6 +153,15 @@ test("a page is cold when it was requested with no version and nothing ahead of 
   expect(later(whole)).toBe(true);
   expect(later({ ...whole, digest: null })).toBe(false);
   expect(later(null)).toBe(false);
+  // A raw-history pull sends no page a version, so each of its pages is.
+  expect(
+    isColdPullPage({
+      historyMode: "raw",
+      localVersionVector: null,
+      pullCursor: "cursor",
+      run: null,
+    }),
+  ).toBe(true);
   expect(
     isColdPullPage({ localVersionVector: WARM, pullCursor: "c", run: whole }),
   ).toBe(false);

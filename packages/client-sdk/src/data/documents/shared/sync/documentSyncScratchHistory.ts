@@ -41,7 +41,10 @@ export type ScratchJudgement =
       readonly failure: unknown;
       /**
        * Whether the update could not join because the reader lacks an
-       * operation it starts after or depends on.
+       * operation its signed start or signed dependencies name. An import
+       * that leaves operations pending with both held is not this: the
+       * payload itself skips operations, which is its writer's doing and
+       * the same for every reader.
        */
       readonly missingDependency: boolean;
       /**
@@ -101,6 +104,19 @@ function startsPastHeldCounters(
     return false;
   }
   return !satisfiesVersionVector(held, start);
+}
+
+/** Whether `held` lacks an operation `update` signs a dependency on. */
+function lacksDeclaredDependency(
+  held: string,
+  update: DecryptedDocumentSyncUpdate,
+): boolean {
+  try {
+    return !satisfiesVersionVector(held, update.dependencyVersionVector);
+  } catch (error) {
+    if (isLoroRuntimeFailure(error)) throw error;
+    return false;
+  }
 }
 
 /**
@@ -177,12 +193,14 @@ function judgeOnScratch(
   } catch (error) {
     if (isLoroRuntimeFailure(error)) throw error;
     if (error instanceof LoroImportUnresolvedDependenciesError) {
-      // Loro keeps the operations it could not apply as pending.
+      // Loro keeps the operations it could not apply as pending. The reader
+      // held the update's start, so it lacks a declared dependency, or the
+      // payload leaves a gap inside its own range.
       return importVoid(
         new Error(MISSING_DEPENDENCY_MESSAGE, { cause: error }),
         true,
         null,
-        true,
+        lacksDeclaredDependency(held, update),
       );
     }
     if (error instanceof LoroReusedOperationIdError) {
