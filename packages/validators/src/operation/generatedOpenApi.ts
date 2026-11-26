@@ -832,7 +832,7 @@ export type paths = {
         put?: never;
         /**
          * Open a rotation baseline stage
-         * @description Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document and replaces the caller's earlier stage for it. The stage expires 60 minutes after its last upload and at most 24 hours after it opened; nothing staged is served until a rotating request commits it.
+         * @description Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document, as every later stage request does, and replaces the caller's earlier stage for it; a user holds at most 4 open stages, and one more returns 409 `document_baseline_stage_limit_reached`. The stage expires 60 minutes after its last upload and at most 24 hours after it opened; nothing staged is served until a rotating request commits it.
          */
         post: operations["documents.baselineStages.open"];
         delete?: never;
@@ -875,7 +875,7 @@ export type paths = {
         get?: never;
         /**
          * Stage one rotation baseline segment
-         * @description Stages one segment of the baseline, in index order: the server verifies its signed write header and envelope and that it starts every peer where the staged segments left it. The final segment is never staged; it travels in the rotating request. Sending the same index with the same ciphertext again is acknowledged without a write, and an index that is not the stage's next returns 409 `document_baseline_stage_segment_out_of_order` naming the next one.
+         * @description Stages one segment of the baseline, in index order: the server verifies its signed write header and envelope and that it starts every peer where the staged segments left it. The final segment is never staged; it travels in the rotating request. Sending the same index with the same ciphertext again is acknowledged without a write, an index that is not the stage's next returns 409 `document_baseline_stage_segment_out_of_order` naming the next one, and a segment that would take the stage past its byte or span cap returns 409 `document_baseline_stage_too_large`.
          */
         put: operations["documents.baselineStages.segments.stage"];
         post?: never;
@@ -2794,7 +2794,7 @@ export type components = {
         /** @description A refused stage request. A `document_baseline_stage_*` code says what the stage is worth now; an uncoded conflict is a failed access check or a write that raced another, and leaves the stage as it was. */
         DocumentBaselineStageConflictErrorResponse: {
             /** @enum {string} */
-            code?: "document_baseline_stage_epoch_stale" | "document_baseline_stage_expired" | "document_baseline_stage_id_conflict" | "document_baseline_stage_segment_conflict" | "document_baseline_stage_segment_invalid" | "document_baseline_stage_segment_out_of_order";
+            code?: "document_baseline_stage_epoch_stale" | "document_baseline_stage_expired" | "document_baseline_stage_id_conflict" | "document_baseline_stage_limit_reached" | "document_baseline_stage_segment_conflict" | "document_baseline_stage_segment_invalid" | "document_baseline_stage_segment_out_of_order" | "document_baseline_stage_too_large";
             error: string;
             /** @description With `document_baseline_stage_segment_out_of_order`, the index the stage expects next. */
             nextSegmentIndex?: number;
@@ -2834,7 +2834,7 @@ export type components = {
             nextSegmentIndex: number;
             /** @description The baseline digest over the segments staged so far: what a final segment sent now must sign as `baselineSegmentsDigest`. */
             segmentsDigest: string;
-            /** @description Ciphertext bytes staged so far. */
+            /** @description Bytes the stage stores so far: each staged segment's ciphertext, signed vectors, plaintext hash and write header. A stage holds at most 1 GiB. */
             stagedBytes: number;
         } & {
             [key: string]: unknown;
@@ -3082,7 +3082,7 @@ export type components = {
              * @description With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code.
              * @enum {string}
              */
-            baselineStageCode?: "document_baseline_stage_epoch_stale" | "document_baseline_stage_expired" | "document_baseline_stage_headers_stale" | "document_baseline_stage_id_conflict" | "document_baseline_stage_not_found" | "document_baseline_stage_segment_conflict" | "document_baseline_stage_segment_invalid" | "document_baseline_stage_segment_out_of_order";
+            baselineStageCode?: "document_baseline_stage_epoch_stale" | "document_baseline_stage_expired" | "document_baseline_stage_headers_stale" | "document_baseline_stage_id_conflict" | "document_baseline_stage_limit_reached" | "document_baseline_stage_not_found" | "document_baseline_stage_segment_conflict" | "document_baseline_stage_segment_invalid" | "document_baseline_stage_segment_out_of_order" | "document_baseline_stage_too_large";
             code?: components["schemas"]["DocumentMutationErrorCode"];
             error: string;
         } & {
@@ -3187,7 +3187,7 @@ export type components = {
              * @description With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code.
              * @enum {string}
              */
-            baselineStageCode?: "document_baseline_stage_epoch_stale" | "document_baseline_stage_expired" | "document_baseline_stage_headers_stale" | "document_baseline_stage_id_conflict" | "document_baseline_stage_not_found" | "document_baseline_stage_segment_conflict" | "document_baseline_stage_segment_invalid" | "document_baseline_stage_segment_out_of_order";
+            baselineStageCode?: "document_baseline_stage_epoch_stale" | "document_baseline_stage_expired" | "document_baseline_stage_headers_stale" | "document_baseline_stage_id_conflict" | "document_baseline_stage_limit_reached" | "document_baseline_stage_not_found" | "document_baseline_stage_segment_conflict" | "document_baseline_stage_segment_invalid" | "document_baseline_stage_segment_out_of_order" | "document_baseline_stage_too_large";
             /** @enum {string} */
             code: "document_sync_baseline_group_invalid" | "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_dependency_uncommitted" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict";
             error: string;

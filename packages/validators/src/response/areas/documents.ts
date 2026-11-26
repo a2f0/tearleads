@@ -20,6 +20,7 @@ export {
   DOCUMENT_BASELINE_STAGE_ERROR_CODES,
   type DocumentBaselineStageAbandonResponse,
   DocumentBaselineStageAbandonResponseSchema,
+  type DocumentBaselineStageConflictCode,
   type DocumentBaselineStageConflictErrorResponse,
   DocumentBaselineStageConflictErrorResponseSchema,
   type DocumentBaselineStageErrorCode,

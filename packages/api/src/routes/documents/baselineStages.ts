@@ -9,6 +9,7 @@ import {
 import type {
   DocumentBaselineStageAbandonResponse,
   DocumentBaselineStageConflictErrorResponse,
+  DocumentBaselineStageNotFoundErrorResponse,
   DocumentBaselineStageStatusResponse,
 } from "@tearleads/validators/response";
 import { DOCUMENT_BASELINE_STAGE_ERROR_CODES } from "@tearleads/validators/response";
@@ -19,6 +20,7 @@ import type { SessionEnv } from "../../middleware/session";
 import {
   abandonDocumentBaselineStage,
   DocumentBaselineStageError,
+  DocumentBaselineStageNotFoundError,
   getDocumentBaselineStage,
   openDocumentBaselineStage,
   resignDocumentBaselineSegmentHeader,
@@ -39,13 +41,13 @@ interface DocumentBaselineStagesRouteDeps {
 /**
  * A refused stage request as its response. The coded 404 is the only one a
  * stage route sends: it proves to the writer that the stage is gone. A 409
- * carries its stage code, and the next index when the segment was out of
- * order; everything else is the bare error.
+ * carries its stage code, one of those the error type admits, and the next
+ * index when the segment was out of order; everything else is the bare
+ * error.
  */
 function respondToStageError(c: Context<SessionEnv>, error: unknown) {
-  if (!(error instanceof DocumentBaselineStageError)) throw error;
-  if (error.status === 404) {
-    return c.json(
+  if (error instanceof DocumentBaselineStageNotFoundError) {
+    return c.json<DocumentBaselineStageNotFoundErrorResponse>(
       {
         code: DOCUMENT_BASELINE_STAGE_ERROR_CODES.notFound,
         error: error.message,
@@ -53,17 +55,14 @@ function respondToStageError(c: Context<SessionEnv>, error: unknown) {
       404,
     );
   }
+  if (!(error instanceof DocumentBaselineStageError)) throw error;
   if (error.status !== 409) {
     return c.json({ error: error.message }, error.status);
   }
   const { code, nextSegmentIndex } = error;
   return c.json<DocumentBaselineStageConflictErrorResponse>(
     {
-      ...(code === undefined ||
-      code === DOCUMENT_BASELINE_STAGE_ERROR_CODES.notFound ||
-      code === DOCUMENT_BASELINE_STAGE_ERROR_CODES.headersStale
-        ? {}
-        : { code }),
+      ...(code === undefined ? {} : { code }),
       error: error.message,
       ...(nextSegmentIndex === undefined ? {} : { nextSegmentIndex }),
     },

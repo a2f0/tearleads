@@ -23,8 +23,19 @@ export type StagedBaselineAbandonReason =
   /** The API refused a segment as one no baseline holds there. */
   | "segment_invalid";
 
-/** The history needs more segments than a staged baseline may hold. */
-export type StagedBaselineFailureReason = "segment_limit";
+/**
+ * Why an upload cannot go on, whatever the writer does next:
+ *
+ * - `open_stage_limit`: the user holds as many open stages as the API lets
+ *   one user hold. Nothing was opened; another upload has to end first.
+ * - `segment_limit`: the history needs more segments than a baseline has.
+ * - `stage_too_large`: the history needs more bytes or span rows than a
+ *   stage stores.
+ */
+export type StagedBaselineFailureReason =
+  | "open_stage_limit"
+  | "segment_limit"
+  | "stage_too_large";
 
 interface Attempted {
   /**
@@ -129,6 +140,8 @@ export type StagedBaselineEvent =
   | Tagged<{ readonly type: "stageExpired" }>
   | Tagged<{ readonly type: "stageEpochStale" }>
   | Tagged<{ readonly type: "stageIdConflict" }>
+  | Tagged<{ readonly type: "stageLimitReached" }>
+  | Tagged<{ readonly type: "stageTooLarge" }>
   | Tagged<{ readonly type: "segmentOutOfOrder" }>
   | Tagged<{ readonly type: "segmentConflict" }>
   | Tagged<{ readonly type: "segmentInvalid" }>
@@ -145,10 +158,12 @@ const REFUSAL_EVENT_TYPES = {
   [DOCUMENT_BASELINE_STAGE_ERROR_CODES.expired]: "stageExpired",
   [DOCUMENT_BASELINE_STAGE_ERROR_CODES.headersStale]: "headersStale",
   [DOCUMENT_BASELINE_STAGE_ERROR_CODES.idConflict]: "stageIdConflict",
+  [DOCUMENT_BASELINE_STAGE_ERROR_CODES.limitReached]: "stageLimitReached",
   [DOCUMENT_BASELINE_STAGE_ERROR_CODES.notFound]: "stageNotFound",
   [DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentConflict]: "segmentConflict",
   [DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentInvalid]: "segmentInvalid",
   [DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentOutOfOrder]: "segmentOutOfOrder",
+  [DOCUMENT_BASELINE_STAGE_ERROR_CODES.tooLarge]: "stageTooLarge",
 } as const satisfies Record<
   DocumentBaselineStageErrorCode,
   StagedBaselineEvent["type"]
@@ -213,6 +228,15 @@ function abandon(
 ): StagedBaselineState {
   const { attempt, baselineId } = state;
   return { attempt, baselineId, reason, stageStands, status: "abandoned" };
+}
+
+function fail(
+  state: StagedState,
+  reason: StagedBaselineFailureReason,
+): StagedBaselineState {
+  const { attempt, baselineId } = state;
+  const stageStands = state.status !== "opening";
+  return { attempt, baselineId, reason, stageStands, status: "failed" };
 }
 
 function staging(
@@ -384,13 +408,12 @@ function setBack(
     case "stagedHistoryDiverged":
       return abandon(state, "history_diverged");
     case "segmentLimitExceeded":
-      return {
-        attempt,
-        baselineId,
-        reason: "segment_limit",
-        stageStands: true,
-        status: "failed",
-      };
+      return fail(state, "segment_limit");
+    case "stageTooLarge":
+      return fail(state, "stage_too_large");
+    // Refused at the open: the user's other stages fill every place.
+    case "stageLimitReached":
+      return fail(state, "open_stage_limit");
     case "groupRefused":
       return abandon(state, "group_invalid");
     // The stage is gone, so nothing staged is worth anything: plan again.

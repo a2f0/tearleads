@@ -224,7 +224,10 @@ and one document and is named by the baseline's id. Nothing staged is an
 update of the document, and no pull serves it. The unlink or sync that
 rotates carries the final segment and names the stage; the staged segments
 then commit ahead of it in the same transaction, their ciphertext left where
-it was staged. A stage expires an hour after its last upload and at most a
+it was staged. Every request to a stage is checked as a document write is,
+for the caller's access and its organization's standing at that moment. A
+user holds one stage per document and four in all, and a stage stores at
+most 1 GiB. A stage expires an hour after its last upload and at most a
 day after it opened, and an expired or abandoned stage is deleted with what
 it staged.
 

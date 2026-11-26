@@ -180,6 +180,16 @@ const refusals: readonly [
   [STAGE.segmentConflict, stagingThird, { reason: "segment_conflict" }],
   [STAGE.segmentInvalid, stagingThird, { reason: "segment_invalid" }],
   [STAGE.headersStale, committing, { status: "resigningHeaders" }],
+  [
+    STAGE.limitReached,
+    opening,
+    { reason: "open_stage_limit", stageStands: false, status: "failed" },
+  ],
+  [
+    STAGE.tooLarge,
+    stagingThird,
+    { reason: "stage_too_large", stageStands: true, status: "failed" },
+  ],
   // Only a commit compares headers: the code means nothing while staging.
   [STAGE.headersStale, stagingThird, stagingThird],
 ];

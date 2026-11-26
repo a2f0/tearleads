@@ -31,16 +31,23 @@ import { MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS } from "../util/documentSyncLimit
  *   place. No honest writer sends one.
  * - `id_conflict`: the baseline id is another user's open stage on this
  *   document, or a baseline the document committed already.
+ * - `limit_reached`: the caller already holds as many open stages as one
+ *   user may. It abandons one, or waits for one to commit or expire.
+ * - `too_large`: the segment would take the stage past what one stage may
+ *   store, in bytes or in span rows. The stage is unchanged; this history
+ *   cannot be staged whole.
  */
 export const DOCUMENT_BASELINE_STAGE_ERROR_CODES = {
   epochStale: "document_baseline_stage_epoch_stale",
   expired: "document_baseline_stage_expired",
   headersStale: "document_baseline_stage_headers_stale",
   idConflict: "document_baseline_stage_id_conflict",
+  limitReached: "document_baseline_stage_limit_reached",
   notFound: "document_baseline_stage_not_found",
   segmentConflict: "document_baseline_stage_segment_conflict",
   segmentInvalid: "document_baseline_stage_segment_invalid",
   segmentOutOfOrder: "document_baseline_stage_segment_out_of_order",
+  tooLarge: "document_baseline_stage_too_large",
 } as const;
 
 export const DocumentBaselineStageErrorCodeSchema = z.literal([
@@ -48,10 +55,12 @@ export const DocumentBaselineStageErrorCodeSchema = z.literal([
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.expired,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.headersStale,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.idConflict,
+  DOCUMENT_BASELINE_STAGE_ERROR_CODES.limitReached,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.notFound,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentConflict,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentInvalid,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentOutOfOrder,
+  DOCUMENT_BASELINE_STAGE_ERROR_CODES.tooLarge,
 ]);
 
 export type DocumentBaselineStageErrorCode = z.infer<
@@ -115,14 +124,24 @@ export type DocumentBaselineStageNotFoundErrorResponse = z.infer<
   typeof DocumentBaselineStageNotFoundErrorResponseSchema
 >;
 
+/**
+ * The codes a stage route's 409 carries: every stage code but the 404's
+ * `not_found` and `headers_stale`, which only a commit can find.
+ */
 const DocumentBaselineStageConflictCodeSchema = z.literal([
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.epochStale,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.expired,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.idConflict,
+  DOCUMENT_BASELINE_STAGE_ERROR_CODES.limitReached,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentConflict,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentInvalid,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentOutOfOrder,
+  DOCUMENT_BASELINE_STAGE_ERROR_CODES.tooLarge,
 ]);
+
+export type DocumentBaselineStageConflictCode = z.infer<
+  typeof DocumentBaselineStageConflictCodeSchema
+>;
 
 /**
  * A refused stage request. An uncoded conflict is a failed access or billing

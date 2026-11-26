@@ -37,13 +37,18 @@ import {
  *   next one, or the final one, must carry.
  * - `segmentsDigest`: The baseline digest chain over the staged segments,
  *   which a final segment sent now must sign.
- * - `stagedBytes`: Ciphertext bytes staged so far.
+ * - `stagedBytes`: Bytes the stage stores so far: each segment's ciphertext,
+ *   signed vectors, plaintext hash and write header. Capped per stage.
+ * - `stagedSpans`: Span rows the staged segments declare. Capped per stage,
+ *   which bounds what a commit copies under the document head lock.
  * - `expiresAt`: Extended by each staged segment or re-signed header, never
  *   past the maximum lifetime after `createdAt`.
  *
  * Indexes:
  * - `(documentId, ownerUserId)` is unique: one open stage per user and
  *   document, so a writer's abandoned uploads cannot pile up.
+ * - `ownerUserId` lists a user's stages, which an open counts against the
+ *   per-user cap.
  * - `expiresAt` serves the sweep.
  *
  * Like the update rows, these carry no foreign keys; a document purge
@@ -63,6 +68,7 @@ export const documentBaselineStages = pgTable(
     stagedBytes: bigint("staged_bytes", { mode: "number" })
       .default(0)
       .notNull(),
+    stagedSpans: integer("staged_spans").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     expiresAt: timestamp("expires_at").notNull(),
   },
@@ -75,6 +81,7 @@ export const documentBaselineStages = pgTable(
       table.documentId,
       table.ownerUserId,
     ),
+    index("document_baseline_stages_owner_user_idx").on(table.ownerUserId),
     index("document_baseline_stages_expires_at_idx").on(table.expiresAt),
   ],
 );
@@ -88,7 +95,9 @@ export const documentBaselineStages = pgTable(
  * rows from here, in segment order, without the ciphertext: the committed
  * update row's `encrypted_data` is null and readers take the payload from
  * this row by update id. So a commit, which runs under the document head
- * lock, writes rows whose size does not depend on the history's.
+ * lock, copies no ciphertext: its update rows hold the signed vectors and
+ * hashes, and it copies the staged span rows, one per peer of each segment.
+ * The stage's byte and span caps bound both.
  *
  * A row a commit left as its update's payload (the update of the same
  * document and baseline under its id, holding no payload of its own) is
@@ -106,6 +115,10 @@ export const documentBaselineStages = pgTable(
  *   copies to the update row.
  * - `header`, `headerHash`: The verified write header. A re-sign replaces
  *   both without touching the ciphertext.
+ * - `contentRecordId`, `nonceDomainHash`: The header's content record and
+ *   nonce domain, which a re-sign keeps. No two segments of a stage share
+ *   either, and a commit requires that no committed update of the document
+ *   and epoch holds one, as the committed headers' unique indexes would.
  * - `authorizationHash`: A hash of the header fields that decide whether its
  *   writer may write (the manifest, key-target set, epoch, writer and
  *   citations). A commit requires every staged row to carry the final
@@ -126,6 +139,8 @@ export const documentBaselineSegments = pgTable(
     plaintextHash: text("plaintext_hash").notNull(),
     header: jsonb("header").$type<WriteHeader>().notNull(),
     headerHash: text("header_hash").notNull(),
+    contentRecordId: text("content_record_id").notNull(),
+    nonceDomainHash: text("nonce_domain_hash").notNull(),
     authorizationHash: text("authorization_hash").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -134,6 +149,16 @@ export const documentBaselineSegments = pgTable(
       table.documentId,
       table.baselineId,
       table.segmentIndex,
+    ),
+    uniqueIndex("document_baseline_segments_content_record_idx").on(
+      table.documentId,
+      table.baselineId,
+      table.contentRecordId,
+    ),
+    uniqueIndex("document_baseline_segments_nonce_domain_idx").on(
+      table.documentId,
+      table.baselineId,
+      table.nonceDomainHash,
     ),
   ],
 );

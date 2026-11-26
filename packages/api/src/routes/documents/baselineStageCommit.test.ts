@@ -2,6 +2,12 @@
 // unlink or sync carries the final segment and names the stage, and the
 // staged segments become the document's updates ahead of it, in one
 // transaction, with their ciphertext left where it was staged.
+//
+// This file runs on the memory database with every other suite, and again
+// in the Postgres concurrency lane (`testPostgresConcurrency.sh`), since the
+// commit's set-based statements and its sequence order are claims about
+// Postgres itself. It keeps the plain `.test.ts` name for that reason: a
+// `.pg.test.ts` file is one whose tests run only there.
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { documents, documentUpdates } from "@tearleads/api-shared/schema";

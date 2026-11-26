@@ -20,8 +20,9 @@ import {
   stagedSegmentRecord,
 } from "./rotationBaselineEncoder";
 import {
-  DocumentRotationBaselineSegmentLimitError,
+  DocumentRotationBaselineLimitError,
   DocumentRotationBaselineStageError,
+  DocumentRotationBaselineStageLimitError,
 } from "./rotationBaselineErrors";
 import {
   type RotationBaselineSigner,
@@ -104,14 +105,30 @@ function requestOptions(run: StagedBaselineRun) {
 }
 
 /**
- * A refused stage request: its coded refusal moves the machine, and any
- * other failure ends the run with the stage left as it was.
+ * Whether a failed stage request says nothing about the upload: it got no
+ * answer, or the API failed. The stage is then left for the next run. Any
+ * other refusal without a stage code (access, billing, a request the API
+ * will not take) is one a retry would meet again.
  */
-function refuse(
+function saysNothing(failure: DocumentBaselineStageFailure): boolean {
+  return failure.status === null || failure.status >= 500;
+}
+
+/**
+ * A refused stage request. Its coded refusal moves the machine. Any other
+ * failure ends the run: one the API gave on purpose gives the upload up,
+ * and a stage the writer gives up is deleted, so it does not hold one of
+ * the user's open stages until it expires.
+ */
+async function refuse(
   run: StagedBaselineRun,
   failure: DocumentBaselineStageFailure,
-): void {
+): Promise<void> {
   if (!isDocumentBaselineStageErrorCode(failure.code)) {
+    if (!saysNothing(failure)) {
+      run.upload.dispatch({ attempt: run.attempt, type: "released" });
+      await dropStagedBaselineUpload(run.context, run.upload);
+    }
     throw new DocumentRotationBaselineStageError(
       failure.message,
       failure.code,
@@ -328,7 +345,9 @@ async function endRun(
 ): Promise<StagedBaselineRunResult> {
   await dropStagedBaselineUpload(run.context, run.upload);
   if (state.status === "failed") {
-    throw new DocumentRotationBaselineSegmentLimitError();
+    throw state.reason === "open_stage_limit"
+      ? new DocumentRotationBaselineStageLimitError()
+      : new DocumentRotationBaselineLimitError(state.reason);
   }
   if (state.status === "abandoned" && RESTARTABLE.has(state.reason)) {
     return { kind: "restart" };

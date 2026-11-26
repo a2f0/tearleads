@@ -322,6 +322,7 @@ export type StagedBaselineCommitOutcome =
       /** The route's refusal of a group that stops short of the frontier. */
       readonly coverageCode: string;
       readonly ok: false;
+      readonly status?: number | null | undefined;
     };
 
 /**
@@ -346,12 +347,16 @@ export async function settleStagedBaselineCommit(
         ? stagedBaselineRefusalEvent(outcome.baselineStageCode, attempt)
         : { attempt, type: "groupRefused" },
     );
+  } else if (outcome.status === 402 || outcome.status === 403) {
+    // The writer may no longer write the document: it gives the upload up.
+    upload.dispatch({ attempt, type: "released" });
   }
   const { state } = upload;
   if (
     state.attempt === attempt &&
     (state.status === "planning" ||
       state.status === "abandoned" ||
+      state.status === "failed" ||
       state.status === "done")
   ) {
     await dropStagedBaselineUpload(commit, upload);

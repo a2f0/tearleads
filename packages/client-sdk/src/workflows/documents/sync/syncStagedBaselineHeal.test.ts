@@ -146,7 +146,7 @@ test("a history over 16 MiB heals through a stage at the default sizes", async (
   expect(harness.terminalFailures).toEqual([]);
 }, 120_000);
 
-test("a stage request refused without a stage code stops the pass and keeps the stage", async () => {
+test("a stage request refused for access stops the pass and deletes the stage", async () => {
   const harness = await createStagedHealHarness();
   const document = await createLongHistoryDocument("refused-stage");
   harness.server.refuseNext("stage:3", {
@@ -156,16 +156,19 @@ test("a stage request refused without a stage code stops the pass and keeps the 
 
   expect(await harness.heal(document, execSql)).toBeNull();
 
-  // Nothing was retried, deleted or committed; the stage holds three.
+  // Nothing was retried or committed. The writer gave the upload up, so it
+  // deleted the stage: one left to expire would hold one of the user's
+  // open stages for an hour.
   expect(harness.server.calls).toEqual([
     "open",
     "stage:0",
     "stage:1",
     "stage:2",
     "stage:3",
+    "abandon",
   ]);
   expect(harness.requests).toEqual([]);
-  expect(harness.server.stage(harness.documentId)?.segments).toHaveLength(3);
+  expect(harness.server.stage(harness.documentId)).toBeNull();
   expect(harness.terminalFailures).toMatchObject([
     { code: undefined, message: "PUT segment: 403 Forbidden", status: 403 },
   ]);

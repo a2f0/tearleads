@@ -28,7 +28,7 @@ import {
   stagedSegmentRecord,
   startRotationBaselineEncoder,
 } from "./rotationBaselineEncoder";
-import { DocumentRotationBaselineSegmentLimitError } from "./rotationBaselineErrors";
+import { DocumentRotationBaselineLimitError } from "./rotationBaselineErrors";
 import type { RotationBaselineSigner } from "./rotationBaselineSigner";
 import { writeRotationBaseline } from "./rotationBaselineWriter";
 import { openRotationHistory, type RotationHistory } from "./rotationHistory";
@@ -280,7 +280,7 @@ test("a history that needs more than 4,096 segments fails with the named limit",
     snapshot: exportFullHistorySnapshot(document),
   }).catch((error: unknown) => error);
 
-  expect(failure).toBeInstanceOf(DocumentRotationBaselineSegmentLimitError);
+  expect(failure).toBeInstanceOf(DocumentRotationBaselineLimitError);
   // A request-limit error: a heal ends in `document_sync_request_too_large`.
   expect(isDocumentSyncRequestLimitError(failure)).toBe(true);
   expect(String(failure)).toContain(

@@ -83,7 +83,10 @@ Each refusal is an event of the machine:
 | `id_conflict` at the open | chooses another id |
 | `segment_out_of_order` | reads the stage and goes on from the index it expects |
 | `segment_conflict`, `segment_invalid`, a group refusal with no stage code | deletes the stage and builds the baseline anew |
-| Any other failure of a stage request (access, billing, an outage, a lost answer) | stops, and leaves the stage as it is. Nothing is retried blindly. A sync records the failure with the refusal's own status as it records a refused submit; an unlink reports it to its caller. |
+| `limit_reached` at the open | fails with `DocumentRotationBaselineStageLimitError` and does not retry: the user holds four open stages already. A sync records a failure row with that code, and an unlink reports it. |
+| `too_large` | deletes the stage and fails with `DocumentRotationBaselineLimitError`: the history needs more bytes or span rows than a stage stores. |
+| A stage request, or the rotating request, refused for the writer itself (`402`, `403`, or any other refusal with no stage code) | gives the upload up and deletes the stage, so it does not hold one of the user's four open stages until it expires. Nothing is retried. A sync records the failure with the refusal's own status as it records a refused submit; an unlink reports it to its caller with that status. |
+| A stage request that got no answer, or a `5xx` | stops, and leaves the stage as it is: the failure says nothing about it. The next run reads the stage and goes on. |
 
 ## Confirming A Stage
 
@@ -113,22 +116,28 @@ per database (`getOrCreateStagedBaselineUploads`), so a sync's heal and an
 unlink of one document share it, and the next attempt after a refusal or a
 lost answer finds it. A process that restarts has no upload. Its next
 attempt opens a new stage, which replaces the one left behind, and uploads
-every segment again; a stage nobody replaces expires. Durable resume across
-a restart is not built.
+every segment again; a stage nobody replaces expires, and holds one of the
+user's four open stages until it does. Durable resume across a restart is
+not built.
 
 ## What A Caller Sees
 
 A sync reports progress as trace lines
 (`document sync baseline stage document=… status=… segments=…`), one a
 state and one every sixteen staged segments, and an unlink through the
-host's log. Three failures are terminal for a history:
+host's log. Three failures are terminal for a history, and a fourth,
+`DocumentRotationBaselineStageLimitError`, for the moment: the user has
+four other uploads open.
 
 - One operation larger than a segment may be:
   `DocumentSyncRequestLimitError`. A sync's heal ends in the coded failure
   `document_sync_request_too_large`.
-- A history that needs more than 4,096 segments:
-  `DocumentRotationBaselineSegmentLimitError`, a request-limit error, so a
-  heal ends in the same code and an unlink throws it. The stage is deleted.
+- A history larger than a stage stores (1 GiB, or 1,048,576 span rows), or
+  one that needs more than 4,096 segments:
+  `DocumentRotationBaselineLimitError`, a request-limit error, so a heal
+  ends in the same code and an unlink throws it. The stage is deleted. At
+  the default sizes the byte bound comes first, at about 750 MiB of
+  history.
 - A final segment that does not fit the rotating request beside what else
   it carries: the same request-limit failure. The writer cuts the final
   segment small, so this needs one operation of megabytes at the end of the

@@ -21,15 +21,15 @@ The abstraction maps to production at these seams:
 
 | Model action or predicate | Production implementation |
 | --- | --- |
-| `OpenStage` / `OpenReplacesPriorStage` | `openDocumentBaselineStage`, which checks write access and billing and replaces the caller's prior stage for the document |
-| `StageSegment` | `stageDocumentBaselineSegment`, which locks the stage row, takes only the stage's next index, verifies the segment and walks its spans against the stage frontier; `resignStagedBaselineSegmentHeader` re-signs a staged header and changes no span |
+| `OpenStage` / `OpenReplacesPriorStage` | `openDocumentBaselineStage`, which takes the document lifecycle lock, checks write access and billing (`requireStageWriter`), roots the stage in the stored document id, and replaces the caller's prior stage for the document |
+| `StageSegment` | `stageDocumentBaselineSegment`, which locks the stage row, checks write access and billing again (`requireStageWriter`), takes only the stage's next index, verifies the segment and walks its spans against the stage frontier; `resignStagedBaselineSegmentHeader` makes the same checks, re-signs a staged header and changes no span |
 | `StageUsable` / `RotatorSeesRefusal` | `judgeDocumentBaselineStage`, whose verdict the stage routes and the commit return as a coded refusal |
 | `CommitGate` / `FinalIndexes` / `CommitRequiresNextIndex` | `lockStagedBaselineForCommit`, called from `assertSyncRotationBaselinesSound` and `assertAtomicRotationBaselineCoversCommittedFrontier` |
 | `CommitRefusedStale` / `CoverageFromSpans` | `assertStagedBaselineCoversCommittedFrontier`, which compares the stage's walked spans and the final segment's own with `committedFrontierAfterBaselineCursor` |
 | `Promote` / `PromoteAllOrNone` | `promoteStagedBaselineSegments` inside `appendDocumentUpdates`, which inserts the staged rows in index order ahead of the final segment and deletes the stage row |
 | `Write` / `CommitUnderHeadLock` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
 | `Abandon` | `abandonDocumentBaselineStage` |
-| `Sweep` / `SweepLocksStageRow` | `cleanupExpiredDocumentBaselineStages`, which deletes each expired stage row and then its segments in one transaction |
+| `Sweep` / `SweepLocksStageRow` | `cleanupExpiredDocumentBaselineStages`, which deletes each expired stage row and then its segments in one transaction, stage after stage until none is left or its budget ends |
 | `KeptAfterDelete` / `DeleteKeepsCommitted` | `deleteUncommittedBaselineSegments`, the one delete the sweep, abandon and replace-on-open share |
 | `ReaderPage` / `ServeOnlyCommittedRows` | `loadDocumentUpdatePageRows`, which reads committed update rows and joins a staged segment's payload to its row |
 | `RotatorStep` | the SDK writer: `writeRotationBaseline` decides whether a group travels whole, and `runStagedBaselineUpload` drives `transitionStagedBaseline` through one effect a state |
@@ -132,7 +132,8 @@ sweep are not forced. It rests on three bounds:
   A stage that expires every time before its rotator commits never commits.
   Production extends a stage's expiry on every staged segment to keep an
   active upload alive; the model has no clock, so that rule is an assumption
-  here.
+  here. Only a request that passes the access and billing checks extends
+  it, so a rotator that lost either is one whose stage expires.
 - A rotator refused for stale coverage proves its history again and stages
   the tail after the segments it already staged (`Reprove`). That is the
   client SDK's part of the protocol, and it has no production seam in the
@@ -165,4 +166,20 @@ states.
 - Peer ownership of the staged spans is
   [PeerOwnership](./PeerOwnership.md)'s.
 - A document purge, which deletes a document's stages and segments with its
-  updates, is not modeled.
+  updates, is not modeled. An open takes the lifecycle lock a purge holds
+  (`lockDocumentLifecycleInTransaction`), so no stage is opened for a
+  document a purge removed.
+- Access and billing are left out: the rotator can always write. Production
+  checks both on every stage request and on the commit. A refusal changes
+  nothing a stage holds, so to the model it is a step the rotator did not
+  take, and a rotator that stays refused is one whose stage meets `Expire`.
+- The bounds on a stage are left out: its bytes
+  (`MAX_DOCUMENT_BASELINE_STAGE_BYTES`), its span rows
+  (`MAX_DOCUMENT_BASELINE_STAGE_SPANS`), and a user's open stages
+  (`MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER`). Each refuses a request and
+  changes nothing. `RotatorEventuallyCommits` is about a history that fits
+  them: one that does not is never staged whole.
+- The document has one name. That a stage is rooted in the stored document
+  id, whatever spelling a request used, is production's rule.
+- A content record two segments share is refused when the second is staged
+  and again at the commit; the model's segments are distinct by index.

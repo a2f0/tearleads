@@ -21,7 +21,9 @@ function replanAnswers(state: StagedBaselineState): boolean {
     state.status === "planning" ||
     state.status === "resigningHeaders" ||
     state.status === "resuming" ||
-    state.status === "abandoned"
+    // Given up for the writer's own standing (access, billing): no plan
+    // built in this pass would be taken either.
+    (state.status === "abandoned" && state.reason !== "released")
   );
 }
 

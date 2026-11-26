@@ -363,3 +363,85 @@ test("a history that no longer gives the staged segments abandons the stage", as
     "stage:0",
   ]);
 });
+
+// The API lets one user hold four open stages. A fifth upload is refused
+// at its open: a named limit the user can see, never a retry loop.
+test("an open refused for the open-stage limit ends the pass with that code", async () => {
+  const harness = await createStagedHealHarness();
+  const document = await createLongHistoryDocument("open-stage-limit");
+  harness.server.refuseNext("open", { code: STAGE.limitReached, status: 409 });
+
+  expect(await harness.heal(document, execSql)).toBeNull();
+
+  expect(harness.server.calls).toEqual(["open"]);
+  expect(harness.requests).toEqual([]);
+  expect(harness.terminalFailures).toMatchObject([
+    { code: STAGE.limitReached, status: 409 },
+  ]);
+  expect(harness.terminalFailures[0]?.message).toContain(
+    "4 other baseline uploads are open for this user",
+  );
+});
+
+// A stage stores at most 1 GiB and a million span rows. A history past
+// that cannot be staged: the stage is deleted and the heal ends as any
+// plan that no request can carry.
+test("a segment refused because the stage is full deletes the stage and names the limit", async () => {
+  const harness = await createStagedHealHarness();
+  const document = await createLongHistoryDocument("stage-too-large");
+  harness.server.refuseNext("stage:4", { code: STAGE.tooLarge, status: 409 });
+
+  expect(await harness.heal(document, execSql)).toBeNull();
+
+  expect(harness.server.calls.slice(-2)).toEqual(["stage:4", "abandon"]);
+  expect(harness.server.stage(harness.documentId)).toBeNull();
+  expect(harness.requests).toEqual([]);
+  expect(harness.terminalFailures).toMatchObject([
+    { code: "document_sync_request_too_large", status: null },
+  ]);
+  expect(harness.terminalFailures[0]?.message).toContain(
+    "is larger than the 1073741824 bytes or the span rows a stage stores",
+  );
+});
+
+// An outage says nothing about the stage or the writer, so the stage is
+// kept and the next pass goes on from it.
+test("a stage request that fails upstream keeps the stage for the next pass", async () => {
+  const harness = await createStagedHealHarness();
+  const document = await createLongHistoryDocument("outage");
+  harness.server.refuseNext("stage:3", { status: 503 });
+
+  expect(await harness.heal(document, execSql)).toBeNull();
+  expect(harness.server.calls).not.toContain("abandon");
+  expect(harness.server.stage(harness.documentId)?.segments).toHaveLength(3);
+  const callsBefore = harness.server.calls.length;
+
+  const synced = await harness.heal(document, execSql);
+  expect(synced?.acceptedRecoveryBaseline).toBe(true);
+  committedGroup(harness, document);
+  expect(harness.server.calls.slice(callsBefore, callsBefore + 2)).toEqual([
+    "get",
+    "stage:3",
+  ]);
+});
+
+// A commit refused because the writer may no longer write gives the
+// upload up: the stage is deleted, and the pass does not plan again.
+test("a commit refused for access deletes the stage and is not retried", async () => {
+  const harness = await createStagedHealHarness();
+  const document = await createLongHistoryDocument("commit-forbidden");
+  harness.script.refuse = () => ({
+    code: "forbidden",
+    message: "write access denied",
+    status: 403,
+  });
+
+  expect(await harness.heal(document, execSql)).toBeNull();
+
+  expect(harness.requests).toHaveLength(1);
+  expect(harness.server.calls.at(-1)).toBe("abandon");
+  expect(harness.server.stage(harness.documentId)).toBeNull();
+  expect(harness.terminalFailures.map((failure) => failure.status)).toEqual([
+    403,
+  ]);
+});

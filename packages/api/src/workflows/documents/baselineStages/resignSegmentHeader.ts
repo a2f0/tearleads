@@ -17,6 +17,7 @@ import {
 import {
   type DocumentBaselineStageKey,
   lockDocumentBaselineStageRow,
+  readStagedSegmentAt,
 } from "../../../documents/documentBaselineStageStore";
 import { writeHeaderAuthorizationHash } from "../../../documents/writeHeaderAuthorizationHash";
 import { loadSignerPublicKey } from "../../signerPublicKey";
@@ -28,6 +29,7 @@ import {
   stagedSegmentOutOfOrder,
   toDocumentBaselineStageError,
 } from "./errors";
+import { requireStageWriter } from "./stageAccess";
 import { documentBaselineStageStatus } from "./stageLifecycle";
 
 export interface ResignStagedBaselineSegmentHeaderInput
@@ -37,14 +39,6 @@ export interface ResignStagedBaselineSegmentHeaderInput
   readonly segmentIndex: number;
   readonly userId: string;
   readonly writeHeader: unknown;
-}
-
-function stagedSegmentIs(input: ResignStagedBaselineSegmentHeaderInput) {
-  return and(
-    eq(documentBaselineSegments.documentId, input.documentId),
-    eq(documentBaselineSegments.baselineId, input.baselineId),
-    eq(documentBaselineSegments.segmentIndex, input.segmentIndex),
-  );
 }
 
 /**
@@ -69,15 +63,11 @@ async function replaceStagedHeader(
   stage: DocumentBaselineStageRow,
   now: Date,
 ): Promise<DocumentBaselineStageRow> {
-  const [held] = await executor
-    .select({ header: documentBaselineSegments.header })
-    .from(documentBaselineSegments)
-    .where(stagedSegmentIs(input))
-    .limit(1);
+  const held = await readStagedSegmentAt(executor, stage, input.segmentIndex);
   if (!held) throw stagedSegmentOutOfOrder(stage.nextSegmentIndex);
   const verified = await verifyStagedWriteHeaderSignature({
     contentKeyEpoch: stage.contentKeyEpoch,
-    documentId: input.documentId,
+    documentId: stage.documentId,
     organizationId: stage.organizationId,
     signingPublicKey: await loadSignerPublicKey(executor, {
       ...input,
@@ -96,14 +86,14 @@ async function replaceStagedHeader(
       header: verified.header,
       headerHash: verified.headerHash,
     })
-    .where(stagedSegmentIs(input));
+    .where(eq(documentBaselineSegments.updateId, held.updateId));
   const [touched] = await executor
     .update(documentBaselineStages)
     .set({ expiresAt: documentBaselineStageExpiry(stage.createdAt, now) })
     .where(
       and(
-        eq(documentBaselineStages.documentId, input.documentId),
-        eq(documentBaselineStages.id, input.baselineId),
+        eq(documentBaselineStages.documentId, stage.documentId),
+        eq(documentBaselineStages.id, stage.id),
       ),
     )
     .returning();
@@ -116,7 +106,8 @@ async function replaceStagedHeader(
  * same bytes. A writer whose plan moved while it uploaded (another manifest
  * head, key-target set or signing key) signs its staged headers again and
  * sends only those: the commit requires every staged header to name what
- * its final segment names.
+ * its final segment names. Like staging a segment it is a document write,
+ * held to the caller's access and its organization's standing now.
  */
 export async function resignStagedBaselineSegmentHeader(
   db: ApiDatabase,
@@ -131,6 +122,11 @@ export async function resignStagedBaselineSegmentHeader(
           { now, userId: input.userId },
         ),
       );
+      await requireStageWriter({
+        documentId: stage.documentId,
+        executor,
+        userId: input.userId,
+      });
       return documentBaselineStageStatus(
         await replaceStagedHeader(executor, input, stage, now),
       );

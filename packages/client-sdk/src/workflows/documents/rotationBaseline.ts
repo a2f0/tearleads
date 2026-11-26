@@ -178,6 +178,7 @@ export async function settleUnlinkBaselineCommit(
         readonly baselineStageCode?: string | undefined;
         readonly code?: string | undefined;
         readonly ok: false;
+        readonly status?: number | null | undefined;
       },
 ): Promise<StagedBaselineState | null> {
   if (!stagedCommit) return null;

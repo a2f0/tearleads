@@ -148,7 +148,9 @@ API judges it in one pass (`judgeDocumentBaselineGroup`):
 The SDK sends a baseline this way when the group fits: at most 64 segments
 whose payloads total no more than the sync request ceiling, 16 MiB, on
 either route. A small document's rotation is one request, as it was before
-staging existed. Any other history goes through [a stage](#the-sdk-writer).
+staging existed. Any other history goes through a stage, by the
+[rotation baseline writer](./rotation-baseline-writer.md), which also
+answers each refusal below.
 The SDK builds a group for the request that sends it and queues nothing
 locally as a baseline: every queued row is an ordinary update.
 
@@ -169,14 +171,38 @@ request commits.
 | `GET /documents/{documentId}/baseline-stages/{baselineId}` | Returns the stage: its next index, its digest so far, its staged bytes, and its expiry. |
 | `DELETE /documents/{documentId}/baseline-stages/{baselineId}` | Abandons the stage and what it staged. |
 
-**Opening.** The caller must be able to write the document and sync in its
-organization, as for the request that will commit. The epoch is the
-document's current one, with that epoch's stored commitment, or a later one
-that the committing request opens. A user holds at most one open stage per
-document: opening another deletes the earlier one and what it staged, and
-repeating an open returns the stage as it stands. A `baselineId` the
-document committed, or that another user's stage on the document holds, is
-refused.
+**Canonical ids.** A stage path names its document and baseline by their
+canonical ids, lower-case as every signed artifact spells them; any other
+spelling is refused with `400`. The digest a final segment signs starts
+from the document id, and a reader starts its own from the id it holds, so
+a stage rooted in another spelling would commit a group no reader can
+reproduce. The API also roots the stage row, its digest, and each staged
+header's check in the id the document's row stores, never the request's.
+A sync that commits a stage under another spelling of the document id is
+refused as any write under it is.
+
+**Access on every request.** Staging is a document write. Opening a stage,
+staging a segment, and re-signing a header each require, when the request
+arrives, that the caller can write the document and that its organization
+is entitled to sync with a seat for the caller, as the commit does
+(`requireStageWriter`). A writer whose access was revoked or whose
+organization lapsed gets the `403` or `402` any document write gets; its
+stage takes nothing more and ends at the expiry it had. Reading a stage
+needs the same access and an open sync endpoint, as a read-only sync does;
+abandoning one needs neither.
+
+**Opening.** The epoch is the document's current one, with that epoch's
+stored commitment, or a later one that the committing request opens. A user
+holds at most one open stage per document: opening another deletes the
+earlier one and what it staged, and repeating an open returns the stage as
+it stands. A user holds at most four open stages across documents
+(`MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER`); a fifth is refused with
+`document_baseline_stage_limit_reached` until one commits, is abandoned, or
+expires. A `baselineId` the document committed, or that another user's
+stage on the document holds, is refused.
+An open takes the document's lifecycle lock, which a purge holds from
+before it deletes the document's stages until it commits, so a stage is
+never stored for a document a purge has removed.
 
 **Staging.** Segments are staged strictly in order: a segment's index is the
 stage's next. The API verifies each one as it verifies any update: the write
@@ -188,6 +214,12 @@ frontier for just the peers the segment names. The final segment is never
 staged, so a staged segment carries no count, digest, or cursor. Sending a
 staged index again with the same update id and ciphertext hash is
 acknowledged without a write.
+
+A content record and its nonce domain belong to one update of a document's
+epoch. A segment whose header signs one that a staged segment of its stage
+or a committed update holds is refused with
+`document_baseline_stage_segment_conflict`, as one under a committed update
+id is: its stage could never commit.
 
 What staging cannot check is whether the header's manifest, key-target set,
 and cited container manifests authorize its writer: the manifest a rotation
@@ -205,13 +237,29 @@ ciphertext nor the stage's digest changes.
 included (`MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS`). A staged segment's
 request is held to the sync request ceiling
 (`MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES`), so every committed segment
-fits a response page as an update a sync committed does. A stage expires an
-hour after its last staged segment or re-signed header
+fits a response page as an update a sync committed does. One stage stores
+at most 1 GiB (`MAX_DOCUMENT_BASELINE_STAGE_BYTES`), counting everything a
+staged row keeps of a segment: its ciphertext, its three signed vectors,
+its plaintext hash, and its write header (the status's `stagedBytes`). It
+stores at most 1,048,576 span rows (`MAX_DOCUMENT_BASELINE_STAGE_SPANS`),
+one for each peer a segment carries. A segment that would pass either bound
+is refused with `document_baseline_stage_too_large`, the stage unchanged.
+
+A stage expires an hour after its last staged segment or re-signed header
 (`DOCUMENT_BASELINE_STAGE_IDLE_SECONDS`) and never later than 24 hours after
 it opened (`DOCUMENT_BASELINE_STAGE_MAX_SECONDS`). The hourly maintenance run
 deletes expired stages and what they staged
 (`cleanupExpiredDocumentBaselineStages`), and a document purge deletes the
-document's.
+document's. A run reads expired stages in batches of 100, oldest expiry
+first, and deletes each in its own transaction until none is left. It stops
+early only at 10,000 stages (`MAX_EXPIRED_STAGES_PER_SWEEP`) or five minutes
+(`EXPIRED_STAGE_SWEEP_BUDGET_MS`); it then reports the expired stages it
+left and logs a warning, and the next run continues. An expired stage holds
+its bytes until a run reaches it and is dead meanwhile: nothing stages to
+it, re-signs in it, or commits it. No storage quota counts staged bytes:
+the data-usage report sums committed updates and blobs. These bounds are
+the whole limit on what a member holds uncommitted;
+[limits](./limits.md#document-sync) gives the arithmetic.
 
 ### Stage refusals
 
@@ -224,14 +272,17 @@ writer what its stage is worth:
 | `document_baseline_stage_expired` | 409 | The stage passed its expiry. | opens a new stage |
 | `document_baseline_stage_epoch_stale` | 409 | The document moved past the stage's content-key epoch, or the stage names another key for it. | abandons it and plans again |
 | `document_baseline_stage_id_conflict` | 409 | The `baselineId` is a committed baseline's or another user's stage. | chooses another id |
+| `document_baseline_stage_limit_reached` | 409 | Only at an open: the caller holds four open stages on other documents. | abandons one, or waits |
+| `document_baseline_stage_too_large` | 409 | The segment would take the stage past its byte or span bound. The stage is unchanged. | cannot stage this history whole |
 | `document_baseline_stage_segment_out_of_order` | 409 | The index is not the stage's next; the body names `nextSegmentIndex`. | resumes from that index |
-| `document_baseline_stage_segment_conflict` | 409 | The index or the update id is taken by other bytes. | abandons the stage |
+| `document_baseline_stage_segment_conflict` | 409 | The index, the update id, or the content record is taken by other bytes. At a commit: a staged segment's content record was committed since. | signs the segment again under its own ids, or abandons the stage |
 | `document_baseline_stage_segment_invalid` | 409 | The segment breaks a group rule at that place, or is a final segment. No honest writer sends one. | builds the baseline anew |
 | `document_baseline_stage_headers_stale` | 409 | Only at a commit: the staged headers do not name what the final segment's header names. | re-signs the staged headers |
 
 A failed access or billing check, a malformed header, and a bad signature
-fail as they do on any document write, without a stage code, and leave the
-stage as it was. A stage route sends no other 404.
+fail as on any document write (`403`, `402`, `400`), without a stage code,
+and leave the stage and its expiry as they were. A stage route sends no
+other 404: an open on a document that is gone is an uncoded `409`.
 
 ### Committing a stage
 
@@ -252,7 +303,9 @@ manifest-head lock among them, the API:
 4. verifies the final segment in full, as any update of the request;
 5. requires the stage's content key to be the epoch's, and every staged
    header's authorization hash to equal the final header's, in one statement
-   over the stage (`promoteStagedBaselineSegments`);
+   over the stage (`promoteStagedBaselineSegments`), and that no staged
+   segment's content record or nonce domain is a committed header's, the
+   final segment's among them;
 6. applies the peer-ownership rule to the stage's spans as sets, and claims
    the unowned peers the stage extends;
 7. inserts one update row per staged segment in segment order, then their
@@ -260,10 +313,21 @@ manifest-head lock among them, the API:
 8. walks and inserts the request's own updates, the final segment first.
 
 Step 7 copies no ciphertext. The update rows it inserts hold no payload, and
-readers take each one's from the staged row by update id, so the rows a
-commit writes under the head lock are small whatever the history's size. The
-final segment, which travelled in the request, is stored inline like any
-update.
+readers take each one's from the staged row by update id. The final
+segment, which travelled in the request, is stored inline like any update.
+
+What a commit writes under the head lock scales with the stage's segments
+and spans, not its bytes: one update row and one write-header row per
+staged segment, one span row per staged span, and at most one peer-owner
+row per span. The bounds cap that at 4,095 update rows, 4,095 header rows,
+1,048,576 span rows, and as many owner rows. A history of many peers meets
+the span bound long before the byte bound: a 250 KiB segment can declare
+50,000 peers, and committing 100,000 staged spans took about one second on
+the in-memory test database. A baseline sent whole writes span rows under
+the same lock, bounded by its 16 MiB request rather than by a count.
+A staged update id that another document's update took since it was staged
+refuses the commit with `document_sync_update_id_conflict`: the head lock
+keeps out only this document's writers.
 
 A refusal for the stage is `409 document_sync_baseline_group_invalid` on
 either route, with the stage's own code beside it as `baselineStageCode`; the
@@ -285,22 +349,14 @@ whatever stage later names the same id.
 [StagedBaselineCommit](../formal/document-sync/StagedBaselineCommit.md)
 models the stage, the commit, the sweep, and a reader paging through both.
 
-## The SDK Writer
-
-The client SDK sends a baseline whole when its group fits one request and
-stages it otherwise, on the sync heal and on the unlink path. Its writer is
-an explicit state machine that answers each refusal above: it stages a tail
-after a coverage refusal, signs stale headers again, and starts over when
-its stage is gone. See the
-[rotation baseline writer](./rotation-baseline-writer.md).
-
 ## Serving And The Redirect
 
 Segments are stored and paged as ordinary updates, in commit order, so a
 group's segments arrive as one run over as many pages as they take. Each
 served segment carries its baseline fields and its ciphertext, wherever that
 is stored. A stored row whose columns no longer give its signed metadata
-hash fails the pull with `409`.
+hash fails the pull with `409 document_sync_conflict`, and so does a
+committed segment whose payload row is gone.
 
 The redirect picks the latest whole group at the current content-key epoch
 with one statement that reads no payload and no vector
@@ -320,6 +376,20 @@ something ahead of it. Neither statement grows with the group's payload,
 and the first does not grow with its segment count beyond an index range.
 When the redirect applies, the first page starts just before the group's
 first segment.
+
+**The redirect trusts structure, and serving checks the rows.** The
+redirect chooses a group by its stored indexes, count, and spans. It does
+not authenticate the group's rows again, which would mean reading every
+payload and header of a group of any size before the first page. This is
+an accepted trade-off, and it fails closed. Each row is checked as it is
+served: its signed metadata hash is recomputed from the stored columns, and
+a committed segment must still have its payload. A group that is whole by
+structure and holds an altered row is still chosen, and the pull is refused
+with `409 document_sync_conflict` at that row: the reader is served no part
+of the group, nor the older epoch's history in its place. Only a database
+altered outside the API holds such a group, and no retry mends it. A
+reader's own checks do not rest on any of this: it authenticates every
+segment it is served ([reader checks](#reader-checks)).
 
 ## Reader Checks
 
@@ -394,8 +464,8 @@ hold stages
 
 | Table | Holds | Lives |
 | --- | --- | --- |
-| `document_baseline_stages` | One row per open stage, keyed `(document_id, id)`: its owner, organization, content-key epoch and commitment, next index, digest so far, staged bytes, and expiry. Unique on `(document_id, owner_user_id)`. | From the open until a commit, an abandon, a replacement, or the sweep. |
-| `document_baseline_segments` | One row per staged segment, keyed by update id: the ciphertext, the signed vectors and plaintext hash, the verified write header, and the header's authorization hash. | A row a commit left as its update's payload, the update of the same document and baseline under its id that holds none of its own, is deleted only with its document. Every other row goes with its stage. |
+| `document_baseline_stages` | One row per open stage, keyed `(document_id, id)`: its owner, organization, content-key epoch and commitment, next index, digest so far, staged bytes and spans, and expiry. Unique on `(document_id, owner_user_id)`, and indexed by owner for the per-user bound. | From the open until a commit, an abandon, a replacement, or the sweep. |
+| `document_baseline_segments` | One row per staged segment, keyed by update id: the ciphertext, the signed vectors and plaintext hash, the verified write header, the header's authorization hash, and its content record and nonce domain, each unique within the stage. | A row a commit left as its update's payload, the update of the same document and baseline under its id that holds none of its own, is deleted only with its document. Every other row goes with its stage. |
 | `document_baseline_segment_spans` | The staged segments' spans, from which a stage's frontier is read. | A commit moves them to `document_update_spans`; otherwise they go with their stage. |
 
 The committed header and vectors are copied to the update row and
