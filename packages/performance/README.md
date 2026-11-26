@@ -238,10 +238,10 @@ Request counts should repeat on any machine; times will not, and against a
 local API with no network they are lower bounds. The app shell's own startup
 requests (`POST /auth/ws-ticket`, `GET /organization-memberships` and the
 billing read) are not made. The account has no Contacts folder, which the
-app's system bootstrap creates after sign-in, so a settled reload here syncs
-one system document where the app's canary syncs three. Reports are saved as
+app's system bootstrap creates after sign-in, so nothing the app requests for
+that folder is counted. Reports are saved as
 `.test_files/performance/reload-<run>.json`. See the
-[2026-11-25 results](results/2026-11-25-document-reload.md).
+[2026-11-26 results](results/2026-11-26-document-reload.md).
 
 ## Account provisioning
 
