@@ -295,6 +295,11 @@ The lanes share one request-scoped cache of verified principal policies by
 reference, and a lane's linked containers reuse the policies its gate loaded, so
 batching also saves statements; every
 [container path](./glossary/access.md#authorizing-container-path) is still verified.
+`POST /containers/parent-lanes/query` accepts 32 parent lanes
+(`MAX_CONTAINER_PARENT_LANES`) on the same terms. Both routes list four lanes
+at a time, the size of the request's
+[database pool](./limits.md#database-connections), so a larger batch does not
+hold more database work at once than four singular listings did.
 
 ### Separate projection reads
 

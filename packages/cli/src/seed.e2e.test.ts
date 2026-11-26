@@ -163,9 +163,12 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       );
       log.stderr.length = 0;
       expect(result).toBe(0);
-      expect(log.stdout.at(-1)).toBe(
+      // The dataset's folders are reported after its documents.
+      expect(log.stdout).toEqual([
         `Synced ${documents.length} Continuity documents to your staging account.`,
-      );
+        "Seeded 1 folder with 1 note.",
+      ]);
+      log.stdout.length = 0;
     };
     const device = { apiBaseUrl, recoveryKey: seedPhrase, rootContainerId };
     const other = testContext({ apiBaseUrl });

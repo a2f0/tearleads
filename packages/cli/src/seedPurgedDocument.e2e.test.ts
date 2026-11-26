@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk";
-import { loadContinuityAssets } from "app/continuity";
+import { continuityDocuments, loadContinuityAssets } from "app/continuity";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
@@ -134,14 +134,16 @@ test("verified purges and moves to newly created folders survive a seed retry", 
       });
     expect(await seed(), output.stderr.join("\n")).toBe(0);
     expect(beforeMissingHead).toBeUndefined();
-    expect(output.stdout.at(-1)).toBe(
-      "Synced 24 Continuity documents to your staging account. Skipped 1 permanently deleted.",
+    const kept =
+      continuityDocuments((await loadContinuityAssets()).spec).length - 1;
+    expect(output.stdout).toContain(
+      `Synced ${kept} Continuity documents to your staging account. Skipped 1 permanently deleted.`,
     );
     await onFreshDevice(
       { ...device, movedContactId, additionalFolderId },
       async (stores) => {
         const ids = stores.map((store) => store.getSnapshot().documentId);
-        expect(ids).toHaveLength(24);
+        expect(ids).toHaveLength(kept);
         expect(ids).not.toContain(purgedId);
         expect(ids).toContain(movedContactId);
       },
