@@ -119,8 +119,14 @@ test("the crawl's observer is told when it is owed and how each attempt settles"
   } finally {
     recovery.reset("disposed");
   }
-  // A disposed store's crawl will never vouch for anything.
-  expect(reports.at(-1)).toBe("incomplete");
+  // A disposed store that owed no crawl says nothing: the scope's port may
+  // be waiting on its replacement's crawl.
+  expect(reports).toHaveLength(4);
   expect(new ReconnectRefresh(false, observer).owesCrawl).toBe(false);
-  expect(reports).toHaveLength(5);
+
+  // One that owed a crawl will never vouch for anything.
+  const owing = new ReconnectRefresh(true, observer);
+  expect(reports.at(-1)).toBe("owed");
+  owing.reset("disposed");
+  expect(reports.slice(4)).toEqual(["owed", "incomplete"]);
 });

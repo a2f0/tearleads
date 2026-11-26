@@ -102,9 +102,11 @@ crawl that the same acknowledgement starts already says which folders moved.
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been
   answered before the write behind it.
-- Fallback. When the crawl did not list every lane it queued, or the host
-  reports no crawl, nothing vouches for the lanes it was not served, and the
-  catch-up lists every known lane, as it did before lanes were owed listings.
+- Fallback. When the crawl did not list every lane it queued, did not settle
+  within 15 seconds (it cannot start while the store is not ready or after
+  the socket dropped again), or the host reports no crawl, nothing vouches
+  for the lanes it was not served, and the catch-up lists every known lane,
+  as it did before lanes were owed listings.
 - Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's
   owes lanes the same way and lists nothing for them at once. The request is
   durable, so the next catch-up lists the lane, as does the owed-lane resume

@@ -42,10 +42,13 @@ export class ReconnectRefresh {
   reset(type: "acknowledged" | "runtimeChanged" | "disposed"): void {
     clearTimeout(this.timer);
     this.timer = undefined;
+    const owedCrawl = this.owesCrawl;
     this.state = transitionReconnectRefresh(this.state, { type });
     if (type === "acknowledged") this.observer?.crawlOwed();
-    // A crawl a disposed store owed will never vouch for anything.
-    if (type === "disposed") this.observer?.crawlSettled(false);
+    // A crawl a disposed store owed will never vouch for anything. A store
+    // that owed none says nothing: the scope's port may be waiting on its
+    // replacement's crawl.
+    if (type === "disposed" && owedCrawl) this.observer?.crawlSettled(false);
   }
 
   runWhenReady(

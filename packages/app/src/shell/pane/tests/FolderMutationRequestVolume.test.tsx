@@ -360,8 +360,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // commitment: 18.8 KB received (about 20.1 KB with the directory, which
       // exceeds this ceiling).
       // The root lane is listed twice in one request, from its watermark and
-      // for membership: 16,620 bytes sent.
-      bodyBytes: { request: 16_700, response: 20_100 },
+      // for membership: 16,620 bytes sent and 19,945 received (about 21.2 KB
+      // with the directory, which exceeds this ceiling).
+      bodyBytes: { request: 16_700, response: 20_300 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,

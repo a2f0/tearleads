@@ -11,6 +11,7 @@ import {
   refreshTreeForSweep,
   SharedRefresh,
 } from "./sharedRefresh";
+import { awaitTreeCrawl } from "./treeCrawlWait";
 
 function forgetIneligibleDiscoveredContainers(
   host: ReconciliationHost,
@@ -85,7 +86,7 @@ interface SweepPlan {
   readonly vouchedContainerIds?: ReadonlyArray<string> | undefined;
 }
 
-type PlanSweep = () => SweepPlan | Promise<SweepPlan>;
+type PlanSweep = (stop: AbortSignal) => SweepPlan | Promise<SweepPlan>;
 
 /**
  * Reads the sweep's plan with `holdWhilePlanning`'s containers held as
@@ -99,10 +100,17 @@ async function planSweepHolding(
     holdWhilePlanning?: (() => ReadonlyArray<string>) | undefined;
     planSweep: PlanSweep;
     state: ReconciliationState;
+    stop: AbortSignal;
   },
   settled: Set<string>,
 ): Promise<ReadonlyArray<string>> {
-  const { discoveredContainerIds } = input.state;
+  const { state } = input;
+  const { discoveredContainerIds } = state;
+  // Reading the plan can outlast the session: a stop and start meanwhile
+  // gives the discovered set to a new one, which this sweep must not touch.
+  const lifecycleGeneration = state.lifecycleGeneration;
+  const isCurrent = () =>
+    isCurrentReconciliationLifecycle(state, lifecycleGeneration);
   const held = new Set(
     (input.holdWhilePlanning?.() ?? []).filter(
       (containerId) => !discoveredContainerIds.has(containerId),
@@ -116,11 +124,21 @@ async function planSweepHolding(
   };
   let plan: SweepPlan;
   try {
-    plan = await input.planSweep();
+    plan = await input.planSweep(input.stop);
   } catch (error) {
-    release(new Set());
+    if (isCurrent()) {
+      release(new Set());
+      // A passive enqueue made during the hold was skipped, and this sweep
+      // lists nothing in its place.
+      requeueUnsettledContainers(
+        state,
+        [...held].map((containerId) => [containerId, "idle"] as const),
+        lifecycleGeneration,
+      );
+    }
     throw error;
   }
+  if (!isCurrent()) return [];
   const vouched = plan.vouchedContainerIds ?? [];
   release(new Set([...plan.containerIds, ...vouched]));
   for (const containerId of vouched) {
@@ -386,7 +404,7 @@ function reportUnawaitedSweep(
 // that crawl is served owes its container's document lane a listing, so once
 // the crawl has settled this sweep lists the owed lanes alone. It lists every
 // known lane when nothing vouches for the rest: the crawl did not complete,
-// or the host reports no crawl at all. It never joins a sweep that already
+// did not settle in time, or the host reports no crawl at all. It never joins a sweep that already
 // started: that one may have listed before the acknowledgement.
 export function requestAcknowledgedConnectionSweep(
   host: ReconciliationHost,
@@ -401,8 +419,8 @@ export function requestAcknowledgedConnectionSweep(
       refreshTree: () => Promise.resolve(),
       // The plan waits for the tree crawl, and covers every known lane.
       holdWhilePlanning: () => listFullRefreshContainerIds(host, state),
-      planSweep: async () =>
-        (await host.whenTreeCrawlSettles?.()) === true
+      planSweep: async (stop) =>
+        (await awaitTreeCrawl(host.whenTreeCrawlSettles?.(), stop))
           ? planOwedLanesSweep(host, state)
           : { containerIds: listFullRefreshContainerIds(host, state) },
       scope: "acknowledged",

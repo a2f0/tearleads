@@ -136,7 +136,7 @@ test("a catch-up waits for the tree crawl, holding passive listings of known lan
   service.stop();
 });
 
-test("a catch-up that cannot read what is owed releases the lanes it held", async () => {
+test("a catch-up that cannot read what is owed queues the lanes it held", async () => {
   const errors: unknown[] = [];
   const failure = new Error("database busy");
   let fail = true;
@@ -158,8 +158,41 @@ test("a catch-up that cannot read what is owed releases the lanes it held", asyn
   await expect(service.reconcileAcknowledgedConnection()).rejects.toBe(failure);
   expect(errors).toEqual([failure]);
 
-  // Nothing vouched for the lanes, so a passive enqueue lists them.
+  // Nothing vouched for the lanes, and a passive enqueue made during the
+  // hold was skipped, so every held lane is queued again.
   fail = false;
+  service.enqueueContainer("a", "idle");
+  await settle();
+  await settle();
+  expect(listings).toEqual([["a", "b", "c"]]);
+  service.stop();
+});
+
+test("a catch-up that outlives its session leaves the next one's lanes alone", async () => {
+  const crawl = createGate();
+  const { host, listings } = createOwedLaneHost({
+    overrides: {
+      whenTreeCrawlSettles: async () => {
+        await crawl.wait;
+        return true;
+      },
+    },
+    owed: () => [],
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  const catchUp = service.reconcileAcknowledgedConnection().catch(() => {});
+  await settle();
+
+  // The session ends and another begins while the plan waits on the crawl.
+  service.stop();
+  service.start();
+  crawl.open();
+  await catchUp;
+  await settle();
+
+  // The old sweep's crawl vouched for every lane; that is not the new
+  // session's knowledge, so a passive enqueue still lists.
   service.enqueueContainer("a", "idle");
   await settle();
   await settle();
