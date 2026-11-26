@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { notifyDatabaseStatement } from "./databaseStatementObserver";
 
 export interface DatabaseStatementCounter {
   statements: number;
@@ -29,10 +30,18 @@ export function withDatabaseStatementCounter<T>(
   return scopes.run({ counter, parent: scopes.getStore() }, work);
 }
 
+/**
+ * The ORM logger every API database is built with: it counts each statement
+ * for the enclosing counters and hands it to any statement observer.
+ */
 export const databaseStatementLogger = {
-  logQuery(): void {
-    for (let scope = scopes.getStore(); scope; scope = scope.parent)
+  logQuery(query: string, parameters: unknown[]): void {
+    let outermost: CounterScope | undefined;
+    for (let scope = scopes.getStore(); scope; scope = scope.parent) {
       scope.counter.statements += 1;
+      outermost = scope;
+    }
+    notifyDatabaseStatement(query, parameters, outermost);
   },
 };
 

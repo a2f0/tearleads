@@ -8,6 +8,7 @@ import {
   saveJson,
   saveReportFile,
 } from "../reportFiles";
+import { logTail } from "../testProcess";
 import { type Canary, discoverCanaries, selectCanaries } from "./discover";
 import { formatCanaryReport, formatComparison } from "./markdown";
 import { type CanaryOptions, canaryUsage, parseCanaryOptions } from "./options";
@@ -17,7 +18,7 @@ import {
   canaryBoundary,
   loadCanaryReport,
 } from "./report";
-import { logTail, runCanary } from "./run";
+import { runCanary } from "./run";
 import { comparePhases, summarizePhases } from "./summary";
 
 type RunOptions = Extract<CanaryOptions, { mode: "run" }>;
@@ -38,9 +39,15 @@ function printRun(run: CanaryRun): void {
   console.log(
     `${run.canary} #${run.sample}: ${run.status}, ${(run.wallMs / 1000).toFixed(1)} s`,
   );
-  for (const phase of run.phases)
+  for (const [index, phase] of run.phases.entries()) {
+    const statements = run.statements?.perPhase?.[index];
     console.log(
-      `  ${phase.total} requests, ${phase.bodyBytes.request} B sent, ${phase.bodyBytes.response} B received: ${phase.label}`,
+      `  ${phase.total} requests, ${phase.bodyBytes.request} B sent, ${phase.bodyBytes.response} B received${statements === undefined ? "" : `, ${statements} statements`}: ${phase.label}`,
+    );
+  }
+  if (run.statements?.perPhase === null)
+    console.log(
+      `  The statement capture's phase markers do not match the profile; no per-phase statements. Capture: ${run.statements.capture}`,
     );
 }
 
@@ -66,7 +73,12 @@ async function measure(
       arch: process.arch,
       cpu: cpus()[0]?.model ?? null,
     },
-    options: { canaries: options.canaries, samples: options.samples },
+    options: {
+      canaries: options.canaries,
+      samples: options.samples,
+      statements: options.statements,
+      paramHash: options.paramHash,
+    },
     boundary: canaryBoundary,
   } as const;
   const report = (status: CanaryReport["status"]): CanaryReport => ({
@@ -81,8 +93,18 @@ async function measure(
   );
   for (let sample = 1; sample <= options.samples; sample += 1)
     for (const canary of canaries) {
-      const log = resolve(logs, `${canary.name}-${sample}.log`);
-      const run = await runCanary({ canary, sample, log });
+      const name = `${canary.name}-${sample}`;
+      const run = await runCanary({
+        canary,
+        sample,
+        log: resolve(logs, `${name}.log`),
+        ...(options.statements && {
+          capture: {
+            out: resolve(logs, `${name}.statements.jsonl`),
+            paramHash: options.paramHash,
+          },
+        }),
+      });
       runs.push(run);
       printRun(run);
       if (run.status !== "passed") console.log(await logTail(run.log));

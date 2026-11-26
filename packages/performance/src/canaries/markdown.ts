@@ -39,13 +39,23 @@ function table(
 }
 
 function phaseTables(phases: readonly PhaseSummary[]): string[] {
+  const captured = phases.some((phase) => phase.statements !== null);
   const lines = table(
-    ["Phase", "Requests", "Request bytes", "Response bytes"],
+    [
+      "Phase",
+      "Requests",
+      "Request bytes",
+      "Response bytes",
+      ...(captured ? ["Statements"] : []),
+    ],
     phases.map((phase) => [
       cell(phaseName(phase)),
       formatRange(phase.requests),
       formatRange(phase.requestBytes),
       formatRange(phase.responseBytes),
+      ...(captured
+        ? [phase.statements ? formatRange(phase.statements) : ""]
+        : []),
     ]),
   );
   for (const phase of phases) {
@@ -128,18 +138,36 @@ export function formatComparison(
       "Deltas compare the lowest values.",
   ];
   if (changed.length === 0) return `${lines.join("\n")}\n`;
+  const captured = changed.some(
+    (change) => change.before?.statements || change.after?.statements,
+  );
   lines.push(
     "",
     ...table(
-      ["Canary", "Phase", "Requests", "Request bytes", "Response bytes"],
+      [
+        "Canary",
+        "Phase",
+        "Requests",
+        "Request bytes",
+        "Response bytes",
+        ...(captured ? ["Statements"] : []),
+      ],
       changed.map((change) => [
         change.canary,
         cell(phaseName(change)),
         delta(change.before?.requests, change.after?.requests),
         delta(change.before?.requestBytes, change.after?.requestBytes),
         delta(change.before?.responseBytes, change.after?.responseBytes),
+        ...(captured
+          ? [
+              delta(
+                change.before?.statements ?? undefined,
+                change.after?.statements ?? undefined,
+              ),
+            ]
+          : []),
       ]),
-      [false, false, true, true, true],
+      [false, false, true, true, true, true],
     ),
   );
   for (const change of changed) {

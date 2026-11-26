@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./postgres": "./src/adapters/postgres.ts",
     "./postgres-transport": "./src/adapters/postgresTransport.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./statement-observer": "./src/adapters/databaseStatementObserver.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",

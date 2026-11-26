@@ -67,104 +67,63 @@ Take these once per revision:
 Every API dialect logs statements through one object,
 `databaseStatementLogger` in
 `packages/api-shared/src/adapters/databaseStatementCounter.ts`, which Drizzle
-calls with the SQL text and parameters. A Bun preload outside the checkout
-can wrap it to record each statement without changing repository code. Write
-this file into the audit directory, replacing `<REPO_ROOT>`:
-
-```ts
-import { createHash } from "node:crypto";
-import { appendFileSync } from "node:fs";
-import { beforeEach } from "bun:test";
-import { databaseStatementLogger } from "<REPO_ROOT>/packages/api-shared/src/adapters/databaseStatementCounter.ts";
-
-const out = process.env.SQL_CAPTURE_OUT;
-if (!out) throw new Error("SQL_CAPTURE_OUT is required");
-const hashParams = process.env.SQL_CAPTURE_PARAM_HASH === "1";
-const capture = globalThis as { sqlCaptureLabel?: string };
-let testNumber = 0;
-const write = (entry: object) =>
-  appendFileSync(out, `${JSON.stringify(entry)}\n`);
-const paramHash = (params: unknown[]) =>
-  createHash("sha256")
-    .update(
-      JSON.stringify(params, (_key, value) =>
-        typeof value === "bigint" ? value.toString() : value,
-      ),
-    )
-    .digest("hex")
-    .slice(0, 12);
-
-beforeEach(() => {
-  testNumber += 1;
-  capture.sqlCaptureLabel = undefined;
-});
-
-const count = databaseStatementLogger.logQuery;
-Object.assign(databaseStatementLogger, {
-  logQuery(query?: string, params?: unknown[]) {
-    write({
-      label: capture.sqlCaptureLabel ?? `test-${testNumber}`,
-      sql: query ?? "<transaction control>",
-      params: params?.length ?? 0,
-      ...(hashParams && params ? { paramHash: paramHash(params) } : {}),
-    });
-    count.call(databaseStatementLogger);
-  },
-});
-
-// Request-volume canaries print one metrics line per phase; mark its end.
-const info = console.info.bind(console);
-console.info = (...args: unknown[]) => {
-  const [first] = args;
-  const prefix = "[dual-pane-request-metrics] ";
-  if (typeof first === "string" && first.startsWith(prefix)) {
-    const metrics = JSON.parse(first.slice(prefix.length));
-    write({ phaseEnd: metrics.label, requests: metrics.total });
-  }
-  info(...args);
-};
-```
-
-Name the package's own `bunfig.toml` preloads first so they run before the
-capture whatever Bun does with the configured list:
+calls with the SQL text and parameters, and which hands each statement to
+any observer registered through `@tearleads/api-shared/statement-observer`.
+The performance package's
+[capture preload](../../../../packages/performance/src/statements/capturePreload.ts)
+registers one and appends a JSON line per statement; the
+[README](../../../../packages/performance/README.md#statement-capture) lists
+the record fields. Run it through the harness, from the measured checkout:
 
 ```sh
-# API tests, from packages/api
-SQL_CAPTURE_OUT=<file> API_DATABASE=memory bun test \
-  --preload ./test/preload.ts --preload <capture.ts> <test file>
-# App canaries, from packages/app (the in-process test API loads the same module)
-DUAL_PANE_REQUEST_PROFILE=1 SQL_CAPTURE_OUT=<file> bun test \
-  --preload ./happydom.ts --preload <capture.ts> <canary file>
+# API tests, from packages/api, on PGlite unless API_DATABASE is set
+bun run perf:statements --package api --file <test file> --param-hash
+# One test of that file: Bun's -t pattern
+bun run perf:statements --package api --file <test file> --name <test>
+# App canaries with the request profile, one capture per canary
+bun run perf:canaries --statements --param-hash
+# A saved capture, summarized again
+bun run perf:statements --summarize <capture.jsonl>
 ```
+
+Each run puts the package's own `bunfig.toml` preloads before the capture
+and saves, under `.test_files/performance/`, the capture, a summary as JSON
+and Markdown, and the test output. The summary counts statements per label
+and per canary phase, ranks the most repeated normalized statements, and,
+with `--param-hash`, lists same-key repeats. Copy what the audit cites into
+`measurements/`. A probe that runs `bun test` itself passes the preload by
+path after the package's own, with `PERF_STATEMENTS_OUT` naming the
+capture file, as the preload's header comment shows.
 
 Labels are global, not async-context scoped: background work that outlives
 a test (sync pumps, timers; see `packages/app/happydom.ts`) is attributed to
 whichever test runs next. Use per-test totals as evidence only from a run
-of one test (`-t`). A probe sets `globalThis.sqlCaptureLabel` around the
+of one test (`--name`). A probe sets `globalThis.sqlCaptureLabel` around the
 call it measures, after awaiting any background work its setup started, and
 clears it after, so fixture setup is labelled separately. Bind values are
-never recorded. With `SQL_CAPTURE_PARAM_HASH=1` each entry also carries a
+never recorded. With `--param-hash` each record also carries a
 short hash of its values, which proves that a repeated statement reads the
 same key rather than a different one; keep the hashes in the scratch
 directory, never in the issue. Transaction controls reach the logger only on
 `API_DATABASE=postgres`: PGlite's native transaction method
 bypasses it, so a PGlite capture (including every canary) has no
-transaction count. Summarize with `jq`, for example the most repeated
-statements for one label:
+transaction count. For a question the summary does not answer, query the
+capture with `jq`, for example the most repeated statements for one label:
 
 ```sh
 jq -r 'select(.label == "<label>") | .sql | gsub("\\s+"; " ")' <file> \
   | sort | uniq -c | sort -rn | head -20
 ```
 
-Group by request before counting repeats. A scratch copy of the preload can
-set `API_REQUEST_COST_LOG=true`, which makes the API print one
-`api.request.cost` line per request with its route and statement count (see
-`docs/developer/api-request-cost.md`), and tag each statement with the
-request scope it ran in. Grouped by request and bind hash, a capture shows
-one key read twice inside a request, which a per-phase total hides. On
-2026-11-10 the first auditor to build this found the single-walk and
-listing-lane repeats, and the others reused its preload.
+Each record carries `request`, a number for the request it ran in, and the
+summary counts same-key repeats within one request: a per-phase total hides
+one key read twice inside a request. On 2026-11-10 the first auditor to
+group a capture by request found the single-walk and listing-lane repeats.
+The number comes from the request-cost middleware's statement counter, so a
+test that wraps requests in a counter of its own merges them into one.
+`API_REQUEST_COST_LOG=true` also makes the API print one `api.request.cost`
+line per request with its route and statement count (see
+`docs/developer/api-request-cost.md`).
 
 `jq -r` prints multi-line SQL across several lines, so `jq -r ... | wc -l`
 over-counts; count records with `jq -c` or `jq -s length`. Agent shells may
@@ -188,24 +147,24 @@ ceilings, with their measurements in a comment, are in
 
 Capture once per revision, in the background, and keep one log and one
 capture file per run. When the protocol audit runs at the same revision,
-run the canaries once for both: set `DUAL_PANE_REQUEST_PROFILE=1` and
-`DUAL_PANE_REQUEST_PROFILE_DETAIL=1` beside the capture preload, so one log
-holds the request profile and one file the statements. `perf:canaries`
-runs the same files but cannot load the capture preload, so this shared
-pass runs each one by hand. Set `SQL_CAPTURE_PARAM_HASH=1` on that shared
-pass: without the hashes neither audit can split a repeated statement into
-same-key and different-key reads afterwards.
+run the canaries once for both with
+`bun run perf:canaries --statements --param-hash`: each canary's log holds
+the request profile, its capture the statements, and the report adds
+statements per phase. Keep `--param-hash` on that shared pass: without the
+hashes neither audit can split a repeated statement into same-key and
+different-key reads afterwards.
 
-- The request-volume canaries listed in the `protocol-efficiency-audit`
-  measurement reference (upload, organization bootstrap, folder and group
-  mutations, device-first offline, groups, sharing, reconnect, restart; the
-  active-peer canary prints no profile), under the capture preload. They
-  drive the real SDK against the in-process test API on PGlite, so their
-  statement mix approximates production. Statements between two `phaseEnd`
-  markers include any setup the canary ran before the phase started; use a
-  probe for exact per-operation numbers.
-- The API statement-budget tests from the inventory, under the preload, for
-  registration, read-model, projection, and verification-marker counts.
+- The request-volume canaries `perf:canaries` runs, listed in the
+  `protocol-efficiency-audit` measurement reference (upload, organization
+  bootstrap, folder and group mutations, device-first offline, groups,
+  sharing, reconnect, restart), with `--statements`. They drive the real SDK
+  against the in-process test API on PGlite, so their statement mix
+  approximates production. Statements between two `phaseEnd` markers
+  include any setup the canary ran before the phase started; use a probe
+  for exact per-operation numbers.
+- The API statement-budget tests from the inventory, through
+  `perf:statements`, for registration, read-model, projection, and
+  verification-marker counts.
 
 Record per scenario: total statements, statements per request where the
 phase gives a request count, and the top repeated normalized statements.
