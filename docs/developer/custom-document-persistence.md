@@ -113,15 +113,36 @@ notices, and, for a `document` record, stores `peerSalt`, sets the pending base
 and snapshot end to the checkpoint's frontier, and advances
 `recoveryGeneration`. For `"relay"` it stops queueing every queued update,
 dropping an outbox row and keeping a history-tail row as history, and queues
-`pendingUpdate` as an outbox row; the record, its checkpoint, its void rows,
-and `recoveryGeneration` stay. It returns false and writes nothing when any
-check fails or `stillCurrent()` is false at commit.
+`pendingUpdate` as an outbox row; the rest of the record, its checkpoint, its
+void rows, and `recoveryGeneration` stay. For either kind it raises the
+record's `committedVersion` by the input's `committedVersion`. It returns
+false and writes nothing when any check fails or `stillCurrent()` is false at
+commit.
 
-A queued update may carry `committedVersionVector`
-(`PendingUpdateRecord.committedVersionVector`): the version the device knew
-was committed when a relay queued operations below it. Store it with the
-update, return it from the queue listing, and clear it when the update
-settles; the next peer refusal is judged against it.
+The record keeps `committedVersion` (`DocumentRecord.committedVersion`): per
+peer, the highest counter a sync settlement showed the server to hold
+([peer ownership](../peer-ownership.md#what-a-device-knows-is-committed)). A
+peer refusal is judged against it wherever the queue sends committed
+operations again, so an adapter that installs peer rebases must maintain it:
+
+- Wherever the adapter settles accepted updates, in `commitDocumentMutation`
+  with or without a lost compare-and-set and in `settleAcceptedPendingUpdates`,
+  it raises `committedVersion` in the same transaction by every version in the
+  input's `committedVersions`: what the response showed the server to hold,
+  the spans of the acknowledged updates and of the served updates the pass
+  accepted. Raising merges the [version vectors](../glossary/content.md#version-vector)
+  and keeps the higher counter on each peer.
+- `installPeerRebase` raises it the same way by its input's
+  `committedVersion`, what the device knew when it planned the recovery.
+- No other write changes it. Do not store it from the `document` a save
+  supplies: that record may predate the last settlement.
+- `discardDocumentToShell` clears it with the history it described.
+- `loadDocument` and `loadDocumentWithHistoryRestoreState` return it; the
+  recovery reads it from there, not from a record in memory.
+
+`ContainerContentsPersistence` follows the same rule for a folder's metadata
+record in `commitMetadataMutation` and `settleAcceptedMetadataPendingUpdates`,
+and returns it from `loadContainerMetadataState`.
 
 `settleAcceptedPendingUpdates(...)` removes acknowledged updates from the queue
 only while the canonical record still has the response's security identity and

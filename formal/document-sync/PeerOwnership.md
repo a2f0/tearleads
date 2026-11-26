@@ -61,14 +61,24 @@ it may not extend that peer, so it parks: it keeps its queue and submits it
 again on each pass, and goes on once a device of that user has republished
 the peer.
 
+What a device saw committed is a record of its own, which a pull and an
+acknowledged submit raise and nothing lowers. Its queue cannot stand in for
+it: a relay queues committed operations again, and so does a full history
+from counter 0 that the server refused and the device still holds queued. A
+device that let either lower what it saw committed would fork at a frontier
+that fell.
+
 ## Actors
 
 - Two honest devices, each its own user, edit at the next counter of their
   current peer (`Edit`, at most `MaxEdits` each). They submit their queue,
   alone or with everything they hold (`Submit`). Carrying everything stands
-  for a lagging delta or a rotation baseline that re-asserts every peer from
-  counter 0. They import the committed log (`Pull`) and record what they saw
-  committed (`known`): what a submit landed and what a pull imported.
+  for a lagging delta, a rotation baseline, or a republished history that
+  re-asserts every peer from counter 0, and one the server refuses stays
+  queued. They import the committed log (`Pull`) and record what they saw
+  committed (`known`): what a submit landed and what a pull imported. No
+  action lowers it, and a device reads it no further than it holds
+  (`SeenCommitted`).
 - A refused device takes one of three steps. When every named frontier covers
   what it saw committed there, it rebases (`Rebase`). When one is below
   (`Regressed`), it relays what it holds from that frontier if the refusal was
@@ -110,7 +120,7 @@ uncommitted dependencies.
 | `RefusedPeers` / `refusal` | the 409 `document_sync_peer_owned`, or `document_sync_dependency_uncommitted` when no span is refused, whose `peerFrontiers` name at most `MAX_DOCUMENT_PEER_FRONTIERS` refused peers with the frontier committed before the request, which rolls back |
 | `deps` and an entry's declared set | the `dependencyVersionVector` that `encryptDocumentPendingUpdate` reads from the payload with `getImportBlobMetadata` and signs in `computeDocumentContentRecordMetadataHash`; the server stores it in `documentUpdates.dependencyVersionVector` and serves it |
 | `Rebase` / `ForkPoint` / `Renumber` | `rebaseOntoFreshPeer`, which cuts each refused peer at min(live, F), keeps every other peer whole, and writes the cut operations' net effect under a fresh peer; the sync failure action `rebase_peer` hands the refusal to `planPeerRefusalRecovery`, which runs it, and the pass resubmits |
-| `known` / `SeenCommitted` | `knownCommittedOf`: where the device's unsent operations start (`unsentStartOf`), raised to the `committedVersionVector` a relay recorded on its queued update |
+| `known` / `SeenCommitted` | the record's `committedVersion`, which `settleDocumentSyncResponseInTransaction` raises with the spans a sync response showed (`documentSyncCommittedVersions`: acknowledged outgoing updates and accepted served updates) and `installDocumentPeerRebase` raises with what the recovery knew; `knownCommittedOf` reads it no further than the live document. Production also counts what lies below the queue's start (`unsentStartOf`), which covers an operation committed by a create and brought by no settlement; every operation here comes from a pull or a submit, so `known` already holds it |
 | `Regressed` | the `history_regressed` result of `rebaseOntoFreshPeer`, reported before it cuts anything |
 | `Relay` / `Lost` | the relay plan of `planPeerRefusalRecovery`, installed by `installDocumentPeerRebase`, whose `replaceQueueWithRelay` replaces the queue with one update and leaves the record and its history |
 | `Park` / `AwaitsOwner` | the park plan of `planPeerRefusalRecovery`; `rebaseAfterPeerRefusal` reports it through `parkUntilOwnerRestores` as `document_peer_restore_awaits_owner` and leaves the queue |
@@ -230,7 +240,8 @@ named violation on every run:
 | `NoDependencyCheck = TRUE` | `ReadersAgree`: after a device's first commit, while it holds its next counter unsent, the dishonest member commits an op depending on that counter; the device accepts it and a fresh reader voids it |
 | `NoDeclaredJudge = TRUE` | `ReadersAgree`: the same forged op declares no dependency, so the server's dependency rule passes it, and only the device accepts it |
 | `NoRelay = TRUE` | `NoDuplication`: a stale recreation loses a device's committed edit, the device forks at the frontier that fell and commits the edit again on a fresh peer, and the owner's other device then republishes the original |
-| `ForgetRelayed = TRUE` | `NoDuplication`: a device relays another device's lost operation and is refused again, because the republisher owns that peer; the relayed operation is now in its queue, so it takes it for unsent, forks at the same frontier instead of parking, and commits it again on a fresh peer |
+| `ForgetRelayed = TRUE` | `NoDuplication`: a device relays another device's lost operation and is refused again, because the republisher owns that peer; the relay lowered what it saw committed to its queue's start, so it takes the relayed operation for unsent, forks at the same frontier instead of parking, and commits it again on a fresh peer |
+| `ForgetQueuedHistory = TRUE` | `NoDuplication`: a device pulled another device's two edits and a stale recreation kept one; it sends its own edit with its full history and is refused on that peer; the queued history lowered what it saw committed to nothing, so it forks at the frontier that fell and commits the lost edit again on a fresh peer, and the other device, which still holds the original, then holds both |
 
 ## Outside the Model
 
@@ -280,6 +291,16 @@ named violation on every run:
 - The in-order walk across several updates of one request, in which an
   update may depend on an earlier one, which the collapse into one update
   leaves out.
+- A full history that waits in the queue before its first submit. Here it is
+  queued by the submit the server refuses, so no edit or pull falls between
+  queueing it and sending it.
+- A remote reset and a discard, which clear what a device saw committed. A
+  device here keeps `known` for good.
+- A relay with nothing to add. `RebaseCannotLoop` shows that one device's
+  relay always queues an operation that was not queued. Two runtimes on one
+  database can still answer the same refusal, and the second then finds the
+  lost operations queued; `planPeerRefusalRecovery` reports that as
+  `nothing_to_relay` and the pass ends with the server's own refusal.
 - Lost acknowledgements. A device whose update the server committed before a
   purge without the device learning of it still holds that update queued. If
   it pulled an operation that depends on the update, and a stale recreation
@@ -291,14 +312,16 @@ named violation on every run:
 ## Bounds
 
 The configuration bounds two edits per device, one recreation, and one
-forgery. TLC explores 470,580 generated and 125,735 distinct states at depth 24
-in about 3 minutes with one worker. Within these bounds both devices can be
+forgery. TLC explores 569,988 generated and 156,331 distinct states at depth 23
+in about 4 minutes with one worker. Within these bounds both devices can be
 refused by one recreation and rebase, a rebased resubmission re-asserts the old
 peer the republisher owns, a forged re-assertion within F is committed and
 voided, a forged dependency on a device's unsent counter is refused, and one
 that declares no dependency is committed and voided by every reader. A stale
 recreation loses a committed edit; a device relays its own lost operations and
 another device's, claiming a peer the copy lacked; a device parks on a peer the
-recreation claimed, and after the restore rebases and lands; and a restore is
-refused after a relay claimed part of a peer it extends. This is exhaustive
-bounded model checking, not an unbounded proof.
+recreation claimed, and after the restore rebases and lands; a device whose
+refused full history stays queued parks at a frontier that fell, and after the
+restore lands it as a re-assertion; and a restore is refused after a relay
+claimed part of a peer it extends. This is exhaustive bounded model checking,
+not an unbounded proof.

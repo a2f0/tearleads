@@ -115,13 +115,14 @@ it declares, so the dishonest member cannot depend on a device's unsent ops.
 The recreation may be from a stale copy, which lowers frontiers below what
 devices saw committed: a device refused at such a frontier relays the lost
 operations under their own ids, or parks when another user owns the peer, and
-never forks there. It requires that no reader voids an honest update, that no
-other user occupies a device's counters past what it committed, that an honest
-request is refused only for another user's peer or for a dependency a
-recreation lost, that no device accepts an update a fresh reader voids, that no
-reader holds one honest edit under two op ids, and that every queued honest
-edit is eventually committed unless its device awaits the owner of a peer whose
-history fell. See the
+never forks there. What it saw committed is a record no queued update lowers,
+a relay's or a full history's. It requires that no reader voids an honest
+update, that no other user occupies a device's counters past what it
+committed, that an honest request is refused only for another user's peer or
+for a dependency a recreation lost, that no device accepts an update a fresh
+reader voids, that no reader holds one honest edit under two op ids, and that
+every queued honest edit is eventually committed unless its device awaits the
+owner of a peer whose history fell. See the
 [production mapping, negative controls, and bounds](./PeerOwnership.md).
 
 ## Opened-Document Recovery Probes

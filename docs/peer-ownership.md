@@ -54,8 +54,9 @@ depends on. The device then sends that operation again
 
 A device whose sync is refused with `document_sync_peer_owned` or
 `document_sync_dependency_uncommitted` first compares each frontier the server
-named with what it knows is committed on that peer. A frontier below that
-means the server's history went backwards, and the device does not rebase
+named with what it [knows is committed](#what-a-device-knows-is-committed) on
+that peer. A frontier below that means the server's history went backwards,
+and the device does not rebase
 ([after a stale recreation](#after-a-stale-recreation)). Otherwise every
 operation past a named frontier is one the device has not sent, and it
 rebases.
@@ -97,6 +98,59 @@ reload derives the writer's own metadata peer again, which the server still
 refuses, so the next write after a reload rebases again, once per written
 container and session.
 
+## What a device knows is committed
+
+A device knows an operation is committed in one of two ways, and counts
+whichever shows more on each peer, never past the document it holds.
+
+**Outside the queue.** An operation enters a record from the server or from a
+local write, and a local write stays queued until the server acknowledges it.
+So everything the record holds below where its queue starts is committed: on
+each peer, the lowest of its pending base and every queued update's start.
+
+**On record.** The queue can also send committed operations again. A relay, a
+rotation baseline, and a republished history each queue a peer from counter
+zero, and by its queue alone the device would then count nothing on that peer
+as committed, read a frontier that fell as an ordinary one, and write
+committed operations again on a fresh peer. So each record also keeps a
+committed version (`documents.committed_version`,
+`DocumentRecord.committedVersion`): per peer, the highest counter a sync
+settlement showed the server to hold. No queued update lowers what it says.
+Three writes raise it, each merging and keeping the higher counter on each
+peer:
+
+- a pull served an update and the pass accepted it: the update's span;
+- the server acknowledged an outgoing update: its span. A document create's
+  seed, a heal's baseline, and a rotation's raw-history rebuild count the same
+  way;
+- a rebase or a relay is installed: what the device knew when it planned the
+  recovery. The one update the install queues may start below operations that
+  were known committed only for being outside the queue.
+
+The first two run in the transaction that settles the sync response, and the
+third in the install's. No other write touches the column: an ordinary save, a
+queue change, and a rotation leave it as it is, and it survives a reload.
+
+A folder's create seed and a registration's first updates are committed by
+their create and reach no settlement, so the record does not name them. They
+are known for being outside the queue, and a relay records them before it
+queues them again.
+
+Three events change what the version describes:
+
+- **A rebase** raises it and lowers nothing. The fork keeps every operation
+  the device knows is committed, on the refused peers and on every other.
+- **A discard** of local edits clears it. The record drops its history, and
+  the operations it writes next may reuse counters that history held.
+- **A remote reset** clears it. The device strips the record's server
+  identity and queues its whole history as unsent, so none of it counts as
+  committed on the replacement ([residuals](#residuals)).
+
+A folder that follows its own user's recreation
+([purge recovery](./developer/billing-purge-recovery.md#stale-copies)) keeps
+its history and queue, and keeps the version with them: that is what lets it
+see that the replacement lacks operations the old stream committed.
+
 ## After a stale recreation
 
 A committed frontier falls only when a billing purge deletes the document and
@@ -105,28 +159,36 @@ operations ([purge recovery](./developer/billing-purge-recovery.md#stale-copies)
 Other devices still hold those operations under their own ids, and nothing
 tells them the server lost any. A device finds out when an edit of its own
 depends on one: the server refuses it and names a frontier below what the
-device knows is committed on that peer, which is the least of what it holds
-and where its unsent operations start. Cutting there would write committed
-operations again under a fresh peer, and every device that still holds the
-originals would then hold both. So the device never rebases at such a
-frontier. What it does depends on which rule refused it.
+device [knows is committed](#what-a-device-knows-is-committed) on that peer.
+Cutting there would write committed operations again under a fresh peer, and
+every device that still holds the originals would then hold both. So the
+device never rebases at such a frontier. What it does depends on which rule
+refused it.
 
 **Relay.** Refused with `document_sync_dependency_uncommitted`, the device
 sends the lost operations again. It replaces its queue with one update that
 holds every operation from the named frontier on each such peer, with what the
 queue already held, under the operations' own ids. The document, its history,
 its writer peer, and its recovery generation stay as they are; the same fenced
-transaction as a rebase's replaces only the queue. The update extends a peer
-the stale copy lacked, which is unowned, so it claims that peer for this
-device's user. A refusal names only the peers an update depends on directly,
-so one that depends on several lost peers is refused once for each before it
-lands.
+transaction as a rebase's replaces the queue and raises the record's committed
+version. The update extends a peer the stale copy lacked, which is unowned, so
+it claims that peer for this device's user. A refusal names only the peers an
+update depends on directly, so one that depends on several lost peers is
+refused once for each before it lands.
 
 A relay's update starts below operations the device knows are committed, so
-the queue's start no longer marks where the unsent ones begin. The update
-therefore records what the device knew was committed when it was built
-(`committed_version_vector`), and every later refusal is judged against that.
-A rebase that follows a relay carries the record on to its own update.
+the queue no longer shows them as such. The install therefore raises the
+record's committed version to what the device knew, every later refusal is
+judged against it, and a rebase that follows a relay still cuts only what the
+device never sent.
+
+A dependency refusal can name a frontier that fell although the queue already
+starts at or below it: another runtime on the database relayed after the
+refused request was built, or the request carried only part of the queue. A
+relay would queue the same operations again, and no other user owns the peer,
+so the device neither relays nor parks. The pass reports the server's own
+`document_sync_dependency_uncommitted` refusal to `onTerminalSubmitFailure`,
+and the next pass sends the queue.
 
 **Park.** Refused with `document_sync_peer_owned` at such a frontier, the
 device may not extend the peer: the recreation's seed held part of it and
@@ -141,8 +203,7 @@ error and no new pass is requested. Every later pass submits the queue again.
 Once a device of the peer's owner has republished the peer up to what this
 device holds, the refusal names a frontier that covers what the device knows,
 the device rebases its unsent operations onto a fresh peer, and the pass that
-lands them clears the row. A dependency refusal that names no frontier below
-the queue's start parks too: the queue already sends everything from there.
+lands them clears the row.
 
 Parking makes a writer wait on another user's device, which the no-brick rule
 otherwise forbids ([limits](./limits.md#limits-that-trade-write-liveness)).
@@ -179,10 +240,18 @@ committed operation threw before, and now relays or parks.
   claims it for its own user, and it relays only what it holds. A device that
   holds more of that peer is then refused on it as another user's. The peer's
   own device parks, and only the relaying user's devices, which lack the rest,
-  could release it. A device of the owner adopting the replacement queues its
-  whole history as unsent, so it rebases instead and writes the rest of the
-  peer again on a fresh peer; a device that still holds those operations then
-  holds both. Open (#3263).
+  could release it. A device of the owner adopting the replacement runs a
+  remote reset, which queues its whole history as unsent and clears its
+  committed version, so it rebases instead and writes the rest of the peer
+  again on a fresh peer; a device that still holds those operations then
+  holds both. Keeping the version across the reset would park that device
+  too, with everything else it alone can restore, on a wait no device can
+  end. Open (#3263).
+- **A relay is one update.** A relay sends everything the device holds from
+  the named frontier as one queued update, and the fork's update after a
+  rebase is one update too. On a large document that update can exceed the
+  [sync request limit](./limits.md#document-sync), which no batch can split,
+  and every pass then abandons with `document_sync_request_too_large`.
 - **A park no device can end.** A parked device waits for a device of the
   peer's owner that holds the lost operations. If none does, it stays parked
   until its user discards the local edits

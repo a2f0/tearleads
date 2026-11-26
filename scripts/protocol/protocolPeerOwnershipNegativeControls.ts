@@ -66,6 +66,14 @@ export const PEER_OWNERSHIP_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     config: CONFIG,
     constants: { ForgetRelayed: "TRUE" },
     expect: { kind: "invariant", name: "NoDuplication" },
-    why: "A relay queues committed operations again, so a device that judges the next refusal against its queue's start takes them for unsent and forks them onto a fresh peer (#3263).",
+    why: "A relay queues committed operations again, so a device whose relay lowers what it saw committed to its queue's start takes them for unsent at the next refusal and forks them onto a fresh peer (#3263).",
+  },
+  {
+    id: "peer-ownership-forgets-queued-history",
+    module: MODULE,
+    config: CONFIG,
+    constants: { ForgetQueuedHistory: "TRUE" },
+    expect: { kind: "invariant", name: "NoDuplication" },
+    why: "A queued full history (a rotation baseline or a republished history) starts every peer at counter 0, so a device that lets it lower what it saw committed forks at a frontier that fell and writes another device's committed operation again on a fresh peer (#3263).",
   },
 ];

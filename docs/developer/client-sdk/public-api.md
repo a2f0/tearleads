@@ -439,7 +439,10 @@ may implement `DocumentsPersistence.installPeerRebase`, which takes a
 `DocumentPeerRebaseRecord`, or `relay`
 ([custom document persistence](../custom-document-persistence.md)). A
 `document` record's `peerSalt` comes back as `DocumentRecord.peerSalt`, which
-moves every later load of the record onto the rebased writer peer.
+moves every later load of the record onto the rebased writer peer. A refusal
+is judged against where the queue starts and `DocumentRecord.committedVersion`,
+which settlements and these installs raise
+([what a device knows is committed](../../peer-ownership.md#what-a-device-knows-is-committed)).
 
 ### Organization data usage
 
