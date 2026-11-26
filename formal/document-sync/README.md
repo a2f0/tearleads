@@ -145,11 +145,11 @@ document lanes a device lists at sign-in while a reload can stop it anywhere
 between the batched listing and each lane's apply. A lane settles only with an
 applied listing that left nothing staged, and a lane still missing documents
 stays durably owed. A start that is connecting leaves the owed lanes to the
-acknowledged connection's catch-up, which lists every lane; otherwise, or when
-the attempt ends without an acknowledgement, it resumes them itself. The
+acknowledged connection's catch-up, which lists every owed lane; otherwise, or
+when the attempt ends without an acknowledgement, it resumes them itself. The
 device converges however many reloads land, and the catch-up of an attempt
 pending at the start never re-lists lanes that start's resume listed; a
-connection made after the resume ran lists every lane again. See the
+connection made after the resume ran may list any lane again. See the
 [production mapping and negative controls](./DiscoveryLaneResumption.md).
 
 [`MetadataListingConvergence.tla`](./MetadataListingConvergence.tla)
@@ -177,6 +177,17 @@ an unread access head always survives, through crashes, reads in flight and
 reads a lagging replica serves, and that the client eventually holds the
 server's version. See the
 [production mapping and negative controls](./DocumentListingConvergence.md).
+
+[`DocumentLanePolling.tla`](./DocumentLanePolling.tla) models the step
+before that listing: which lanes a catch-up lists. Every server write that
+changes what a container's document lane returns republishes the container's
+row, so the tree crawl that follows an acknowledged connection is served the
+row and owes the lane a listing, durably, before the serving lane's watermark
+passes it. The catch-up lists the owed lanes alone, and a listing settles only
+the request it read before it was sent. TLC checks that an unlisted change
+always leaves something to oblige a listing, through crashes and listings in
+flight, and that the client eventually lists every change. See the
+[production mapping and negative controls](./DocumentLanePolling.md).
 
 [`SharedDatabaseListing.tla`](./SharedDatabaseListing.tla) adds a second
 runtime on the same database, such as a second browser tab. The two share the

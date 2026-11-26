@@ -194,19 +194,19 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
   // each create left covers the count its row lists.
   await measureRestart({
     budget: {
-      total: 21,
+      total: 19,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
         "GET /organizations/:organizationId/billing": 1,
         "POST /containers/parent-lanes/query": 1,
         "POST /containers/documents/query": 3,
-        "GET /principals/organization/:organizationId/policy": 3,
+        "GET /principals/organization/:organizationId/policy": 2,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 1,
         "GET /containers/:containerId/writer-projection": 3,
         "GET /documents/:documentId/writer-projection": 3,
-        "POST /documents/:documentId/sync": 4,
+        "POST /documents/:documentId/sync": 3,
       },
     },
     label: "persisted pane restart",
@@ -216,26 +216,26 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
 
 // A restart whose lanes already listed this device's own writes, which is
 // every restart after the first. The server holds nothing the device lacks,
-// so no lane lists a row and no note is synced or has its head read: the
-// cost is the same with two notes and with eight. The three syncs left are
-// system-container documents, which are pulled once per launch. The three
-// listings are one batch of queued lanes, one for the catch-up after the
-// acknowledgement, and one unwatermarked batch for the initial probe. The
-// tree crawl is one request: it lists up to 32 parent lanes at once.
+// so the tree crawl is served no folder's row and the catch-up after the
+// acknowledgement lists no document lane: no note is synced or has its head
+// read, and the cost is the same with two notes and with eight. The syncs
+// left are system-container documents. The two listings are one batch of
+// queued lanes and one unwatermarked batch for the initial probe. The tree
+// crawl is one request: it lists up to 32 parent lanes at once.
 const SETTLED_RESTART_BUDGET: ProxiedApiRequestBudget = {
-  total: 13,
+  total: 11,
   byRequest: {
     "POST /auth/ws-ticket": 1,
     "GET /organization-memberships": 1,
     "GET /organizations/:organizationId/billing": 1,
     "POST /containers/parent-lanes/query": 1,
-    "POST /containers/documents/query": 3,
+    "POST /containers/documents/query": 2,
     "GET /principals/organization/:organizationId/policy": 1,
     "GET /principals/group/:groupId/policy": 0,
     "GET /principals/history": 0,
     "GET /containers/:containerId/writer-projection": 2,
     "GET /documents/:documentId/writer-projection": 0,
-    "POST /documents/:documentId/sync": 3,
+    "POST /documents/:documentId/sync": 2,
   },
 };
 
@@ -253,8 +253,9 @@ test("a settled restart costs the same whatever the number of notes", async () =
 
 test("a settled restart costs the same with two folders and with eight", async () => {
   // Six more folders cost no more requests: the initial probe reads every
-  // lane's unwatermarked listing in one batch, and the tree crawl lists every
-  // parent lane in one request.
+  // lane's unwatermarked listing in one batch, the tree crawl lists every
+  // parent lane in one request, and no folder's row moved, so the catch-up
+  // lists no document lane.
   await measureRestart({
     budget: SETTLED_RESTART_BUDGET,
     extraFolders: 6,
@@ -265,17 +266,19 @@ test("a settled restart costs the same with two folders and with eight", async (
 }, 180_000);
 
 test("the first restart after a local edit owes that note no read", async () => {
-  // The edited note's lane lists its row once more, which costs two more
-  // policy reads than a settled restart and no more listings. The device's
-  // own accepted update is behind its cursor, so the listing owes no read:
-  // the three syncs are the same system-container documents, and the note
-  // is neither synced nor has its head read.
+  // The edit republished the note's folder, so the tree crawl is served that
+  // folder's row and the catch-up lists its document lane: one more listing
+  // and one more policy read than a settled restart. The device's own
+  // accepted update is behind its cursor, so the listing owes no read: the
+  // syncs are the same system-container documents, and the note is neither
+  // synced nor has its head read.
   await measureRestart({
     budget: {
-      total: 15,
+      total: 13,
       byRequest: {
         ...SETTLED_RESTART_BUDGET.byRequest,
-        "GET /principals/organization/:organizationId/policy": 3,
+        "POST /containers/documents/query": 3,
+        "GET /principals/organization/:organizationId/policy": 2,
       },
     },
     editedText: "Rewritten on this device",

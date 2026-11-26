@@ -76,7 +76,7 @@ unless noted.
 | [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 6 | One document create, one multipart stage, one part upload, one attachment binding that carries the first content update and acknowledges its KEK targets by hash, no sync; one organization-policy read shared by the create and the bind's sync drain; no per-part authorization or stage-completion request; 34,500 request and 2,300 response bytes, plus the bytes of the one allowed root projection read when it happens |
 | [`DualPaneProvider.activePeerRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx) | An active peer reconciles an ungranted custom-group change | Exactly 4 | One read-model read, two organization-policy reads and one group-policy read; no container or document request and no Admins-policy read |
 | [`DeviceFirstOfflineRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx) | Offline folder create, cached note edit, and move to Trash | 0 each | After reconnect the queued create, link and unlink commit |
-| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged: the first restart after local creates / a later one / the first after a local edit | 21 / 13 / 15 | Two user folders; fresh SDK and SQLite worker; no replayed writes; the later restart costs 13 with two notes, with eight notes, and with eight folders |
+| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged: the first restart after local creates / a later one / the first after a local edit | 19 / 11 / 13 | Two user folders; fresh SDK and SQLite worker; no replayed writes; the later restart costs at most 11 with two notes, with eight notes, and with eight folders |
 | [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 12 / 18 | Disconnect costs zero; one WebSocket ticket, one memberships read and one tree crawl each; no write-bearing syncs |
 
 [`DualPaneProvider.sidebarReloadBudget.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sidebarReloadBudget.test.tsx)
@@ -165,14 +165,14 @@ be remeasured and documented when an optimization changes the baseline.
 | `GET /organization-memberships` | 1 | 1 | 1 | 1 |
 | `GET /organizations/:organizationId/billing` | 1 | 1 | 0 | 0 |
 | `POST /containers/parent-lanes/query` | 1 | 1 | 1 | 2 |
-| `POST /containers/documents/query` | 3 | 3 | 1 | 2 |
-| `GET /principals/organization/:organizationId/policy` | 3 | 1 | 2 | 3 |
+| `POST /containers/documents/query` | 3 | 2 | 1 | 2 |
+| `GET /principals/organization/:organizationId/policy` | 2 | 1 | 2 | 3 |
 | `GET /principals/group/:groupId/policy` | 0 | 0 | 0 | 0 |
 | `GET /principals/history` | 1 | 0 | 0 | 0 |
 | `GET /containers/:containerId/writer-projection` | 3 | 2 | 1 | 2 |
 | `GET /documents/:documentId/writer-projection` | 3 | 0 | 3 | 4 |
-| `POST /documents/:documentId/sync` (all read-only) | 4 | 3 | 2 | 3 |
-| **Total** | **21** | **13** | **12** | **18** |
+| `POST /documents/:documentId/sync` (all read-only) | 3 | 2 | 2 | 3 |
+| **Total** | **19** | **11** | **12** | **18** |
 
 No note is synced in any column. A listing
 [covers each note](./document-listing-coverage.md): its row carries the
@@ -183,18 +183,18 @@ pulled once per launch, and one probe for a document no listing names.
 The first restart is the first launch after the notes were created. Their
 lanes list the rows those creates published, and each listed row's head is
 verified with one document writer-projection read. The settled restart is
-every launch after that: no lane lists a row, so the cost is the same with two
-notes and with eight, which the canary runs at both sizes. Its three listing
-requests are one batch of queued lanes, one batch for the catch-up after the
-acknowledgement, and one unwatermarked batch for the initial document probe,
-which reads up to 32 lanes per request. A third size, eight folders of one
-note each, costs the same 13 requests: the tree crawl lists the root lane and
-each known folder's child lane, up to 32 parent lanes per request, so it is
-one request here too. The first
-restart after a local edit lists the edited note's row again, which costs two
-more policy reads than a settled restart and no more listings; the note is not
-synced and its head is not read, because the device's own accepted update is
-behind its cursor.
+every launch after that: the tree crawl is served no folder's row, so the
+catch-up after the acknowledgement lists no document lane at all, and the cost
+is the same with two notes and with eight, which the canary runs at both
+sizes. Its two listing requests are one batch of queued lanes and one
+unwatermarked batch for the initial document probe, which reads up to 32 lanes
+per request. A third size, eight folders of one note each, costs no more: the
+tree crawl lists the root lane and each known folder's child lane, up to 32
+parent lanes per request, so it is one request here too. The first restart
+after a local edit is served the edited note's folder, whose lane the catch-up
+then lists: one more listing and one more policy read than a settled restart;
+the note is not synced and its head is not read, because the device's own
+accepted update is behind its cursor.
 
 A connect costs one tree crawl. Going online starts a crawl, and so does the
 interest acknowledgement that follows, which must list after the
@@ -242,20 +242,23 @@ local application.
   costs one listing per four owed lanes at the next start, and a settled lane
   costs nothing. A start whose connect attempt is still pending at hydration
   does not resume: if the attempt is acknowledged, the catch-up below lists
-  every lane, owed ones included, and the resume never runs. The resume runs
+  every owed lane, and the resume never runs. The resume runs
   when no attempt is pending at hydration, or when the attempt ends without an
   acknowledgement (the socket opens before the tree can declare its interest,
   or no acknowledgement arrives within 15 seconds) or is replaced by a new
   one. A connection that starts or is acknowledged after that, the
-  replacement included, is a new catch-up and lists every lane again, the
-  resumed ones included.
+  replacement included, is a new catch-up: it lists the lanes still owed and
+  the lanes its tree crawl is served.
 - Upgrading costs at least one full listing. Devices that ran earlier
   releases have no settled mark on any document lane, so every known lane
   starts owed, and the first start after the upgrade lists all of them, four
   lanes per request, in the resume or the catch-up, or in both when a
   connection is acknowledged after the resume ran. That listing also repairs
   devices whose sign-in boot was cut short. A lane the server refuses never
-  settles, so it stays owed and is listed again on every start.
+  settles, so it stays owed and is listed again on every start. The release
+  that made the catch-up list only the lanes its tree crawl showed moved
+  costs one more: a local migration marks every document lane unsettled once,
+  because an earlier catch-up listed every lane and recorded none as owed.
 - Scoped hints force the affected lanes, including the parent lane needed to
   remove a nested revoked or deleted child. Newer force generations survive
   older completions, and temporary failures keep the force with bounded
@@ -265,8 +268,9 @@ local application.
   acknowledges the current interest set
   ([`packages/app/src/providers/sdk/serverEventsBinding.ts`](../packages/app/src/providers/sdk/serverEventsBinding.ts)).
   The acknowledgement advances the connection generation, and the SDK then
-  re-lists the tree and every known document lane, on a first connection as
-  on a reconnect.
+  re-lists the tree and each document lane whose container that listing was
+  served ([which lanes a catch-up lists](./document-listing-coverage.md#which-lanes-a-catch-up-lists)),
+  on a first connection as on a reconnect.
   Distinct login sessions of the same identity receive each other's events.
   An organization read-model hint carries the committed cursor instead of a
   session origin, so each client reads only when that cursor is ahead of the

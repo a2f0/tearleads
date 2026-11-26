@@ -451,7 +451,7 @@ export function requestOwedLanesSweep(
   );
 }
 
-export function listFullRefreshContainerIds(
+function listFullRefreshContainerIds(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): ReadonlyArray<string> {

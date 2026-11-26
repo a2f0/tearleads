@@ -10,6 +10,9 @@ export async function mapLanesBounded<Lane, Result>(
   concurrency: number,
   work: (lane: Lane) => Promise<Result>,
 ): Promise<Result[]> {
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new RangeError("Lanes are listed at least one at a time");
+  }
   const results = new Array<Result>(lanes.length);
   let next = 0;
   let failed = false;

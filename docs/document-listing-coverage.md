@@ -50,10 +50,11 @@ adding an update. The mechanism is the one
   owed for the access head alone, and any completed pull settles it.
 - Coverage. Every write that changes what a pull or an attachment listing
   returns touches the document row, so the row is published past each of its
-  lanes' watermarks. Every acknowledged connection, the first after a restart
-  included, lists every known document lane from its watermark, in a sweep
-  that starts after the acknowledgement. That sweep revalidates nothing else:
-  only an explicit Refresh still forces every registered document.
+  lanes' watermarks. The same write republishes each container the document
+  is linked into, and that is what tells the catch-up after an acknowledged
+  connection [which lanes to list](#which-lanes-a-catch-up-lists). Its
+  listings start after the acknowledgement and revalidate nothing else: only
+  an explicit Refresh still forces every registered document.
 - Hints. A store reads hints only once its record has loaded and while a view
   hands it runtimes. The scope remembers which documents the hints it saw
   named, and a store whose document was named before its record loaded probes
@@ -70,9 +71,58 @@ adding an update. The mechanism is the one
 - No-brick. The read is this device's own pull, with its stored commit
   position as the floor, and never waits on another device.
 
+## Which lanes a catch-up lists
+
+Listing every known document lane after every acknowledged connection costs
+one request for every 32 folders whether or not anything changed. The tree
+crawl that the same acknowledgement starts already says which folders moved.
+
+- Publication. Every server write that changes what a container's document
+  lane returns also republishes the container's row: a content write, an
+  attachment bind or detach, a create, a link, an unlink and a purge each
+  touch the containers the document is linked into. The row then sits past
+  the watermark of the lane that serves it: its parent's child lane, or the
+  root lane for a container granted directly.
+- Owing a listing. A tree listing that is served a container's row past its
+  watermark owes that container's document lane one listing, in
+  `document_lane_revalidations`, before the row is applied and before the
+  serving lane's watermark passes it. A rename or a grant republishes the row
+  too, so it costs one listing that finds nothing.
+- The root lane. It is listed twice in one request: from its watermark, which
+  says which root containers moved, and from no watermark, which says which
+  containers it holds now. A grant made through a principal policy changes
+  that without republishing a row. The second listing owes nothing and saves
+  no cursor.
+- The catch-up. It waits for the tree crawl the acknowledgement owes, then
+  lists the lanes that are [owed](./developer/device-first.md#owed-document-lanes):
+  those with a request, those never settled, and those holding staged
+  candidates. A lane the crawl was not served and nothing owes did not move;
+  it counts as reconciled for the session without a listing.
+- Settling. A listing reads its lane's request before it is sent and settles
+  only that revision, and only when it applied with no candidate left
+  pending. A listing already in flight when the row was served may have been
+  answered before the write behind it.
+- Fallback. When the crawl did not list every lane it queued, or the host
+  reports no crawl, nothing vouches for the lanes it was not served, and the
+  catch-up lists every known lane, as it did before lanes were owed listings.
+  A crawl that is retried and then served a row announces it, and the owed
+  lanes are listed then. So are lanes a hint's or a start's tree listing
+  owes.
+- Not covered, before or after. Access gained or lost through a principal
+  policy changes a row's effective access level without republishing
+  anything, so neither a listing from a watermark nor this mechanism sees it;
+  an access change to the container itself resets its lane.
+
+[DocumentLanePolling](../formal/document-sync/DocumentLanePolling.md) models
+this, and `PaneRestartRequestVolume.test.tsx` holds a restart with nothing
+changed to no catch-up listing at all.
+
 An SDK that predates the debt advanced lane watermarks without this check, so
 a local schema migration forgets every document-lane cursor once. Each lane
-then lists from its start, which checks every row.
+then lists from its start, which checks every row. An SDK that predates the
+lane requests listed every lane after each connection and recorded nothing for
+the lanes a tree listing showed moved, so a second migration marks every
+document lane unsettled once: each is listed one more time from its cursor.
 
 Two tabs that share one database share its lane watermarks, its debts and
 each saved record, but each keeps its own copy of an open document in memory.
