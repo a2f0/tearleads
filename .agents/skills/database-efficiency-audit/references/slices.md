@@ -13,7 +13,7 @@ it.
 | --- | --- |
 | `api-auth-and-registration` | `middleware/session.ts`, `middleware/userActivity.ts`, `workflows/signerPublicKey.ts`, `routes/auth`, `services/auth`, `workflows/auth`, `workflows/organizations/provision*` |
 | `api-policy-reads` | `routes/principals`, `services/principals`, `workflows/principals`, `access/read/principal*` |
-| `api-access-and-projections` | `access/`, `workflows/keyingReadAccess.ts`, `workflows/containers/writerProjection*`, `workflows/documents/writerProjection*`, `services/containers/writerProjection.ts`, `services/containers/kekLog.ts` |
+| `api-access-and-projections` | `access/`, `workflows/keyingReadAccess.ts`, `workflows/containers/writerProjection*`, `workflows/documents/writerProjection*`, `services/containers/writerProjection.ts`, `services/containers/kekLog.ts`, `realtime/containerInterest*` |
 | `api-write-transactions` | `services/documents`, `workflows/documents`, `workflows/containers/mutations`, `services/blobs`, `workflows/blobs` (not `gc`), `access/write`, principal policy commits in `workflows/principals` |
 | `api-listings-and-sync-reads` | `services/containers` listing and paging, document sync pull and pagination in `services/documents`, `workflows/organizations/readModel*`, principal history pages, data usage |
 | `api-background` | `workflows/blobs/gc`, `packages/api/scripts/blobGc.ts`, stage and session cleanup, retention and purge sweeps |

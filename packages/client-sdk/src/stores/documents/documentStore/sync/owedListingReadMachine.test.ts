@@ -82,3 +82,38 @@ test("paying the debt the store knows clears it", () => {
     transitionOwedListingRead(null, { read: FIRST, type: "paid" }),
   ).toBeNull();
 });
+
+const WITHHELD: OwedListingReadState = { status: "withheld" };
+
+test("a withheld cursor obliges a pull until one completes", () => {
+  expect(transitionOwedListingRead(null, { type: "cursorWithheld" })).toEqual(
+    WITHHELD,
+  );
+  // Reading that no listing owes a read does not clear it.
+  expect(
+    transitionOwedListingRead(WITHHELD, { read: null, type: "observed" }),
+  ).toBe(WITHHELD);
+  expect(
+    transitionOwedListingRead(WITHHELD, { type: "pullCompleted" }),
+  ).toBeNull();
+});
+
+test("a debt takes the place of a withheld cursor, and keeps its own", () => {
+  // The pull that pays the debt is the pull that judges again.
+  expect(
+    transitionOwedListingRead(WITHHELD, { read: FIRST, type: "observed" }),
+  ).toEqual(owed(FIRST));
+  expect(
+    transitionOwedListingRead(WITHHELD, { read: FIRST, type: "unpaid" }),
+  ).toEqual(retried(FIRST));
+  for (const state of [owed(FIRST), retried(FIRST)]) {
+    expect(transitionOwedListingRead(state, { type: "cursorWithheld" })).toBe(
+      state,
+    );
+    // Only a pull that covers the advertised count pays a debt.
+    expect(transitionOwedListingRead(state, { type: "pullCompleted" })).toBe(
+      state,
+    );
+  }
+  expect(transitionOwedListingRead(null, { type: "pullCompleted" })).toBeNull();
+});

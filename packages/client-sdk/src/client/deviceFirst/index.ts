@@ -382,10 +382,10 @@ class DeviceFirstService implements DeviceFirst {
         };
       },
       listKnownContainerIds,
-      listOwedDocumentDiscoveryContainerIds: () =>
+      listOwedDocumentDiscoveryContainerIds: (containerIds) =>
         listOwedDocumentLaneContainerIds(
           runtimeService.workflowInput().infra.execSql,
-          listKnownContainerIds(),
+          containerIds,
         ),
       // Root discovery can surface directly granted non-root containers, so
       // retain every regular container. Exclude only this identity's own system
