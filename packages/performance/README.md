@@ -150,7 +150,8 @@ and also warms up the hub's code. Later passes use the markers it recorded.
 Without `--reuse` there is no such pass: seeding marks each folder under the
 process's key as it is written.
 
-Then an idle control of one second runs, with only an observing socket open.
+Then an idle control of one second runs once per sample, with only an
+observing socket open.
 After that, each size, socket count and sample gets a fresh gateway from
 `createRealtimeGateway`. An observing socket for the same account declares the
 tree's root alone. Then `--sockets` more sockets each declare the first

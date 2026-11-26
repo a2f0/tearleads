@@ -62,8 +62,7 @@ a stall delays one hint, so they are left out here.
   75 s of CPU. That is past the 60 s production budget before adding
   production's round trips, about 5 ms each through Hyperdrive, or roughly
   50 s more here. The work came in small slices, so no hint waited more than
-  27 ms. Two earlier runs, before review repairs to the probe, took 79 and
-  81 s for the same pass. In production, markers are keyed by
+  27 ms. In production, markers are keyed by
   `DOCUMENT_SYNC_CURSOR_HMAC_KEY` and bound to the verification revisions in
   `verificationMarkers.ts`, so this cost returns after a secret rotation or a
   revision bump, until markers are recorded again.

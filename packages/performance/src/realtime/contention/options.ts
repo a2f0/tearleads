@@ -31,13 +31,13 @@ Boots the API in this process against a local scratch database and seeds one
 account's folder tree through the SDK, or reuses the tree perf:realtime
 seeded. With --reuse, one socket first declares the largest size with no
 verification marker this process accepts, so every manifest is verified in
-full; a tree seeded in this process is already marked. Then, for
-each size, socket count and sample, a fresh gateway opens an observing socket
-that holds one folder, then that many sockets that each declare the first
---sizes folders at once and then revalidate them at once.
-A hint for the observer's folder is published every --hint-interval-ms
-throughout, and each is timed until the observer receives it. Reports are
-saved under .test_files/performance/.`;
+full; a tree seeded in this process is already marked. Each sample then
+runs a one-second idle control. Then, for each size, socket count and
+sample, a fresh gateway opens an observing socket that holds one folder,
+then that many sockets that each declare the first --sizes folders at once
+and then revalidate them at once. A hint for the observer's folder is
+published every --hint-interval-ms throughout, and each is timed until the
+observer receives it. Reports are saved under .test_files/performance/.`;
 
 export function parseContentionOptions(
   args: string[],
