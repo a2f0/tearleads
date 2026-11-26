@@ -14,11 +14,16 @@ import {
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../../document-types/registry";
 import { useTearleads } from "../../../../providers/sdk/TearleadsProvider";
+import { localDocumentHistory } from "../../../../stores/document-history/documentHistoryMachine";
 import { DocumentHistoryViewContext } from "../../../../stores/document-history/historicalDocumentView";
 import {
   type DocumentHistoryControls,
   useDocumentHistory,
 } from "../../../../stores/document-history/useDocumentHistory";
+import {
+  type DocumentHistoryVerificationControls,
+  useDocumentHistoryVerification,
+} from "../../../../stores/document-history/useDocumentHistoryVerification";
 import { DocumentsProvider } from "../../../../stores/documents/DocumentsProvider";
 import {
   type DocumentAttributionRanges,
@@ -72,17 +77,23 @@ function DocumentAtStop(params: {
   );
 }
 
-function ReadyDocumentHistory(params: {
+interface DocumentHistoryBodyProps {
   attributionUserLabelResolver:
     | ExplorerAttributionUserLabelResolver
     | undefined;
   controls: DocumentHistoryControls;
   copyControl: DocumentHistoryCopyControl;
   documentSummary: DocumentSummary;
-  state: ReadyHistory;
+  /** The live document's upload ranges; null until first read. */
   uploads: DocumentAttributionRanges | null;
+  /** The check of this device's capture against the signed uploads. */
+  verification: DocumentHistoryVerificationControls;
   versionCopy: ExplorerDocumentVersionCopy;
-}) {
+}
+
+function ReadyDocumentHistory(
+  params: DocumentHistoryBodyProps & { state: ReadyHistory },
+) {
   const { documentSummary, state } = params;
   const { shown } = state;
   // The stop on screen lags the selected one while it replays; its summary
@@ -101,6 +112,7 @@ function ReadyDocumentHistory(params: {
         settled={settled}
         state={state}
         uploads={params.uploads}
+        verification={params.verification}
         versionCopy={params.versionCopy}
       />
       {shown === null ? (
@@ -116,18 +128,6 @@ function ReadyDocumentHistory(params: {
       )}
     </>
   );
-}
-
-interface DocumentHistoryBodyProps {
-  attributionUserLabelResolver:
-    | ExplorerAttributionUserLabelResolver
-    | undefined;
-  controls: DocumentHistoryControls;
-  copyControl: DocumentHistoryCopyControl;
-  documentSummary: DocumentSummary;
-  /** The live document's upload ranges; null until first read. */
-  uploads: DocumentAttributionRanges | null;
-  versionCopy: ExplorerDocumentVersionCopy;
 }
 
 function DocumentHistoryBody(params: DocumentHistoryBodyProps) {
@@ -257,6 +257,12 @@ function AdmittedDocumentHistory(params: {
   // and a copy in flight must still report when it is back.
   const copyControl = useDocumentHistoryCopyControl(params.versionCopy);
   const { state } = controls;
+  // A check is of this device's capture, whichever history is on screen. A
+  // reload brings another capture, and the check of the one before ends.
+  const verification = useDocumentHistoryVerification(
+    documentSummary.id,
+    localDocumentHistory(state),
+  );
   const shown = state.status === "ready" ? state.shown : null;
   const liveOpen = useOpenedOnceReady(state.status === "ready");
   const body = {
@@ -264,6 +270,7 @@ function AdmittedDocumentHistory(params: {
     controls,
     copyControl,
     documentSummary,
+    verification,
     versionCopy: params.versionCopy,
   };
 
