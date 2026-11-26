@@ -1,4 +1,5 @@
 import { createMockApiClient } from "@tearleads/test-utils";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { createMemoryBlobStore } from "../../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../src/data/documents/documentKinds";
@@ -87,7 +88,10 @@ export async function settleWithin<T>(
 export function createProbeRuntime(input: {
   readonly execSql: DocumentsWorkflowRuntimeInput["infra"]["execSql"];
   readonly fixture: MaterializedSyncFixture;
-  readonly syncDocument: () => Promise<DocumentSyncResponse | null>;
+  readonly syncDocument: (
+    documentId: string,
+    request: DocumentSyncRequest,
+  ) => Promise<DocumentSyncResponse | null>;
 }) {
   const { fixture } = input;
   return createDocumentsWorkflowRuntime({

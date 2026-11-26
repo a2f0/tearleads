@@ -2,7 +2,8 @@
 
 An executable SDK host for small, repeatable experiments against staging and
 production. It imports public SDK, SQLite, and PostgreSQL transport entry
-points. The app, SDK, and API do not depend on it.
+points, plus the API's test runtime for the local realtime hub probe. The app,
+SDK, and API do not depend on it.
 
 The [initial production baseline](baseline.md) records three registrations and
 their correlated database and CPU measurements.
@@ -10,6 +11,10 @@ their correlated database and CPU measurements.
 The [database round-trip experiment](database-experiment.md) separates connection
 setup, repeated warm queries, batched queries, and server execution time through
 the API's existing Hyperdrive binding. Run it with `bun run perf:database`.
+
+The [realtime hub interest probe](#realtime-hub-interest-authorization) times
+the hub's folder authorization against a local database. Run it with
+`bun run perf:realtime`.
 
 ## Continuity seed round trip
 
@@ -34,6 +39,118 @@ One production run on 2026-11-20 took 5.79 s to provision the account,
 152.97 s to seed it and 39.71 s to verify it. The 192.68 s round trip
 recovered 25 documents and 24 attachments (9,604,560 plaintext bytes),
 including the circular saw, drill and refrigerator photos and receipts.
+
+## Realtime hub interest authorization
+
+[Issue #3272](https://github.com/a2f0/tearleads/issues/3272) asks what the
+realtime hub spends when a socket declares a large folder tree, and again
+each time it re-verifies that tree, every 2.5 to 5 minutes. This probe
+measures both passes against a local scratch database. It needs no
+deployment and no Cloudflare credentials.
+
+```sh
+createdb tearleads_realtime_probe
+bun run build:packages
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_realtime_probe" \
+  bun run perf:realtime --sizes 100,1000,10000 --samples 3
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_realtime_probe" \
+  bun run perf:realtime --reuse --samples 3
+```
+
+The probe boots the API in its own process from `@tearleads/api/test-runtime`,
+as the [bob-and-alice harness](../bob-and-alice/README.md) does, and registers
+one account through the SDK. It then creates folders through the SDK's folder
+store until the tree holds the largest size. The tree is breadth first, with
+`--fanout` children per folder (default 10), so every folder carries the
+signed manifests the app writes. Seeding is slow: a quarter of a second per
+folder at first, slowing as the tree grows, so 10,000 folders took 76 minutes
+on an M2 Pro. The run saves the seeded account to
+`.test_files/performance/realtime-seed-<database>.json`. `--reuse` measures
+that account again without seeding, which is how to compare a change against
+the same tree.
+
+For each size and sample, a fresh gateway from `createRealtimeGateway` opens
+one socket for the account. The socket declares the first `size` containers of
+the tree in one `known_containers` message: the root and the three system
+containers registration provisions, then folders in creation order. The probe
+waits for the acknowledgement, then fires the socket's revalidation tick,
+which re-verifies every installed id as the hub's periodic pass does.
+Pub/sub, the session store and the timers are stubbed out, so nothing else
+runs during a pass. The authorization deadline is raised so a slow pass is
+measured instead of cut off. Each row is compared with the deadline
+production gives that many ids: 10 seconds per 100, at most 60.
+
+`DATABASE_URL` must name a loopback host and a database, without TLS. The API
+connects through a loopback TCP proxy that reads the PostgreSQL wire protocol
+and counts statements, exchanges, rows and bytes in each direction.
+
+| Field | What it measures |
+| --- | --- |
+| `durationMs` | From handing the gateway the message or tick until the pass completed |
+| `authorizationMs` | Time inside the hub's database transaction and proof checks |
+| `database.statements` | Simple queries and extended-protocol executes, including transaction control |
+| `database.roundTrips` | ReadyForQuery messages: completed exchanges with PostgreSQL |
+| `database.rows`, `bytesReturned` | Rows and every byte PostgreSQL sent back |
+| `resources.cpuMs` | Process CPU, user plus system, across all threads |
+| `resources.peakHeapDeltaBytes` | Peak sampled JavaScript heap above a collected baseline |
+| `resources.peakRssDeltaBytes` | Peak sampled resident memory above that baseline, including buffers |
+| `snapshot` | Characters and 16 KiB chunks of the hibernation snapshot the hub stores |
+| `productionBudgetMs` | The deadline production gives a declaration of this many ids |
+
+Statement, row and byte counts depend only on the tree, so they match
+production for the same shape. Durations and CPU do not. Bun's JavaScriptCore
+runs the hub code here instead of workerd's V8, and a local PostgreSQL answers
+in well under a millisecond, where the deployed hub waits about 5 ms per warm
+exchange through Hyperdrive ([database baseline](database-baseline.md)). The
+returned bytes also cross the network in production. Memory is sampled every
+5 ms at event-loop turns, so a peak between two awaits is missed, and the
+peaks are lower bounds. Bun's heap figure leaves out Buffer storage, which the
+RSS figure includes. The process keeps pages it has touched, so a later sample
+can report a smaller RSS increase than the first. CPU includes the proxy's
+relay work, about 0.75 ms per MB returned on an M2 Pro. Reports are saved as
+`.test_files/performance/realtime-<run>.json`.
+
+### Results, 2026-11-25
+
+One run on an M2 Pro with Bun 1.4.2 and PostgreSQL 17.12 measured three
+samples per size, with `--fanout 10`, from `6bd2c5c17` plus this probe. CPU
+and duration are medians; peak heap is the largest sample. The first
+100-folder declaration took 115 ms of CPU before the code was warm, which
+leaves its median unaffected.
+
+| Folders | Pass | Statements | Rows | Returned | CPU | Duration | Peak heap | Snapshot |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 100 | Declaration | 9 | 113 | 1.3 MiB | 20 ms | 41 ms | not sampled | |
+| 100 | Revalidation | 9 | 113 | 1.3 MiB | 20 ms | 30 ms | not sampled | 26 KB, 2 chunks |
+| 1,000 | Declaration | 10 | 1,013 | 12.5 MiB | 155 ms | 170 ms | 18 MiB | |
+| 1,000 | Revalidation | 10 | 1,013 | 12.5 MiB | 145 ms | 175 ms | 43 MiB | 300 KB, 19 chunks |
+| 10,000 | Declaration | 28 | 10,013 | 124.8 MiB | 1,489 ms | 2,475 ms | 397 MiB | |
+| 10,000 | Revalidation | 28 | 10,013 | 124.8 MiB | 1,502 ms | 1,422 ms | 411 MiB | 3.4 MB, 208 chunks |
+
+Every statement was its own round trip. The 100-folder heap peaks fell
+between samples.
+
+- **Statements are not the cost.** The batched path read grows from 9 to 28
+  statements across a hundredfold increase in folders. In production, 28
+  exchanges at about 5 ms each add roughly 0.15 s.
+- **Bytes and CPU grow with every folder.** Each folder returns about 13 KB of
+  manifest bundles and costs about 0.15 ms of CPU. At 10,000 folders that is
+  125 MiB from PostgreSQL and 1.5 s of CPU on the hub's single thread.
+- **Revalidation costs as much as connecting.** A revalidation pass repeats
+  the whole declaration's reads and checks, every 2.5 to 5 minutes, for each
+  open socket.
+- **Memory, not the deadline, looks like the limit at 10,000.** The local
+  passes finished in 1.3 to 6.1 s, far inside the 60 s budget, even after
+  adding production's round trips. But the rows alone are 125 MiB, and Bun's
+  heap rose 325 to 411 MiB during the pass. A Workers isolate, which hosts the
+  hub, is limited to 128 MB. JavaScriptCore and V8 count memory differently,
+  so this does not prove the hub fails at 10,000 folders. It does make memory
+  the likeliest failure, ahead of the deadline.
+- **The snapshot is larger than the issue's estimate.** It is 3.4 MB in 208
+  chunks at 10,000 folders, against an estimated 2 MB.
+
+Durations at 10,000 folders varied from 1.3 to 6.1 s while CPU stayed between
+1.4 and 1.9 s. The rest was waiting outside the process, mostly on PostgreSQL.
 
 ## Account provisioning
 

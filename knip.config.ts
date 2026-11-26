@@ -316,6 +316,7 @@ const productionConfig = {
         "src/seed.ts!",
         "src/database/index.ts!",
         "src/database/worker.ts!",
+        "src/realtime/index.ts!",
       ],
       project: productionProject,
     },
