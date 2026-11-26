@@ -333,3 +333,33 @@ test("a pass that ends while its baseline uploads records nothing and keeps the 
   expect(harness.server.calls).not.toContain("abandon");
   expect(harness.server.stage(harness.documentId)?.segments).toHaveLength(5);
 });
+
+// The staged segments are only worth what the writer can still prove. A
+// history that does not give their bytes again (here another history
+// altogether) ends the stage, and the same pass uploads the baseline anew.
+test("a history that no longer gives the staged segments abandons the stage", async () => {
+  const harness = await createStagedHealHarness();
+  const document = await createLongHistoryDocument("diverged");
+  harness.script.refuse = (_request, ordinal) =>
+    ordinal === 1
+      ? {
+          code: DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+          message: "the baseline does not cover the committed frontier",
+          status: 409,
+        }
+      : null;
+  expect(await harness.heal(document, execSql)).toBeNull();
+  const callsBefore = harness.server.calls.length;
+
+  const other = await createLongHistoryDocument("diverged-other");
+  const synced = await harness.heal(other, execSql);
+
+  expect(synced?.acceptedRecoveryBaseline).toBe(true);
+  committedGroup(harness, other);
+  expect(harness.server.calls.slice(callsBefore, callsBefore + 4)).toEqual([
+    "get",
+    "abandon",
+    "open",
+    "stage:0",
+  ]);
+});
