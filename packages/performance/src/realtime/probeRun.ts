@@ -1,13 +1,11 @@
-import { cpus } from "node:os";
-import { sourceIdentity } from "../database/artifacts";
+import { runInProcessProbe } from "../inProcessProbe";
 import {
   loadSeededTree,
   type SeededTree,
   saveJson,
   seedFileName,
 } from "./artifacts";
-import { type InProcessApi, startInProcessApi } from "./inProcessApi";
-import { parseLocalDatabaseUrl, startPostgresProxy } from "./postgresProxy";
+import type { InProcessApi } from "./inProcessApi";
 import type { PostgresTraffic } from "./postgresWire";
 import { seedTree } from "./run";
 
@@ -20,7 +18,7 @@ interface SeedOptions {
   readonly reuse: boolean;
 }
 
-/** What a probe adds to its report; nothing else can overwrite metadata. */
+/** What a realtime probe adds to its report. */
 interface ProbeResults {
   readonly summary: readonly object[];
   readonly measurements: readonly object[];
@@ -66,10 +64,8 @@ async function seedOrReuse(
 }
 
 /**
- * Boots the API in this process against the local database named by
- * `DATABASE_URL`, through a counting proxy, seeds or reuses the measured
- * account, and runs `measure`. The report is saved after every measurement
- * and once more when the run ends, however it ends.
+ * Runs a realtime probe in process (see `runInProcessProbe`) against an
+ * account whose folder tree it seeds, or reuses from an earlier run.
  */
 export async function runRealtimeProbe(input: {
   readonly scenario: string;
@@ -79,68 +75,30 @@ export async function runRealtimeProbe(input: {
   /** The report's measurement fields, read at every save. */
   readonly results: () => ProbeResults;
 }): Promise<void> {
-  const { DATABASE_URL: databaseUrl } = process.env;
-  const target = parseLocalDatabaseUrl(databaseUrl);
-  const database = decodeURIComponent(target.pathname.slice(1));
-  const proxy = await startPostgresProxy(target);
-  // The API reads its database configuration when it loads.
-  Object.assign(process.env, {
-    API_DATABASE: "postgres",
-    DATABASE_URL: proxy.url,
-  });
-  const runId = crypto.randomUUID();
-  const reportName = `${input.reportPrefix}-${runId}.json`;
-  const metadata = {
-    schemaVersion: 1,
+  let seed: SeededTree | null = null;
+  await runInProcessProbe({
     scenario: input.scenario,
-    runId,
-    startedAt: new Date().toISOString(),
-    database,
+    reportPrefix: input.reportPrefix,
     options: input.options,
-    ...sourceIdentity(),
-    runtime: {
-      bun: Bun.version,
-      platform: process.platform,
-      arch: process.arch,
-      cpu: cpus()[0]?.model ?? null,
-    },
     boundary:
       "In-process API on Bun and local PostgreSQL through a counting proxy; not workerd, Hyperdrive, or the hub Durable Object",
-  };
-  let seed: SeededTree | null = null;
-  const save = (status: "running" | "complete" | "failed") => {
-    const { summary, measurements } = input.results();
-    return saveJson(reportName, {
-      ...metadata,
-      updatedAt: new Date().toISOString(),
-      status,
-      seed: seed && {
-        userId: seed.userId,
-        folders: seed.containerIds.length,
-        seededAt: seed.seededAt,
-        seedMs: seed.seedMs,
-        reused: input.options.reuse,
-      },
-      summary,
-      measurements,
-    });
-  };
-  const api = await startInProcessApi();
-  let status: "complete" | "failed" = "failed";
-  try {
-    seed = await seedOrReuse(input.options, database, api);
-    await input.measure({
-      api,
-      seed,
-      traffic: proxy.snapshot,
-      progress: async () => {
-        await save("running");
-      },
-    });
-    status = "complete";
-  } finally {
-    console.log(`Report: ${await save(status)}`);
-    await api.stop();
-    await proxy.stop();
-  }
+    run: async ({ api, database, traffic, progress }) => {
+      seed = await seedOrReuse(input.options, database, api);
+      await input.measure({ api, seed, traffic, progress });
+    },
+    results: () => {
+      const { summary, measurements } = input.results();
+      return {
+        seed: seed && {
+          userId: seed.userId,
+          folders: seed.containerIds.length,
+          seededAt: seed.seededAt,
+          seedMs: seed.seedMs,
+          reused: input.options.reuse,
+        },
+        summary,
+        measurements,
+      };
+    },
+  });
 }

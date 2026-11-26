@@ -199,6 +199,10 @@ Before listings covered documents, every opened document probed once per
 session: the first restart cost 23 requests with two notes and 35 with eight,
 one sync and one document writer-projection read for each extra note.
 
+The [document reload probe](../packages/performance/README.md#document-reload)
+repeats the restart through the SDK alone, at hundreds and thousands of notes,
+to show which of these terms grow with an account's folders or notes.
+
 Each canary also rejects data mutations and non-200 responses, checks for
 delayed follow-up traffic before other UI actions, and tears down the pane.
 These are baselines, not claimed optimizations or outage/retry limits.

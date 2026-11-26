@@ -1,3 +1,4 @@
+import { median } from "../median";
 import type { PassMeasurement } from "./measurePass";
 
 const mebibytes = (bytes: number) => (bytes / 1_048_576).toFixed(1);
@@ -33,14 +34,6 @@ interface SizeSummary {
   readonly bytesReturned: number;
   readonly maxPeakHeapDeltaBytes: number;
   readonly productionBudgetMs: number;
-}
-
-function median(values: readonly number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2
-    ? (sorted[middle] ?? 0)
-    : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
 }
 
 /**

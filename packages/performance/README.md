@@ -18,6 +18,10 @@ the hub's folder authorization against a local database. Run it with
 times how long that work makes other sockets wait. Run it with
 `bun run perf:realtime-contention`.
 
+The [document reload probe](#document-reload) counts the requests a returning
+client makes when it reloads, as its account grows. Run it with
+`bun run perf:reload`.
+
 ## Continuity seed round trip
 
 ```sh
@@ -184,6 +188,58 @@ Bun's JavaScriptCore here, workerd's V8 in production. Lag is clamped at zero,
 since a timer can fire a fraction of a millisecond early. Reports are saved
 as `.test_files/performance/realtime-contention-<run>.json`. See the
 [2026-11-25 results](results/2026-11-25-realtime-hub-contention.md).
+
+## Document reload
+
+Issue #3256 found that every full page load re-synced every document. Its
+phase 1 stopped that, and the
+[pane canaries](../../docs/request-budgets.md#restart-and-reconnect) pin a
+reload's requests at two and eight notes. This probe asks the same question at
+sizes those fixtures do not reach: which of a reload's requests still grow,
+and with what.
+
+```sh
+createdb tearleads_reload_probe
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_reload_probe" \
+  bun run perf:reload
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_reload_probe" \
+  bun run perf:reload --documents 100,1000 --per-folder 1000
+```
+
+It boots the API in this process, as the realtime probes do, and registers a
+new account through the SDK on every run. For each `--documents` size, the
+account grows to that many notes, `--per-folder` (default 10) to a folder
+under its root. Folders and notes are created the way the app creates them,
+through the device-first container store and `documentLinks().openDocument`,
+in batches of 25, each note synced before the next batch starts.
+
+A reload keeps what a browser profile keeps: the local SQLite database and
+the key the app derives from its keyring for stored principal history. It
+disposes the SDK and builds a new one over that database, restores the
+identity and session, binds the device-first view to the root, as the
+explorer does, and marks the server-events connection acknowledged, which
+starts the HTTP catch-up. No socket is opened. The reload is counted until
+the SDK's sync coordinator is idle and no request has started or finished for
+`--quiet-ms` (default 1000).
+
+Each size gets one `first` reload, the first after its notes were created,
+then `--samples` (default 3) `settled` reloads with nothing changed.
+
+| Field | What it measures |
+| --- | --- |
+| `requests`, `byRoute` | The SDK's API requests, by route template, from `ApiRequestMetrics` |
+| `settledMs` | From building the SDK until its last request finished |
+| `database` | PostgreSQL traffic through the counting proxy, as in the realtime probes |
+| `localSql` | Statements the client ran against its local SQLite database |
+
+Request counts should repeat on any machine; times will not, and against a
+local API with no network they are lower bounds. The app shell's own startup
+requests (`POST /auth/ws-ticket`, `GET /organization-memberships` and the
+billing read) are not made. The account has no Contacts folder, which the
+app's system bootstrap creates after sign-in, so a settled reload here syncs
+one system document where the app's canary syncs three. Reports are saved as
+`.test_files/performance/reload-<run>.json`. See the
+[2026-11-25 results](results/2026-11-25-document-reload.md).
 
 ## Account provisioning
 
