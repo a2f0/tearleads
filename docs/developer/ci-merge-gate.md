@@ -18,17 +18,21 @@ entry points. `Lint` passes pull-request names to
 `agent-tool branch check --pre-push` as stdin ref tuples, so the policy also
 applies to pull requests from clones without hooks.
 
-The API, app, client SDK, and bob-and-alice suites run in `Test (...)` jobs of
-their own, and `Build and test` runs the remaining package tests. The API suite
-runs one backend per job, and every one of these suites splits into Bun shards
-(`--shard=1/3` and so on);
+The API, app, client SDK, bob-and-alice, and CLI suites run in `Test (...)`
+jobs of their own, and `Build and test` runs the remaining package tests. The
+API suite runs one backend per job, and every one of these suites splits into
+Bun shards (`--shard=1/3` and so on);
 [`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
-checks that every backend's shards are all present. The gate requires both jobs,
-so the suites need no ruleset entries. Turbo hashes each shard's arguments, so
-shards cache independently. Turbo serves cached results from the GitHub Actions
-cache: a pull request reads entries written on its own ref or on `main`, while
-`main` never reads an entry a pull request wrote. The nightly `Uncached tests`
-workflow calls the entire CI workflow with `force: true`, including Postgres,
+checks that every backend's shards are all present and that a suite's shards
+share their other arguments. A suite whose `test` script passes `--timings`
+splits by the per-file durations committed in its package rather than by file
+count; see [balancing shards by measured time](test-optimization.md#balance-shards-by-measured-time).
+The gate requires both jobs, so the suites need no ruleset entries. Turbo
+hashes each shard's arguments, so shards cache independently. Turbo serves
+cached results from the GitHub Actions cache: a pull request reads entries
+written on its own ref or on `main`, while `main` never reads an entry a pull
+request wrote. The nightly `Uncached tests` workflow calls the entire CI
+workflow with `force: true`, including Postgres,
 Windows, native bridge compiles, and [protocol models](../../formal/README.md).
 Manual workflow dispatches also bypass the cache.
 

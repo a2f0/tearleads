@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "bun src/index.ts",
-    "test": "bun test src"
+    "test": "bun test src --timings=test-timings.json"
   },
   "dependencies": {
     "@tearleads/client-sdk": "workspace:*",
