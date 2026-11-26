@@ -76,7 +76,9 @@ function createDocumentListingCoverage(): DocumentListingCoverage {
       const unseen = events.slice(observedEventCount);
       // Stores observe on their own schedule, and one that still holds an
       // older runtime hands in a shorter prefix of the same list. Counting
-      // back would replay hints a store has already taken.
+      // back would replay hints a store has already taken. A scope sees one
+      // list that only grows: the list is cleared only with its session,
+      // and a new session is a new scope with a coverage of its own.
       observedEventCount = Math.max(observedEventCount, events.length);
       if (authority === null) return;
       for (const event of unseen) {

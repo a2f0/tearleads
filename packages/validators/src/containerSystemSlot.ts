@@ -66,9 +66,8 @@ export function isNullableContainerSystemSlot(
 }
 
 /**
- * The slot of an organization's roster profile container. Its documents are
- * the ones a document listing never serves; see
- * `isOrganizationRosterProfileContainerSystemSlot`.
+ * The slot of an organization's roster profile container, whose documents
+ * are the ones a document listing never serves.
  */
 export function organizationRosterProfileContainerSystemSlot(
   organizationId: string,
