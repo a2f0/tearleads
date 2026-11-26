@@ -165,7 +165,8 @@ the observer's folder through the gateway's `publish` every
 socket receives it. A hint stands in for any event that reaches the hub while
 it is busy: its timer cannot fire, nor its routing run, until the thread is
 free, so its lag is how long another socket's work waited. Deadlines missed
-during a stall are skipped, so one stall delays one hint.
+during a stall are skipped, so one stall delays one hint. A hint already due
+when the pass ends counts its wait so far, though it was never published.
 
 | Field | What it measures |
 | --- | --- |
@@ -173,7 +174,7 @@ during a stall are skipped, so one stall delays one hint.
 | `authorizationMs` | Each socket's authorization call, fastest first |
 | `hints.p50Ms` to `hints.maxMs` | Hint lag: delivery time minus the time the hint was due |
 | `hints.blockedMs` | Lag above one interval, summed: time hints spent queued behind the hub |
-| `hints.sent`, `hints.delivered` | Hints published and received; they should match |
+| `hints.sent`, `hints.delivered` | Hints published and received, plus one still due when the pass ended; they must match |
 | `database`, `resources` | As in the interest probe, for the whole pass |
 
 The interest probe's measurement boundary applies. Hint lag tracks the

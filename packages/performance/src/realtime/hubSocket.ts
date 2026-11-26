@@ -192,9 +192,6 @@ export function createProbeHub(api: InProcessApi) {
           chunks: Math.ceil(characters / SNAPSHOT_CHUNK_CHARS),
         };
       },
-      close(): void {
-        if (open.delete(socket)) gateway.websocket.close(socket);
-      },
     };
   }
 
@@ -205,17 +202,10 @@ export function createProbeHub(api: InProcessApi) {
     publish: (message: string) => gateway.publish(message),
     /**
      * Fires every armed revalidation tick at once, the worst alignment of
-     * the sockets' jittered passes, and resolves with each tick's duration.
+     * the sockets' jittered passes.
      */
-    async revalidateAll(): Promise<number[]> {
-      const due = takeDueTicks();
-      return await Promise.all(
-        due.map(async (timer) => {
-          const started = performance.now();
-          await timer.run();
-          return performance.now() - started;
-        }),
-      );
+    async revalidateAll(): Promise<void> {
+      await Promise.all(takeDueTicks().map((timer) => timer.run()));
     },
     /** Closes every socket still open, then the gateway. */
     stop(): void {
@@ -226,7 +216,7 @@ export function createProbeHub(api: InProcessApi) {
   };
 }
 
-type ProbeHub = ReturnType<typeof createProbeHub>;
+export type ProbeHub = ReturnType<typeof createProbeHub>;
 
 /**
  * One socket on a fresh realtime gateway. The revalidation tick fires only

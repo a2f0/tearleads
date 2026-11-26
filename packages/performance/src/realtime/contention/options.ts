@@ -1,7 +1,9 @@
 import { parseArgs } from "node:util";
 import { ascendingIntegers, integer, MAX_DECLARED_IDS } from "../optionValues";
 
-// The root and the three system containers registration provisions.
+// The root and the three system containers registration provisions. Above
+// one, it also keeps the measured sockets' authorization calls apart from
+// the observing socket's one-folder calls (`socketCalls`).
 const MIN_DECLARED_IDS = 4;
 // Each socket holds a full pass's rows and bundles in memory at once.
 const MAX_SOCKETS = 8;

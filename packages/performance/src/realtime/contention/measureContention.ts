@@ -2,6 +2,7 @@ import type { SeededTree } from "../artifacts";
 import {
   type AuthorizationCall,
   createProbeHub,
+  type ProbeHub,
   type ProbeSocket,
 } from "../hubSocket";
 import type { InProcessApi } from "../inProcessApi";
@@ -36,8 +37,6 @@ export interface ContentionMeasurement {
   readonly database: PostgresTraffic;
   readonly resources: ResourceUse;
 }
-
-type ProbeHub = ReturnType<typeof createProbeHub>;
 
 // About a hundred hints at the default interval.
 const IDLE_MS = 1_000;
