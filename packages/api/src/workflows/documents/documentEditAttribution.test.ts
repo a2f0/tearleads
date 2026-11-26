@@ -45,7 +45,8 @@ async function insertUpdate(input: {
   contentKeyEpoch: number;
   encryptedData: string;
   partialEndVersionVector: string;
-  checkpointSourceVersionVector?: string;
+  /** Stores the update as the one segment of a rotation baseline. */
+  baseline?: boolean;
   /** When the server stored the update. */
   createdAt: string;
   /** The time the writer signed into the write header; omitted when absent. */
@@ -55,17 +56,14 @@ async function insertUpdate(input: {
 }): Promise<string> {
   const id = crypto.randomUUID();
   const plaintextHash = `plaintext-${id}`;
-  const partialStartVersionVector = input.checkpointSourceVersionVector
+  const partialStartVersionVector = input.baseline
     ? emptyVersionVector()
     : "start";
+  const baselineFields = input.baseline
+    ? { baselineId: crypto.randomUUID(), baselineSegmentIndex: 0 }
+    : {};
   const metadataHash = await computeDocumentContentRecordMetadataHash({
-    ...(input.checkpointSourceVersionVector
-      ? {
-          checkpointKind: "rotate_baseline" as const,
-          checkpointPayloadKind: "full_history_snapshot" as const,
-          sourceVersionVector: input.checkpointSourceVersionVector,
-        }
-      : {}),
+    ...baselineFields,
     dependencyVersionVector: emptyVersionVector(),
     documentId: input.documentId,
     partialEndVersionVector: input.partialEndVersionVector,
@@ -74,6 +72,7 @@ async function insertUpdate(input: {
     updateId: id,
   });
   await db.insert(documentUpdates).values({
+    ...baselineFields,
     accessEpoch: 1,
     authorFingerprint: input.writerKeyFingerprint,
     byteLength: new TextEncoder().encode(input.encryptedData).byteLength,
@@ -134,7 +133,7 @@ function attributionShape(
 }
 
 // Exercise earliest-span-wins across a rotation: alice edits, then bob uploads
-// a rotate_baseline re-asserting the peer from zero. The re-assertion must not
+// a rotation baseline re-asserting the peer from zero. The re-assertion must not
 // take authorship credit for operations the server received from alice first.
 test("attributes original uploads ahead of a rotation baseline re-assertion", async () => {
   const { early, late } = await buildVersions();
@@ -167,10 +166,10 @@ test("attributes original uploads ahead of a rotation baseline re-assertion", as
     updateId: aliceUpdateId,
   });
 
-  // bob rotates the key (new epoch) and uploads a rotate_baseline that
+  // bob rotates the key (new epoch) and uploads a rotation baseline that
   // re-asserts the whole peer [0,10) at a later server sequence.
   const baselineUpdateId = await insertUpdate({
-    checkpointSourceVersionVector: late,
+    baseline: true,
     contentKeyEpoch: 2,
     documentId,
     encryptedData: "bob-baseline-payload",
@@ -187,12 +186,8 @@ test("attributes original uploads ahead of a rotation baseline re-assertion", as
     startCounter: 0,
     updateId: baselineUpdateId,
   });
-  // Attribution reads writerUserId off the write-header JSON; the baseline
-  // column only flags the update as a re-assertion.
-  await db
-    .update(documentUpdates)
-    .set({ baselineSourceVersionVector: late })
-    .where(eq(documentUpdates.id, baselineUpdateId));
+  // Attribution reads writerUserId off the write-header JSON; the row's
+  // baseline id only flags the update as a re-assertion.
 
   // Earliest-span-wins: alice keeps [0,3) as a direct edit under her own key;
   // only the genuinely-new [3,10) the baseline first delivered is credited to

@@ -398,7 +398,7 @@ export async function unwrapDocumentContentKeyFromWriterProjection(
  * content-key epoch. A current reader can recover the stale bundle through
  * the container predecessor chain; the fresh key is still required so a
  * holder revoked by the container rotation cannot decrypt future updates.
- * Recovery re-encrypts a full-history snapshot under that fresh key.
+ * Recovery re-encrypts the whole history under that fresh key.
  *
  * Like every content-key rotation (unlink included), this requires the KEK
  * of EVERY linked-container target: all envelopes in a bundle must wrap the

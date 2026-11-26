@@ -1,16 +1,15 @@
 import { Buffer } from "node:buffer";
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import {
-  computeDocumentContentRecordMetadataHash,
-  type DocumentContentKeyTarget,
-  type WriteHeader,
-} from "@tearleads/crypto";
+import type { DocumentContentKeyTarget, WriteHeader } from "@tearleads/crypto";
 import {
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
   MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
 } from "@tearleads/validators/util";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
-import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
+import {
+  storedBaselineSegmentFields,
+  storedDocumentUpdateMetadataHash,
+} from "../../../documents/documentStoredBaselineGroup";
 import {
   listMissingDocumentUpdatePage,
   listMissingDocumentUpdates,
@@ -18,94 +17,28 @@ import {
 import { DocumentMutationError } from "./errors";
 import { writeHeaderRecord } from "./shared/records";
 
-export interface SyncCheckpointMetadata {
-  readonly checkpointKind: "rotate_baseline";
-  readonly checkpointPayloadKind: "full_history_snapshot";
-  readonly coversThroughUpdateId?: string | undefined;
-  readonly sourceVersionVector: string;
-}
-
-interface SyncCheckpointAuthenticationInput {
-  readonly checkpoint: SyncCheckpointMetadata | undefined;
-  readonly dependencyVersionVector: string;
-  readonly documentId: string;
-  readonly metadataHash: string;
-  readonly partialEndVersionVector: string;
-  readonly partialStartVersionVector: string;
-  readonly plaintextHash: string;
-  readonly updateId: string;
-}
-
-/**
- * A persisted checkpoint row is an integrity assertion, never an optional
- * response decoration. If its signed metadata no longer authenticates, fail
- * the pull instead of downgrading its snapshot payload to an ordinary update.
- */
-export async function authenticateSyncCheckpointForResponse(
-  input: SyncCheckpointAuthenticationInput,
-): Promise<SyncCheckpointMetadata | undefined> {
-  if (input.checkpoint === undefined) {
-    const ordinaryMetadataHash = await computeDocumentContentRecordMetadataHash(
-      {
-        dependencyVersionVector: input.dependencyVersionVector,
-        documentId: input.documentId,
-        partialEndVersionVector: input.partialEndVersionVector,
-        partialStartVersionVector: input.partialStartVersionVector,
-        plaintextHash: input.plaintextHash,
-        updateId: input.updateId,
-      },
-    );
-    if (input.metadataHash !== ordinaryMetadataHash) {
-      throw new DocumentMutationError(
-        "Document update metadata failed integrity validation",
-        409,
-      );
-    }
-    return undefined;
-  }
-
-  const authenticated = await isAuthenticatedReplayableBaseline({
-    checkpointKind: input.checkpoint.checkpointKind,
-    coversThroughUpdateId: input.checkpoint.coversThroughUpdateId,
-    dependencyVersionVector: input.dependencyVersionVector,
-    documentId: input.documentId,
-    metadataHash: input.metadataHash,
-    partialEndVersionVector: input.partialEndVersionVector,
-    partialStartVersionVector: input.partialStartVersionVector,
-    plaintextHash: input.plaintextHash,
-    sourceVersionVector: input.checkpoint.sourceVersionVector,
-    updateId: input.updateId,
-  });
-  if (!authenticated) {
-    throw new DocumentMutationError(
-      "Document rotation checkpoint failed integrity validation",
-      409,
-    );
-  }
-  return input.checkpoint;
-}
-
 type StoredSyncUpdate = Awaited<
   ReturnType<typeof listMissingDocumentUpdates>
 >[number];
 
 /**
- * A rotation baseline's update row carries its declared source version vector;
- * the checkpoint and payload kinds are the rotation constants.
+ * A stored update's signed fields are an integrity assertion, never an
+ * optional response decoration. Its baseline fields ride on its row; if the
+ * row no longer gives the metadata hash its header signs, fail the pull
+ * instead of serving a baseline segment as an ordinary update or the
+ * reverse. Returns the baseline fields the response carries.
  */
-function storedSyncCheckpoint(
-  update: StoredSyncUpdate,
-): SyncCheckpointMetadata | undefined {
-  return update.baselineSourceVersionVector === null
-    ? undefined
-    : {
-        checkpointKind: "rotate_baseline",
-        checkpointPayloadKind: "full_history_snapshot",
-        ...(update.baselineCoversThroughUpdateId === null
-          ? {}
-          : { coversThroughUpdateId: update.baselineCoversThroughUpdateId }),
-        sourceVersionVector: update.baselineSourceVersionVector,
-      };
+export async function authenticateSyncUpdateMetadataForResponse(
+  update: Parameters<typeof storedDocumentUpdateMetadataHash>[0],
+  metadataHash: string,
+): Promise<ReturnType<typeof storedBaselineSegmentFields>> {
+  if ((await storedDocumentUpdateMetadataHash(update)) !== metadataHash) {
+    throw new DocumentMutationError(
+      "Document update metadata failed integrity validation",
+      409,
+    );
+  }
+  return storedBaselineSegmentFields(update);
 }
 
 /**
@@ -132,20 +65,12 @@ function toSyncUpdate(
     readonly header: WriteHeader;
     readonly headerHash: string;
   },
-  checkpoint: SyncCheckpointMetadata | undefined,
+  baselineFields: ReturnType<typeof storedBaselineSegmentFields>,
   expectedTargetHash: string,
 ) {
   return {
     accessEpoch: update.accessEpoch,
-    ...(checkpoint === undefined
-      ? {}
-      : {
-          checkpointKind: checkpoint.checkpointKind,
-          checkpointPayloadKind: checkpoint.checkpointPayloadKind,
-          ...(checkpoint.coversThroughUpdateId === undefined
-            ? {}
-            : { coversThroughUpdateId: checkpoint.coversThroughUpdateId }),
-        }),
+    ...baselineFields,
     id: update.id,
     documentId: update.documentId,
     authorFingerprint: update.authorFingerprint,
@@ -154,9 +79,6 @@ function toSyncUpdate(
     partialEndVersionVector: update.partialEndVersionVector,
     dependencyVersionVector: update.dependencyVersionVector,
     plaintextHash: update.plaintextHash,
-    ...(checkpoint === undefined
-      ? {}
-      : { sourceVersionVector: checkpoint.sourceVersionVector }),
     createdAt: update.createdAt.toISOString(),
     writeHeader: writeHeaderRecord(writeHeader.header),
     ...authorizationTargetsUnlessHeld(writeHeader, expectedTargetHash),
@@ -176,20 +98,19 @@ async function toSyncResponseEntry(
   if (!writeHeader) {
     throw new DocumentMutationError("Document write header missing", 409);
   }
-  const checkpoint = await authenticateSyncCheckpointForResponse({
-    checkpoint: storedSyncCheckpoint(update),
-    dependencyVersionVector: update.dependencyVersionVector,
-    documentId: update.documentId,
-    metadataHash: writeHeader.header.metadataHash,
-    partialEndVersionVector: update.partialEndVersionVector,
-    partialStartVersionVector: update.partialStartVersionVector,
-    plaintextHash: update.plaintextHash,
-    updateId: update.id,
-  });
+  const baselineFields = await authenticateSyncUpdateMetadataForResponse(
+    update,
+    writeHeader.header.metadataHash,
+  );
 
   return {
     sequence: update.sequence,
-    update: toSyncUpdate(update, writeHeader, checkpoint, expectedTargetHash),
+    update: toSyncUpdate(
+      update,
+      writeHeader,
+      baselineFields,
+      expectedTargetHash,
+    ),
     writeHeader: writeHeader.header,
   };
 }
@@ -268,9 +189,9 @@ export async function listMissingSyncUpdateEntries(input: {
         minLsn: input.minLsn,
       });
   // A page already fits its response byte floors, which count each entry's
-  // write header, authorization targets, and checkpoint, so its write headers
-  // load as one set. An unpaged listing has no such bound. Checkpoints ride on
-  // the update rows.
+  // write header and authorization targets, so its write headers load as one
+  // set. An unpaged listing has no such bound. A baseline segment's group
+  // fields ride on its update row.
   const pageWriteHeaders = page?.writeHeaders;
   const entries = await materializeSyncResponseEntriesToBytes(
     updates,

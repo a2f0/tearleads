@@ -112,7 +112,6 @@ export async function prepareDocumentOutgoingCoverage(input: {
     const enqueued = await enqueuePendingUpdate(
       state,
       deferredUpdate,
-      undefined,
       generation,
       { unlessQueued: true },
     );

@@ -1,11 +1,15 @@
 import { expect, spyOn, test } from "bun:test";
 import {
   createDocument,
-  exportFullHistorySnapshot,
+  encodeVersionVector,
+  exportFullHistoryIdentity,
+  exportHistorySegments,
+  getImportBlobMetadata,
   getTextValue,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { SMALL_BASELINE_SEGMENTS } from "../../../../test/helpers/data/rotationBaselineFixtures";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { processLoroRuntimeFailures } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import {
@@ -33,28 +37,37 @@ async function seedMetadataRow(
   );
 }
 
-test("metadata live import applies rotation snapshots before ordinary updates", async () => {
-  const current = await createDocument("metadata-checkpoint-current");
-  const rotated = await createDocument("metadata-checkpoint-rotated");
-  rotated.getText("text").update("rotation baseline");
-  rotated.commit();
-  const snapshot = exportFullHistorySnapshot(rotated);
-  const vectors = getUpdateVersionVectors(snapshot);
+// A metadata document is served the baseline group any document is: its
+// history as update blobs, which the live copy imports with the page.
+test("metadata live import applies a rotation baseline's segments as updates", async () => {
+  const current = await createDocument("metadata-baseline-current");
+  const rotated = await createDocument("metadata-baseline-rotated");
+  for (let round = 0; round < 12; round += 1) {
+    rotated.getText("text").insert(0, `rotation baseline round ${round}\n`);
+    rotated.commit();
+  }
+  const baselineId = crypto.randomUUID();
+  const segments = [...exportHistorySegments(rotated, SMALL_BASELINE_SEGMENTS)];
+  expect(segments.length).toBeGreaterThan(1);
 
-  applyIncomingContainerMetadataUpdates(current, {
-    decryptedUpdates: [
-      {
-        checkpointKind: "rotate_baseline",
-        checkpointPayloadKind: "full_history_snapshot",
-        id: "550e8400-e29b-41d4-a716-4466554400cc",
-        ...vectors,
-        sourceVersionVector: vectors.partialEndVersionVector,
-        updateData: snapshot,
-      },
-    ],
+  const applied = applyIncomingContainerMetadataUpdates(current, {
+    decryptedUpdates: segments.map((segment) => {
+      expect(getImportBlobMetadata(segment.update).mode).toBe("update");
+      return {
+        baselineId,
+        id: crypto.randomUUID(),
+        ...getUpdateVersionVectors(segment.update),
+        updateData: segment.update,
+      };
+    }),
   });
 
-  expect(getTextValue(current)).toBe("rotation baseline");
+  expect(applied).toBe(true);
+  expect(getTextValue(current)).toBe(getTextValue(rotated));
+  expect(encodeVersionVector(current)).toBe(encodeVersionVector(rotated));
+  expect(exportFullHistoryIdentity(current)).toBe(
+    exportFullHistoryIdentity(rotated),
+  );
 });
 
 test("expired metadata quarantine cannot record or report across the SQL lock", async () => {

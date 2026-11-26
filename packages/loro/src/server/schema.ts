@@ -52,13 +52,20 @@ export const documentUpdates = pgTable(
     // payload's own dependencies against.
     dependencyVersionVector: text("dependency_version_vector").notNull(),
     plaintextHash: text("plaintext_hash").notNull(),
-    // Set only on a rotation baseline: the Loro source version vector its
-    // signed checkpoint metadata declares it covers. The checkpoint and
-    // payload kinds are the rotation constants, so they are not stored.
-    baselineSourceVersionVector: text("baseline_source_version_vector"),
-    // Set only on a rotation baseline that signed one: its author's processed
-    // cursor. Updates committed at or before it need no coverage by the
-    // source version vector.
+    // Set only on a segment of a rotation baseline, an ordered group of
+    // updates committed together that carry the document's whole history at
+    // the epoch a rotation opened: the group it belongs to and its place in
+    // it, as its writer signed them. What the group covers is read from its
+    // segments' spans, so no vector is stored.
+    baselineId: uuid("baseline_id"),
+    baselineSegmentIndex: integer("baseline_segment_index"),
+    // Set only on a baseline's final segment: how many segments the group
+    // has, and the signed digest of the ones before it.
+    baselineSegmentCount: integer("baseline_segment_count"),
+    baselineSegmentsDigest: text("baseline_segments_digest"),
+    // Set only on a baseline's final segment that signed one: its author's
+    // processed cursor. Updates committed at or before it need no coverage
+    // by the group.
     baselineCoversThroughUpdateId: uuid("baseline_covers_through_update_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -67,9 +74,15 @@ export const documentUpdates = pgTable(
       table.documentId,
       table.sequence,
     ),
+    // A document's baseline segments in commit order: what the redirect
+    // reads to find the latest whole group.
     index("document_updates_baseline_idx")
       .on(table.documentId, table.sequence)
-      .where(sql`${table.baselineSourceVersionVector} is not null`),
+      .where(sql`${table.baselineId} is not null`),
+    // A group's segments by index; no two share a place.
+    uniqueIndex("document_updates_baseline_segment_idx")
+      .on(table.baselineId, table.baselineSegmentIndex)
+      .where(sql`${table.baselineId} is not null`),
   ],
 );
 

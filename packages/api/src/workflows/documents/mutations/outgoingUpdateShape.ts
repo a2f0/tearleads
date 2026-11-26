@@ -41,58 +41,58 @@ export function assertOutgoingDeclaredSpan(
 }
 
 /**
- * An update's declared dependencies must be a version vector, and a rotation
- * baseline, a full-history snapshot, depends on nothing. Every honest writer
- * reads them from the bytes it sends, so this refuses only output no honest
- * client produces.
+ * An update's declared dependencies must be a version vector. Every honest
+ * writer reads them from the bytes it sends, so this refuses only output no
+ * honest client produces. Whether they are committed is the peer walk's to
+ * judge, and whether a baseline's segments depend only on each other is a
+ * group rule.
  */
 export function assertOutgoingDeclaredDependencies(
-  update: Pick<
-    DocumentOutgoingUpdate,
-    "checkpointKind" | "dependencyVersionVector"
-  >,
+  update: Pick<DocumentOutgoingUpdate, "dependencyVersionVector">,
 ): void {
-  let dependencyCount: number;
   try {
-    dependencyCount = [
-      ...decodeVersionVector(update.dependencyVersionVector).toJSON().values(),
-    ].filter((endCounter) => endCounter > 0).length;
+    decodeVersionVector(update.dependencyVersionVector);
   } catch {
     throw new DocumentMutationError(
       "Document update dependency version vector is invalid",
       400,
     );
   }
-  if (update.checkpointKind === "rotate_baseline" && dependencyCount > 0) {
-    throw new DocumentMutationError(
-      "Document rotation baseline declares dependencies",
-      400,
-    );
-  }
 }
 
 /**
- * A rotation baseline that signs a processed cursor may declare no
- * operations: its author voided every update through the cursor, so its
- * snapshot is empty, and the coverage gate weighs only the updates after
- * the cursor. The checkpoint consistency check still requires its vectors to
- * be valid, start empty, and end at its source. Every other update, a
- * baseline with no cursor included, must name at least one operation.
+ * The one update that may declare no operations is the whole of an empty
+ * rotation baseline: its author voided every update through the processed
+ * cursor it signs, so the history it carries is empty, and the coverage gate
+ * weighs only the updates after the cursor. Its vectors must still be valid.
+ * Every other update, a baseline segment included, must name at least one
+ * operation.
  */
-export function assertOutgoingSpanOrCursoredEmptyBaseline(
+export function assertOutgoingSpanOrEmptyBaseline(
   update: Pick<
     DocumentOutgoingUpdate,
-    | "checkpointKind"
+    | "baselineSegmentCount"
+    | "baselineSegmentIndex"
     | "coversThroughUpdateId"
     | "partialEndVersionVector"
     | "partialStartVersionVector"
   >,
 ): void {
-  if (
-    update.checkpointKind !== "rotate_baseline" ||
-    update.coversThroughUpdateId === undefined
-  ) {
+  const wholeEmptyBaseline =
+    update.baselineSegmentIndex === 0 &&
+    update.baselineSegmentCount === 1 &&
+    update.coversThroughUpdateId !== undefined;
+  if (!wholeEmptyBaseline) {
     assertOutgoingDeclaredSpan(update);
+    return;
+  }
+  try {
+    listVersionVectorSpans(update);
+  } catch {
+    throw new DocumentMutationError(
+      "Document update version vectors are invalid",
+      400,
+    );
   }
 }
 

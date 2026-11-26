@@ -12,6 +12,7 @@ import type { DocumentWriterProjectionAuthorization } from "../../../data/keying
 import {
   boundDocumentSyncPlanRequest,
   materializedDocumentSyncPlan,
+  rotationBaselineUpdateIdsOf,
 } from "./syncPlanRequestBounds";
 
 interface SyncPlanProjectionMaterial {
@@ -20,8 +21,9 @@ interface SyncPlanProjectionMaterial {
   readonly documentKekTargets: DocumentKekTargetsResponse;
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly healedStaleContentKeyBundle: boolean;
-  readonly heldBackPendingUpdateIds: readonly string[];
-  readonly staleRecoveryBaselineUpdateId?: string | undefined;
+  readonly rotationBaseline?:
+    | { readonly segments: readonly { readonly id: string }[] }
+    | undefined;
 }
 
 function writerProjectionAfterContentKeyHeal(
@@ -55,7 +57,7 @@ export function finalizeMaterializedDocumentSyncPlan(input: {
     : input.basePlan;
   const plan = boundDocumentSyncPlanRequest(
     unboundedPlan,
-    input.material.staleRecoveryBaselineUpdateId,
+    rotationBaselineUpdateIdsOf(input.material),
   );
   return materializedDocumentSyncPlan(
     input.material,

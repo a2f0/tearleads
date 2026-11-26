@@ -105,7 +105,7 @@ async function linkedForUnlink(input: {
       owner,
       root,
       rotationBaselineCoversThroughUpdateId: unlink.cursor,
-      rotationBaselineSourceVersionVector: unlink.source,
+      rotationBaselineCoverage: unlink.source,
     });
 }
 
@@ -230,7 +230,7 @@ test("POST /documents/:documentId/unlink weighs updates after the baseline curso
   expect(unlinkResponse.status).toBe(200);
   const unlinked = await unlinkResponse.json();
   expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
-  const baselineId = unlinkRequest.rotationBaseline?.id;
+  const baselineId = unlinkRequest.rotationBaseline?.at(-1)?.id;
   if (!baselineId) throw new Error("Expected a rotation baseline");
 
   const pull = () => pullAsNewReader(owner, created.id, unlinked);
@@ -253,12 +253,12 @@ test("POST /documents/:documentId/unlink weighs updates after the baseline curso
   const tampered = await pull();
   expect(tampered.status).toBe(409);
   expect((await tampered.json()).error).toBe(
-    "Document rotation checkpoint failed integrity validation",
+    "Document update metadata failed integrity validation",
   );
 });
 
-// A reader that voided every update holds an empty document, whose snapshot
-// declares no operation. Its baseline signs the cursor alone, and the API
+// A reader that voided every update holds an empty document, whose history
+// has no operation. Its baseline is one empty segment that signs the cursor, and the API
 // weighs only the updates after it. Before #3194 the client sent no
 // baseline, and the API refused the unlink while any update was committed.
 test("POST /documents/:documentId/unlink takes an empty baseline that signs its cursor", async () => {
@@ -285,7 +285,7 @@ test("POST /documents/:documentId/unlink takes an empty baseline that signs its 
   expect(unlinkResponse.status).toBe(200);
   const unlinked = await unlinkResponse.json();
   expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
-  const baselineId = unlinkRequest.rotationBaseline?.id;
+  const baselineId = unlinkRequest.rotationBaseline?.at(-1)?.id;
   if (!baselineId) throw new Error("Expected a rotation baseline");
 
   // A new reader starts at the empty baseline and never meets the overclaim.
@@ -300,7 +300,7 @@ test("POST /documents/:documentId/unlink takes an empty baseline that signs its 
 });
 
 // The sync gates weigh a checkpoint the same way: an empty one that signs
-// its cursor covers an all-void log, and one without a cursor does not.
+// its cursor covers an all-void log, and one without a cursor is no group.
 test("POST /documents/:documentId/sync takes an empty checkpoint that signs its cursor", async () => {
   const { created, overclaimId, owner, root } = await documentWithOverclaim();
   const emptyCheckpoint = (coversThroughUpdateId?: string) =>
@@ -322,9 +322,11 @@ test("POST /documents/:documentId/sync takes an empty checkpoint that signs its 
     (await emptyCheckpoint()).request,
   );
   expect(uncovered.status).toBe(409);
-  expect((await uncovered.json()).code).toBe(
-    DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
-  );
+  expect(await uncovered.json()).toEqual({
+    code: DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
+    error:
+      "Document rotation baseline is not one whole group: a baseline with no operations is one segment that signs a processed cursor",
+  });
   expect(
     (
       await postDocumentSync(
@@ -366,13 +368,15 @@ test("POST /documents/:documentId/unlink refuses an empty baseline without a cur
         organizationId: asVerifiedContainerManifest(root.bundle).state
           .organizationId,
         owner,
-        sourceVersionVector: emptyVersionVector(),
+        coverage: emptyVersionVector(),
         targetHash: request.contentKeyBundle.targetHash,
       }),
     },
   );
-  expect(refused.status).toBe(400);
-  expect((await refused.json()).error).toBe(
-    "Document update declares no operations",
-  );
+  expect(refused.status).toBe(409);
+  expect(await refused.json()).toEqual({
+    code: DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
+    error:
+      "Document rotation baseline is not one whole group: a baseline with no operations is one segment that signs a processed cursor",
+  });
 });

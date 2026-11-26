@@ -1,9 +1,5 @@
 import type { createDocument } from "@tearleads/loro";
-import {
-  importSnapshot,
-  importUpdates,
-  isLoroRuntimeFailure,
-} from "@tearleads/loro";
+import { importUpdates, isLoroRuntimeFailure } from "@tearleads/loro";
 import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
 import {
   type LoroRuntimeAttempts,
@@ -12,42 +8,21 @@ import {
 
 type SyncDocument = Awaited<ReturnType<typeof createDocument>>;
 
-function splitDocumentSyncUpdates(
-  updates: readonly DecryptedDocumentSyncUpdate[],
-): {
-  checkpoints: DecryptedDocumentSyncUpdate[];
-  ordinaryUpdates: DecryptedDocumentSyncUpdate[];
-} {
-  const checkpoints: DecryptedDocumentSyncUpdate[] = [];
-  const ordinaryUpdates: DecryptedDocumentSyncUpdate[] = [];
-  for (const update of updates) {
-    if (
-      update.checkpointKind === "rotate_baseline" &&
-      update.checkpointPayloadKind === "full_history_snapshot"
-    ) {
-      checkpoints.push(update);
-    } else {
-      ordinaryUpdates.push(update);
-    }
-  }
-  return { checkpoints, ordinaryUpdates };
-}
-
-/** Applies checkpoints with the snapshot API before batching ordinary deltas. */
+/**
+ * Applies updates in one import. A rotation baseline's segments are updates
+ * like any other, and Loro pays for each import against the state it already
+ * holds, so a page's updates go in together: the 13 segments of a 51 MiB
+ * history took 7.7 s imported one at a time and about 0.5 s in one call.
+ */
 export function importDecryptedDocumentSyncUpdates(
   document: SyncDocument,
   updates: readonly DecryptedDocumentSyncUpdate[],
 ): void {
-  const { checkpoints, ordinaryUpdates } = splitDocumentSyncUpdates(updates);
-  for (const checkpoint of checkpoints) {
-    importSnapshot(document, checkpoint.updateData);
-  }
-  if (ordinaryUpdates.length > 0) {
-    importUpdates(
-      document,
-      ordinaryUpdates.map((update) => update.updateData),
-    );
-  }
+  if (updates.length === 0) return;
+  importUpdates(
+    document,
+    updates.map((update) => update.updateData),
+  );
 }
 
 /**

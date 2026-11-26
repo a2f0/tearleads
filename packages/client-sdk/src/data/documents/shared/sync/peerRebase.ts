@@ -287,8 +287,8 @@ function closeCut(
  * parts. An operation enters a record from the server or from a local
  * write, and a local write stays queued until the server acknowledges it,
  * so everything below `unsentStart` is committed. The queue can also send
- * committed operations again: a relay, a full-history baseline, and a
- * republished history each start a peer at counter zero. For those the
+ * committed operations again: a relay and a republished history each
+ * start a peer at counter zero. For those the
  * record's committed version decides, so no queued update lowers what a
  * settlement showed.
  */

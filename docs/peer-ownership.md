@@ -108,8 +108,8 @@ local write, and a local write stays queued until the server acknowledges it.
 So everything the record holds below where its queue starts is committed: on
 each peer, the lowest of its pending base and every queued update's start.
 
-**On record.** The queue can also send committed operations again. A relay, a
-rotation baseline, and a republished history each queue a peer from counter
+**On record.** The queue can also send committed operations again. A relay
+and a republished history each queue a peer from counter
 zero, and by its queue alone the device would then count nothing on that peer
 as committed, read a frontier that fell as an ordinary one, and write
 committed operations again on a fresh peer. So each record also keeps a
@@ -123,7 +123,7 @@ peer:
   rotation's raw-history rebuild counts the same way: the version its raw
   pull served, never an operation the device has not sent;
 - the server acknowledged an outgoing update: its span. A document create's
-  seed and a heal's baseline count the same way;
+  seed and the segments of a heal's baseline count the same way;
 - a rebase or a relay is installed: what the device knew when it planned the
   recovery. The one update the install queues may start below operations that
   were known committed only for being outside the queue.

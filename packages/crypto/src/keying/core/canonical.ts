@@ -159,15 +159,16 @@ export function documentContentRecordMetadata(
     partialEndVersionVector: input.partialEndVersionVector,
     dependencyVersionVector: input.dependencyVersionVector,
     plaintextHash: input.plaintextHash,
-    ...(input.checkpointKind === undefined
+    ...(input.baselineId === undefined ? {} : { baselineId: input.baselineId }),
+    ...(input.baselineSegmentIndex === undefined
       ? {}
-      : { checkpointKind: input.checkpointKind }),
-    ...(input.checkpointPayloadKind === undefined
+      : { baselineSegmentIndex: input.baselineSegmentIndex }),
+    ...(input.baselineSegmentCount === undefined
       ? {}
-      : { checkpointPayloadKind: input.checkpointPayloadKind }),
-    ...(input.sourceVersionVector === undefined
+      : { baselineSegmentCount: input.baselineSegmentCount }),
+    ...(input.baselineSegmentsDigest === undefined
       ? {}
-      : { sourceVersionVector: input.sourceVersionVector }),
+      : { baselineSegmentsDigest: input.baselineSegmentsDigest }),
     ...(input.coversThroughUpdateId === undefined
       ? {}
       : { coversThroughUpdateId: input.coversThroughUpdateId }),

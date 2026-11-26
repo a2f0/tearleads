@@ -74,7 +74,7 @@ test("raw-history sync bypasses an otherwise dominant rotation baseline", async 
     owner,
     root,
   });
-  const rotationBaselineId = unlinkRequest.rotationBaseline?.id;
+  const rotationBaselineId = unlinkRequest.rotationBaseline?.at(-1)?.id;
   if (!rotationBaselineId) {
     throw new Error("Expected unlink rotation baseline");
   }

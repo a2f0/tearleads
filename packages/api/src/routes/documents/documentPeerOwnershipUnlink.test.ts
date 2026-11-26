@@ -63,7 +63,7 @@ test("an unlink's rotation baseline cannot extend another user's peer", async ()
       linkedDocument,
       owner,
       root,
-      rotationBaselineSourceVersionVector: encodeVersionVectorCounters({
+      rotationBaselineCoverage: encodeVersionVectorCounters({
         [writerPeer]: end,
       }),
     });
@@ -78,9 +78,13 @@ test("an unlink's rotation baseline cannot extend another user's peer", async ()
   expect(await refused.json()).toMatchObject({
     code: DOCUMENT_SYNC_ERROR_CODES.peerOwned,
   });
-  const refusedBaselineId = extending.rotationBaseline?.id;
-  if (!refusedBaselineId) throw new Error("Expected a rotation baseline");
-  expect(await committedUpdateIds([refusedBaselineId])).toEqual([]);
+  const refusedSegmentIds = (extending.rotationBaseline ?? []).map(
+    (segment) => segment.id,
+  );
+  if (refusedSegmentIds.length === 0) {
+    throw new Error("Expected a rotation baseline");
+  }
+  expect(await committedUpdateIds(refusedSegmentIds)).toEqual([]);
 
   const covering = await postJson(
     owner.token,

@@ -6,8 +6,8 @@ import {
   type ParsedDocumentEncryptedUpdate,
   parseDocumentEncryptedUpdate,
 } from "@tearleads/crypto";
-import { versionVectorsEqual } from "@tearleads/loro";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import { classifyDocumentBaselineSegmentFields } from "@tearleads/validators/util";
 import { contentRecordAdditionalDataBytes } from "../contentRecordAdditionalData";
 import {
   deriveDocumentContentRecordKey,
@@ -21,6 +21,7 @@ import {
   readWriteHeader,
 } from "../readers";
 import { openAesGcmRecord } from "./aesGcmRecordOpening";
+import { documentBaselineSegmentFields } from "./baselineSegment";
 import type { DocumentContentKey } from "./contentKeyCommitment";
 import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
 import { isolateDocumentSyncUpdateError } from "./documentSyncUpdateIsolation";
@@ -36,22 +37,8 @@ async function assertDocumentEncryptedUpdateMatchesHeader(input: {
   update: SyncResponseUpdate;
 }): Promise<void> {
   const { encrypted, update } = input;
-  const hasCheckpointMetadata =
-    update.checkpointKind !== undefined ||
-    update.checkpointPayloadKind !== undefined ||
-    update.sourceVersionVector !== undefined ||
-    update.coversThroughUpdateId !== undefined;
-  if (
-    hasCheckpointMetadata &&
-    (update.checkpointKind !== "rotate_baseline" ||
-      update.checkpointPayloadKind !== "full_history_snapshot" ||
-      !update.sourceVersionVector ||
-      !versionVectorsEqual(
-        update.sourceVersionVector,
-        update.partialEndVersionVector,
-      ))
-  ) {
-    throw new Error("Document rotation checkpoint metadata mismatch");
+  if (classifyDocumentBaselineSegmentFields(update) === "invalid") {
+    throw new Error("Document rotation baseline segment metadata mismatch");
   }
   if (encrypted.contentKeyEpoch !== input.contentKeyEpoch) {
     throw new Error("Document encrypted update content-key epoch mismatch");
@@ -67,21 +54,12 @@ async function assertDocumentEncryptedUpdateMatchesHeader(input: {
   }
 
   const metadataHash = await computeDocumentContentRecordMetadataHash({
-    ...(update.checkpointKind === undefined
-      ? {}
-      : { checkpointKind: update.checkpointKind }),
-    ...(update.checkpointPayloadKind === undefined
-      ? {}
-      : { checkpointPayloadKind: update.checkpointPayloadKind }),
-    coversThroughUpdateId: update.coversThroughUpdateId,
+    ...documentBaselineSegmentFields(update),
     dependencyVersionVector: update.dependencyVersionVector,
     documentId: input.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,
     plaintextHash: update.plaintextHash,
-    ...(update.sourceVersionVector === undefined
-      ? {}
-      : { sourceVersionVector: update.sourceVersionVector }),
     updateId: update.id,
   });
   if (
@@ -326,19 +304,13 @@ export async function decryptDocumentSyncUpdate(input: {
     });
   }
   return {
-    ...(input.update.checkpointKind === undefined
+    ...(input.update.baselineId === undefined
       ? {}
-      : { checkpointKind: input.update.checkpointKind }),
-    ...(input.update.checkpointPayloadKind === undefined
-      ? {}
-      : { checkpointPayloadKind: input.update.checkpointPayloadKind }),
+      : { baselineId: input.update.baselineId }),
     dependencyVersionVector: input.update.dependencyVersionVector,
     id: input.update.id,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
-    ...(input.update.sourceVersionVector === undefined
-      ? {}
-      : { sourceVersionVector: input.update.sourceVersionVector }),
     updateData,
   };
 }

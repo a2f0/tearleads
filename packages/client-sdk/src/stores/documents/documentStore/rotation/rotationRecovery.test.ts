@@ -2,8 +2,6 @@ import { expect, test } from "bun:test";
 import { base64ToBytes } from "@tearleads/encoding";
 import {
   createDocument,
-  encodeVersionVector,
-  exportFullHistorySnapshot,
   getTextValue,
   importSnapshot,
   importUpdates,
@@ -133,14 +131,16 @@ test("rotation commits pending writes before consecutive raw recoveries", async 
   }
 });
 
-test("raw recovery rejects a checkpoint-only local history gap", async () => {
+// A local edit the pending base was advanced past without a queued update
+// is a gap: no served update and no queued update carries it.
+test("raw recovery rejects a local history gap no queued update carries", async () => {
   const { close, execSql } = await createTestExecSql(
-    "rotation-recovery-fast-baseline-echo",
+    "rotation-recovery-unqueued-gap",
   );
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
-    const localId = "rotation-recovery-fast-baseline-echo-local";
+    const localId = "rotation-recovery-unqueued-gap-local";
     await persistFullHistoryDocument({
       doc: fixture.remoteDocument,
       documentId: fixture.writerProjection.documentId,
@@ -168,16 +168,10 @@ test("raw recovery rejects a checkpoint-only local history gap", async () => {
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
     if (!state.doc) throw new Error("Expected full-history document");
 
-    state.doc.getText("text").update("checkpoint-only local edit");
+    state.doc.getText("text").update("unqueued local edit");
     await persistDocument(state, state.doc);
     advancePendingBaseVersion(state, state.doc);
-    await enqueuePendingUpdate(
-      state,
-      exportFullHistorySnapshot(state.doc),
-      encodeVersionVector(state.doc),
-    );
-    const queuedCheckpoint = (await listPendingUpdates(state))[0];
-    if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
+    expect(await listPendingUpdates(state)).toEqual([]);
     // A rebuild trying an update's absence that fails on the local gap, not
     // on its comparison, says nothing of that update.
     const trying = {
@@ -208,12 +202,8 @@ test("raw recovery rejects a checkpoint-only local history gap", async () => {
     expect(submittedIds).toHaveLength(1);
     expect(submittedIds[0]).toEqual([]);
     expect(historyModes).toEqual(["raw"]);
-    expect(
-      (await listPendingUpdates(state)).map((update) => update.id),
-    ).toEqual([queuedCheckpoint.id]);
-    expect(state.doc && getTextValue(state.doc)).toBe(
-      "checkpoint-only local edit",
-    );
+    expect(await listPendingUpdates(state)).toEqual([]);
+    expect(state.doc && getTextValue(state.doc)).toBe("unqueued local edit");
   } finally {
     close();
   }

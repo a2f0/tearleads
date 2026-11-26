@@ -208,7 +208,10 @@ async function persistSyncedDocument(
         ...synced.persistedState,
         lastCommitLsn:
           synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
-        pullContinuation: readPullContinuation(synced.response),
+        pullContinuation: readPullContinuation(
+          synced.response,
+          synced.baselineGroupRun,
+        ),
         ...coveredSyncFrontier(state, currentRecord, synced),
       },
       {

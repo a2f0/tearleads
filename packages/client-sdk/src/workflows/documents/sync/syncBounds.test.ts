@@ -12,18 +12,30 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
-import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
+import {
+  MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+} from "@tearleads/validators/util";
 import {
   createPendingUpdateRecord,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/data/documentFixtures";
+import { SMALL_BASELINE_SEGMENTS } from "../../../../test/helpers/data/rotationBaselineFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
+import { createLoroPendingUpdate } from "../../../../test/helpers/workflows/documentSyncFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
-import { createStaleBundleSyncFixture } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
+import {
+  createInterleavedHistoryDocument,
+  createStaleBundleSyncFixture,
+} from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  rotationBaselineDataCharacters,
+  segmentRotationSnapshot,
+} from "../syncPlan/rotationBaselineGroup";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 
@@ -112,48 +124,66 @@ test("conflict recovery re-keys only updates submitted by a bounded request", as
   expect(synced?.hasDeferredPendingUpdates).toBe(true);
 });
 
-test("a heal classifies a queued checkpoint beyond the outgoing batch prefix", async () => {
+// A heal's baseline goes whole or the heal does not go, so the group takes
+// its places in the request first and the queue fills what is left.
+test("a heal's baseline group takes its room ahead of a full queue", async () => {
   const fixture = await createStaleBundleSyncFixture();
-  const doc = await createDocument("tail-checkpoint-source");
-  doc.getText("text").update("history covered by the tail checkpoint");
-  doc.commit();
-  const update = exportAllUpdates(doc);
-  const vectors = getUpdateVersionVectors(update);
-  const ordinaryUpdates = Array.from({ length: 64 }, (_, index) =>
-    createPendingUpdateRecord({
+  const document = await createInterleavedHistoryDocument("full-queue-heal");
+  const queuedEdit = await createLoroPendingUpdate("queued behind the heal");
+  const pendingUpdates = Array.from(
+    { length: MAX_DOCUMENT_SYNC_OUTGOING_UPDATES },
+    (_, index) => ({
+      ...queuedEdit,
       id: `550e8400-e29b-41d4-a716-${String(index).padStart(12, "0")}`,
-      updateData: bytesToBase64(update),
-      ...vectors,
     }),
   );
-  const tailCheckpoint = createPendingUpdateRecord({
-    id: "550e8400-e29b-41d4-a716-446655440999",
-    sourceVersionVector: vectors.partialEndVersionVector,
-    updateData: bytesToBase64(exportFullHistorySnapshot(doc)),
-    partialStartVersionVector: "{}",
-    partialEndVersionVector: vectors.partialEndVersionVector,
-  });
 
   const materialized = await buildMaterializedDocumentSyncPlan({
     author: fixture.author,
-    buildRotationSnapshot: async () => exportFullHistorySnapshot(doc),
+    buildRotationSnapshot: async () => exportFullHistorySnapshot(document),
     localVersionVector: null,
-    pendingUpdates: [...ordinaryUpdates, tailCheckpoint],
+    pendingUpdates,
+    rotationBaselineSegmentSizes: SMALL_BASELINE_SEGMENTS,
     signedAt: "2026-07-26T00:00:00.000Z",
     targetSecretKey: fixture.secretKey,
     trustedLocalProjection: true,
     writerProjection: fixture.staleWriterProjection,
   });
 
-  expect(materialized.plan.request.outgoingUpdates).toHaveLength(64);
-  expect(materialized.plan.request.outgoingUpdates[0]?.checkpointKind).toBe(
-    "rotate_baseline",
-  );
+  const segmentIds = materialized.rotationBaselineUpdateIds ?? [];
+  expect(segmentIds.length).toBeGreaterThan(2);
+  const queuedCount = MAX_DOCUMENT_SYNC_OUTGOING_UPDATES - segmentIds.length;
+  const { outgoingUpdates } = materialized.plan.request;
+  expect(outgoingUpdates.map(({ id }) => id)).toEqual([
+    ...segmentIds,
+    ...pendingUpdates.slice(0, queuedCount).map(({ id }) => id),
+  ]);
   expect(
-    materialized.plan.request.outgoingUpdates.map(({ id }) => id),
-  ).not.toContain(tailCheckpoint.id);
-  expect(materialized.heldBackPendingUpdateIds).toEqual([tailCheckpoint.id]);
+    outgoingUpdates.map(({ baselineSegmentIndex }) => baselineSegmentIndex),
+  ).toEqual([
+    ...segmentIds.map((_, index) => index),
+    ...Array.from({ length: queuedCount }, () => undefined),
+  ]);
 });
+
+/**
+ * A document of one insert of incompressible text, `slackBytes` short of the
+ * plaintext that base64 turns into a whole request's worth of characters.
+ */
+async function documentNearRequestLimit(name: string, slackBytes: number) {
+  const characters = new Uint8Array(
+    (MAX_DOCUMENT_SYNC_REQUEST_BYTES / 4) * 3 - slackBytes,
+  );
+  let seed = 7;
+  for (let index = 0; index < characters.length; index += 1) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    characters[index] = 33 + ((seed >>> 24) % 94);
+  }
+  const document = await createDocument(name);
+  document.getText("text").insert(0, new TextDecoder().decode(characters));
+  document.commit();
+  return document;
+}
 
 /**
  * A real Loro update (encryption reads its dependencies) whose base64 fits
@@ -161,17 +191,7 @@ test("a heal classifies a queued checkpoint beyond the outgoing batch prefix", a
  */
 async function updateNearRequestLimit() {
   // Loro frames this incompressible text in about a hundred bytes.
-  const characters = new Uint8Array(
-    (MAX_DOCUMENT_SYNC_REQUEST_BYTES / 4) * 3 - 128,
-  );
-  let seed = 7;
-  for (let index = 0; index < characters.length; index += 1) {
-    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    characters[index] = 33 + ((seed >>> 24) % 94);
-  }
-  const document = await createDocument("near-request-limit");
-  document.getText("text").insert(0, new TextDecoder().decode(characters));
-  document.commit();
+  const document = await documentNearRequestLimit("near-request-limit", 128);
   const update = exportAllUpdates(document);
   document.free();
   const updateData = bytesToBase64(update);
@@ -183,6 +203,84 @@ async function updateNearRequestLimit() {
   );
   return { ...getUpdateVersionVectors(update), updateData };
 }
+
+/**
+ * A full-history snapshot whose baseline, cut at the default sizes, is
+ * several segments that together fit the preliminary plaintext-character
+ * bound with little to spare.
+ */
+async function snapshotNearRequestLimit() {
+  // Each segment is framed apart, so the history leaves room for a few.
+  const document = await documentNearRequestLimit("near-limit-history", 2048);
+  const snapshot = exportFullHistorySnapshot(document);
+  document.free();
+  const history = segmentRotationSnapshot({
+    purpose: "Near-limit history fixture",
+    snapshot,
+  });
+  expect(history.segments.length).toBeGreaterThan(1);
+  const dataCharacters = rotationBaselineDataCharacters(history);
+  expect(dataCharacters).toBeLessThanOrEqual(MAX_DOCUMENT_SYNC_REQUEST_BYTES);
+  expect(dataCharacters).toBeGreaterThan(
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES - 4096,
+  );
+  return snapshot;
+}
+
+// A baseline is not trimmed to fit as a queue is: every segment has to lead
+// the request that rotates. One that cannot ends in the failure an oversized
+// queued update ends in, and nothing is sent.
+test("a heal whose baseline group cannot fit records a terminal queue failure", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  // The server marks the bundle stale; the container path itself is current,
+  // so the pass verifies and records it as any sync does.
+  const staleProjection = {
+    ...fixture.writerProjection,
+    contentKeyBundleStale: true as const,
+  };
+  // The segments fit the preliminary plaintext-character bound, which
+  // reserves their characters and places ahead of the queue. Encrypting and
+  // signing each one makes the final JSON exceed 16 MiB.
+  const snapshot = await snapshotNearRequestLimit();
+  const terminalFailures: DocumentSyncSubmitFailure[] = [];
+  const abandonedReasons: string[] = [];
+  let submitCount = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: createMockApiClient({
+      getDocumentWriterProjection: async () => staleProjection,
+      syncDocument: async () => {
+        submitCount += 1;
+        throw new Error("An oversized plan must not reach the network");
+      },
+    }),
+    author: fixture.author,
+    buildRotationSnapshot: async () => snapshot,
+    documentId: staleProjection.documentId,
+    execSql,
+    localVersionVector: null,
+    onSyncAbandoned: (reason) => abandonedReasons.push(reason),
+    onTerminalSubmitFailure: (failure) => {
+      terminalFailures.push(failure);
+    },
+    pendingUpdates: [await createLoroPendingUpdate("queued behind the heal")],
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver(fixture),
+    targetSecretKey: fixture.secretKey,
+    writerProjection: staleProjection,
+  });
+
+  expect(synced).toBeNull();
+  expect(submitCount).toBe(0);
+  expect(terminalFailures).toHaveLength(1);
+  expect(terminalFailures[0]?.code).toBe("document_sync_request_too_large");
+  expect(terminalFailures[0]?.message).toBe(
+    "Document sync required updates exceed the request limit",
+  );
+  expect(abandonedReasons).toEqual([
+    "a queued update or rotation baseline cannot fit within the document sync request limit",
+  ]);
+});
 
 test("an encrypted update that cannot fit records a terminal queue failure", async () => {
   const {
@@ -231,7 +329,7 @@ test("an encrypted update that cannot fit records a terminal queue failure", asy
     "cannot fit within the request limit",
   );
   expect(abandonedReasons).toEqual([
-    "a queued update cannot fit within the document sync request limit",
+    "a queued update or rotation baseline cannot fit within the document sync request limit",
   ]);
 });
 

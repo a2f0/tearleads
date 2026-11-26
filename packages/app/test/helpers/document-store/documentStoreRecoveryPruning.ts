@@ -8,12 +8,6 @@ import {
   updateMatchesDocumentHistory,
 } from "@tearleads/loro";
 
-interface RecoveryPendingUpdate {
-  id: string;
-  sourceVersionVector?: string | null;
-  updateData: string;
-}
-
 interface RecoveryHistoryTailEntry {
   id: string;
   updateData: string;
@@ -30,49 +24,40 @@ type RecoveryHistoryCheckpoint = NonNullable<
   >[1]["historyCheckpoint"]
 >;
 
-async function findCoveredMemoryRecoveryLocalState(input: {
+/**
+ * The tail entries a recovery snapshot covers. A queued update is local work
+ * no server history can stand for, so any one refuses the install.
+ */
+async function findCoveredMemoryRecoveryTailIds(input: {
   recoverySnapshot: string;
-  pendingUpdates: readonly RecoveryPendingUpdate[];
+  pendingUpdateCount: number;
   tail: readonly RecoveryHistoryTailEntry[];
-}): Promise<{ pendingUpdateIds: string[]; tailIds: string[] }> {
-  if (
-    input.pendingUpdates.some(
-      (pendingUpdate) => pendingUpdate.sourceVersionVector == null,
-    )
-  ) {
+}): Promise<string[]> {
+  if (input.pendingUpdateCount > 0) {
     throw new Error(
       "Document recovery found unproven pending updates before installation",
     );
   }
-  const checkpointUpdateData = new Set(
-    input.pendingUpdates.map((pendingUpdate) => pendingUpdate.updateData),
-  );
   const recoveredDocument = await createDocument("memory-recovery-tail-gate");
   try {
     importSnapshot(recoveredDocument, base64ToBytes(input.recoverySnapshot));
-    return {
-      pendingUpdateIds: input.pendingUpdates.map(
-        (pendingUpdate) => pendingUpdate.id,
-      ),
-      tailIds: input.tail.flatMap((entry) => {
-        if (checkpointUpdateData.has(entry.updateData)) return [entry.id];
-        try {
-          if (
-            updateMatchesDocumentHistory(
-              recoveredDocument,
-              base64ToBytes(entry.updateData),
-            )
-          ) {
-            return [entry.id];
-          }
-        } catch {
-          // Fall through: malformed history is not proven by the rebuild.
+    return input.tail.flatMap((entry) => {
+      try {
+        if (
+          updateMatchesDocumentHistory(
+            recoveredDocument,
+            base64ToBytes(entry.updateData),
+          )
+        ) {
+          return [entry.id];
         }
-        throw new Error(
-          "Document recovery found unverified history tail before installation",
-        );
-      }),
-    };
+      } catch {
+        // Fall through: malformed history is not proven by the rebuild.
+      }
+      throw new Error(
+        "Document recovery found unverified history tail before installation",
+      );
+    });
   } finally {
     recoveredDocument.free();
   }
@@ -115,15 +100,15 @@ async function recoveryCheckpointCanReplace(input: {
 export async function applyMemoryHistoryCheckpoint(input: {
   checkpoint: RecoveryHistoryCheckpoint;
   history: MutableRecoveryHistory;
-  pendingUpdates: readonly RecoveryPendingUpdate[];
-}): Promise<string[]> {
-  const coveredRecoveryState = input.checkpoint.pruneCoveredLocalState
-    ? await findCoveredMemoryRecoveryLocalState({
+  pendingUpdateCount: number;
+}): Promise<void> {
+  const recoveryCoveredTailIds = input.checkpoint.pruneCoveredLocalState
+    ? await findCoveredMemoryRecoveryTailIds({
         recoverySnapshot: input.checkpoint.snapshot,
-        pendingUpdates: input.pendingUpdates,
+        pendingUpdateCount: input.pendingUpdateCount,
         tail: input.history.tail,
       })
-    : { pendingUpdateIds: [], tailIds: [] };
+    : [];
   if (
     !(await recoveryCheckpointCanReplace({
       candidate: input.checkpoint,
@@ -135,11 +120,11 @@ export async function applyMemoryHistoryCheckpoint(input: {
         "Document recovery checkpoint was superseded before installation",
       );
     }
-    return [];
+    return;
   }
   const coveredTailIds = new Set(
     input.checkpoint.pruneCoveredLocalState
-      ? coveredRecoveryState.tailIds
+      ? recoveryCoveredTailIds
       : input.checkpoint.coveredTailIds,
   );
   input.history.checkpoint = {
@@ -149,5 +134,4 @@ export async function applyMemoryHistoryCheckpoint(input: {
   input.history.tail = input.history.tail.filter(
     ({ id }) => !coveredTailIds.has(id),
   );
-  return coveredRecoveryState.pendingUpdateIds;
 }

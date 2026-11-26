@@ -95,7 +95,7 @@ async function rotatedDocument() {
     unlinkRequest,
   );
   expect(isDocumentLinkSetMutationResponse(rotated)).toBe(true);
-  const baselineId = unlinkRequest.rotationBaseline?.id;
+  const baselineId = unlinkRequest.rotationBaseline?.at(-1)?.id;
   if (baselineId === undefined) throw new Error("Expected a baseline");
   return { baselineId, created, judged, missed, owner, rotated };
 }

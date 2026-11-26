@@ -43,12 +43,10 @@ for (const [name, createPersistence] of persistenceFactories) {
     };
 
     await persistence.saveDocument(execSql, initialRecord);
-    await persistence.enqueuePendingUpdate(execSql, {
+    await persistence.appendHistoryUpdates(execSql, {
       localId,
-      partialEndVersionVector: recoveredVersion,
-      partialStartVersionVector: initialVersion,
-      sourceVersionVector: recoveredVersion,
-      updateData,
+      origin: "remote",
+      updates: [updateData],
     });
 
     const mutation = {
@@ -73,11 +71,10 @@ for (const [name, createPersistence] of persistenceFactories) {
         throw new Error("projection failed");
       }),
     ).rejects.toThrow("projection failed");
-    expect(persistence.getState().pendingUpdates).toHaveLength(1);
     expect(
       (await persistence.loadHistoryRestoreState(execSql, localId))
         ?.tailUpdates,
-    ).toHaveLength(1);
+    ).toEqual([{ origin: "remote", updateData }]);
     expect(await persistence.loadDocument(execSql, localId)).toEqual(
       initialRecord,
     );
@@ -85,7 +82,6 @@ for (const [name, createPersistence] of persistenceFactories) {
     await expect(
       persistence.commitDocumentMutation(execSql, mutation, async () => {}),
     ).resolves.toMatchObject({ committed: true });
-    expect(persistence.getState().pendingUpdates).toHaveLength(0);
     expect(await persistence.loadHistoryRestoreState(execSql, localId)).toEqual(
       { snapshot: recoveredSnapshot, tailUpdates: [] },
     );
@@ -118,7 +114,6 @@ for (const [name, createPersistence] of persistenceFactories) {
       localId,
       partialEndVersionVector: vectors.partialEndVersionVector,
       partialStartVersionVector: vectors.partialStartVersionVector,
-      sourceVersionVector: null,
       updateData: bytesToBase64(updateBytes),
     });
 
@@ -147,61 +142,6 @@ for (const [name, createPersistence] of persistenceFactories) {
     ).toHaveLength(1);
     expect(await persistence.loadDocument(execSql, localId)).toEqual(
       initialRecord,
-    );
-  });
-
-  test(`${name} quarantines an unverified checkpoint artifact`, async () => {
-    const persistence = createPersistence();
-    const execSql: Parameters<DocumentsPersistence["saveDocument"]>[0] =
-      async () => [];
-    const localId = `recovery-checkpoint-race-${name}`;
-    const loroDocument = await createDocument(localId);
-    loroDocument.getText("text").update("verified base");
-    const recoveredVersion = encodeVersionVector(loroDocument);
-    const recoveredSnapshot = bytesToBase64(
-      exportFullHistorySnapshot(loroDocument),
-    );
-    const initialRecord = {
-      accessEpoch: 1,
-      containerId: "container-1",
-      documentId: "document-1",
-      id: localId,
-      snapshotEndVersion: recoveredVersion,
-      text: "verified base",
-    };
-    await persistence.saveDocument(execSql, initialRecord);
-    loroDocument.getText("text").update("unverified checkpoint history");
-    const checkpointBytes = exportFullHistorySnapshot(loroDocument);
-    const vectors = getUpdateVersionVectors(checkpointBytes);
-    await persistence.enqueuePendingUpdate(execSql, {
-      localId,
-      partialEndVersionVector: vectors.partialEndVersionVector,
-      partialStartVersionVector: vectors.partialStartVersionVector,
-      sourceVersionVector: vectors.partialEndVersionVector,
-      updateData: bytesToBase64(checkpointBytes),
-    });
-
-    await expect(
-      persistence.commitDocumentMutation(
-        execSql,
-        {
-          acceptedPendingUpdateIds: [],
-          document: initialRecord,
-          expectedRecord: initialRecord,
-          historyCheckpoint: {
-            coveredTailIds: [],
-            endVersionVector: recoveredVersion,
-            pruneCoveredLocalState: true,
-            snapshot: recoveredSnapshot,
-          },
-          settleAcceptedPendingOnConflict: false,
-        },
-        async () => undefined,
-      ),
-    ).resolves.toMatchObject({ committed: true });
-    expect(persistence.getState().pendingUpdates).toEqual([]);
-    expect(await persistence.loadHistoryRestoreState(execSql, localId)).toEqual(
-      { snapshot: recoveredSnapshot, tailUpdates: [] },
     );
   });
 

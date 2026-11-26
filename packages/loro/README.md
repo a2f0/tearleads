@@ -38,8 +38,11 @@ imports them in order through `importUpdates`. It returns a generator that
 exports each segment when the caller asks for it, so a caller that hands each
 one on never holds the history twice. Each segment carries its index and the
 vectors `getUpdateVersionVectors` reads from it. An empty document has no
-segments. Nothing calls it yet: it is the first step toward a rotation
-baseline that is a run of updates instead of one snapshot.
+segments. The client SDK's rotation writer calls it to cut the history a
+rotation proved into the segments of a
+[rotation baseline](../../docs/glossary/keys.md#rotation-baseline), and the
+API walks a baseline group's declared spans by the rule
+`historySegmentsImportInOrder` states.
 
 - **Cuts.** A segment may start and end at any counter of any peer: between
   changes, inside a change, or inside one long text or list insert. The
@@ -96,11 +99,14 @@ history, and each matches every holder.
 
 `updateMatchesDocumentHistory` first compares a blob with the holder's own
 export of the same range, and expands operations only when the bytes differ.
-It gives that export its spans in the order the blob's vectors list them. On
-the document a segment came from, that finds a segment of one peer equal at
-once. For a segment of several peers the two orders can differ, and on
-another holder the changes can; it then compares canonical forms, which
-gives the same answer at more cost.
+It gives that export its spans in the order the blob's vectors list them,
+and when those bytes differ and peer order is another order, once more in
+peer order, the order a segment was exported in. So the document a segment
+came from finds it equal in one export or two, whether it holds one peer or
+several. On another holder the changes can differ; the comparison then
+falls back to canonical forms, which give the same answer at more cost.
+[`updateIdentityFastPath.test.ts`](./src/updateIdentityFastPath.test.ts)
+counts the expansions.
 
 A reader pays for each import against the state it already holds. Importing
 the 13 segments of a 51 MiB history one at a time into an attached document
@@ -224,7 +230,8 @@ to each commit, never read from the clock) and the way each holder was fed.
 ## Import refusals
 
 Import blobs through `importUpdates` and `importSnapshot`, never through a
-document's own `import`. Loro throws its refusals as bare strings; these
+document's own `import`. A rotation baseline's segments are update blobs and
+go through `importUpdates`. Loro throws its refusals as bare strings; these
 helpers name the ones callers act on:
 
 - `LoroReusedOperationIdError`: the blob carries an operation id the document
