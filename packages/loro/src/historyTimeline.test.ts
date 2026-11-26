@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { type Change, LoroMap, type PeerID } from "loro-crdt";
+import { orderHistoryStopsByLamport } from "./historyTimeline";
 import {
   createDocument,
   createReadOnlyDocument,
@@ -262,6 +263,40 @@ test("changes without a recorded time fall back to causal order", () => {
 
   expect(labels(stops)).toEqual(["1@0", "2@0", "1@1"]);
   expect(stops.every((stop) => stop.timestamp === null)).toBe(true);
+});
+
+test("Lamport order ignores recorded times", () => {
+  const stops = orderHistoryStopsByLamport(
+    new Map<PeerID, Change[]>([
+      [
+        "1",
+        [
+          change("1", 0, { lamport: 0, timestamp: 900 }),
+          change("1", 1, { lamport: 5, timestamp: 100 }),
+        ],
+      ],
+      ["20", [change("20", 0, { lamport: 3, timestamp: 10 })]],
+      ["3", [change("3", 0, { lamport: 3, timestamp: 50 })]],
+    ]),
+  );
+
+  expect(labels(stops)).toEqual(["1@0", "3@0", "20@0", "1@1"]);
+});
+
+test("Lamport order keeps a dependency first even when Lamport times lie", () => {
+  const stops = orderHistoryStopsByLamport(
+    new Map<PeerID, Change[]>([
+      ["1", [change("1", 0, { lamport: 9 })]],
+      // Loro derives a change's Lamport time from its dependencies. This one
+      // claims a time before the change it builds on.
+      [
+        "2",
+        [change("2", 0, { deps: [{ counter: 0, peer: "1" }], lamport: 0 })],
+      ],
+    ]),
+  );
+
+  expect(labels(stops)).toEqual(["1@0", "2@0"]);
 });
 
 test("a dependency on history that is not held is ignored", () => {

@@ -45,36 +45,45 @@ export function createReadOnlyDocument(): LoroDoc {
   return new LoroDoc();
 }
 
-function comparePeerIds(left: PeerID, right: PeerID): number {
-  // Peer ids are decimal strings of unequal length: order them numerically.
+/** Orders peer ids, decimal strings of unequal length, numerically. */
+export function comparePeerIds(left: PeerID, right: PeerID): number {
   if (left.length !== right.length) return left.length - right.length;
   return left < right ? -1 : Number(left > right);
 }
 
 interface TimelineNode {
   readonly stop: HistoryStop;
-  /** Sort key: the recorded time, or 0 when there is none. */
-  readonly time: number;
   /** Nodes that cannot play before this one. */
   readonly dependents: number[];
   unmetDependencies: number;
 }
 
-function playsBefore(left: TimelineNode, right: TimelineNode): boolean {
-  if (left.time !== right.time) return left.time < right.time;
-  if (left.stop.lamport !== right.stop.lamport) {
-    return left.stop.lamport < right.stop.lamport;
-  }
-  const peerOrder = comparePeerIds(left.stop.peerId, right.stop.peerId);
-  if (peerOrder !== 0) return peerOrder < 0;
-  return left.stop.startCounter < right.stop.startCounter;
-}
+/** Which of two changes plays first when neither depends on the other. */
+type StopOrder = (left: HistoryStop, right: HistoryStop) => boolean;
 
-/** A binary min-heap of node indexes ordered by {@link playsBefore}. */
+const lamportBefore: StopOrder = (left, right) => {
+  if (left.lamport !== right.lamport) return left.lamport < right.lamport;
+  const peerOrder = comparePeerIds(left.peerId, right.peerId);
+  if (peerOrder !== 0) return peerOrder < 0;
+  return left.startCounter < right.startCounter;
+};
+
+/** A change that carries no recorded time sorts as time 0. */
+const recordedTimeBefore: StopOrder = (left, right) => {
+  const leftTime = left.timestamp ?? 0;
+  const rightTime = right.timestamp ?? 0;
+  if (leftTime !== rightTime) return leftTime < rightTime;
+  return lamportBefore(left, right);
+};
+
+/** A binary min-heap of node indexes ordered by a {@link StopOrder}. */
 class ReadyQueue {
   private readonly heap: number[] = [];
 
-  constructor(private readonly nodes: readonly TimelineNode[]) {}
+  constructor(
+    private readonly nodes: readonly TimelineNode[],
+    private readonly playsBefore: StopOrder,
+  ) {}
 
   get size(): number {
     return this.heap.length;
@@ -119,7 +128,7 @@ class ReadyQueue {
     return (
       leftNode !== undefined &&
       rightNode !== undefined &&
-      playsBefore(leftNode, rightNode)
+      this.playsBefore(leftNode.stop, rightNode.stop)
     );
   }
 
@@ -193,12 +202,7 @@ function buildTimelineGraph(
     for (const change of ordered) {
       const stop = toHistoryStop(peerId, change);
       peerNodes.push({ index: graph.nodes.length, stop });
-      graph.nodes.push({
-        stop,
-        time: stop.timestamp ?? 0,
-        dependents: [],
-        unmetDependencies: 0,
-      });
+      graph.nodes.push({ stop, dependents: [], unmetDependencies: 0 });
       graph.declaredDependencies.push(change.deps);
     }
     graph.nodesByPeer.set(peerId, peerNodes);
@@ -244,8 +248,11 @@ function linkDependencies(graph: TimelineGraph): void {
 }
 
 /** Play every node whose dependencies have played, earliest first. */
-function playInOrder(nodes: readonly TimelineNode[]): HistoryStop[] {
-  const ready = new ReadyQueue(nodes);
+function playInOrder(
+  nodes: readonly TimelineNode[],
+  playsBefore: StopOrder,
+): HistoryStop[] {
+  const ready = new ReadyQueue(nodes, playsBefore);
   for (const [index, node] of nodes.entries()) {
     if (node.unmetDependencies === 0) ready.push(index);
   }
@@ -276,9 +283,30 @@ function playInOrder(nodes: readonly TimelineNode[]): HistoryStop[] {
 export function orderHistoryStops(
   changes: ReadonlyMap<PeerID, readonly Change[]>,
 ): HistoryStop[] {
+  return orderStops(changes, recordedTimeBefore);
+}
+
+/**
+ * Order every change by Lamport time, then peer. A change's Lamport time is
+ * past that of every operation it depends on, so for a document Loro built
+ * this is a plain sort. The dependency check keeps every prefix a real
+ * version even if a holder met Lamport times that break that rule. Recorded
+ * times play no part, so every holder of the same changes computes the same
+ * order whatever clocks the writers had.
+ */
+export function orderHistoryStopsByLamport(
+  changes: ReadonlyMap<PeerID, readonly Change[]>,
+): HistoryStop[] {
+  return orderStops(changes, lamportBefore);
+}
+
+function orderStops(
+  changes: ReadonlyMap<PeerID, readonly Change[]>,
+  playsBefore: StopOrder,
+): HistoryStop[] {
   const graph = buildTimelineGraph(changes);
   linkDependencies(graph);
-  const stops = playInOrder(graph.nodes);
+  const stops = playInOrder(graph.nodes, playsBefore);
   if (stops.length !== graph.nodes.length) {
     // Unreachable for a real document: its changes form an acyclic graph.
     throw new Error("Document history has a dependency cycle.");

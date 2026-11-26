@@ -91,6 +91,7 @@ remove them when the stated checks pass without the pin.
   [overlapping ranges](../packages/loro/src/historyOverlap.test.ts)),
   the [runtime contract](../packages/loro/src/runtimeContract.test.ts), the
   [import refusals](../packages/loro/src/importRefusal.test.ts), the
+  [history segments](../packages/loro/src/historySegments.test.ts), the
   [text write budgets](../packages/loro/src/textUpdate.test.ts), and the
   complete SDK rotation, recovery, provenance, and settlement suites pass, with
   the API suite (`bun run check:package @tearleads/api`), whose Worker loads
