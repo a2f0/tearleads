@@ -87,7 +87,8 @@ fails the gate. Changes to workflows, CI scripts, tool pins, or
 classifier compares the merge base's and head's lockfiles with those fields
 removed, so a dependency, resolution, integrity, or workspace-set change still
 selects every lane, and a lockfile it cannot read or parse counts as changed.
-A version bump inside a lane's paths, such as `packages/app-capacitor`, still
+A version bump inside a lane's paths, such as
+[`packages/app-capacitor`](../../packages/app-capacitor/), still
 selects that lane. CI runs on pull requests and `main` pushes only, so a
 feature-branch push does not duplicate the pull-request run.
 
