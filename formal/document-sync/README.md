@@ -183,9 +183,11 @@ the row. So does a listed access head that is not the one the record's key
 bundle was issued under, before the row is applied. A store that opens later
 reads the debt, and a hint that names a document with no loaded store is
 remembered until one loads. TLC checks that some evidence of an unread edit or
-an unread access head always survives, through crashes, reads in flight and
-reads a lagging replica serves, and that the client eventually holds the
-server's version. See the
+an unread access head always survives, through crashes and reads in flight,
+that evidence of an unread edit also survives a read a lagging replica
+serves, and that the client eventually holds the server's version. The head a
+lagging replica returns is assumed current: a debt owed for a head alone is
+settled by any completed pull. See the
 [production mapping and negative controls](./DocumentListingConvergence.md).
 
 [`DocumentLanePolling.tla`](./DocumentLanePolling.tla) models the step

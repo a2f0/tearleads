@@ -1,12 +1,12 @@
 import { cpus } from "node:os";
 import { sourceIdentity } from "./database/artifacts";
-import { saveJson } from "./realtime/artifacts";
 import { type InProcessApi, startInProcessApi } from "./realtime/inProcessApi";
 import {
   parseLocalDatabaseUrl,
   startPostgresProxy,
 } from "./realtime/postgresProxy";
 import type { PostgresTraffic } from "./realtime/postgresWire";
+import { saveJson } from "./reportFiles";
 
 export interface InProcessProbeContext {
   readonly api: InProcessApi;

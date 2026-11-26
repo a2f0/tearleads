@@ -1,9 +1,11 @@
 import { clearOriginatedDocuments } from "../../data/sync/originatedDocuments";
+import { defersToCatchUp, IDLE_CATCH_UP } from "./catchUpMachine";
 import {
+  dispatchCatchUp,
   requestAcknowledgedConnectionSweep,
-  requestFullRefresh,
-  requestRootRefresh,
-} from "./containerRefresh";
+  stopCatchUp,
+} from "./connectionCatchUp";
+import { requestFullRefresh, requestRootRefresh } from "./containerRefresh";
 import {
   acknowledgeContainerForce,
   activateContainer,
@@ -29,10 +31,21 @@ import type { ReconciliationHost, ReconciliationService } from "./serviceTypes";
  */
 const RECONCILE_LANE_BATCH_SIZE = 4;
 
+/**
+ * The next queued containers to list. While a catch-up is pending, an entry
+ * no hint forced stays queued when its lane was known at the acknowledgement:
+ * the crawl will say whether it moved, and the catch-up's sweep takes the
+ * queue over. A hint's forced entry is listed at once, and so are a container
+ * opened meanwhile and a lane found since the acknowledgement.
+ */
 function dequeueContainerBatch(state: ReconciliationState): string[] {
   const containerIds: string[] = [];
   while (containerIds.length < RECONCILE_LANE_BATCH_SIZE) {
-    const containerId = state.queue.dequeue();
+    const containerId = state.queue.dequeue(
+      (id) =>
+        state.forcedContainerGenerations.has(id) ||
+        !defersToCatchUp(state.catchUp, id),
+    );
     if (!containerId) break;
     containerIds.push(containerId);
   }
@@ -50,6 +63,10 @@ async function runReconcileLane(
 
   const containerIds = dequeueContainerBatch(state);
   if (containerIds.length === 0) {
+    // Entries left queued wait for the catch-up, whose sweep takes them. The
+    // initial probe waits with them, as it does behind any queued lane, and
+    // the catch-up wakes the lane for it when it ends.
+    if (state.queue.size > 0) return;
     await state.initialDocumentProbe.run();
     scheduleProbeContinuation(host, state);
     return;
@@ -95,7 +112,8 @@ async function runReconcileLane(
   });
   if (firstError !== undefined) throw firstError;
 
-  // Keep draining: schedule another pass while the queue holds work.
+  // Keep draining: schedule another pass while the queue holds work. A pass
+  // that finds only deferred entries ends without listing.
   if (state.queue.size > 0) {
     state.lane?.requestSync();
   } else {
@@ -160,6 +178,7 @@ function createReconciliationState(
   return {
     active: false,
     activeContainerId: null,
+    catchUp: IDLE_CATCH_UP,
     automaticRetryGenerations: new Map(),
     discoveredContainerIds: new Set(),
     forcedContainerGenerations: new Map(),
@@ -179,6 +198,7 @@ function stopReconciliationService(
   state: ReconciliationState,
 ): void {
   clearPendingDiscoveryRetries(state);
+  stopCatchUp(state);
   state.active = false;
   state.probeContinuationCancel?.();
   state.probeContinuationCancel = null;
@@ -258,9 +278,12 @@ export function createReconciliationService(
     },
     // Reconcile the active container first; siblings remain lazy until visited.
     setActiveContainer: (containerId) =>
-      activateContainer(state, containerId, (activeId) =>
-        enqueueContainer(activeId, "active"),
-      ),
+      activateContainer(state, containerId, (activeId) => {
+        // Its documents are on screen: a catch-up waiting on its crawl does
+        // not hold this listing back.
+        dispatchCatchUp(state, { containerId: activeId, type: "opened" });
+        enqueueContainer(activeId, "active");
+      }),
     enqueueContainer,
     enqueueIdleBackfill,
     resumeOwedDiscovery: () => {

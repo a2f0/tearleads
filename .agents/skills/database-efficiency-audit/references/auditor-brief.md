@@ -84,13 +84,15 @@ maintainers prefer builder implementations; name a raw-statement edit
 plainly.
 
 Measurement: follow the statement-capture, plan, and probe instructions in
-<MEASUREMENT_REFERENCE>. The capture preload is at <CAPTURE_PRELOAD>. Group
-a canary capture by request and bind hash before counting repeats: a
-per-phase total hides the same key read twice in one request. A probe reads
-every path it uses from the environment, inputs and fixture ids included,
-so the coordinator can re-run a copy of it. A capture that wraps an
-executor guards against recursion and stops at a line cap. Probe
-at most two candidates, with one harness-repair attempt each. The
+<MEASUREMENT_REFERENCE>. The capture preload is at <CAPTURE_PRELOAD>. The
+performance-harness results the coordinator listed for this slice are in
+<MEASUREMENT_DIR>/harness.md; never run a `perf:*` command against a
+deployed tier. Group a canary capture by request and bind hash before
+counting repeats: a per-phase total hides the same key read twice in one
+request. A probe reads every path it uses from the environment, inputs and
+fixture ids included, so the coordinator can re-run a copy of it. A capture
+that wraps an executor guards against recursion and stops at a line cap.
+Probe at most two candidates, with one harness-repair attempt each. The
 coordinator has checked packages/client-sdk/dist at this revision: do not
 rebuild it or run bun install.
 

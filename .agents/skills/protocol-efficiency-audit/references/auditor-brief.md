@@ -72,18 +72,20 @@ exactly. For every removed request, name the verifier, cache miss, or
 scheduler decision that issues it today. For every removed table, run the
 reader and writer census (non-test `rg` for the table's Drizzle export) and
 record the sites. SDK tables are Drizzle `sqliteTable(` definitions under
-packages/client-sdk/src/data/sqlite, not `CREATE TABLE` strings. Try to refute each candidate: is the data needed for a
-capability above, does a security audit finding (#2266, #2329, #2365, #2485,
-#2491) depend on it, does the saving merely move work to another route?
+packages/client-sdk/src/data/sqlite, not `CREATE TABLE` strings. Try to
+refute each candidate: is the data needed for a capability above, does a
+security audit finding (#2266, #2329, #2365, #2485, #2491) depend on it, does
+the saving merely move work to another route?
 List plausible but untraced ideas separately as Estimated.
 
-Measurement: canary logs with the profile recorder on are in
+Measurement: the perf:canaries report and its logs are in
 <MEASUREMENT_DIR>; read the per-endpoint tables, do not re-run the whole
-suite. To re-measure one scenario, run from packages/app:
-`DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 bun test
-<file>` through `<REPO_ROOT>/node_modules/.bin/agent-tool run --`. Its
-receipt names the complete log: copy that file into your scratch directory
-when you need to keep it, and read it with targeted searches. Never run
+suite. So is harness.md, the performance-harness results the coordinator
+listed for this slice; never run a `perf:*` command against a deployed
+tier. To re-measure one scenario, run `bun run perf:canaries --canary
+<name>` from <REPO_ROOT>. It prints each phase and the paths of its report
+and log: copy them into your scratch directory when you need to keep them,
+and read the log with targeted searches. Never run
 `bun test` bare or print a whole test log. Statement counts come from
 `withDatabaseStatementCounter` in
 packages/api-shared/src/adapters/databaseStatementCounter.ts, used from a

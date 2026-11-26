@@ -175,8 +175,8 @@ below, together with per-route limits and mutation-count assertions. They are
 local fixed-cardinality measurements, not production benchmarks.
 
 [`OrganizationBootstrapRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx)
-measures 26 requests for personal bootstrap with a ceiling of 27, and caps
-creating and activating another organization at 6. Provisioning seeds discovery
+caps personal bootstrap at 21 requests and creating and activating another
+organization at 6. Provisioning seeds discovery
 evidence for the profile documents it signed, the destination roles of the
 containers it created, and recovery of the founding policy heads, so neither
 flow fetches those documents' writer projections, verifies the provisioned
@@ -193,11 +193,13 @@ no read
 ([`DualPaneProvider.activePeerRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx)).
 
 [`PaneRestartRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx)
-measures and caps a persisted-database pane restart at 23 requests, including
-two organization-policy reads and one public history read.
+caps the first persisted-database pane restart after local creates at 19
+requests, including two organization-policy reads and one public history
+read, a settled restart at 11 (one organization-policy read, no history
+read), and the first restart after a local edit at 13.
 [`PaneReconnectRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx)
-measures and caps an unchanged reconnect at 22 requests (three organization-policy
-reads) and discovery of one peer-created folder at 30 (five organization-policy
+caps an unchanged reconnect at 12 requests (two organization-policy reads)
+and discovery of one peer-created folder at 18 (three organization-policy
 reads). Both reconnects measured one memberships read and one WebSocket ticket
 request, with no public history or group-policy reads; these are upper bounds,
 not required minimum counts. All three fixtures contain two user folders and
