@@ -66,6 +66,18 @@ async function idle(sdk: Tearleads): Promise<void> {
     throw new Error("Queued writes did not settle.");
 }
 
+/**
+ * Waits for every create in a batch, then fails with the first failure, so
+ * none is still writing when the account closes.
+ */
+async function allSettled<T>(work: readonly Promise<T>[]): Promise<T[]> {
+  const results = await Promise.allSettled(work);
+  return results.map((result) => {
+    if (result.status === "rejected") throw result.reason;
+    return result.value;
+  });
+}
+
 /** What the app restores from its own storage on a page load. */
 interface Restored {
   readonly rootId: string;
@@ -163,7 +175,7 @@ async function createFolders(
   while (folders.length < count) {
     const first = folders.length;
     const batch = Math.min(CREATE_BATCH, count - first);
-    const created = await Promise.all(
+    const created = await allSettled(
       Array.from({ length: batch }, (_, offset) =>
         tree.createChild(rootId, `Folder ${first + offset + 1}`),
       ),
@@ -232,7 +244,7 @@ export async function openReloadAccount(origin: string, quietMs: number) {
       while (documents < count) {
         const first = documents;
         const batch = Math.min(CREATE_BATCH, count - first);
-        await Promise.all(
+        await allSettled(
           Array.from({ length: batch }, (_, offset) => {
             const position = first + offset;
             const folder = folders[Math.floor(position / perFolder)];

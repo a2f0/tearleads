@@ -26,8 +26,11 @@ test("a report puts the probe's results after its header", () => {
   expect(report).toMatchObject({ measurements: [1] });
 });
 
-test("results cannot replace a header field", () => {
-  expect(() =>
-    probeReport(header, { status: "complete", runId: "other", summary: [] }),
-  ).toThrow("Probe results cannot set runId, status.");
+test("untyped results cannot replace a header field", () => {
+  const untyped = JSON.parse(
+    '{"status": "complete", "runId": "other", "summary": []}',
+  );
+  expect(() => probeReport(header, untyped)).toThrow(
+    "Probe results cannot set runId, status.",
+  );
 });

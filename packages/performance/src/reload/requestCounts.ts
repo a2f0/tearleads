@@ -9,6 +9,7 @@ export interface RequestCount {
 /** Largest count first, then by route. */
 export function byCountThenRoute(a: RequestCount, b: RequestCount): number {
   if (b.count !== a.count) return b.count - a.count;
+  if (a.route === b.route) return 0;
   return a.route < b.route ? -1 : 1;
 }
 

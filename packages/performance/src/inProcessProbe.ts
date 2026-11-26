@@ -32,10 +32,15 @@ type HeaderField =
   | "updatedAt"
   | "status";
 
+/** A probe's own report fields, which may not name a header field. */
+type ProbeResults = Readonly<Record<string, unknown>> & {
+  readonly [field in HeaderField]?: never;
+};
+
 /** A report: the run's header, then the probe's own results. */
 export function probeReport(
   header: Readonly<Record<HeaderField, unknown>>,
-  results: Readonly<Record<string, unknown>>,
+  results: ProbeResults,
 ): Record<string, unknown> {
   const reserved = Object.keys(header).filter((field) => field in results);
   if (reserved.length > 0)
@@ -57,7 +62,7 @@ export async function runInProcessProbe(input: {
   readonly boundary: string;
   readonly run: (context: InProcessProbeContext) => Promise<void>;
   /** The report's own fields, read at every save. */
-  readonly results: () => Readonly<Record<string, unknown>>;
+  readonly results: () => ProbeResults;
 }): Promise<void> {
   const { DATABASE_URL: databaseUrl } = process.env;
   const target = parseLocalDatabaseUrl(databaseUrl);
@@ -95,7 +100,9 @@ export async function runInProcessProbe(input: {
       ),
     );
   let api: InProcessApi | undefined;
-  let status: "complete" | "failed" = "failed";
+  let outcome:
+    | { readonly status: "complete" }
+    | { readonly status: "failed"; readonly error: unknown };
   try {
     api = await startInProcessApi();
     await input.run({
@@ -106,10 +113,19 @@ export async function runInProcessProbe(input: {
         await save("running");
       },
     });
-    status = "complete";
+    outcome = { status: "complete" };
+  } catch (error) {
+    outcome = { status: "failed", error };
+  }
+  try {
+    console.log(`Report: ${await save(outcome.status)}`);
+  } catch (error) {
+    // A failed run's own error matters more than its report.
+    if (outcome.status === "complete") outcome = { status: "failed", error };
+    else console.error(`The report was not saved: ${String(error)}`);
   } finally {
-    console.log(`Report: ${await save(status)}`);
     await api?.stop();
     await proxy.stop();
   }
+  if (outcome.status === "failed") throw outcome.error;
 }
