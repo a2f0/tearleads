@@ -387,6 +387,8 @@ export interface ContainerContentsPersistence
       commitSideEffect?:
         | ((transactionExecSql: ExecSql) => Promise<void>)
         | undefined;
+      /** Raise `committedVersion`, as in `commitDocumentMutation`. */
+      committedVersions?: readonly string[] | undefined;
       container: ContainerRecord;
       expectedContainer: ContainerRecord;
       expectedRecord: ContainerMetadataRecord;
@@ -438,6 +440,7 @@ export interface ContainerContentsPersistence
   settleAcceptedMetadataPendingUpdates: (
     execSql: ExecSql,
     input: {
+      committedVersions?: readonly string[] | undefined;
       containerId: string;
       expectedRecord: ContainerMetadataRecord;
       pendingUpdateIds: readonly string[];

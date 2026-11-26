@@ -268,3 +268,52 @@ test("reloading opens a new capture and closes the old one", async () => {
     }
   });
 });
+
+test("a signed replay takes the screen, and this device's copy comes back", async () => {
+  const sdk = setup();
+  const made: Array<ReturnType<typeof capture>> = [];
+  sdk.serve(() => {
+    const next = capture(["1", 3], ["1", 5]);
+    made.push(next);
+    return next.history;
+  });
+  const { result, unmount } = renderHook(() => useDocumentHistory("doc"));
+  await waitFor(() =>
+    expect(result.current.state).toMatchObject({ shown: { index: 1 } }),
+  );
+  const [local] = made;
+  if (!local) throw new Error("expected a capture");
+
+  // The replay built from the signed uploads has other stops.
+  const signed = capture(["9", 2], ["9", 4], ["9", 6]);
+  act(() => result.current.showSigned(signed.history));
+  await waitFor(() =>
+    expect(result.current.state).toMatchObject({
+      history: signed.history,
+      shown: { index: 2 },
+      source: "signed",
+    }),
+  );
+  // Newer edits are looked for on this device's capture, not on the replay
+  // shown, which differs from every capture of the device's history.
+  act(() => sdk.saved("doc"));
+  await act(async () => undefined);
+  expect(result.current.state).toMatchObject({ newerAvailable: false });
+  expect(local.closed.count).toBe(0);
+
+  act(() => result.current.showLocal());
+  await waitFor(() =>
+    expect(result.current.state).toMatchObject({
+      history: local.history,
+      shown: { index: 1 },
+      source: "local",
+    }),
+  );
+
+  // Left with the signed replay on screen: History closes its own capture,
+  // and leaves the replay to whoever brought it.
+  act(() => result.current.showSigned(signed.history));
+  unmount();
+  expect(local.closed.count).toBe(1);
+  expect(signed.closed.count).toBe(0);
+});

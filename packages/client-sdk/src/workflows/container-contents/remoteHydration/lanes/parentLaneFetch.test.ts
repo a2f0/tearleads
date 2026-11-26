@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
+import {
+  isListContainerParentLanesRequest,
+  type ListContainerParentLanesRequest,
+} from "@tearleads/validators/request";
 import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
@@ -80,6 +83,8 @@ test("fetches four parent lanes once and restores request order", async () => {
   expect(requests[0]).toEqual({
     lanes: PARENT_IDS.map((parentId, index) => ({
       laneId: `lane-${index}`,
+      // Up to five lanes keep the ordinary page size.
+      limit: 100,
       parentId,
       watermark:
         index % 2 === 0
@@ -122,5 +127,45 @@ test("rejects missing and extra response lane ids without returning pages", asyn
     await expect(
       fetchContainerParentLaneBatch({ batch, state }),
     ).rejects.toThrow("Container parent lane batch response mismatch");
+  }
+});
+
+test("a full batch of 32 lanes asks for a page that fits one response", async () => {
+  const requests: ListContainerParentLanesRequest[] = [];
+  const state = createState(async (request) => {
+    requests.push(request);
+    return {
+      results: request.lanes.map(({ laneId }) => ({
+        laneId,
+        page: page(laneId),
+      })),
+    };
+  });
+  const batchOf = (count: number): ContainerParentHydrationLane[] =>
+    Array.from({ length: count }, (_, index) => ({
+      parentId:
+        index === 0
+          ? null
+          : `550e8400-e29b-41d4-a716-${String(index).padStart(12, "0")}`,
+      watermark: null,
+    }));
+
+  for (const count of [5, 6, 32]) {
+    await fetchContainerParentLaneBatch({ batch: batchOf(count), state });
+  }
+
+  // 500 rows per request: 100 each for five lanes, 83 for six, 15 for 32.
+  expect(
+    requests.map(({ lanes: requested }) => [
+      requested.length,
+      new Set(requested.map((lane) => lane.limit)),
+    ]),
+  ).toEqual([
+    [5, new Set([100])],
+    [6, new Set([83])],
+    [32, new Set([15])],
+  ]);
+  for (const request of requests) {
+    expect(isListContainerParentLanesRequest(request)).toBe(true);
   }
 });

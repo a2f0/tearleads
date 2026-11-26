@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="512" viewBox="0 0 360 512" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Inside a password-protected backup file</title>
+  <desc>The backup password derives a 256-bit key with PBKDF2. That key encrypts the payload with AES-256-GCM. The outer JSON records the algorithms, salt, and IV beside the encrypted payload, which holds the database and the attachment bytes.</desc>
+  <defs>
+    <marker id="key-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-key"/></marker>
+    <style>
+      .canvas,.box,.kbox { fill: #fff; }
+      .box { stroke: #4b5563; }
+      .kbox,.kedge { stroke: #b45309; stroke-dasharray: 5 3; }
+      .box,.kbox,.kedge { stroke-width: 1.25; }
+      .kedge { fill: none; }
+      .arrowhead-key { fill: #b45309; }
+      .colhead { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+      .name { font-size: 15px; font-weight: 600; }
+      .colhead,.name { fill: #111827; }
+      .meta { fill: #4b5563; font-size: 13px; }
+      .mono { fill: #374151; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      @media (prefers-color-scheme: dark) {
+        .canvas,.box,.kbox { fill: #18181b; }
+        .colhead,.name { fill: #fafafa; }
+        .meta { fill: #d4d4d8; }
+        .mono { fill: #e4e4e7; }
+        .box { stroke: #d4d4d8; }
+        .kbox,.kedge { stroke: #fbbf24; }
+        .arrowhead-key { fill: #fbbf24; }
+      }
+    </style>
+  </defs>
+  <rect width="360" height="512" class="canvas"/>
+  <text x="16" y="24" class="colhead">A PASSWORD-PROTECTED FILE</text>
+
+  <rect x="16" y="36" width="328" height="52" rx="4" class="box"/>
+  <text x="26" y="57" class="name">Backup password</text>
+  <text x="26" y="76" class="meta">Encoded as UTF-8</text>
+  <path d="M47 88 V146" class="kedge" marker-end="url(#key-arrow)"/>
+  <text x="62" y="112" class="meta">PBKDF2-HMAC-SHA-256</text>
+  <text x="62" y="130" class="meta">250,000 rounds, fresh 16-byte salt</text>
+  <rect x="16" y="148" width="328" height="52" rx="4" class="kbox"/>
+  <text x="26" y="169" class="name">256-bit key</text>
+  <text x="26" y="188" class="meta">Derived with this file's salt</text>
+  <text x="304" y="221" text-anchor="end" class="meta">AES-256-GCM, fresh 12-byte IV</text>
+
+  <rect x="16" y="232" width="328" height="220" rx="4" class="box"/>
+  <text x="26" y="253" class="name">Outer JSON</text>
+  <text x="26" y="272" class="mono">tearleads.local-backup.encrypted</text>
+  <text x="26" y="290" class="meta">Version, algorithms, kdf.salt, cipher.iv</text>
+  <rect x="32" y="310" width="296" height="126" rx="4" class="box"/>
+  <text x="44" y="331" class="name">Encrypted payload</text>
+  <text x="44" y="350" class="meta">Ciphertext, then its tag. Decrypted:</text>
+  <text x="44" y="368" class="mono">tearleads.local-backup.payload</text>
+  <text x="44" y="386" class="meta">Database tables, indexes, and rows</text>
+  <text x="44" y="404" class="meta">Attachment bytes as Base64</text>
+  <text x="44" y="422" class="meta">Missing files, summary, and source</text>
+  <path d="M316 200 V308" class="kedge" marker-end="url(#key-arrow)"/>
+
+  <text x="16" y="478" class="meta">Without a password, the payload is the whole</text>
+  <text x="16" y="496" class="meta">file: anyone holding it can read or change it.</text>
+</svg>

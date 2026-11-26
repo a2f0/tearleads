@@ -1,25 +1,30 @@
-import { useId, useState } from "react";
 import { createDocumentTypeApp } from "../shared/createDocumentTypeApp";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
-import { DocumentFieldOptionSelect } from "../shared/DocumentFieldOptionSelect";
 import {
   StructuredDocument,
-  StructuredDocumentField,
-  StructuredDocumentFields,
-  StructuredDocumentReadFields,
   useStructuredDocumentEditAction,
 } from "../shared/StructuredDocument";
 import { useAttachedStructuredDocument } from "../shared/useAttachedStructuredDocument";
 import {
+  VariantDocumentFields,
+  type VariantDocumentTypeField,
+} from "../shared/VariantDocumentFields";
+import {
   getInsurancePolicyFieldLabel,
-  getInsurancePolicyTypeLabel,
-  getVisibleInsurancePolicyFields,
   INSURANCE_POLICY_DOCUMENT_KIND,
+  INSURANCE_POLICY_FIELDS,
   INSURANCE_POLICY_SLOTS,
   INSURANCE_POLICY_TYPE_OPTIONS,
   type InsurancePolicyDocumentFields,
   readInsurancePolicyFieldValues,
 } from "./insurancePolicyDocumentDefinition";
+
+const POLICY_TYPE_FIELD: VariantDocumentTypeField = {
+  ariaLabel: "Policy type",
+  key: "policyType",
+  label: "Policy Type",
+  options: INSURANCE_POLICY_TYPE_OPTIONS,
+};
 
 /** The policy's fields, read or edited; the type decides the variant fields. */
 export function InsurancePolicyFields(params: {
@@ -29,81 +34,13 @@ export function InsurancePolicyFields(params: {
   onChange: (patch: Partial<InsurancePolicyDocumentFields>) => void;
   ready: boolean;
 }) {
-  const { disabled, fields, isEditing, onChange, ready } = params;
-  const id = useId();
-  // The fields as they stood when this edit began, so an input shown only for
-  // its recorded value stays put while the user clears it.
-  const [atEditStart, setAtEditStart] =
-    useState<InsurancePolicyDocumentFields | null>(null);
-  if (isEditing && ready && atEditStart === null) setAtEditStart(fields);
-  if (!isEditing && atEditStart !== null) setAtEditStart(null);
-  const visibleFields = getVisibleInsurancePolicyFields(
-    fields,
-    isEditing ? atEditStart : null,
-  );
-  const typeLabel = getInsurancePolicyTypeLabel(fields.policyType);
-
-  if (!isEditing) {
-    return (
-      <StructuredDocumentReadFields
-        fields={[
-          {
-            displayValue: typeLabel.length > 0 ? typeLabel : undefined,
-            label: "Policy Type",
-            value: fields.policyType,
-          },
-          ...visibleFields.map((field) => ({
-            label: getInsurancePolicyFieldLabel(field, fields.policyType),
-            value: fields[field.key],
-          })),
-        ]}
-      />
-    );
-  }
-
   return (
-    <StructuredDocumentFields>
-      <StructuredDocumentField inputId={`${id}-policyType`} label="Policy Type">
-        <DocumentFieldOptionSelect
-          ariaLabel="Policy type"
-          disabled={disabled}
-          id={`${id}-policyType`}
-          onChange={(value) => onChange({ policyType: value })}
-          options={INSURANCE_POLICY_TYPE_OPTIONS}
-          placeholder={ready ? "Select a type" : "Loading..."}
-          value={fields.policyType}
-        />
-      </StructuredDocumentField>
-      {visibleFields.map((field) => {
-        const inputId = `${id}-${field.key}`;
-        return (
-          <StructuredDocumentField
-            key={field.key}
-            inputId={inputId}
-            label={getInsurancePolicyFieldLabel(field, fields.policyType)}
-          >
-            <input
-              id={inputId}
-              type={"type" in field ? field.type : "text"}
-              value={fields[field.key]}
-              placeholder={
-                ready
-                  ? "placeholder" in field
-                    ? field.placeholder
-                    : undefined
-                  : "Loading..."
-              }
-              autoComplete="off"
-              spellCheck={false}
-              disabled={disabled}
-              onChange={(event) =>
-                onChange({ [field.key]: event.target.value })
-              }
-            />
-          </StructuredDocumentField>
-        );
-      })}
-    </StructuredDocumentFields>
+    <VariantDocumentFields
+      {...params}
+      definitions={INSURANCE_POLICY_FIELDS}
+      getLabel={getInsurancePolicyFieldLabel}
+      typeField={POLICY_TYPE_FIELD}
+    />
   );
 }
 

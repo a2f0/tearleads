@@ -9,18 +9,48 @@ import {
   transitionReconnectRefresh,
 } from "./reconnectRefreshMachine";
 
+/** Told what the crawl an acknowledged connection owes comes to. */
+export interface ReconnectCrawlObserver {
+  /** An acknowledged connection owes a crawl. */
+  readonly crawlOwed: () => void;
+  /** An attempt at it ended; `complete` when it listed every lane it queued. */
+  readonly crawlSettled: (complete: boolean) => void;
+}
+
 export class ReconnectRefresh {
   private state: ReconnectRefreshState = { status: "idle" };
   private timer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(acknowledged: boolean) {
+  constructor(
+    acknowledged: boolean,
+    private readonly observer?: ReconnectCrawlObserver | undefined,
+  ) {
     if (acknowledged) this.reset("acknowledged");
+  }
+
+  /**
+   * Whether a crawl for an acknowledged connection is still to run or to be
+   * retried: one that will list the root lane and every known lane.
+   */
+  get owesCrawl(): boolean {
+    const { status } = this.state;
+    return (
+      status === "pending" || status === "crawling" || status === "backoff"
+    );
   }
 
   reset(type: "acknowledged" | "runtimeChanged" | "disposed"): void {
     clearTimeout(this.timer);
     this.timer = undefined;
+    const owedCrawl = this.owesCrawl;
     this.state = transitionReconnectRefresh(this.state, { type });
+    if (type === "acknowledged" && this.state.status === "pending") {
+      this.observer?.crawlOwed();
+    }
+    // A crawl a disposed store owed will never vouch for anything. A store
+    // that owed none says nothing: the scope's port may be waiting on its
+    // replacement's crawl.
+    if (type === "disposed" && owedCrawl) this.observer?.crawlSettled(false);
   }
 
   runWhenReady(
@@ -45,6 +75,7 @@ export class ReconnectRefresh {
       });
       if (next === this.state) return;
       this.state = next;
+      this.observer?.crawlSettled(next.status === "idle");
       if (next.status !== "backoff") return;
       this.timer = setTimeout(() => {
         this.timer = undefined;

@@ -1,20 +1,31 @@
+import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
 import { type FormEvent, useState } from "react";
 import { RECOVERY_KEY_BACKUP_COPY } from "../../../identity/accountBootstrapPhase";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
-import {
-  MiniAppButton,
-  MiniAppStatePanel,
-  MiniAppStatus,
-} from "../../mini-app/MiniAppLayout";
+import { MiniAppButton, MiniAppStatus } from "../../mini-app/MiniAppLayout";
 import {
   isPhraseConfirmed,
   PhraseConfirmationField,
 } from "../../shared/PhraseConfirmationField";
+import { OnboardingStepPanel } from "../OnboardingStepPanel";
 import { RecoveryKeyBackupControls } from "./RecoveryKeyBackupControls";
 import { useRecoveryKeyDisclosure } from "./useRecoveryKeyDisclosure";
+import "./RecoveryKeyBackupConfirmation.css";
 
 /** Typed to confirm that a new identity's recovery key is backed up. */
 export const RECOVERY_KEY_BACKUP_AGREEMENT_PHRASE = "I agree";
+
+/**
+ * Shown on a wide screen, in the frame that holds the key once it is revealed
+ * (RecoveryKeyBackupConfirmation.css); stacked, the revealed key needs no
+ * frame to stand in for.
+ */
+const HIDDEN_KEY_PLACEHOLDER = (
+  <p className="recovery-key-backup-placeholder">
+    <EyeSlashIcon aria-hidden size={32} weight="light" />
+    <span>Choose View or QR Code to show your recovery key here.</span>
+  </p>
+);
 
 /**
  * Asks the user to back up a newly created identity's recovery key, then to
@@ -41,20 +52,30 @@ export function RecoveryKeyBackupConfirmation({
     if (agreed) onConfirm();
   };
 
+  // A window, a pane, or the empty desktop can each be wide or narrow on its
+  // own, so the layout follows the step's host.
   return (
-    <MiniAppStatePanel
+    <OnboardingStepPanel
       className="recovery-key-backup-confirmation"
       description={RECOVERY_KEY_BACKUP_COPY.description}
+      panelClassName="recovery-key-backup-confirmation-panel"
       title={RECOVERY_KEY_BACKUP_COPY.title}
     >
-      {error && (
-        <MiniAppStatus role="alert" tone="error">
-          {error}
-        </MiniAppStatus>
-      )}
-      {status && <MiniAppStatus>{status}</MiniAppStatus>}
       <RecoveryKeyBackupControls
         disclosure={disclosure}
+        feedback={
+          error || status ? (
+            <div className="recovery-key-backup-feedback">
+              {error && (
+                <MiniAppStatus role="alert" tone="error">
+                  {error}
+                </MiniAppStatus>
+              )}
+              {status && <MiniAppStatus>{status}</MiniAppStatus>}
+            </div>
+          ) : null
+        }
+        placeholder={HIDDEN_KEY_PLACEHOLDER}
         seedPhrase={seedPhrase}
       />
       <form className="recovery-key-backup-agreement" onSubmit={submit}>
@@ -68,6 +89,6 @@ export function RecoveryKeyBackupConfirmation({
           Continue
         </MiniAppButton>
       </form>
-    </MiniAppStatePanel>
+    </OnboardingStepPanel>
   );
 }

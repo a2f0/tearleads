@@ -111,11 +111,18 @@ reserves the freed id for that organization's owner. A device
 refused on a peer the recreation claimed rebases onto a fresh peer. Each update
 also declares the op ids it depends on: the server refuses one past a peer's
 committed frontier, and readers void an update that depends on other ops than
-it declares, so the dishonest member cannot depend on a device's unsent ops. It
-requires that no reader voids an honest update, that no other user occupies a
-device's counters past what it committed, that a re-assertion or a dependency
-is never the cause of an honest refusal, that no device accepts an update a
-fresh reader voids, and that every honest edit is eventually committed. See the
+it declares, so the dishonest member cannot depend on a device's unsent ops.
+The recreation may be from a stale copy, which lowers frontiers below what
+devices saw committed: a device refused at such a frontier relays the lost
+operations under their own ids, or parks when another user owns the peer, and
+never forks there. What it saw committed is a record no queued update lowers,
+a relay's or a full history's. It requires that no reader voids an honest
+update, that no other user occupies a device's counters past what it
+committed, that an honest request is refused only for another user's peer or
+for a dependency a recreation lost, that no device accepts an update a fresh
+reader voids, that no reader holds one honest edit under two op ids, and that
+every queued honest edit is eventually committed unless its device awaits the
+owner of a peer whose history fell. See the
 [production mapping, negative controls, and bounds](./PeerOwnership.md).
 
 ## Opened-Document Recovery Probes
@@ -145,11 +152,11 @@ document lanes a device lists at sign-in while a reload can stop it anywhere
 between the batched listing and each lane's apply. A lane settles only with an
 applied listing that left nothing staged, and a lane still missing documents
 stays durably owed. A start that is connecting leaves the owed lanes to the
-acknowledged connection's catch-up, which lists every lane; otherwise, or when
-the attempt ends without an acknowledgement, it resumes them itself. The
+acknowledged connection's catch-up, which lists every owed lane; otherwise, or
+when the attempt ends without an acknowledgement, it resumes them itself. The
 device converges however many reloads land, and the catch-up of an attempt
 pending at the start never re-lists lanes that start's resume listed; a
-connection made after the resume ran lists every lane again. See the
+connection made after the resume ran may list any lane again. See the
 [production mapping and negative controls](./DiscoveryLaneResumption.md).
 
 [`MetadataListingConvergence.tla`](./MetadataListingConvergence.tla)
@@ -177,6 +184,17 @@ an unread access head always survives, through crashes, reads in flight and
 reads a lagging replica serves, and that the client eventually holds the
 server's version. See the
 [production mapping and negative controls](./DocumentListingConvergence.md).
+
+[`DocumentLanePolling.tla`](./DocumentLanePolling.tla) models the step
+before that listing: which lanes a catch-up lists. Every server write that
+changes what a container's document lane returns republishes the container's
+row, so the tree crawl that follows an acknowledged connection is served the
+row and owes the lane a listing, durably, before the serving lane's watermark
+passes it. The catch-up lists the owed lanes alone, and a listing settles only
+the request it read before it was sent. TLC checks that an unlisted change
+always leaves something to oblige a listing, through crashes and listings in
+flight, and that the client eventually lists every change. See the
+[production mapping and negative controls](./DocumentLanePolling.md).
 
 [`SharedDatabaseListing.tla`](./SharedDatabaseListing.tla) adds a second
 runtime on the same database, such as a second browser tab. The two share the

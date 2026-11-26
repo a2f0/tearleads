@@ -79,7 +79,7 @@ test("step 9 keeps a version-8 database's cursors and owed reads, counting neith
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
 
     // A cursor whose pull count is unknown covers no listed count.
     expect(

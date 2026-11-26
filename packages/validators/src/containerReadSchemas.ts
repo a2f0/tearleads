@@ -31,6 +31,13 @@ export const ContainerReadLaneWatermarkSchema = z.strictObject({
  */
 export const MAX_CONTAINER_DOCUMENT_LANES = 32;
 
+/**
+ * Parents one tree-listing request may name. Each lane runs the same access
+ * resolver and page bound as a single listing, so this bounds per-request
+ * server work; the page total bounds returned rows.
+ */
+export const MAX_CONTAINER_PARENT_LANES = 32;
+
 /** Rows one batched lane request may ask for when it omits `limit`. */
 export const DEFAULT_CONTAINER_READ_LANE_PAGE_LIMIT = 100;
 /** Bound on the sum of every lane's page limit, the single-page maximum. */
@@ -39,6 +46,14 @@ export const MAX_CONTAINER_READ_LANE_BATCH_PAGE_TOTAL = 500;
 interface ContainerReadLaneRequestShape {
   readonly laneId: string;
   readonly limit?: number | undefined;
+}
+
+/**
+ * A refinement composed onto an array runs even when an entry failed its own
+ * schema, so it can be handed an entry that is not an object at all.
+ */
+function isLaneShaped(lane: unknown): boolean {
+  return typeof lane === "object" && lane !== null;
 }
 
 /**
@@ -54,6 +69,8 @@ export function refineContainerReadLaneRequests(label: string) {
     let requestedPageTotal = 0;
 
     lanes.forEach((lane, index) => {
+      // The item schema already rejected a malformed entry; this runs anyway.
+      if (!isLaneShaped(lane)) return;
       if (laneIds.has(lane.laneId)) {
         context.addIssue({
           code: "custom",
@@ -86,6 +103,7 @@ export function refineContainerReadLaneResults(label: string) {
   ): void => {
     const laneIds = new Set<string>();
     results.forEach((result, index) => {
+      if (!isLaneShaped(result)) return;
       if (laneIds.has(result.laneId)) {
         context.addIssue({
           code: "custom",

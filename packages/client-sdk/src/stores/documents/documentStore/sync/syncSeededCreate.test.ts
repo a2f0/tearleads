@@ -6,6 +6,7 @@ import {
   encodeVersionVector,
   exportAllUpdates,
   satisfiesVersionVector,
+  versionVectorsEqual,
 } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
@@ -223,6 +224,9 @@ async function runSeededCreate(
       state,
     });
     return {
+      committedVersion: (
+        await defaultDocumentsPersistence.loadDocument(execSql, record.id)
+      )?.committedVersion,
       created,
       documentVersion: encodeVersionVector(document),
       queued,
@@ -251,6 +255,10 @@ test("an acknowledged create settles its seed and answers the earlier signal", a
   expect(result.remaining).toEqual([]);
   expect(result.created.pendingUpdates).toEqual([]);
   expect(result.created.record?.lastCommitLsn).toBe("0/10");
+  // The server committed the seed, so the record has seen its span.
+  expect(
+    versionVectorsEqual(result.committedVersion, result.documentVersion),
+  ).toBe(true);
   expect(result.state.remoteUpdatePending).toBe(false);
   expect(
     satisfiesVersionVector(
@@ -345,6 +353,8 @@ test("a lost seeded create response adopts the document and keeps its row queued
     result.queued.map((row) => row.id),
   );
   expect(result.created.record?.lastCommitLsn ?? null).toBeNull();
+  // Nothing told the device the seed was committed, so it knows none of it.
+  expect(result.committedVersion).toBeUndefined();
   expect(result.state.remoteUpdatePending).toBe(true);
 });
 

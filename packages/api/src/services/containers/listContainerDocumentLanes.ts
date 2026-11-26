@@ -12,6 +12,7 @@ import {
 } from "../../workflows/containers/writerProjection/types";
 import { KeyingReadAccessError } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
+import { mapLanesBounded } from "./boundedLaneWork";
 import { discoveryCursor } from "./discoveryCursor";
 import { readDiscoveryKey } from "./discoverySnapshot";
 import {
@@ -136,7 +137,6 @@ async function listLanes(
   request: ListContainerDocumentLanesRequest,
   discoveryKey: string,
 ): Promise<ListContainerDocumentLanesResponse> {
-  const results: ContainerDocumentLaneResult[] = [];
   const context: ContainerWriterProjectionContext = {
     ...createContainerWriterProjectionContext(runtime.db),
     principalPolicyByReference: new Map(),
@@ -145,28 +145,11 @@ async function listLanes(
     context,
     request.lanes.map((lane) => lane.containerId),
   );
-  const pending = request.lanes.map((lane, index) => ({ index, lane }));
-  const worker = async () => {
-    for (let next = pending.shift(); next; next = pending.shift()) {
-      results[next.index] = await listContainerDocumentLane(
-        runtime,
-        userId,
-        discoveryKey,
-        next.lane,
-        context,
-      );
-    }
-  };
-  await Promise.all(
-    Array.from(
-      {
-        length: Math.min(
-          request.afterParentPage ? 1 : CONTAINER_DOCUMENT_LANE_CONCURRENCY,
-          request.lanes.length,
-        ),
-      },
-      worker,
-    ),
+  const results = await mapLanesBounded(
+    request.lanes,
+    request.afterParentPage ? 1 : CONTAINER_DOCUMENT_LANE_CONCURRENCY,
+    (lane) =>
+      listContainerDocumentLane(runtime, userId, discoveryKey, lane, context),
   );
   return { results };
 }

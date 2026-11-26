@@ -195,7 +195,17 @@
           {
             "name": "note-blame",
             "label": "Note authorship",
-            "alt": "Document Info for a shared note, with each contributor's text highlighted in their color."
+            "alt": "Document Info for a note in a shared Family folder, with each of four family members' text highlighted in their color."
+          },
+          {
+            "name": "note-history",
+            "label": "Note history",
+            "alt": "A shared note's history at its latest change, naming the family member who uploaded it."
+          },
+          {
+            "name": "note-history-earlier",
+            "label": "Note history, earlier change",
+            "alt": "A shared note's history stepped back to an earlier family member's addition."
           },
           {
             "name": "contact-detail",
@@ -219,6 +229,11 @@
             "label": "Birth certificate image"
           },
           { "name": "credit-card-image", "label": "Credit card image" },
+          {
+            "name": "passcode-detail",
+            "label": "Passcode",
+            "alt": "An alarm system passcode, with its username, a masked code, and additional attributes."
+          },
           {
             "name": "family-photo-1",
             "label": "Family dinner",

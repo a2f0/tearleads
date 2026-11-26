@@ -66,6 +66,15 @@ export function createGenerationGuardedHydrationHost(input: {
           },
         }
       : {}),
+    ...(input.host.requestDocumentLaneListings
+      ? {
+          requestDocumentLaneListings: async (containerIds) => {
+            assertCurrent();
+            await input.host.requestDocumentLaneListings?.(containerIds);
+            assertCurrent();
+          },
+        }
+      : {}),
     ...(input.host.requestMetadataRevalidation
       ? {
           requestMetadataRevalidation: async (request) => {

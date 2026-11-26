@@ -119,6 +119,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
     await execSql(
       documents.createSql
         .replace('  "peer_salt" TEXT,\n', "")
+        .replace('  "committed_version" TEXT,\n', "")
         .replace(
           '  "sync_failure_message" TEXT,\n',
           '  "sync_failure_status" INTEGER,\n  "sync_failure_message" TEXT,\n',
@@ -161,7 +162,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {
@@ -429,9 +430,13 @@ test("step 8 adds an empty peer salt to a version-7 database's documents", async
     });
     const [documents] = documentTables;
     if (!documents) throw new Error("Documents table schema is missing");
-    // The version-7 shape: the current table without its peer salt.
-    const previous = documents.createSql.replace('  "peer_salt" TEXT,\n', "");
+    // The version-7 shape: the current table without its peer salt, or the
+    // committed version step 13 adds.
+    const previous = documents.createSql
+      .replace('  "peer_salt" TEXT,\n', "")
+      .replace('  "committed_version" TEXT,\n', "");
     expect(previous).not.toContain('"peer_salt"');
+    expect(previous).not.toContain('"committed_version"');
     await execSql(previous);
     await execSql(
       `INSERT INTO documents (app_kind, local_id, updated_at)

@@ -114,7 +114,7 @@ export async function createFolder(page: Page): Promise<void> {
 }
 
 /** Two synced edits, so attribution records more than one edit range. */
-async function createNote(page: Page): Promise<void> {
+export async function createNote(page: Page): Promise<void> {
   const newDocument = page.getByRole("button", {
     name: "New Document",
     exact: true,

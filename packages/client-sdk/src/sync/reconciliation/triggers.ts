@@ -53,8 +53,9 @@ export function connectReconciliationTriggers(input: {
         service.resumeOwedDiscovery();
         break;
       case "connection-acknowledged":
-        // Hints sent before the acknowledgement are lost, so every document
-        // lane is listed from its watermark. A lane that fails keeps its
+        // Hints sent before the acknowledgement are lost, so the document
+        // lanes that moved are listed from their watermarks. A lane that
+        // fails keeps its
         // force and is retried by the reconciliation lane, and the service
         // logs the failure, so it needs no handling here.
         service.reconcileAcknowledgedConnection().catch(() => undefined);

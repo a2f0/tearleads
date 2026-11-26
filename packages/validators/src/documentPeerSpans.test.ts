@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import type { VersionVectorSpan } from "@tearleads/loro";
-import { MAX_DOCUMENT_PEER_FRONTIERS } from "@tearleads/validators/response";
 import {
+  type DocumentPeerSpan,
   type DocumentUpdatePeers,
   judgeDocumentPeerSpans,
-} from "./documentPeerOwners";
+} from "./documentPeerSpans";
+import { MAX_DOCUMENT_PEER_FRONTIERS } from "./response/documentSyncError";
 
 const writer = "writer-user";
 const other = "other-user";
@@ -19,10 +19,10 @@ test("the walk raises each frontier, so only a span past it needs ownership", ()
       {
         dependencies: [],
         spans: [
-          { peerId: "1", startCounter: 0, endCounter: 5 },
-          { peerId: "2", startCounter: 0, endCounter: 4 },
-          { peerId: "3", startCounter: 0, endCounter: 2 },
-          { peerId: "3", startCounter: 2, endCounter: 6 },
+          { peerId: "1", endCounter: 5 },
+          { peerId: "2", endCounter: 4 },
+          { peerId: "3", endCounter: 2 },
+          { peerId: "3", endCounter: 6 },
         ],
       },
     ],
@@ -35,7 +35,7 @@ test("the walk raises each frontier, so only a span past it needs ownership", ()
 test("refused peers are named once each, in canonical order, at most the wire bound", () => {
   const peerIds = Array.from(
     { length: MAX_DOCUMENT_PEER_FRONTIERS + 2 },
-    (_, index) => `${index + 10}` as const,
+    (_, index) => `${index + 10}`,
   );
   const verdict = judgeDocumentPeerSpans({
     committedPeers: new Map(
@@ -48,8 +48,8 @@ test("refused peers are named once each, in canonical order, at most the wire bo
       {
         dependencies: [],
         spans: peerIds.flatMap((peerId) => [
-          { peerId, startCounter: 0, endCounter: 2 },
-          { peerId, startCounter: 2, endCounter: 3 },
+          { peerId, endCounter: 2 },
+          { peerId, endCounter: 3 },
         ]),
       },
     ],
@@ -67,11 +67,7 @@ test("a dependency on a committed op passes, and one past the frontier is refuse
   const committedPeers = new Map([
     ["7", { committedEndCounter: 4, ownerUserId: other }],
   ]);
-  const ownSpan: VersionVectorSpan = {
-    peerId: "9",
-    startCounter: 0,
-    endCounter: 2,
-  };
+  const ownSpan: DocumentPeerSpan = { peerId: "9", endCounter: 2 };
 
   expect(
     judgeDocumentPeerSpans({
@@ -116,11 +112,11 @@ test("a dependency on a committed op passes, and one past the frontier is refuse
 test("an update may depend on an earlier update of its request, never a later one", () => {
   const first: DocumentUpdatePeers = {
     dependencies: [],
-    spans: [{ peerId: "9", startCounter: 0, endCounter: 3 }],
+    spans: [{ peerId: "9", endCounter: 3 }],
   };
   const second: DocumentUpdatePeers = {
     dependencies: [{ endCounter: 3, peerId: "9" }],
-    spans: [{ peerId: "9", startCounter: 3, endCounter: 5 }],
+    spans: [{ peerId: "9", endCounter: 5 }],
   };
 
   expect(
@@ -151,7 +147,7 @@ test("a peer another user owns outranks an uncommitted dependency", () => {
       updates: [
         {
           dependencies: [{ endCounter: 9, peerId: "5" }],
-          spans: [{ peerId: "1", startCounter: 2, endCounter: 3 }],
+          spans: [{ peerId: "1", endCounter: 3 }],
         },
       ],
       userId: writer,

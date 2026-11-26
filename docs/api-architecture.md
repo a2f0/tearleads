@@ -150,6 +150,8 @@ Other route families have their own documents:
 
 The API is organized in these layers, enforced by `bun run lint:architecture`.
 
+![Six API layers, from the Workers and Bun entry points through routes, services, workflows, and access helpers down to infrastructure adapters, which ApiServiceRuntime injects into the services.](./diagrams/api-code-layers.svg)
+
 ### 1. Entry Points
 
 - [`packages/api/src/worker/index.ts`](../packages/api/src/worker/index.ts)

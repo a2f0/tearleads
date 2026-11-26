@@ -7,10 +7,10 @@ import {
 } from "@tearleads/keepass";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "app/continuity";
 import type { CommandInput, KeepassRestoreOptions } from "../cliContext";
+import { uniqueFolderName } from "../folderTree";
 import {
   createRestoreFolders,
   partialRestoreError,
-  uniqueFolderName,
 } from "../keepass/restoreFolders";
 import { createRestoredPasscodes } from "../keepass/restorePasscodes";
 import { printable } from "../printable";

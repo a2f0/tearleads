@@ -33,6 +33,17 @@ export interface DocumentRecord {
    * column, so an ordinary save never clears it.
    */
   peerSalt?: string;
+  /**
+   * What sync settlements showed the server to hold of the record's history:
+   * an encoded version vector with, per peer, the highest counter of any
+   * served update the device accepted or outgoing update the server
+   * acknowledged. Absent until the first one. A settlement's
+   * `committedVersions` and a peer recovery's install raise the column, by
+   * merging; an ordinary save never writes it, so a stale copy in memory
+   * never lowers it. A peer refusal is judged against it and against where
+   * the queue starts (`knownCommittedOf`).
+   */
+  committedVersion?: string;
   pullContinuation?: DocumentSyncPullContinuation | null;
   /**
    * The durable continuation column was non-null but could not be decoded.
@@ -91,6 +102,7 @@ export interface SelectedDocumentRecordRow {
   documentManifestBundle: string | null;
   pendingBaseVersion: string | null;
   peerSalt: string | null;
+  committedVersion: string | null;
   pullContinuation: string | null;
 }
 
