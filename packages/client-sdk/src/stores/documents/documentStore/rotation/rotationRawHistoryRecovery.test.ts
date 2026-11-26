@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
-  encodeVersionVector,
   exportFullHistorySnapshot,
   getTextValue,
   getUpdateVersionVectors,
@@ -10,9 +8,9 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
-  createPendingUpdateRecord,
-  createSyncResponse,
-} from "../../../../../test/helpers/data/documentFixtures";
+  createForgedRotationBaseline,
+  createMalformedHistoricalBundleFixture,
+} from "../../../../../test/helpers/workflows/rawHistoryFixtures";
 import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
@@ -27,7 +25,6 @@ import {
   DocumentRawHistoryUnavailableError,
   isDocumentSyncUpdateIsolationError,
 } from "../../../../workflows/documents";
-import { buildMaterializedDocumentSyncPlan } from "../../../../workflows/documents/syncPlan/syncPlanMaterial";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
@@ -41,45 +38,6 @@ import { assertDocumentStoreCanRotateContentKey } from "./index";
 const hasTerminalFailures = (
   execSql: ConstructorParameters<typeof DocumentRecordRepository>[0],
 ) => new DocumentRecordRepository(execSql).hasRecordedTerminalSyncFailures();
-
-async function createForgedRotationBaseline(
-  fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>,
-  updateId: string,
-) {
-  const forgedDocument = await createDocument("rotation-recovery-remote");
-  forgedDocument.getText("text").update("forged value");
-  forgedDocument.commit();
-  forgedDocument.getText("text").update("forged value hidden!!");
-  forgedDocument.commit();
-  expect(encodeVersionVector(forgedDocument)).toBe(
-    encodeVersionVector(fixture.remoteDocument),
-  );
-  const snapshot = exportFullHistorySnapshot(forgedDocument);
-  const vectors = getUpdateVersionVectors(snapshot);
-  const plan = await buildMaterializedDocumentSyncPlan({
-    author: fixture.author,
-    localVersionVector: null,
-    pendingUpdates: [
-      createPendingUpdateRecord({
-        id: updateId,
-        sourceVersionVector: vectors.partialEndVersionVector,
-        updateData: bytesToBase64(snapshot),
-        ...vectors,
-      }),
-    ],
-    targetSecretKey: fixture.secretKey,
-    trustedLocalProjection: true,
-    writerProjection: fixture.writerProjection,
-  });
-  return {
-    document: forgedDocument,
-    response: await createSyncResponse(plan.plan, {
-      acceptedOutgoingUpdateIds: [],
-    }),
-    snapshot,
-    vectors,
-  };
-}
 
 // A checkpoint whose snapshot reuses the honest writer's operation ids with
 // other content is void, as an ordinary pull judges it: the rotation keeps it
@@ -296,42 +254,8 @@ test("a malformed historical bundle is poison-isolated instead of reported unava
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
-    const collectedKeks = await collectContainerKeksForDocumentSync({
-      secretKey: fixture.secretKey,
-      trustedLocalProjection: true,
-      writerProjection: fixture.writerProjection,
-    });
-    const currentContentKeyBundle = await buildRotatedDocumentContentKeyBundle({
-      containerKeksByEpochId: collectedKeks.keksByEpochId,
-      contentKey: crypto.getRandomValues(new Uint8Array(32)),
-      writerProjection: fixture.writerProjection,
-    });
-    const [historicalTarget, ...otherHistoricalTargets] =
-      fixture.writerProjection.contentKeyBundle.targets;
-    if (!historicalTarget) {
-      throw new Error("Expected historical content-key target");
-    }
-    const malformedHistoricalBundle = {
-      ...fixture.writerProjection.contentKeyBundle,
-      targets: [
-        {
-          ...historicalTarget,
-          wrappedKey: bytesToBase64(new Uint8Array([1, 2, 3])),
-        },
-        ...otherHistoricalTargets,
-      ],
-    };
-    const currentFixture = {
-      ...fixture,
-      response: {
-        ...fixture.response,
-        contentKeyBundles: [malformedHistoricalBundle],
-      },
-      writerProjection: {
-        ...fixture.writerProjection,
-        contentKeyBundle: currentContentKeyBundle,
-      },
-    };
+    const currentFixture =
+      await createMalformedHistoricalBundleFixture(fixture);
     const localId = "rotation-recovery-malformed-historical-bundle-local";
     const behindReader = await createDocument("malformed-bundle-behind");
     importSnapshot(behindReader, fixture.behindSnapshot);

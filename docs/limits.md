@@ -133,6 +133,23 @@ from the other wait.
 describes the windows, and [rotation deaths](./rotation-deaths.md) the count a
 key rotation keeps.
 
+A window's kind (`LoroWindowKind` in
+[`loroWindowMachine.ts`](../packages/client-sdk/src/data/documents/shared/sync/loroWindowMachine.ts))
+decides what a death inside it is charged to:
+
+| Kind | Opened by | A death inside it | A window the process outlives |
+| --- | --- | --- | --- |
+| `read` | A sync pass, a container metadata pull, a founding view, and a rotation page reading an update the device has not accepted. | Counts one attempt toward the update, when the window held it alone and was its lifetime's only open one. Otherwise it isolates the page's updates. | Clears the attempts earlier deaths counted toward the updates it read. |
+| `rotation` | A rotation's raw-history page whose updates the live document covers. | Counts toward the device's rotation of the document, never an update, and isolates the page's updates. | Clears those attempts too. |
+| `history` | Each page of a [history verification](./developer/client-sdk/document-history.md#verifying-history). | Counts toward nothing: no attempt, no isolation, no rotation death. The next claim on the scope deletes the row. Its row never replaces the row another window of the lifetime holds on the scope, so a death beside a sync pass's window still isolates that page's updates. | Clears no attempt. Verification writes nothing but its window rows. |
+
+A verification rebuilds a whole history for a viewer, so its death is
+likeliest the rebuild's size, and a viewer must cost neither an update nor
+the device's rotation. Its window still follows the one rule every window
+shares: while it is open, no other window of the lifetime counts a death. A
+scope already isolating suspects is not read at all, and the verification
+ends `unsettled`.
+
 No limit here bounds the time a reader spends importing one served update. The
 sync request ceiling bounds the update's size, and the exactly pinned Loro
 version imports one large text insert in bounded time: 512 KiB in under a
@@ -153,6 +170,7 @@ follows [dependency maintenance](./dependency-upgrades.md#current-constraints).
 | Text write diff | 100 ms for the character diff, then 100 ms for the line diff (`TEXT_DIFF_BUDGET_MS`, [`loro/src/textUpdate.ts`](../packages/loro/src/textUpdate.ts)) | SDK: `updateText`, which the document store's text write calls. Both diffs run in one synchronous WebAssembly call and take time quadratic in how much of the text differs: unbounded, replacing a 64 KB note with unrelated text took 8 s. | Never a refusal. The write is expressed more coarsely: by the lines that differ, then by replacing the whole text. A concurrent edit then merges with less of its surroundings ([text writes](../packages/loro/README.md#text-writes)). |
 | Rotation deaths per document | 3 under one judge with no completed rebuild between them (`MAX_ROTATION_DEATHS`, [`data/documents/shared/sync/rotationAvailabilityMachine.ts`](../packages/client-sdk/src/data/documents/shared/sync/rotationAvailabilityMachine.ts)), held equal to `MAX_LORO_RUNTIME_ATTEMPTS` | SDK: a death alone in a rotation's raw-history window, on a page the live document already covers, counts toward the device's rotation of the document, never toward an update (`loroWindows.ts`); the count persists in `document_rotation_availability`. | If the third death read one update alone, the next rebuild [leaves it out](./rotation-deaths.md#leaving-an-update-out); otherwise the device's rotation of the document is [unavailable](./rotation-deaths.md#unavailable-rotation). A rotation, unlink, or purge-unlink it starts is then refused with `DocumentRotationUnavailableError` and a queued move parks, leaving those writes to other members until a new judge starts the count over. Below the limit, a completed rebuild starts it over. |
 | Updates left out of one document's rebuilds | 8 (`MAX_ROTATION_LEFT_OUT`) | SDK: `rotationAvailabilityMachine.ts`. | The next death that would leave one more out makes the device's rotation of the document unavailable instead, as above. Each update left out cost the device the deaths that found it, so a writer must spend eight crashing updates on a device before one more stops its rotations. |
+| Updates in a history one device verifies | 20,000 (`MAX_VERIFIED_HISTORY_UPDATES`, [`workflows/documents/history/documentHistoryRawPull.ts`](../packages/client-sdk/src/workflows/documents/history/documentHistoryRawPull.ts)), held equal to the attribution reader's `MAX_RANGES` | SDK: `verifyDocumentHistory` reads the count the first raw page reports (`pullPage.throughUpdateCount`), and counts the updates it is served, so a server that understates the count is bounded too. | The verification ends `unavailable` with reason `too_large`, before it imports anything of that page. Nothing is recorded, and sync, editing, and rotation are unaffected. The number is not measured: it bounds the pages a viewer asks for, not the memory a rebuild needs. |
 
 ## Edit attribution
 

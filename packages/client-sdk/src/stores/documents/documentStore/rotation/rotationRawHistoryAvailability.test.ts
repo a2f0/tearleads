@@ -1,16 +1,7 @@
 import { expect, test } from "bun:test";
-import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
-import {
-  asContainerMutationFixture,
-  createTestExecSql,
-} from "@tearleads/test-utils";
-import { createMutationResponseFromRequest } from "../../../../../test/helpers/data/containerFixtures";
-import { createContainerMutationServiceFixture } from "../../../../../test/helpers/workflows/containerMutationServiceFixture";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
-import { buildRotatedDocumentContentKeyBundle } from "../../../../data/documents/shared/projection";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { createUnreachableEpochFixture } from "../../../../../test/helpers/workflows/rawHistoryFixtures";
+import { createRotationRecoveryRuntime } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { DocumentRawHistoryUnavailableError } from "../../../../workflows/documents";
 import {
@@ -29,104 +20,15 @@ test("raw rotation reports unavailable predecessor history after its persisted-s
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
     const localId = "rotation-raw-history-missing-predecessor-local";
-    await persistFullHistoryDocument({
-      doc: fixture.remoteDocument,
-      documentId: fixture.writerProjection.documentId,
+    const currentFixture = await createUnreachableEpochFixture({
       execSql,
+      fixture,
       localId,
-    });
-    const stored = await sqlDocumentsPersistence.loadDocument(execSql, localId);
-    if (!stored) throw new Error("Expected a persisted document fixture");
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      ...stored,
-      contentKeyBundle: JSON.stringify(
-        fixture.writerProjection.contentKeyBundle,
-      ),
-      documentKekTargets: JSON.stringify(
-        fixture.writerProjection.documentKekTargets,
-      ),
-      documentManifestBundle: JSON.stringify(
-        fixture.writerProjection.documentManifest,
-      ),
     });
     const originalRecord = await sqlDocumentsPersistence.loadDocument(
       execSql,
       localId,
     );
-
-    const previousKek = fixture.projection.containerKeks.at(-1);
-    if (!previousKek) throw new Error("Expected a container KEK fixture");
-    const rekeyed = await createContainerMutationServiceFixture({
-      reportSecurityIncident: async () => {},
-      api: {
-        reciteContainer: async () => null,
-        getContainerWriterProjection: async () => fixture.projection,
-        rekeyContainer: async (_containerId, request) =>
-          createMutationResponseFromRequest(request, previousKek),
-      },
-      execSql,
-      encapsulationSecretKey: fixture.secretKey,
-    }).rekeyRemoteContainer({
-      author: fixture.author,
-      containerId: fixture.projection.containerId,
-      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    });
-    if (!rekeyed) throw new Error("Expected the container rekey to succeed");
-    const currentTarget = {
-      containerId: asContainerMutationFixture(rekeyed.response).containerKek
-        .containerId,
-      containerKeyEpoch: asContainerMutationFixture(rekeyed.response)
-        .containerKek.containerKeyEpoch,
-      containerKeyEpochId: asContainerMutationFixture(rekeyed.response)
-        .containerKek.containerKeyEpochId,
-      containerManifestHash: asContainerMutationFixture(rekeyed.response)
-        .accessManifest.manifestHash,
-    };
-    const documentKekTargets = {
-      ...fixture.writerProjection.documentKekTargets,
-      documentKeyTargetHash: await computeDocumentContentKeyTargetHash([
-        currentTarget,
-      ]),
-      linkedContainerKeyEpochIds: [currentTarget.containerKeyEpochId],
-      linkedContainerManifestHashes: [currentTarget.containerManifestHash],
-      targets: [currentTarget],
-    };
-    const currentContainerProjection = {
-      ...fixture.projection,
-      containerKeks: [
-        {
-          ...asContainerMutationFixture(rekeyed.response).containerKek,
-          containerManifestHistory: [...fixture.projection.path],
-          keyring: null,
-        },
-      ],
-      path: [asContainerMutationFixture(rekeyed.response).accessManifest],
-    };
-    const rotatedProjection = {
-      ...fixture.writerProjection,
-      authorizingContainerPaths: [currentContainerProjection],
-      documentKekTargets,
-    };
-    const currentContentKeyBundle = await buildRotatedDocumentContentKeyBundle({
-      containerKeksByEpochId: new Map([
-        [currentTarget.containerKeyEpochId, rekeyed.containerKey],
-      ]),
-      contentKey: crypto.getRandomValues(new Uint8Array(32)),
-      writerProjection: rotatedProjection,
-    });
-    const currentFixture = {
-      ...fixture,
-      response: {
-        ...fixture.response,
-        contentKeyBundle: currentContentKeyBundle,
-        contentKeyBundles: [fixture.writerProjection.contentKeyBundle],
-        documentKekTargets,
-      },
-      writerProjection: {
-        ...rotatedProjection,
-        contentKeyBundle: currentContentKeyBundle,
-      },
-    };
     const syncCalls = { count: 0 };
     const state = createDocumentStoreState(
       localId,

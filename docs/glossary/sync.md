@@ -89,7 +89,10 @@ one update alone: the next rebuild leaves it out and rotates if the result
 still equals the live document. A rotation page reading
 an update the device has not accepted counts a death as a sync pass does. A
 window the process outlives clears the attempts earlier deaths counted toward
-the updates it read.
+the updates it read. Each page of a
+[history verification](../developer/client-sdk/document-history.md#verifying-history)
+reads in a `history` window, which is the exception to both: a death in it
+counts toward nothing and isolates nothing, and it clears no attempt.
 
 Related docs:
 

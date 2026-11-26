@@ -9,9 +9,11 @@
  * toward the update it read alone. A `rotation` window reads history this
  * device already accepted, to rebuild it for a key rotation, so its death
  * is far likelier the rebuild's size or state than the update: it counts
- * toward the rotation, never an update.
+ * toward the rotation, never an update. A `history` window rebuilds a whole
+ * history to compare it with the device's own, for a viewer (#2970): its
+ * death is charged to nothing, and it changes nothing durable.
  */
-export type LoroWindowKind = "read" | "rotation";
+export type LoroWindowKind = "read" | "rotation" | "history";
 
 /** A window another lifetime left, as stored. */
 export interface LoroWindow {
@@ -36,8 +38,8 @@ export type OrphanVerdict =
   /** The death says nothing about any one update: read each alone. */
   | { readonly kind: "isolate"; readonly suspects: readonly string[] }
   /**
-   * The user ended the lifetime, or the window belongs to another judge or
-   * server document: it says nothing.
+   * The user ended the lifetime, the window belongs to another judge or
+   * server document, or it verified history for a viewer: it says nothing.
    */
   | { readonly kind: "discard" };
 
@@ -45,14 +47,53 @@ export type OrphanVerdict =
  * A window counts when its lifetime has met no Loro runtime failure, so a
  * lifetime counts at most one failure. A read window counts only when it
  * holds one unsettled update; a rotation window counts its death toward the
- * rotation whatever its page held.
+ * rotation whatever its page held; a history window never counts.
  */
 export function loroWindowCounts(
   kind: LoroWindowKind,
   unsettledUpdates: number,
   lifetimeFailed: boolean,
 ): boolean {
-  return (kind === "rotation" || unsettledUpdates === 1) && !lifetimeFailed;
+  if (lifetimeFailed) return false;
+  switch (kind) {
+    case "read":
+      return unsettledUpdates === 1;
+    case "rotation":
+      return true;
+    case "history":
+      return false;
+  }
+}
+
+/**
+ * Whether a window the process outlives clears the attempts earlier deaths
+ * counted toward the updates it read. A history window writes nothing but
+ * its own row, so it clears none.
+ */
+export function loroWindowClearsAttempts(kind: LoroWindowKind): boolean {
+  switch (kind) {
+    case "read":
+    case "rotation":
+      return true;
+    case "history":
+      return false;
+  }
+}
+
+/**
+ * Whether a window's row takes the place of the row another window of its
+ * lifetime wrote on the scope, which keeps one row a lifetime. A history
+ * window's does not: its death says nothing, so the other window's row,
+ * which counts nothing beside it, stays to isolate that window's updates.
+ */
+export function loroWindowTakesScopeRow(kind: LoroWindowKind): boolean {
+  switch (kind) {
+    case "read":
+    case "rotation":
+      return true;
+    case "history":
+      return false;
+  }
 }
 
 export function judgeOrphanWindow(
@@ -74,16 +115,22 @@ export function judgeOrphanWindow(
     return { kind: "discard" };
   }
   const charged = window.counts && !context.endedFailed;
-  if (window.kind === "rotation") {
-    return charged
-      ? { kind: "rotationDeath", suspects: window.updateIds }
-      : { kind: "isolate", suspects: window.updateIds };
+  switch (window.kind) {
+    case "history":
+      // No attempt, no suspect, no rotation death: sync keeps its page size.
+      return { kind: "discard" };
+    case "rotation":
+      return charged
+        ? { kind: "rotationDeath", suspects: window.updateIds }
+        : { kind: "isolate", suspects: window.updateIds };
+    case "read": {
+      const [only] = window.updateIds;
+      if (charged && window.updateIds.length === 1 && only !== undefined) {
+        return { kind: "count", updateId: only };
+      }
+      return { kind: "isolate", suspects: window.updateIds };
+    }
   }
-  const [only] = window.updateIds;
-  if (charged && window.updateIds.length === 1 && only !== undefined) {
-    return { kind: "count", updateId: only };
-  }
-  return { kind: "isolate", suspects: window.updateIds };
 }
 
 /** Whether a scope reads one update a page, and which updates it suspects. */

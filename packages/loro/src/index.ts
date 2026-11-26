@@ -53,5 +53,6 @@ export {
 export { updateMatchesDocumentHistory } from "./updateIdentity";
 export {
   exportUpdatesInVersionRange,
+  meetVersionVectors,
   minimumVersionVectors,
 } from "./versionRange";

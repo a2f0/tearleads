@@ -84,6 +84,17 @@ export {
   type DocumentHistoryTextChange,
   isEmptyDocumentHistoryChange,
 } from "./history/documentHistoryChange";
+export type { DocumentHistoryVerifiedRange } from "./history/documentHistoryProvenance";
+export type {
+  DocumentHistoryVerificationProgress,
+  DocumentHistoryVerificationUnavailable,
+} from "./history/documentHistoryRawPull";
+export {
+  type DocumentHistoryVerification,
+  type DocumentHistoryVerificationOptions,
+  type DocumentHistoryVerificationReport,
+  verifyDocumentHistory,
+} from "./history/documentHistoryVerification";
 export {
   importDocumentHistoryTailUpdates,
   loadPersistedDocumentContent,
