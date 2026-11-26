@@ -5,8 +5,8 @@ production. It imports public SDK, SQLite, and PostgreSQL transport entry
 points, plus the API's test runtime for the local realtime hub probe. The app,
 SDK, and API do not depend on it.
 
-The [initial production baseline](baseline.md) records three registrations and
-their correlated database and CPU measurements.
+Measured runs live in [results](results/README.md), one dated file per run.
+This README describes the experiments and how to repeat them.
 
 The [database round-trip experiment](database-experiment.md) separates connection
 setup, repeated warm queries, batched queries, and server execution time through
@@ -34,11 +34,7 @@ session fails the phase. A timeout or a missing or changed
 fixture exits nonzero. The report goes to the terminal.
 Keys travel over stdin and are discarded. This exercises the deployed API and
 blob storage through the SDK. Browser rendering and OPFS require a web test.
-
-One production run on 2026-11-20 took 5.79 s to provision the account,
-152.97 s to seed it and 39.71 s to verify it. The 192.68 s round trip
-recovered 25 documents and 24 attachments (9,604,560 plaintext bytes),
-including the circular saw, drill and refrigerator photos and receipts.
+See the [2026-11-20 production run](results/2026-11-20-continuity-seed-round-trip.md).
 
 ## Realtime hub interest authorization
 
@@ -101,58 +97,22 @@ Statement, row and byte counts depend only on the tree, so they match
 production for the same shape. Durations and CPU do not. Bun's JavaScriptCore
 runs the hub code here instead of workerd's V8, and a local PostgreSQL answers
 in well under a millisecond, where the deployed hub waits about 5 ms per warm
-exchange through Hyperdrive ([database baseline](database-baseline.md)). The
+exchange through Hyperdrive
+([database round trip](results/2026-10-26-database-round-trip.md)). The
 returned bytes also cross the network in production. Memory is sampled every
 5 ms at event-loop turns, so a peak between two awaits is missed, and the
 peaks are lower bounds. Bun's heap figure leaves out Buffer storage, which the
 RSS figure includes. The process keeps pages it has touched, so a later sample
 can report a smaller RSS increase than the first. CPU includes the proxy's
 relay work, about 0.75 ms per MB returned on an M2 Pro. Reports are saved as
-`.test_files/performance/realtime-<run>.json`.
-
-### Results, 2026-11-25
-
-One run on an M2 Pro with Bun 1.4.2 and PostgreSQL 17.12 measured three
-samples per size, with `--fanout 10`, from `6bd2c5c17` plus this probe. CPU
-and duration are medians; peak heap is the largest sample. The first
-100-folder declaration took 115 ms of CPU before the code was warm, which
-leaves its median unaffected.
-
-| Folders | Pass | Statements | Rows | Returned | CPU | Duration | Peak heap | Snapshot |
-| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 100 | Declaration | 9 | 113 | 1.3 MiB | 20 ms | 41 ms | not sampled | |
-| 100 | Revalidation | 9 | 113 | 1.3 MiB | 20 ms | 30 ms | not sampled | 26 KB, 2 chunks |
-| 1,000 | Declaration | 10 | 1,013 | 12.5 MiB | 155 ms | 170 ms | 18 MiB | |
-| 1,000 | Revalidation | 10 | 1,013 | 12.5 MiB | 145 ms | 175 ms | 43 MiB | 300 KB, 19 chunks |
-| 10,000 | Declaration | 28 | 10,013 | 124.8 MiB | 1,489 ms | 2,475 ms | 397 MiB | |
-| 10,000 | Revalidation | 28 | 10,013 | 124.8 MiB | 1,502 ms | 1,422 ms | 411 MiB | 3.4 MB, 208 chunks |
-
-Every statement was its own round trip. The 100-folder heap peaks fell
-between samples.
-
-- **Statements are not the cost.** The batched path read grows from 9 to 28
-  statements across a hundredfold increase in folders. In production, 28
-  exchanges at about 5 ms each add roughly 0.15 s.
-- **Bytes and CPU grow with every folder.** Each folder returns about 13 KB of
-  manifest bundles and costs about 0.15 ms of CPU. At 10,000 folders that is
-  125 MiB from PostgreSQL and 1.5 s of CPU on the hub's single thread.
-- **Revalidation costs as much as connecting.** A revalidation pass repeats
-  the whole declaration's reads and checks, every 2.5 to 5 minutes, for each
-  open socket.
-- **Memory, not the deadline, looks like the limit at 10,000.** The local
-  passes finished in 1.3 to 6.1 s, far inside the 60 s budget, even after
-  adding production's round trips. But the rows alone are 125 MiB, and Bun's
-  heap rose 325 to 411 MiB during the pass. A Workers isolate, which hosts the
-  hub, is limited to 128 MB. JavaScriptCore and V8 count memory differently,
-  so this does not prove the hub fails at 10,000 folders. It does make memory
-  the likeliest failure, ahead of the deadline.
-- **The snapshot is larger than the issue's estimate.** It is 3.4 MB in 208
-  chunks at 10,000 folders, against an estimated 2 MB.
-
-Durations at 10,000 folders varied from 1.3 to 6.1 s while CPU stayed between
-1.4 and 1.9 s. The rest was waiting outside the process, mostly on PostgreSQL.
+`.test_files/performance/realtime-<run>.json`. See the
+[2026-11-25 results](results/2026-11-25-realtime-hub-interest.md) at 100,
+1,000 and 10,000 folders.
 
 ## Account provisioning
+
+The [initial production baseline](results/2026-10-24-provisioning.md) records
+three registrations and their correlated database and CPU measurements.
 
 Build the workspace SDK before running so the experiment uses current source:
 
