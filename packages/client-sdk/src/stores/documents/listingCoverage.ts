@@ -3,12 +3,16 @@ import type { DomainScope } from "../../data/shared/domainScope";
 
 /**
  * What vouches for a scope's documents between probes: container lanes that
- * are listed after every acknowledged connection, where a listed document the
- * device's processed cursor does not cover is owed a read. The composition
- * root installs it for a scope that runs such listings.
+ * the catch-up after every acknowledged connection lists when they moved,
+ * where a listed document the device's processed cursor does not cover is
+ * owed a read. The composition root installs it for a scope that runs such
+ * listings.
  */
 export interface DocumentListingAuthority {
-  /** Whether the acknowledged-connection listing includes this container. */
+  /**
+   * Whether the catch-up's listings vouch for this container's documents: it
+   * lists the lane when the lane moved, and the lane shows them.
+   */
   readonly listsContainer: (containerId: string) => boolean;
 }
 
@@ -70,7 +74,10 @@ function createDocumentListingCoverage(): DocumentListingCoverage {
     },
     observeEvents: (events) => {
       const unseen = events.slice(observedEventCount);
-      observedEventCount = events.length;
+      // Stores observe on their own schedule, and one that still holds an
+      // older runtime hands in a shorter prefix of the same list. Counting
+      // back would replay hints a store has already taken.
+      observedEventCount = Math.max(observedEventCount, events.length);
       if (authority === null) return;
       for (const event of unseen) {
         if (isDocumentUpdateCreatedEvent(event)) {

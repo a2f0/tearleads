@@ -42,27 +42,65 @@ export async function readSendableProcessedProgress(
 ): Promise<
   { readonly updateCount: number | null; readonly updateId: string } | undefined
 > {
-  const [progress] = await db
-    .select()
-    .from(documentSyncProgress)
-    .where(
-      and(
-        eq(documentSyncProgress.appKind, input.scope.appKind),
-        eq(documentSyncProgress.localId, input.scope.localId),
-      ),
-    )
-    .limit(1);
-  if (
-    !progress?.throughUpdateId ||
-    progress.throughVersion === null ||
-    progress.documentId !== input.documentId ||
-    progress.judge !== input.judge ||
-    !satisfiesVersionVector(input.frontier, progress.throughVersion)
-  ) {
+  const progress = await readProgress(db, input.scope);
+  if (!progress?.throughUpdateId || !isSendable(progress, input)) {
     return undefined;
   }
   return {
     updateCount: progress.throughUpdateCount,
     updateId: progress.throughUpdateId,
   };
+}
+
+/**
+ * Whether the record holds a processed cursor its next pull would not send:
+ * one reached by another judge, for another server document, or recorded
+ * with a version the current frontier no longer covers. That pull goes by
+ * version alone and judges again every update the frontier does not cover,
+ * so until it completes nothing stands for what the cursor claimed. False
+ * for a record with no cursor: it has nothing to judge again.
+ */
+export async function hasWithheldProcessedCursor(
+  db: VerdictReader,
+  input: {
+    readonly documentId: string;
+    readonly frontier: string;
+    readonly judge: string;
+    readonly scope: DocumentScope;
+  },
+): Promise<boolean> {
+  const progress = await readProgress(db, input.scope);
+  return Boolean(progress?.throughUpdateId) && !isSendable(progress, input);
+}
+
+async function readProgress(db: VerdictReader, scope: DocumentScope) {
+  const [progress] = await db
+    .select()
+    .from(documentSyncProgress)
+    .where(
+      and(
+        eq(documentSyncProgress.appKind, scope.appKind),
+        eq(documentSyncProgress.localId, scope.localId),
+      ),
+    )
+    .limit(1);
+  return progress;
+}
+
+/** The rules for sending a recorded cursor; see `readSendableProcessedCursor`. */
+function isSendable(
+  progress: typeof documentSyncProgress.$inferSelect | undefined,
+  input: {
+    readonly documentId: string;
+    readonly frontier: string;
+    readonly judge: string;
+  },
+): boolean {
+  return (
+    progress !== undefined &&
+    progress.throughVersion !== null &&
+    progress.documentId === input.documentId &&
+    progress.judge === input.judge &&
+    satisfiesVersionVector(input.frontier, progress.throughVersion)
+  );
 }

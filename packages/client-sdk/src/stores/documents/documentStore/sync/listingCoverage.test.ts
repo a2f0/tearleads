@@ -110,7 +110,7 @@ function owe(updateCount: number) {
 }
 
 /** The record and the cursor a completed pull left through `count` updates. */
-async function saveCursor(count: number) {
+async function saveCursor(count: number, judge = documentVerdictJudge()) {
   await execSql(
     `INSERT INTO documents (app_kind, local_id, document_id,
        snapshot_end_version, updated_at)
@@ -124,7 +124,7 @@ async function saveCursor(count: number) {
      VALUES ('documents', 'local-1', ?, 'update', ?, ?, ?)
      ON CONFLICT (app_kind, local_id) DO UPDATE SET
        through_update_count = excluded.through_update_count`,
-    [DOCUMENT_ID, count, FRONTIER, documentVerdictJudge()],
+    [DOCUMENT_ID, count, FRONTIER, judge],
   );
 }
 
@@ -139,6 +139,48 @@ test("a listed lane covers a record that completed a pull and owes nothing", asy
 
   expect(await load(state)).toBe(true);
   expect(isDocumentStoreCoveredByListing(state)).toBe(true);
+});
+
+test("a record whose cursor the running judge reached stays covered", async () => {
+  await saveCursor(3);
+  const { state } = await createLoadedStore();
+
+  expect(await load(state)).toBe(true);
+});
+
+test("a record whose cursor another judge reached probes until a pull completes", async () => {
+  // The device upgraded since the pull that saved this cursor. The next pull
+  // withholds it and judges every update again, and no listing asks for
+  // that pull: the row is behind its lane's watermark.
+  await saveCursor(3, "void-rules-older:loro-crdt@older");
+  const { state } = await createLoadedStore();
+
+  expect(await load(state)).toBe(false);
+  expect(isDocumentStoreCoveredByListing(state)).toBe(false);
+
+  // A pull cut short judged nothing through to its bound.
+  await settleOwedListingReadAfterCompletedPull(state, generationOf(state), {
+    frontier: FRONTIER,
+    owed: null,
+    pull: { hasHeldPull: false, hasIncompletePull: true },
+  });
+  expect(isDocumentStoreCoveredByListing(state)).toBe(false);
+
+  await settleOwedListingReadAfterCompletedPull(state, generationOf(state), {
+    frontier: FRONTIER,
+    owed: null,
+    pull: COMPLETE_PULL,
+  });
+  expect(isDocumentStoreCoveredByListing(state)).toBe(true);
+});
+
+test("a record restored behind its cursor probes", async () => {
+  await saveCursor(3);
+  const { state } = await createLoadedStore({
+    snapshotEndVersion: encodeVersionVectorCounters({ "7": 2 }),
+  });
+
+  expect(await load(state)).toBe(false);
 });
 
 test.each([

@@ -30,6 +30,7 @@ import { readFinalVoidUpdateIds } from "../../../data/persistence/documents/reco
 import { markLoroWindowsNotCountingInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { readProcessedCursorCoveredBy } from "../../../data/persistence/documents/records/processedCursorForVersion";
 import {
+  hasWithheldProcessedCursor,
   readSendableProcessedCursor,
   readSendableProcessedProgress,
 } from "../../../data/persistence/documents/records/sendableProcessedCursor";
@@ -100,6 +101,28 @@ export async function readProcessedUpdateCountForSync(
     { ...input, judge: documentVerdictJudge() },
   );
   return progress?.updateCount ?? null;
+}
+
+/**
+ * Whether the record holds a processed cursor its next pull would withhold,
+ * under `readProcessedCursorForSync`'s rules: the running judge did not
+ * reach it, it names another server document, or the frontier no longer
+ * covers its version. That pull judges again every update the frontier does
+ * not cover, so the record owes it whatever a listing says.
+ */
+export async function isProcessedCursorWithheldForSync(
+  execSql: ExecSql,
+  input: {
+    readonly documentId: string;
+    readonly frontier: string;
+    readonly scope: DocumentScope;
+  },
+): Promise<boolean> {
+  await ensureDocumentTables(execSql);
+  return hasWithheldProcessedCursor(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    { ...input, judge: documentVerdictJudge() },
+  );
 }
 
 /**

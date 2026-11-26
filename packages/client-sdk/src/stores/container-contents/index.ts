@@ -10,6 +10,7 @@ export {
   isReconcilableContainerNode,
   isRemoteBackedContainerNode,
   isSystemContainerNode,
+  listsHeldDocuments,
 } from "./containerState/reconcilableContainer";
 export {
   getOrCreateTreeCatchUp,

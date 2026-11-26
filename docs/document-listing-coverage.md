@@ -66,6 +66,18 @@ adding an update. The mechanism is the one
   before it applied. A lane the sweep cannot list also has every
   registered document probed at once, and keeps a force for its retry. The
   worst case is the earlier cost, never a refusal.
+- Lanes that never show their documents. The server serves no roster profile
+  document in any listing: profiles carry member data kept to an
+  organization's administrators, and reach a device by id from the roster. A
+  listing of the roster profile container therefore vouches for nothing, and
+  a store of a roster profile probes as before.
+- Withheld cursors. A listing owes a read only to a row it is served, and a
+  row behind its lane's watermark is not served again. A record that holds a
+  [processed cursor its next pull withholds](./advisory-op-spans.md#the-processed-cursor)
+  (the device now runs another judge, or its content was restored to an
+  older version) owes the pull that judges its updates again, so its store
+  probes when it loads and after each acknowledged connection until one pull
+  reaches its bound.
 - Attachments. Attachment bytes download after a sync response, so a document
   that names an attachment whose bytes the device does not hold also probes.
 - No-brick. The read is this device's own pull, with its stored commit

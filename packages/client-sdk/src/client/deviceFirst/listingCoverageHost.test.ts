@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { encodeVersionVectorCounters } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { organizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
@@ -13,10 +14,15 @@ import {
 import { documentTables } from "../../data/sqlite/schema/documentRecordSchema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { getOrCreateTreeCatchUp } from "../../stores/container-contents";
+import { getOrCreateDocumentListingCoverage } from "../../stores/documents";
 import { registerDocumentStore } from "../../stores/documents/registry";
 import { registerDocumentStoreLoadedRecord } from "../../stores/documents/savedElsewhere";
 import type { DocumentStoreFacade } from "../../stores/documents/types";
-import { createListingCoverageHost } from "./listingCoverageHost";
+import type { LocalProjectionStore } from "../../stores/local-projection";
+import {
+  createListingCoverageHost,
+  installDocumentListingAuthority,
+} from "./listingCoverageHost";
 
 const LOADED = encodeVersionVectorCounters({ "7": 4 });
 const SAVED_ELSEWHERE = encodeVersionVectorCounters({ "7": 4, "9": 2 });
@@ -111,4 +117,46 @@ test("the catch-up asks the scope's tree crawl whether it vouches", async () => 
   const settled = host.whenTreeCrawlSettles?.();
   treeCatchUp.crawlSettled(true);
   expect(await settled).toBe(true);
+});
+
+test("no listing vouches for the documents of a lane that never shows them", () => {
+  const organizationId = "organization-1";
+  const node = (id: string, systemSlot: string | null) => ({
+    effectiveAccessLevel: "admin",
+    id,
+    metadataDocumentId: `metadata-${id}`,
+    organizationId,
+    systemSlot,
+  });
+  const store = {
+    getSnapshot: () => ({
+      containers: [
+        node("folder", null),
+        node("contacts", "sys_v1_contacts"),
+        node(
+          "roster-profiles",
+          organizationRosterProfileContainerSystemSlot(organizationId),
+        ),
+      ],
+    }),
+  } as unknown as LocalProjectionStore;
+  const fixture = createWorkflowInputFixture({
+    apiClient: createMockApiClient({}),
+    auth: { organizationId },
+    domainScope,
+    execSql,
+  });
+  const remove = installDocumentListingAuthority({
+    domainScope,
+    runtimeService: createInternalRuntimeFixture(() => fixture),
+    store,
+  });
+  const coverage = getOrCreateDocumentListingCoverage(domainScope);
+
+  expect(coverage.coversContainer("folder")).toBe(true);
+  expect(coverage.coversContainer("contacts")).toBe(true);
+  // The server serves no roster profile document in any listing, so a store
+  // of one probes on its own.
+  expect(coverage.coversContainer("roster-profiles")).toBe(false);
+  remove();
 });

@@ -162,6 +162,7 @@ export {
   type DocumentListingRevalidation,
   findOwedDocumentListingRead,
   forgetUnheldDocumentListingReads,
+  isDocumentProcessedCursorWithheld,
   type ListedDocumentHead,
   type LoadedDocumentRecord,
   listLoadedRecordsSavedElsewhere,

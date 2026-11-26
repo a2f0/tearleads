@@ -117,8 +117,12 @@ head a lagging replica returns is likewise assumed current. Void updates,
 a withheld cursor and resumed pulls behave as in
 [MetadataListingConvergence](./MetadataListingConvergence.md), which models the
 same cursor. Outside the model: a lane the client cannot list, whose registered
-documents are probed directly; a store with no listing authority or with no
-completed pull, which probes as [RestartProbeConvergence](./RestartProbeConvergence.md)
+documents are probed directly; a lane whose listing never shows its documents
+(a roster profile container), whose stores no listing covers; a record whose
+cursor its next pull withholds, whose store probes until a pull reaches its
+bound (`isDocumentProcessedCursorWithheld`); a store with no listing
+authority or with no completed pull, which probes as
+[RestartProbeConvergence](./RestartProbeConvergence.md)
 describes; and several documents per lane and lane paging. A second runtime
 that shares the database, whose listing consumes the row for both, is
 [SharedDatabaseListing](./SharedDatabaseListing.md)'s subject.

@@ -24,9 +24,10 @@
  * a runtime installed with no deferred probe, a reset that had nothing to
  * forget. A probe is "owed" to a loaded remote record whose remote sync is
  * still blocked; one already allowed (a requested sync, a server hint) covers
- * it, and so does a container listing (`listingCoverage.ts`): the scope lists
- * the record's lane after every acknowledged connection and owes a read to a
- * document that moved, so a covered record never probes on its own. "wanted" stays after arming: it says the next load probes again. A
+ * it, and so does a container listing (`listingCoverage.ts`): after every
+ * acknowledged connection the scope lists the record's lane if it moved and
+ * owes a read to a document that moved, so a covered record never probes on
+ * its own. "wanted" stays after arming: it says the next load probes again. A
  * store loads again only after a reset, which leaves "deferred", so the
  * deferred load rows keep the old behavior for a load that does not happen.
  */

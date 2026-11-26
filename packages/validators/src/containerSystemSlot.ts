@@ -65,13 +65,24 @@ export function isNullableContainerSystemSlot(
   return value === null || isContainerSystemSlot(value);
 }
 
+/**
+ * The slot of an organization's roster profile container. Its documents are
+ * the ones a document listing never serves; see
+ * `isOrganizationRosterProfileContainerSystemSlot`.
+ */
+export function organizationRosterProfileContainerSystemSlot(
+  organizationId: string,
+): ContainerSystemSlot {
+  return deriveOrganizationSystemSlot({
+    namespace: "tearleads.organization-roster-profiles",
+    organizationId,
+  });
+}
+
 export async function deriveOrganizationRosterProfileContainerSystemSlot(input: {
   readonly organizationId: string;
 }): Promise<ContainerSystemSlot> {
-  return deriveOrganizationSystemSlot({
-    namespace: "tearleads.organization-roster-profiles",
-    organizationId: input.organizationId,
-  });
+  return organizationRosterProfileContainerSystemSlot(input.organizationId);
 }
 
 export async function deriveOrganizationMetadataContainerSystemSlot(input: {

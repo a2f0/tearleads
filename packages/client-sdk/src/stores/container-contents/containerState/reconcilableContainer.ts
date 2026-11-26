@@ -1,3 +1,4 @@
+import { organizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerNode } from "../types";
 
 /**
@@ -55,6 +56,27 @@ export function isReconcilableContainerNode(
     homeOrganizationId !== null &&
     (node.organizationId === homeOrganizationId ||
       isForeignSystemContainerNode(node, homeOrganizationId))
+  );
+}
+
+/**
+ * Whether a listing of this container's document lane shows the documents the
+ * container holds, so a listing can vouch for them.
+ *
+ * The server withholds roster profile documents from every document listing:
+ * they carry member data kept to an organization's administrators, and reach
+ * a device by id from the roster, never by discovery. A listing of the roster
+ * profile container therefore shows none of its documents, and says nothing
+ * about whether one of them moved.
+ */
+export function listsHeldDocuments(
+  node: Pick<ContainerNode, "organizationId" | "systemSlot">,
+): boolean {
+  return (
+    !node.systemSlot ||
+    !node.organizationId ||
+    node.systemSlot !==
+      organizationRosterProfileContainerSystemSlot(node.organizationId)
   );
 }
 

@@ -2,6 +2,7 @@ import type { DomainScope } from "../../data/shared/domainScope";
 import {
   getOrCreateTreeCatchUp,
   isReconcilableContainerNode,
+  listsHeldDocuments,
 } from "../../stores/container-contents";
 import {
   getOrCreateDocumentListingCoverage,
@@ -76,12 +77,34 @@ export function listReconcilableContainerIds(
 }
 
 /**
+ * The containers whose listings vouch for the documents they hold: the ones
+ * the reconciler lists, less a container whose lane never shows its own
+ * documents (`listsHeldDocuments`). A store of a document in one of those
+ * probes on its own, as every opened store did before listings owed reads.
+ */
+function listVouchingContainerIds(
+  runtimeService: InternalRuntime,
+  store: LocalProjectionStore,
+): string[] {
+  const homeOrganizationId = runtimeService.workflowInput().auth.organizationId;
+  return store
+    .getSnapshot()
+    .containers.flatMap((node) =>
+      isReconcilableContainerNode(node, homeOrganizationId) &&
+      listsHeldDocuments(node)
+        ? [node.id]
+        : [],
+    );
+}
+
+/**
  * The scope's listing authority: after each acknowledged connection the
  * reconciler lists every reconcilable container's document lane that moved
  * (a lane a complete tree crawl was not served did not), so a store
  * whose document one of them holds need not probe on its own. It answers
- * from the same list the sweep walks, rebuilt when the tree's node list is
- * replaced or the home organization changes.
+ * from the list the sweep walks, less the lanes that never show their own
+ * documents, rebuilt when the tree's node list is replaced or the home
+ * organization changes.
  */
 export function installDocumentListingAuthority(input: {
   readonly domainScope: DomainScope;
@@ -104,7 +127,7 @@ export function installDocumentListingAuthority(input: {
       ) {
         listedFor = { containers, homeOrganizationId };
         listedContainerIds = new Set(
-          listReconcilableContainerIds(input.runtimeService, input.store),
+          listVouchingContainerIds(input.runtimeService, input.store),
         );
       }
       return listedContainerIds.has(containerId);
