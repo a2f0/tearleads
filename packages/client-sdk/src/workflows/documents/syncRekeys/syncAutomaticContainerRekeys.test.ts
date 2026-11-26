@@ -56,7 +56,6 @@ test("ordinary document sync repairs a stale ancestor chain before encrypting it
     const readOnly = await buildRemoteDocumentSyncPlan({
       pendingUpdates: [],
       projection,
-      regenerateQueuedCheckpoints: false,
       sync,
     });
     expect(readOnly.plan.request.containerRekeys).toBeUndefined();
@@ -64,7 +63,6 @@ test("ordinary document sync repairs a stale ancestor chain before encrypting it
     const write = await buildRemoteDocumentSyncPlan({
       pendingUpdates: [createPendingUpdateRecord()],
       projection,
-      regenerateQueuedCheckpoints: false,
       sync,
     });
     const repairs = write.plan.request.containerRekeys;
@@ -135,7 +133,6 @@ test("a pass that cannot heal a stale bundle declines to repair its ancestors", 
       buildRemoteDocumentSyncPlan({
         pendingUpdates: [createPendingUpdateRecord()],
         projection,
-        regenerateQueuedCheckpoints: false,
         sync: settlement,
       }),
     ).rejects.toThrow(/ancestor KEK repair/);
@@ -185,7 +182,6 @@ test("a repair path outside the author's organization is refused", async () => {
       buildRemoteDocumentSyncPlan({
         pendingUpdates: [createPendingUpdateRecord()],
         projection,
-        regenerateQueuedCheckpoints: false,
         sync,
       }),
     ).rejects.toMatchObject({ code: "object_mismatch" });

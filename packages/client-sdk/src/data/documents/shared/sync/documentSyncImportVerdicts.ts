@@ -213,11 +213,13 @@ async function judgePageUpdate(
       judgement.stage,
       page.responseById,
     );
-    verdicts.voided.push(
-      judgement.preemptedPeerId === null
-        ? voided
-        : { ...voided, preemptedPeerId: judgement.preemptedPeerId },
-    );
+    verdicts.voided.push({
+      ...voided,
+      ...(judgement.missingDependency ? { missingDependency: true } : {}),
+      ...(judgement.preemptedPeerId === null
+        ? {}
+        : { preemptedPeerId: judgement.preemptedPeerId }),
+    });
   }
 }
 

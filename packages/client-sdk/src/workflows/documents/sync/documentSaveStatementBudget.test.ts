@@ -94,7 +94,6 @@ test("a local edit saves in a fixed number of statements", async () => {
           pendingUpdate: {
             partialEndVersionVector: encodeVersionVector(f.doc),
             partialStartVersionVector: before,
-            sourceVersionVector: null,
             updateData: update,
           },
           persistence: sqlDocumentsPersistence,

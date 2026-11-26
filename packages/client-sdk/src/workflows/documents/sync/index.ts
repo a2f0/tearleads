@@ -5,6 +5,7 @@ import type {
   SyncRemoteDocumentResult,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { continuedBaselineGroupRun } from "../../../data/documents/shared/sync/pullContinuation";
 import {
   type DocumentSyncPullContinuation,
   InvalidDocumentSyncPullContinuationError,
@@ -53,34 +54,12 @@ function evictStaleProjectionForRetry(input: RemoteDocumentSyncPass): void {
   input.apiClient.evictDocumentWriterProjection?.(input.documentId);
 }
 
-/**
- * A pass may repair a covering-baseline rejection by regenerating queued
- * rotation checkpoints — but only when there is something to regenerate FROM
- * (a snapshot provider and queued checkpoint rows), the failed pass was not
- * already a heal or a regeneration (whose fresh baseline proves this device
- * is simply behind), and an attempt remains.
- */
-function canRegenerateQueuedCheckpoints(input: {
-  materializedPlan: MaterializedDocumentSyncPlan;
-  pendingUpdates: readonly PendingUpdateRecord[];
-  regenerateQueuedCheckpoints: boolean;
-  sync: RemoteDocumentSyncPass;
-}): boolean {
-  return (
-    !input.regenerateQueuedCheckpoints &&
-    !input.materializedPlan.healedStaleContentKeyBundle &&
-    input.sync.buildRotationSnapshot !== undefined &&
-    input.pendingUpdates.some((update) => update.sourceVersionVector != null)
-  );
-}
-
 async function submitPlannedSyncAttempt(args: {
   attempt: number;
   materializedPlan: MaterializedDocumentSyncPlan;
   maxAttempts: number;
   pendingUpdates: readonly PendingUpdateRecord[];
   pullContinuation?: DocumentSyncPullContinuation | undefined;
-  regenerateQueuedCheckpoints: boolean;
   sync: RemoteDocumentSyncPass;
   failureBlocksQueuedWrites: boolean;
 }) {
@@ -89,12 +68,6 @@ async function submitPlannedSyncAttempt(args: {
       apiClient: args.sync.apiClient,
       attempt: args.attempt,
       canRebaseOntoFreshPeer: args.sync.rebaseOntoFreshPeer !== undefined,
-      canRegenerateQueuedCheckpoints: canRegenerateQueuedCheckpoints({
-        materializedPlan: args.materializedPlan,
-        pendingUpdates: args.pendingUpdates,
-        regenerateQueuedCheckpoints: args.regenerateQueuedCheckpoints,
-        sync: args.sync,
-      }),
       documentId: args.sync.documentId,
       expectedCommitLsnMode: args.pullContinuation?.commitLsnMode,
       isRemoteSyncBlocked: args.sync.isRemoteSyncBlocked,
@@ -234,9 +207,6 @@ async function recoveryOutcome(
   sync: RemoteDocumentSyncPass,
   request: SyncRecoveryRequest,
 ): Promise<RemoteDocumentSyncAttemptOutcome> {
-  if (request.kind === "regenerate_queued_checkpoints") {
-    return { kind: "regenerate" };
-  }
   if (request.kind === "rebase_peer") {
     // The host's rebase changes the queue and requests the pass that sends it.
     return {
@@ -288,7 +258,6 @@ async function runRemoteDocumentSyncAttempt(input: {
         ? input.sync.processedThroughUpdateId
         : undefined,
     pullContinuation: input.state.pullContinuation,
-    regenerateQueuedCheckpoints: input.state.regenerateQueuedCheckpoints,
     sync: input.sync,
     failureBlocksQueuedWrites: blocksQueuedWrites,
     writerProjection,
@@ -309,7 +278,6 @@ async function runRemoteDocumentSyncAttempt(input: {
       materializedPlan,
     ),
     pullContinuation: input.state.pullContinuation,
-    regenerateQueuedCheckpoints: input.state.regenerateQueuedCheckpoints,
     sync: input.sync,
     failureBlocksQueuedWrites: blocksQueuedWrites,
   });
@@ -335,6 +303,10 @@ async function runRemoteDocumentSyncAttempt(input: {
     return recoveryOutcome(input.sync, submitted);
   }
   const result = await resolveSubmittedDocumentSyncResult({
+    baselineGroupRun: continuedBaselineGroupRun(
+      input.state.pullContinuation,
+      materializedPlan.plan.request.pullCursor,
+    ),
     materializedPlan,
     pendingUpdateIds: input.pendingUpdateIds,
     pullComplete: submitted.pullComplete,
@@ -359,7 +331,6 @@ async function syncRemoteDocumentInternal(
   let pendingUpdates = input.pendingUpdates ?? [];
   const pendingUpdateIds = pendingUpdates.map((update) => update.id);
   let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();
-  let regenerateQueuedCheckpoints = false;
   let reusableWriterProjection = input.writerProjection ?? null;
   const persistedSync = await preparePersistedDocumentSync(
     input,
@@ -378,7 +349,6 @@ async function syncRemoteDocumentInternal(
         pendingUpdates,
         pullContinuation,
         recoveryPendingUpdatesById,
-        regenerateQueuedCheckpoints,
         reusableWriterProjection,
       },
       sync: input,
@@ -388,10 +358,6 @@ async function syncRemoteDocumentInternal(
     if (outcome.kind === "retry") {
       pullContinuation = outcome.pullContinuation;
       if (input.stillCurrent?.() === false) return null;
-      continue;
-    }
-    if (outcome.kind === "regenerate") {
-      regenerateQueuedCheckpoints = true;
       continue;
     }
     recoveryPendingUpdatesById = outcome.updates;

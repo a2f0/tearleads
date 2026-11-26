@@ -12,24 +12,38 @@ document, no more and no less (#3135):
 
 - Every ordinary update the server serves. A checkpoint never stands in for
   one, so a checkpoint can only add operations.
-- Every served rotation checkpoint the import judge accepted. Sync imports it
-  into the live document, so a rebuild without it never equals the live
-  history, and every rotation and unlink of the document would fail. The judge
-  accepts a checkpoint only when it is signed by a writer of the document,
-  authenticated, and consistent with every operation served before it.
+- Every served rotation checkpoint the import judge accepted. A checkpoint
+  here is one segment of a
+  [rotation baseline](../../docs/glossary/keys.md#rotation-baseline): the
+  baseline is an ordered group of ordinary updates, and the judge reads each
+  segment as it reads any update. Sync imports it into the live document, so
+  a rebuild without it never equals the live history, and every rotation and
+  unlink of the document would fail. The judge accepts a segment only when it
+  is signed by a writer of the document, authenticated, and consistent with
+  every operation served before it.
 - No [void](../../docs/glossary/content.md#void-update) update, ordinary or
   checkpoint: sync never applied it. Recovery leaves it out rather than
   failing on it.
 - No checkpoint whose verdict is unsettled (held, or pending on the Loro
   runtime): sync has not applied it either. The pass fails and a later
   rotation retries.
-- No checkpoint queued or installed on this device. It was never served, so it
+- No checkpoint installed on this device. It was never served, so it
   supplies no provenance, and `ScratchNeverLaundersCheckpoints` keeps recovery
   from laundering it into the baseline the rotator signs.
 
 That set is no wider than what sync applies: production rebuilds each page by
 handing its judged updates to the same import that applies a sync pass to the
 live document.
+
+The model's abstraction did not change when a baseline became a group of
+segments: a served checkpoint is still an update the judge accepts, voids, or
+leaves unsettled on its own, and the rebuild still holds exactly the accepted
+ones. A device no longer queues a baseline, so the model's local checkpoints
+(`initialQueuedCheckpoints`, `AppendCheckpointArtifact`) now stand only for
+the local history checkpoint a device installs, never for a queued row. The
+group rules a served baseline must meet (index order, count, digest) fail a
+raw page before the judge reads it, as any invalid page does
+(`RejectInvalidPage`).
 
 The final install is one guarded mutation: it replaces the local history
 checkpoint, retires the proven pending/checkpoint artifacts, advances the
@@ -49,7 +63,7 @@ generation and reject its stale enqueue or save.
 | `RejectPreliminaryUnavailablePage` / `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` propagation after integrity-prioritized raw-page validation |
 | `RejectPreliminaryInvalidPage` / `RejectInvalidPage` | incoming update isolation (`DocumentSyncUpdateIsolationError`) and fail-closed raw response validation |
 | `RebuildCheckpoints` / `PageRebuild` | `pullVerifiedRawHistoryForRotation`, which imports each page's accepted `decryptedUpdates` with `importSyncedDocumentUpdates`, the import `applyIncomingSyncedUpdates` applies to the live document |
-| `ServedCheckpoints` | the raw pull sends no outgoing updates, and `importProvenOrdinaryPendingHistory` imports no queued row that carries a source version vector |
+| `ServedCheckpoints` | the baseline segments a raw page serves, which `judgeServedBaselineGroups` holds to their group rules; the raw pull sends no outgoing updates, and every queued row is an ordinary update `importProvenOrdinaryPendingHistory` proves with `provenOrdinaryUpdateBytes` |
 | `UnsettledUpdates` with `RejectPreliminaryInvalidPage` / `RejectInvalidPage` | `assertRotationVerdictsSettled`, which fails the pass on a held, deferred, or runtime-pending verdict |
 | `RejectInexactHistory` | `assertExactDocumentHistory`, which compares replayed operation logs and fails with unverified local history |
 | `VoidUpdates` / `ExcludeVoids` | `rotationIncomingUpdateIsolation`, which leaves the voids `validateDocumentSyncUpdateImports` returns out of the rebuild, recorded by `RotationRawHistoryVoids` once the rebuild is proven |
@@ -61,7 +75,7 @@ generation and reject its stale enqueue or save.
 | `hasUnverifiedLocalGap` / `RejectUnverifiedLocalGap` | exact `updateMatchesDocumentHistory` compaction coverage plus recovery's exact-history rejection; unmatched and malformed tail rows remain durable evidence |
 | `AppendCheckpointArtifact` | a checkpoint row racing collection; the atomic install (`installRebuiltDocument`) retires the selected artifact without importing it as history |
 | `BeginBlockedWriter` / `FinishBlockedWriterAfterRecovery` | the durable `recoveryGeneration` captured by enqueue/save preparation and rechecked by settlement and commit paths |
-| `VerifyOrdinaryProvenance` / `BeginBlockedWriter` for merged rows | a row written by `replaceQueuedPendingUpdates` has no source version vector, the update import mode, and stored vectors equal to its decoded ones, so `importProvenOrdinaryPendingHistory` proves it with `updateMatchesDocumentHistory` like any ordinary row; `replaceDocumentQueuedUpdates` compares the document's `recoveryGeneration` inside its transaction, so a merge planned before recovery advanced the generation changes nothing |
+| `VerifyOrdinaryProvenance` / `BeginBlockedWriter` for merged rows | a row written by `replaceQueuedPendingUpdates` has the update import mode and stored vectors equal to its decoded ones, so `importProvenOrdinaryPendingHistory` proves it with `updateMatchesDocumentHistory` like any ordinary row; `replaceDocumentQueuedUpdates` compares the document's `recoveryGeneration` inside its transaction, so a merge planned before recovery advanced the generation changes nothing |
 
 ## Checked Properties and Bounds
 
@@ -139,8 +153,8 @@ the judge that failed rotation on any void, which failed every rotation and
 unlink of a document holding one. `RebuildServedCheckpoints` restores the
 rebuild from ordinary updates alone: under a served checkpoint carrying
 operations no ordinary update carries, its proof fails on every attempt.
-`RebuildOnlyServedCheckpoints` rebuilds a checkpoint this device queued or
-installed, and `RequireSettledVerdicts` one whose verdict is unsettled; each
+`RebuildOnlyServedCheckpoints` rebuilds a checkpoint this device installed,
+and `RequireSettledVerdicts` one whose verdict is unsettled; each
 puts history sync never applied into the baseline the rotator signs.
 `FinishVerifiedRecovery` suppresses the verified publication step: safety
 still permits waiting forever in `ready`, but

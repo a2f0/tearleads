@@ -12,7 +12,6 @@ import { projectionIntegrityErrorCode } from "../../../data/documents/shared/pro
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   isRetryableDocumentSyncConflict,
-  persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
 } from "../../../data/documents/shared/responses";
 import { limitDocumentSyncRequestBytes } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
@@ -22,6 +21,10 @@ import type {
   IncomingDocumentSyncUpdateValidator,
   SyncRemoteDocumentResult,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
+import {
+  continuedBaselineGroupRun,
+  pullPageVersion,
+} from "../../../data/documents/shared/sync/pullContinuation";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
@@ -55,6 +58,7 @@ import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys"
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { withPullCompletion } from "./pullOutcome";
+import { settleEmptyReadOnlyPage } from "./readOnlyEmptyPage";
 import {
   handleReadOnlyProjectionCompletionError,
   REFRESH_CACHED_PROJECTION,
@@ -72,7 +76,10 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     author: input.author,
     execSql: input.execSql,
     historyMode: input.historyMode,
-    localVersionVector: input.localVersionVector,
+    localVersionVector: pullPageVersion(
+      input.localVersionVector,
+      input.pullContinuation,
+    ),
     maxPageUpdates: input.maxPageUpdates,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     processedThroughUpdateId: input.processedThroughUpdateId,
@@ -87,6 +94,10 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
 
   const result = await syncRemoteDocumentResultFromResponse({
     ...projectionVerificationOptions(input),
+    baselineGroupRun: continuedBaselineGroupRun(
+      input.pullContinuation,
+      materializedPlan.plan.request.pullCursor,
+    ),
     execSql: input.execSql,
     materializedPlan,
     recoveryPendingUpdatesById: new Map(),
@@ -182,7 +193,10 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     documentKekTargets: persisted.documentKekTargets,
     documentManifest: persisted.documentManifest,
     historyMode: input.historyMode,
-    localVersionVector: input.localVersionVector,
+    localVersionVector: pullPageVersion(
+      input.localVersionVector,
+      input.pullContinuation,
+    ),
     maxPageUpdates: input.maxPageUpdates,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     outgoingUpdates: [],
@@ -330,6 +344,7 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     ? { kind: "completed", result: freshResult }
     : { kind: "not_completed" };
 }
+
 async function syncReadOnlyRemoteDocumentFromPersistedState(
   input: Omit<
     ReadOnlyDocumentSyncCompletionInput,
@@ -411,37 +426,10 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
     });
   }
 
-  try {
-    const persistedState = await persistedDocumentSyncStateFromResponse(
-      plan,
-      submitted.response,
-      { resolveWriterPublicKey: input.resolveWriterPublicKey },
-    );
-
-    return {
-      kind: "completed",
-      result: {
-        contentKey: new Uint8Array(),
-        decryptedUpdates: [],
-        exhaustedPendingUpdateCount: 0,
-        hasDeferredPendingUpdates: false,
-        hasHeldPull: false,
-        hasIncompletePull: !submitted.pullComplete,
-        persistedState,
-        plan,
-        rekeyedPendingUpdateIds: [],
-        response: submitted.response,
-        settledPendingUpdateIds: [],
-        acceptedRecoveryBaseline: false,
-        voidedUpdates: [],
-      },
-    };
-  } catch (error) {
-    if (input.historyMode === "raw") {
-      throw error;
-    }
-    return { kind: "not_completed" };
-  }
+  const settled = await settleEmptyReadOnlyPage(input, plan, submitted);
+  return settled
+    ? { kind: "completed", result: settled }
+    : { kind: "not_completed" };
 }
 
 export async function tryPersistedReadOnlyDocumentSync(

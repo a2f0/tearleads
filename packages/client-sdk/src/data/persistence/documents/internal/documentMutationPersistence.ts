@@ -15,10 +15,7 @@ import {
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
 import { DocumentRecordRepository } from "../records";
 import { settleDocumentSyncResponseInTransaction } from "../records/documentCommittedVersionPersistence";
-import {
-  insertDocumentPendingUpdateWithHistoryInTransaction,
-  settleQueuedDocumentUpdatesInTransaction,
-} from "../records/documentPendingUpdatePersistence";
+import { insertDocumentPendingUpdateWithHistoryInTransaction } from "../records/documentPendingUpdatePersistence";
 import type { DocumentsPersistence, StoredDocumentRecord } from "../types";
 import {
   applyStoredAttachmentRemoval,
@@ -63,18 +60,6 @@ function sameExpectedDocumentRecord(
     (current.documentKind ?? null) === (expected.documentKind ?? null) &&
     current.text === expected.text &&
     (current.title ?? null) === (expected.title ?? null)
-  );
-}
-
-async function deleteAcceptedPendingUpdates(
-  tx: ClientSQLiteTransactionScope,
-  localId: string,
-  ids: readonly string[],
-): Promise<void> {
-  await settleQueuedDocumentUpdatesInTransaction(
-    tx,
-    { appKind: DOCUMENTS_APP_KIND, localId },
-    ids,
   );
 }
 
@@ -127,14 +112,10 @@ async function settleMutationConflict(input: {
 }
 
 function assertRecoveryCoversLocalState(coveredLocalState: {
-  readonly hasOrdinaryPendingUpdates: boolean;
-  readonly hasUnprunablePendingUpdates: boolean;
+  readonly hasPendingUpdates: boolean;
   readonly hasUnverifiedHistoryTail: boolean;
 }): void {
-  if (
-    coveredLocalState.hasOrdinaryPendingUpdates ||
-    coveredLocalState.hasUnprunablePendingUpdates
-  ) {
+  if (coveredLocalState.hasPendingUpdates) {
     throw new Error(
       "Document recovery found unproven pending updates before installation",
     );
@@ -160,22 +141,13 @@ async function appendMutationHistory(
           input.historyCheckpoint.snapshot,
         )
       : {
-          checkpointIds: [],
-          hasOrdinaryPendingUpdates: false,
-          hasUnprunablePendingUpdates: false,
+          hasPendingUpdates: false,
           hasUnverifiedHistoryTail: false,
           tailIds: [],
         };
     if (input.historyCheckpoint.pruneCoveredLocalState) {
       assertRecoveryCoversLocalState(coveredLocalState);
     }
-    // A queued rotation baseline the recovery snapshot covers is unqueued
-    // first so the replacement below can delete it with the covered tail.
-    await deleteAcceptedPendingUpdates(
-      tx,
-      input.document.id,
-      coveredLocalState.checkpointIds,
-    );
     const checkpointReplaced = await records.replaceDocumentHistoryCheckpoint(
       { appKind: DOCUMENTS_APP_KIND, localId: input.document.id },
       {
@@ -205,9 +177,7 @@ async function findCoveredRecoveryLocalState(
   localId: string,
   recoverySnapshot: string,
 ): Promise<{
-  checkpointIds: string[];
-  hasOrdinaryPendingUpdates: boolean;
-  hasUnprunablePendingUpdates: boolean;
+  hasPendingUpdates: boolean;
   hasUnverifiedHistoryTail: boolean;
   tailIds: string[];
 }> {
@@ -220,7 +190,6 @@ async function findCoveredRecoveryLocalState(
       .select({
         id: documentHistoryUpdates.id,
         origin: documentHistoryUpdates.origin,
-        sourceVersionVector: documentHistoryUpdates.sourceVersionVector,
         updateData: documentHistoryUpdates.updateData,
         updateId: documentHistoryUpdates.updateId,
       })
@@ -231,13 +200,7 @@ async function findCoveredRecoveryLocalState(
           eq(documentHistoryUpdates.localId, localId),
         ),
       );
-    const pendingUpdates = rows.filter((row) => row.updateId !== null);
     const tail = rows.filter((row) => row.origin !== "outbox");
-    const checkpointUpdateData = new Set(
-      pendingUpdates.flatMap((row) =>
-        row.sourceVersionVector === null ? [] : [row.updateData],
-      ),
-    );
     let hasUnverifiedHistoryTail = false;
     const tailIds = tail.flatMap((row) => {
       if (row.id === null) {
@@ -246,7 +209,6 @@ async function findCoveredRecoveryLocalState(
         hasUnverifiedHistoryTail = true;
         return [];
       }
-      if (checkpointUpdateData.has(row.updateData)) return [row.id];
       try {
         if (
           updateMatchesDocumentHistory(
@@ -263,17 +225,8 @@ async function findCoveredRecoveryLocalState(
       return [];
     });
     return {
-      checkpointIds: pendingUpdates.flatMap((row) =>
-        row.updateId !== null && row.sourceVersionVector !== null
-          ? [row.updateId]
-          : [],
-      ),
-      hasOrdinaryPendingUpdates: pendingUpdates.some(
-        (row) => row.sourceVersionVector === null,
-      ),
-      hasUnprunablePendingUpdates: pendingUpdates.some(
-        (row) => row.id === null,
-      ),
+      // A queued update is local work no server history can stand for.
+      hasPendingUpdates: rows.some((row) => row.updateId !== null),
       hasUnverifiedHistoryTail,
       tailIds,
     };

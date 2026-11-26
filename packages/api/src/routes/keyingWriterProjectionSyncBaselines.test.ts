@@ -33,8 +33,11 @@ async function loadDocumentWriteRows(documentId: string) {
   const [rows, writeHeaders] = await Promise.all([
     db
       .select({
+        baselineId: documentUpdates.baselineId,
+        baselineSegmentCount: documentUpdates.baselineSegmentCount,
+        baselineSegmentIndex: documentUpdates.baselineSegmentIndex,
+        baselineSegmentsDigest: documentUpdates.baselineSegmentsDigest,
         id: documentUpdates.id,
-        sourceVersionVector: documentUpdates.baselineSourceVersionVector,
       })
       .from(documentUpdates)
       .where(eq(documentUpdates.documentId, documentId)),
@@ -44,10 +47,8 @@ async function loadDocumentWriteRows(documentId: string) {
       .where(eq(documentContentWriteHeaders.documentId, documentId)),
   ]);
   const updates = rows.map(({ id }) => ({ id }));
-  const baselines = rows.flatMap(({ id, sourceVersionVector }) =>
-    sourceVersionVector === null
-      ? []
-      : [{ baselineUpdateId: id, sourceVersionVector }],
+  const baselines = rows.flatMap(({ id, ...fields }) =>
+    fields.baselineId === null ? [] : [{ ...fields, updateId: id }],
   );
 
   return { baselines, updates, writeHeaders };
@@ -141,7 +142,7 @@ test("POST /documents/:documentId/sync records a baseline once across a retried 
   expect(retried.acceptedOutgoingUpdateIds).toEqual([updateId]);
 
   const outgoing = request.outgoingUpdates[0];
-  invariant(outgoing?.sourceVersionVector, "expected a baseline update");
+  invariant(outgoing?.baselineId, "expected a baseline segment");
   const { baselines, updates, writeHeaders } = await loadDocumentWriteRows(
     created.id,
   );
@@ -149,8 +150,11 @@ test("POST /documents/:documentId/sync records a baseline once across a retried 
   expect(writeHeaders).toEqual([{ updateId }]);
   expect(baselines).toEqual([
     {
-      baselineUpdateId: updateId,
-      sourceVersionVector: outgoing.sourceVersionVector,
+      baselineId: outgoing.baselineId,
+      baselineSegmentCount: 1,
+      baselineSegmentIndex: 0,
+      baselineSegmentsDigest: outgoing.baselineSegmentsDigest ?? null,
+      updateId,
     },
   ]);
 });
@@ -270,9 +274,9 @@ test("POST /documents/:documentId/sync redirects historical updates to the atomi
   expect(syncResponse.status).toBe(200);
   const synced = await syncResponse.json();
   expect(isDocumentSyncResponse(synced)).toBe(true);
-  expect(synced.updates.map((update: { id: string }) => update.id)).toEqual([
-    unlinkRequest.rotationBaseline?.id,
-  ]);
+  expect(synced.updates.map((update: { id: string }) => update.id)).toEqual(
+    (unlinkRequest.rotationBaseline ?? []).map((segment) => segment.id),
+  );
   expect(
     synced.updates.map((update: { id: string }) => update.id),
   ).not.toContain(updateId);

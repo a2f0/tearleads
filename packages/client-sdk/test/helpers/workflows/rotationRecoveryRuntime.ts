@@ -9,6 +9,7 @@ import { createMockApiClient } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { defaultDocumentProjectorRegistry } from "../../../src/data/documents/documentKinds";
+import { documentBaselineSegmentFields } from "../../../src/data/documents/shared/sync/baselineSegment";
 import { deleteDocumentPlacements } from "../../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../src/data/persistence/documents/documentsPersistence";
 import { createDomainScope } from "../../../src/data/shared/domainScope";
@@ -91,12 +92,7 @@ export function createRotationRecoveryRuntime(input: {
               containerManifestHash: target.containerManifestHash,
             }),
           ),
-        ...(update.checkpointKind === undefined
-          ? {}
-          : { checkpointKind: update.checkpointKind }),
-        ...(update.checkpointPayloadKind === undefined
-          ? {}
-          : { checkpointPayloadKind: update.checkpointPayloadKind }),
+        ...documentBaselineSegmentFields(update),
         authorFingerprint: author.signerKeyFingerprint,
         createdAt: "2026-04-27T00:00:00.000Z",
         dependencyVersionVector: update.dependencyVersionVector,
@@ -106,9 +102,6 @@ export function createRotationRecoveryRuntime(input: {
         partialEndVersionVector: update.partialEndVersionVector,
         partialStartVersionVector: update.partialStartVersionVector,
         plaintextHash: update.plaintextHash,
-        ...(update.sourceVersionVector === undefined
-          ? {}
-          : { sourceVersionVector: update.sourceVersionVector }),
         writeHeader: update.writeHeader,
       }));
       const defaultResponse = {

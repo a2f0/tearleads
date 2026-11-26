@@ -19,7 +19,6 @@ test("the retryable plan builder cannot commit a standalone ancestor repair", as
       buildRemoteDocumentSyncPlan({
         pendingUpdates: [createPendingUpdateRecord()],
         projection,
-        regenerateQueuedCheckpoints: false,
         sync: { ...sync, apiClient },
       }),
     ).rejects.toThrow("new ancestor preparation step");

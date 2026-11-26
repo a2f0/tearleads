@@ -25,34 +25,30 @@ import type { AppendDocumentUpdatesInput } from "./types";
 
 /**
  * Dedup, idempotent-retry matching, and insertion of a sync request's outgoing
- * updates; a rotation baseline is marked on its own update row. Split from syncDocument.ts, which keeps the
- * transaction orchestration; per-update verification lives in
- * outgoingUpdateVerification.
+ * updates; a rotation baseline's segments are marked on their own update
+ * rows. Split from syncDocument.ts, which keeps the transaction
+ * orchestration; per-update verification lives in outgoingUpdateVerification.
+ * One insert takes the request's new updates in request order, so their
+ * sequences rise in that order and a baseline's segments are served as sent.
  */
 function documentUpdateByteLength(update: DocumentOutgoingUpdate): number {
   return Buffer.byteLength(update.encryptedData, "utf8");
 }
 
 /**
- * A rotation baseline carries its declared source version vector on its update
- * row, so the redirect, sync response, and edit attribution find it without a
- * second insert. Only updates this transaction inserts are written, so a
- * retried baseline never changes a committed row.
+ * A rotation baseline's segments carry their group fields on their update
+ * rows, so the redirect, sync response, and edit attribution find the group
+ * without a second insert. Only updates this transaction inserts are
+ * written, so a retried segment never changes a committed row.
  */
-function baselineSourceVersionVector(
-  update: DocumentOutgoingUpdate,
-): string | null {
-  return update.checkpointKind === undefined
-    ? null
-    : (update.sourceVersionVector ?? null);
-}
-
-function baselineCoversThroughUpdateId(
-  update: DocumentOutgoingUpdate,
-): string | null {
-  return update.checkpointKind === undefined
-    ? null
-    : (update.coversThroughUpdateId ?? null);
+function baselineSegmentColumns(update: DocumentOutgoingUpdate) {
+  return {
+    baselineCoversThroughUpdateId: update.coversThroughUpdateId ?? null,
+    baselineId: update.baselineId ?? null,
+    baselineSegmentCount: update.baselineSegmentCount ?? null,
+    baselineSegmentIndex: update.baselineSegmentIndex ?? null,
+    baselineSegmentsDigest: update.baselineSegmentsDigest ?? null,
+  };
 }
 
 function acceptedOutgoingUpdateIds(
@@ -62,6 +58,32 @@ function acceptedOutgoingUpdateIds(
   return updates
     .filter((update) => acceptedUpdateIds.has(update.id))
     .map((update) => update.id);
+}
+
+/**
+ * A request's updates are committed in request order: a pull serves by
+ * `sequence`, a rotation baseline's segments are read back as a group in it,
+ * and a redirect starts at the group's first. One multi-row insert assigns
+ * the identity column in row order in practice, which Postgres does not
+ * promise, so the order is checked from the rows it returned. A request
+ * whose rows came back out of order fails, and its transaction rolls back.
+ */
+export function assertStoredInRequestOrder(
+  updates: readonly Pick<DocumentOutgoingUpdate, "id">[],
+  insertedRows: readonly { readonly id: string; readonly sequence: number }[],
+): void {
+  const sequenceById = new Map(
+    insertedRows.map((row) => [row.id, row.sequence]),
+  );
+  let previous: number | null = null;
+  for (const { id } of updates) {
+    const sequence = sequenceById.get(id);
+    if (sequence === undefined) continue;
+    if (previous !== null && sequence <= previous) {
+      throw new Error("Document updates were not stored in request order");
+    }
+    previous = sequence;
+  }
 }
 
 async function insertNewDocumentUpdates(input: {
@@ -94,12 +116,12 @@ async function insertNewDocumentUpdates(input: {
         partialEndVersionVector: update.partialEndVersionVector,
         dependencyVersionVector: update.dependencyVersionVector,
         plaintextHash: update.plaintextHash,
-        baselineSourceVersionVector: baselineSourceVersionVector(update),
-        baselineCoversThroughUpdateId: baselineCoversThroughUpdateId(update),
+        ...baselineSegmentColumns(update),
       })),
     )
     .onConflictDoNothing({ target: documentUpdates.id })
-    .returning({ id: documentUpdates.id });
+    .returning({ id: documentUpdates.id, sequence: documentUpdates.sequence });
+  assertStoredInRequestOrder(input.updates, insertedRows);
   const insertedUpdateIds = new Set(insertedRows.map((row) => row.id));
   await insertDocumentUpdateSpans(input.executor, {
     documentId: input.documentId,

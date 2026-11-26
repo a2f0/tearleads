@@ -2,6 +2,7 @@ import { createReadOnlyDocument, importUpdates } from "@tearleads/loro";
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { readSeedTag } from "../../../data/documents/documentContent";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
+import { isDocumentBaselineSegment } from "../../../data/documents/shared/sync/baselineSegment";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
 import { resolveDocumentCreateAuthor } from "../author";
 import { defaultDocumentsPersistence } from "../persistence";
@@ -95,7 +96,7 @@ export async function readDocumentFoundingUpdate(input: {
     if (
       !first ||
       update?.id !== first.id ||
-      update.checkpointKind !== undefined ||
+      isDocumentBaselineSegment(update) ||
       !stillCurrent()
     )
       return null;

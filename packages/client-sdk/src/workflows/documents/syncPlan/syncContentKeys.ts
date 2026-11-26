@@ -25,7 +25,11 @@ import {
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { resolveBaselineCursors } from "./baselineCursors";
+import { readProcessedCursorForVersion } from "../sync/processedCursor";
+import {
+  type DocumentRotationBaselineHistory,
+  encryptRotationBaselineGroup,
+} from "./rotationBaselineGroup";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
 type RawHistoryUnavailableCause =
@@ -120,30 +124,51 @@ async function throwRawHistoryUnavailable(input: {
   );
 }
 
+/**
+ * Encrypts what a sync sends, in request order: a heal's rotation baseline,
+ * every segment in index order, then the pending updates. The baseline signs
+ * the processed cursor its version covers the recorded frontier of, so every
+ * update the cursor's pull imported is in it and the rest were void. The API
+ * then asks the baseline to cover only updates committed after the cursor,
+ * and an update every reader voids no longer refuses it. A baseline whose
+ * version covers no cursor signs none, and must cover every committed update.
+ */
 export async function prepareDocumentOutgoingUpdates(input: {
   contentKey: Uint8Array;
   contentKeyEpoch: number;
   documentId: string;
-  /** Reads the processed cursor each queued rotation baseline signs. */
+  /** Reads the processed cursor the rotation baseline signs. */
   execSql?: ExecSql | undefined;
   organizationId: string;
   pendingUpdates: readonly PendingUpdateRecord[];
+  rotationBaseline?: DocumentRotationBaselineHistory | undefined;
 }): Promise<DocumentSyncPreparedUpdate[]> {
-  if (input.pendingUpdates.length === 0) {
+  const { rotationBaseline } = input;
+  if (input.pendingUpdates.length === 0 && !rotationBaseline) {
     return [];
   }
   const contentKey = await openDocumentContentKey(input);
-  const baselineCursors = await resolveBaselineCursors(input);
-
-  return Promise.all(
+  const baselineSegments = rotationBaseline
+    ? await encryptRotationBaselineGroup({
+        baselineId: rotationBaseline.baselineId,
+        contentKey,
+        contentKeyEpoch: input.contentKeyEpoch,
+        coversThroughUpdateId: input.execSql
+          ? await readProcessedCursorForVersion(input.execSql, {
+              documentId: input.documentId,
+              version: rotationBaseline.version,
+            })
+          : undefined,
+        documentId: input.documentId,
+        organizationId: input.organizationId,
+        segments: rotationBaseline.segments,
+      })
+    : [];
+  const ordinaryUpdates = await Promise.all(
     input.pendingUpdates.map(async (update) => {
-      const coversThroughUpdateId = update.sourceVersionVector
-        ? baselineCursors.get(update.id)
-        : undefined;
       const encrypted = await encryptDocumentPendingUpdate({
         contentKey,
         contentKeyEpoch: input.contentKeyEpoch,
-        coversThroughUpdateId,
         documentId: input.documentId,
         organizationId: input.organizationId,
         update,
@@ -159,19 +184,10 @@ export async function prepareDocumentOutgoingUpdates(input: {
         metadataHash: encrypted.metadataHash,
         ciphertextHash: encrypted.ciphertextHash,
         plaintextHash: encrypted.plaintextHash,
-        ...(update.sourceVersionVector
-          ? {
-              checkpointKind: "rotate_baseline" as const,
-              checkpointPayloadKind: "full_history_snapshot" as const,
-              sourceVersionVector: update.sourceVersionVector,
-              ...(coversThroughUpdateId === undefined
-                ? {}
-                : { coversThroughUpdateId }),
-            }
-          : {}),
       };
     }),
   );
+  return [...baselineSegments, ...ordinaryUpdates];
 }
 
 function syncResponseContentKeyBundlesByEpoch(

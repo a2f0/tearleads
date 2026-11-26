@@ -2807,10 +2807,10 @@ export type components = {
         /** @description A create's seed: the one encrypted update a document is born with. The API checks and commits it as the document sync it stands for, made from the create's content-key bundle, expected hashes and target path. */
         DocumentCreateSeedRequest: {
             outgoingUpdates: ({
-                /** @constant */
-                checkpointKind?: "rotate_baseline";
-                /** @constant */
-                checkpointPayloadKind?: "full_history_snapshot";
+                baselineId?: string;
+                baselineSegmentCount?: number;
+                baselineSegmentIndex?: number;
+                baselineSegmentsDigest?: string;
                 coversThroughUpdateId?: string;
                 dependencyVersionVector: string;
                 encryptedData: string;
@@ -2818,7 +2818,6 @@ export type components = {
                 partialEndVersionVector: string;
                 partialStartVersionVector: string;
                 plaintextHash: string;
-                sourceVersionVector?: string;
                 writeHeader: {
                     [key: string]: unknown;
                 };
@@ -2904,8 +2903,8 @@ export type components = {
             };
             /** @description Hash of the link-set manifest this mutation derives. */
             expectedManifestHash: string;
-            /** @description For an unlink, a rotation baseline covering every committed update after its signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link. */
-            rotationBaseline?: components["schemas"]["DocumentOutgoingUpdate"];
+            /** @description For an unlink, the segments of one rotation baseline in index order, together covering every committed update after the final segment's signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link. */
+            rotationBaseline?: components["schemas"]["DocumentOutgoingUpdate"][];
             /** @description Path to the container being linked or unlinked. */
             targetContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
         } & {
@@ -2926,7 +2925,7 @@ export type components = {
             [key: string]: unknown;
         };
         /** @description A machine-readable reason a document mutation was refused. */
-        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_dependency_uncommitted" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
+        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_baseline_group_invalid" | "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_dependency_uncommitted" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
         /** @description A refused document create, link, unlink, or purge. */
         DocumentMutationFailureResponse: {
             code?: components["schemas"]["DocumentMutationErrorCode"];
@@ -2944,32 +2943,28 @@ export type components = {
         };
         /** @description One encrypted Loro update a client uploads, with its signed write header. */
         DocumentOutgoingUpdate: {
-            /**
-             * @description `rotate_baseline` when the update is a rotation baseline; absent for an ordinary update.
-             * @constant
-             */
-            checkpointKind?: "rotate_baseline";
-            /**
-             * @description `full_history_snapshot` for a rotation baseline; absent otherwise.
-             * @constant
-             */
-            checkpointPayloadKind?: "full_history_snapshot";
-            /** @description For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor. */
+            /** @description The rotation baseline the update is a segment of: an ordered group of updates that together carry the document's whole history at the epoch a rotation opened. Signed in the content-record metadata; absent for an ordinary update. */
+            baselineId?: string;
+            /** @description On a baseline's final segment only, how many segments the baseline has. Signed in the content-record metadata. */
+            baselineSegmentCount?: number;
+            /** @description The segment's place in its baseline, from zero. Signed in the content-record metadata. A request sends a baseline's segments together, in index order. */
+            baselineSegmentIndex?: number;
+            /** @description On a baseline's final segment only, the digest of the segments before it: a hash chain over each one's index, update id, metadata hash and ciphertext hash, started from the document and baseline ids. Signed in the content-record metadata, so a reader that holds every segment can tell none was dropped, replaced or reordered. */
+            baselineSegmentsDigest?: string;
+            /** @description On a baseline's final segment, its author's processed cursor: every update committed up to this one was imported into the baseline or void for the author, so the segments must cover only later updates. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline that declares no operations, the one empty segment of an author who voided every update through the cursor. */
             coversThroughUpdateId?: string;
-            /** @description Version vector of the operations the update depends on outside itself: one past each peer's latest such operation, as Loro decodes the payload's start frontiers. Signed in the content-record metadata. The server refuses an update that depends on an operation it has not committed (`document_sync_dependency_uncommitted`), and a reader voids one whose payload depends on other operations. Empty on a rotation baseline. */
+            /** @description Version vector of the operations the update depends on outside itself: one past each peer's latest such operation, as Loro decodes the payload's start frontiers. Signed in the content-record metadata. The server refuses an update that depends on an operation it has not committed (`document_sync_dependency_uncommitted`), and a reader voids one whose payload depends on other operations. A baseline segment depends only on its baseline's earlier segments. */
             dependencyVersionVector: string;
             /** @description Base64 ciphertext of the update under the document content key. */
             encryptedData: string;
             /** @description Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical. */
             id: string;
-            /** @description Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on a rotation baseline that signs `coversThroughUpdateId`. */
+            /** @description Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on the one segment of an empty baseline, which signs `coversThroughUpdateId`. */
             partialEndVersionVector: string;
             /** @description Version vector the update starts from. */
             partialStartVersionVector: string;
             /** @description Hash of the plaintext update, committed by the write header. */
             plaintextHash: string;
-            /** @description For a rotation baseline, the frontier its snapshot covers. */
-            sourceVersionVector?: string;
             /** @description Signed write header binding the ciphertext to the document, access manifest, content-key epoch, target hash, and writer. */
             writeHeader: {
                 [key: string]: unknown;
@@ -3031,10 +3026,10 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer or off uncommitted dependencies, or stop. */
+        /** @description A refused sync. The code tells the client what to do: rebuild a malformed rotation baseline or one that no longer covers the committed updates, commit rekeys first, replan, recover update ids, move ops off another user's peer or off uncommitted dependencies, or stop. */
         DocumentSyncErrorResponse: {
             /** @enum {string} */
-            code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_dependency_uncommitted" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict";
+            code: "document_sync_baseline_group_invalid" | "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_dependency_uncommitted" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict";
             error: string;
             /** @description With `document_sync_peer_owned`, up to 64 peers another user owns that the request extends; with `document_sync_dependency_uncommitted`, up to 64 peers the request depends on past their committed frontier. Each carries the frontier committed before the request. */
             peerFrontiers?: components["schemas"]["DocumentPeerFrontier"][];
@@ -3121,10 +3116,10 @@ export type components = {
             minLsn?: string;
             /** @description Encrypted updates to upload. */
             outgoingUpdates: ({
-                /** @constant */
-                checkpointKind?: "rotate_baseline";
-                /** @constant */
-                checkpointPayloadKind?: "full_history_snapshot";
+                baselineId?: string;
+                baselineSegmentCount?: number;
+                baselineSegmentIndex?: number;
+                baselineSegmentsDigest?: string;
                 coversThroughUpdateId?: string;
                 dependencyVersionVector: string;
                 encryptedData: string;
@@ -3132,7 +3127,6 @@ export type components = {
                 partialEndVersionVector: string;
                 partialStartVersionVector: string;
                 plaintextHash: string;
-                sourceVersionVector?: string;
                 writeHeader: {
                     [key: string]: unknown;
                 };
@@ -3183,17 +3177,15 @@ export type components = {
             } & {
                 [key: string]: unknown;
             })[];
-            /**
-             * @description `rotate_baseline` when the update is a rotation baseline.
-             * @constant
-             */
-            checkpointKind?: "rotate_baseline";
-            /**
-             * @description `full_history_snapshot` for a rotation baseline.
-             * @constant
-             */
-            checkpointPayloadKind?: "full_history_snapshot";
-            /** @description For a rotation baseline, the signed processed cursor it was written with. */
+            /** @description The rotation baseline the update is a segment of; absent for an ordinary update. */
+            baselineId?: string;
+            /** @description On a baseline's final segment, how many segments the baseline has. */
+            baselineSegmentCount?: number;
+            /** @description The segment's place in its baseline, from zero. */
+            baselineSegmentIndex?: number;
+            /** @description On a baseline's final segment, the signed digest of the segments before it. */
+            baselineSegmentsDigest?: string;
+            /** @description On a baseline's final segment, the signed processed cursor it was written with. */
             coversThroughUpdateId?: string;
             createdAt: string;
             /** @description Version vector of the operations the update depends on outside itself, as its writer signed it; every one was committed when the update was accepted. */
@@ -3208,8 +3200,6 @@ export type components = {
             partialStartVersionVector: string;
             /** @description Hash of the plaintext update, committed by the write header. */
             plaintextHash: string;
-            /** @description For a rotation baseline, the frontier its snapshot covers. */
-            sourceVersionVector?: string;
             /** @description The update's signed write header. */
             writeHeader: {
                 [key: string]: unknown;

@@ -43,8 +43,11 @@ the client already verified is.
 The completed audit delivers a report of ranked, independently verified
 proposals and a GitHub issue. Each batch delivers a coverage checkpoint and the
 proposals verified so far; a partial batch is not a completed audit. An audit
-request authorizes read-only analysis, existing checks and canaries, and
-scratch probes outside the checkout. Do not implement proposals, create an
+request authorizes read-only analysis, existing checks and canaries, the
+local `perf:*` tasks in
+[`references/measurement.md`](references/measurement.md#performance-harness)
+with the scratch databases and git-ignored reports they create, and scratch
+probes outside the checkout. Do not implement proposals, create an
 implementation branch, apply fixes, push, or open PRs as part of the audit.
 Confirm before creating the issue unless the user already asked for one.
 
@@ -115,15 +118,15 @@ inspect bounded excerpts with `bun run agent:logs <path>`.
 2. If `packages/client-sdk/dist` is older than the SDK source, rebuild it once
    with `bun run agent:run -- bun run --filter='@tearleads/client-sdk' build`.
    The app canaries refuse a stale dist; API probes silently use it.
-3. Once per audited revision, run the request-volume canaries with the profile
-   recorder on, in the background, as described in
-   [`references/measurement.md`](references/measurement.md). Save the
-   per-endpoint tables as the measured baseline. Reuse completed logs only
-   after resume validation. Then read the results index of the
-   [performance harness](references/measurement.md#performance-harness) and
-   note each recorded run that bears on a queued slice, with its date and
-   revision. Run its local realtime probes when `discovery-and-hints` is
-   queued.
+3. Once per audited revision, run `bun run perf:canaries` in the background,
+   as described in [`references/measurement.md`](references/measurement.md),
+   and save the per-endpoint tables as the measured baseline. Reuse a
+   completed report only after resume validation. Then read the results index
+   of the [performance harness](references/measurement.md#performance-harness)
+   and list in `measurements/harness.md` each recorded run that bears on a
+   queued slice, with its date, revision, and result file. Run its local
+   realtime probes when `discovery-and-hints` or `bootstrap-and-session` is
+   queued, and save their reports beside that list.
 4. On the first batch, read `docs/protocol-specification/`,
    `docs/client-sync-ordering.md`, `docs/request-budgets.md`, and the
    "Request costs" section of `docs/developer/current-principal-consumers.md`.
@@ -236,8 +239,9 @@ For each verified proposal:
    phase and ceiling, the statement-budget test, or the `perf:*` command and
    arguments from the
    [performance harness](references/measurement.md#performance-harness). The
-   implementation PR reports it before and after, and records a `perf:*`
-   run in `packages/performance/results`.
+   implementation PR reports it before and after and, when the named
+   measurement is a `perf:*` command, records the run in
+   `packages/performance/results`.
 5. Order proposals by dependency: a table retirement that needs a response
    shape change lists that change as a prerequisite.
 

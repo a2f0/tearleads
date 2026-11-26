@@ -6,7 +6,9 @@
       "inputs": [
         "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/packages/app/src/stores/systemContainers.ts",
-        "$TURBO_ROOT$/packages/api/wrangler.jsonc"
+        "$TURBO_ROOT$/packages/api/wrangler.jsonc",
+        "$TURBO_ROOT$/packages/app/test/helpers/proxiedApiRequestBudget.ts",
+        "$TURBO_ROOT$/packages/app/test/helpers/workflowRequestBudget.ts"
       ],
       "dependsOn": [
         "$TURBO_EXTENDS$",
@@ -31,6 +33,9 @@
       "cache": false
     },
     "reload": {
+      "cache": false
+    },
+    "canaries": {
       "cache": false
     }
   }

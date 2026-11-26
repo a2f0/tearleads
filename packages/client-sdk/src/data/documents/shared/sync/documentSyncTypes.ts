@@ -1,6 +1,5 @@
 import type {
   ContainerManifestRef,
-  DocumentOutgoingUpdate,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
@@ -18,20 +17,18 @@ import type {
   DocumentSyncRequestResultOptions,
   PersistedDocumentSyncState,
 } from "../types";
+import type { BaselineGroupRun } from "./baselineGroupMachine";
+import type { OptionalDocumentBaselineSegmentFields } from "./baselineSegment";
 import type {
   DocumentSyncImportVerdicts,
   VoidedDocumentSyncUpdate,
 } from "./documentUpdateVerdict";
 import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
 
-export interface DocumentSyncPreparedUpdate {
-  checkpointKind?: DocumentOutgoingUpdate["checkpointKind"] | undefined;
-  checkpointPayloadKind?:
-    | DocumentOutgoingUpdate["checkpointPayloadKind"]
-    | undefined;
+export interface DocumentSyncPreparedUpdate
+  extends OptionalDocumentBaselineSegmentFields {
   ciphertextHash: string;
   contentRecordId?: string | undefined;
-  coversThroughUpdateId?: string | undefined;
   /** The ops the update depends on, decoded from its bytes and signed. */
   dependencyVersionVector: string;
   encryptedData: string;
@@ -41,7 +38,6 @@ export interface DocumentSyncPreparedUpdate {
   partialStartVersionVector: string;
   plaintextHash: string;
   signedAt?: string | undefined;
-  sourceVersionVector?: string | undefined;
 }
 
 export interface DocumentEncryptedPendingUpdate {
@@ -54,14 +50,13 @@ export interface DocumentEncryptedPendingUpdate {
 }
 
 export interface DecryptedDocumentSyncUpdate {
-  checkpointKind?: "rotate_baseline";
-  checkpointPayloadKind?: "full_history_snapshot";
+  /** The rotation baseline the update is a segment of, if it is one. */
+  baselineId?: string;
   /** The ops its writer signed it as depending on; the judge checks them. */
   dependencyVersionVector: string;
   id: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
-  sourceVersionVector?: string;
   updateData: Uint8Array;
 }
 
@@ -112,17 +107,14 @@ export interface MaterializedDocumentSyncPlan {
    * projection so later passes see the healed state instead of re-healing.
    */
   healedStaleContentKeyBundle: boolean;
-  /**
-   * Pending-queue ids a heal deliberately did NOT submit (superseded rotation
-   * checkpoints). On heal success they are reported as settled — the
-   * committed covering baseline subsumes their content, and resubmitting them
-   * post-heal could mask it as the latest baseline at the healed epoch.
-   */
-  heldBackPendingUpdateIds: readonly string[];
   plan: DocumentSyncPlan;
   writerProjection: DocumentWriterProjectionResponse;
-  /** Synthetic baseline id; its ack does not settle a pending queue row. */
-  staleRecoveryBaselineUpdateId?: string;
+  /**
+   * The update ids of the rotation baseline the plan carries, in segment
+   * order. The baseline is built for the request and is no pending queue
+   * row, so an acknowledged segment settles none.
+   */
+  rotationBaselineUpdateIds?: readonly string[];
 }
 
 /**
@@ -136,6 +128,12 @@ export type IncomingDocumentSyncUpdateValidator = (
 ) => DocumentSyncImportVerdicts | Promise<DocumentSyncImportVerdicts>;
 
 export interface SyncRemoteDocumentResult {
+  /**
+   * The rotation baseline this page ended inside, when the pull follows it
+   * whole: pass it to `readPullContinuation` so the pull's next page checks
+   * the baseline's remaining segments against it.
+   */
+  baselineGroupRun: BaselineGroupRun | null;
   contentKey: Uint8Array;
   /** The served updates this pass accepted, in server order. */
   decryptedUpdates: DecryptedDocumentSyncUpdate[];

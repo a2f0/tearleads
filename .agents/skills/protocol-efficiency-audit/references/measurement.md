@@ -20,14 +20,19 @@ makes a proposal Measured.
 | --- | --- | --- |
 | `bun run perf:provision` | Requests, phase times, and server timing for one fresh account's registration and login on a deployed tier; with `--cloudflare`, statements per request | `bootstrap-and-session`: deployed request count and server cost of registration |
 | `bun run perf:seed` | One account seeded through the CLI, then recovered by a second process with empty stores, on a deployed tier | `bootstrap-and-session` and `discovery-and-hints`: how long a full recovery takes. It reports phase times, not request counts |
-| `bun run perf:realtime` | Statements, rows, bytes, CPU, and memory per `known_containers` declaration and revalidation pass, by tree size, against a local database | `discovery-and-hints`: what interest declaration costs the hub per declared container |
-| `bun run perf:realtime-contention` | How long other sockets' hints wait while those passes run | `discovery-and-hints`: whether a declaration or revalidation change shortens the hub's stalls |
+| `bun run perf:canaries` | Requests and body bytes per phase and endpoint for every app request-volume canary | Every slice: the [request and byte baseline](#request-and-byte-baselines) |
+| `bun run perf:realtime` | Statements, rows, bytes, CPU, and memory per `known_containers` declaration and revalidation pass, by tree size, against a local database | `discovery-and-hints` and `bootstrap-and-session`: what interest declaration costs the hub per declared container |
+| `bun run perf:realtime-contention` | How long other sockets' hints wait while those passes run | `discovery-and-hints` and `bootstrap-and-session`: whether a declaration or revalidation change shortens the hub's stalls |
+| `bun run perf:reload` | Requests by route, settle time, PostgreSQL traffic, and local SQLite statements for a returning client's reload, by account size, against a local database | `bootstrap-and-session` and `discovery-and-hints`: which of a reload's requests still grow with the account, at sizes the restart canary does not reach |
 | `bun run perf:database` | One warm driver exchange through Hyperdrive, against the same statements batched | Turning statements per request into production latency |
 
-The realtime probes need only a scratch database the audit creates, which
-the audit request authorizes. Seeding a 10,000-folder tree takes over an
-hour; reuse a seeded scratch database with `--reuse` when one exists, and
-record which. `perf:provision` and `perf:seed` create persistent accounts and
+`perf:canaries`, `perf:reload`, and the realtime probes are local. They
+write git-ignored reports under the measured checkout's
+`.test_files/performance/`, and all but the canaries need a scratch
+database; the audit request authorizes both. Copy every report the audit
+cites into `measurements/`. Seeding a 10,000-folder tree takes over an hour;
+reuse a seeded scratch database with `--reuse` when one exists, and record
+which. `perf:provision` and `perf:seed` create persistent accounts and
 `perf:database` deploys a temporary Worker on a deployed tier, so run them
 only with the user's approval; otherwise cite the latest result and its
 date.
@@ -39,7 +44,13 @@ API through a proxied-request recorder
 (`packages/app/test/helpers/proxiedApiRequestBudget.ts`). With the profile
 environment on, each prints a `[dual-pane-request-metrics]` JSON line per
 phase with the total, body bytes, sync intents, and per-endpoint counts, and
-a detailed text profile naming repeated exact paths.
+a detailed text profile naming repeated exact paths. `bun run
+perf:canaries` finds every canary file that calls the recorder, runs each one
+alone from `packages/app` with the profile on, and saves its phases, per
+endpoint, as JSON and Markdown, with one log per file and its exit code and
+wall time. Its
+[README](../../../../packages/performance/README.md#request-volume-canaries)
+lists the report's fields.
 
 | Canary (`packages/app`) | Scenario |
 | --- | --- |
@@ -48,27 +59,41 @@ a detailed text profile naming repeated exact paths.
 | `src/shell/pane/tests/FolderMutationRequestVolume.test.tsx` | create, link, unlink, trash, restore |
 | `src/shell/pane/tests/GroupMutationRequestVolume.test.tsx` | group create and member add |
 | `src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx` | offline writes and recovery |
-| `src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx` | peer reconciling an ungranted change (asserts counts only; it does not invoke the profile recorder, so it yields no per-endpoint or byte table) |
+| `src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx` | peer reconciling an ungranted change (asserts counts only; it does not invoke the profile recorder, so `perf:canaries` skips it) |
 | `src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx` | Admins enrollment and peer convergence |
 | `src/shell/pane/tests/DualPaneProvider.sharing.test.tsx` | root share with attachment, post-share settle |
+| `src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx` | settled reconnect; reconnect after a peer's folder create |
+| `src/shell/pane/tests/PaneRestartRequestVolume.test.tsx` | persisted pane restart; settled restarts by note and folder count |
 
-Run them once per audited revision, in the background, from `packages/app`:
+Run them once per audited revision, in the background, from the measured
+checkout:
 
 ```sh
-DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 \
-  bun test <canary file>
+bun run perf:canaries                               # every canary, once
+bun run perf:canaries --canary Sharing --samples 3  # ranges for bytes
+bun run perf:canaries --baseline <report.json>      # and the changes
+bun run perf:canaries --compare <before.json> <after.json>
 ```
 
-Keep one log per canary with its exit code and wall time. When the database
-audit runs at the same revision, run the canaries once for both, with its SQL
-capture preload beside the profile variables; one pass of all eight took about
-two minutes on 2026-10-30. Extract the
-per-endpoint tables into `measurements/baseline.md`; the issue reproduces them.
-A canary that does not call the profile recorder contributes only the ceilings
-asserted in its source; say so in the baseline rather than leaving its row
-empty. The ceilings asserted inside each canary are the current contract; a
-shipped proposal must lower them, so the report names the ceiling each proposal
-changes.
+`--canary` matches a canary's file name, ignoring case, and repeats; relative
+report paths resolve from the repository root. All nine took 236 seconds on
+2026-11-26; that run is in the
+[results index](../../../../packages/performance/results/README.md), so a
+baseline compared with it shows what changed since. The command exits
+non-zero unless every run passed and printed a profile, and the report names
+each canary that failed, timed out, or printed none. Copy the report's JSON,
+Markdown, and log directory into `measurements/`, and the per-endpoint
+tables into `measurements/baseline.md`; the issue reproduces them. When the
+database audit runs at the same revision, run the canaries once for both as
+the
+[combined audits guide](../../../../docs/developer/combined-efficiency-audits.md)
+describes.
+
+A canary that does not call the profile recorder contributes only the
+ceilings asserted in its source; say so in the baseline rather than leaving
+its row empty. The ceilings asserted inside each canary are the current
+contract; a shipped proposal must lower them, so the report names the
+ceiling each proposal changes.
 
 The dual-pane canaries drive two panes (two users or devices) through one
 recorder, so their per-endpoint counts sum both panes. A path repeated twice
@@ -77,8 +102,9 @@ below before calling it waste.
 
 `docs/request-budgets.md` holds no byte profiles; it explains how to print
 them with `DUAL_PANE_REQUEST_PROFILE=1` and
-`DUAL_PANE_REQUEST_PROFILE_DETAIL=1`. Measure several runs for byte claims; the
-sharing and Admins fixtures also assert body-byte ceilings.
+`DUAL_PANE_REQUEST_PROFILE_DETAIL=1`. Base byte claims on several samples:
+`--samples` runs each canary up to five times and reports every count as a
+range. The sharing and Admins fixtures also assert body-byte ceilings.
 
 Record request bytes beside response bytes in the baseline. On 2026-11-10
 request bodies were larger than responses in every write scenario, and they

@@ -21,13 +21,12 @@ interface DocumentMutationCreatedEvent {
 
 export function createPendingUpdateFields(
   update: Uint8Array,
-  sourceVersionVector?: string | null,
 ): PendingUpdateFields | null {
   if (update.byteLength === 0) {
     return null;
   }
 
-  const { mode, partialEndVersionVector, partialStartVersionVector } =
+  const { partialEndVersionVector, partialStartVersionVector } =
     getImportBlobMetadata(update);
 
   // A Loro delta that encodes no ops still serializes to a small non-empty blob
@@ -39,22 +38,10 @@ export function createPendingUpdateFields(
     return null;
   }
 
-  if (sourceVersionVector != null) {
-    if (mode !== "snapshot") {
-      throw new Error("Rotation baseline must be a full-history Loro snapshot");
-    }
-    if (!versionVectorsEqual(sourceVersionVector, partialEndVersionVector)) {
-      throw new Error(
-        "Rotation baseline source must equal its decoded end version vector",
-      );
-    }
-  }
-
   return {
     updateData: bytesToBase64(update),
     partialStartVersionVector,
     partialEndVersionVector,
-    sourceVersionVector: sourceVersionVector ?? null,
   };
 }
 

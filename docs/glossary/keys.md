@@ -185,27 +185,33 @@ Related docs:
 
 ## Rotation Baseline
 
-A signed full-history Loro snapshot that a [rotate](#rotate) writes under the
-new epoch's [DEK](#dek), bridging old readable state to the new epoch. Its
-update carries `checkpointKind` `"rotate_baseline"`, `checkpointPayloadKind`
-`"full_history_snapshot"`, and a `sourceVersionVector`, all committed by its
-[signed write header](./content.md#signed-write-header). It may also sign
-its author's processed cursor as `coversThroughUpdateId`. An unlink must carry
-one whose source [version vector](./content.md#version-vector) covers the
-committed update frontier after that cursor (every committed update when it
-signs none), unless the document has no committed updates; a link must not
-carry one. A baseline whose author voided every update is an empty snapshot,
-which declares no operations and must sign its cursor. The first valid writer
-for the new epoch becomes the canonical baseline, and normal sync can then omit
-older ciphertext its declared coverage dominates. That coverage is trusted, not
-verified, because the server cannot open the snapshot.
+The document's whole history, written again by a [rotate](#rotate) under the
+new epoch's [DEK](#dek) to bridge old readable state to the new epoch. It is
+an ordered group of ordinary [Loro updates](./content.md#loro-update), its
+segments, sent whole in the one request that rotates and committed together
+or not at all. Each segment's
+[signed write header](./content.md#signed-write-header) commits `baselineId`
+and `baselineSegmentIndex`. The final segment also commits
+`baselineSegmentCount`, `baselineSegmentsDigest` (a hash chain over the
+earlier segments), and, optionally, its author's processed cursor as
+`coversThroughUpdateId`. What the group covers is not signed: it is the
+[version vector](./content.md#version-vector) the segments' spans reach
+together. An unlink must carry a baseline whose coverage holds the committed
+update frontier after that cursor (every committed update when it signs
+none), unless the document has no committed updates; a link must not carry
+one. A baseline whose author voided every update is one empty segment, which
+declares no operations and must sign its cursor. The first valid writer for
+the new epoch becomes the canonical baseline, and normal sync can then omit
+older ciphertext a whole stored group covers. That coverage is trusted, not
+verified, because the server cannot open a segment. Readers import segments
+as ordinary updates.
 
 Related docs:
 
 - [document-rekey-and-audit-history.md](../document-rekey-and-audit-history.md#rotate-means-fresh-baseline-for-later-writes)
 - [document-rekey-and-audit-history.md](../document-rekey-and-audit-history.md#declared-coverage-is-trusted-not-verified)
 - [document-rekey-and-audit-history.md](../document-rekey-and-audit-history.md#rotation-baselines-in-document_updates)
-- [document-link-and-sync-protocol.md](../document-link-and-sync-protocol.md)
+- [document-link-and-sync-protocol.md](../document-link-and-sync-protocol.md#rotation-baseline-groups)
 
 ## Target Hash
 
