@@ -3,6 +3,7 @@ import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { createDomainScope } from "../../data/shared/domainScope";
 import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import { type ReconciliationClock, systemReconciliationClock } from "./clock";
+import { createReconciliationService } from "./service";
 import type {
   ContainerDiscoveryOutcome,
   ContainerDiscoveryRequest,
@@ -235,4 +236,31 @@ export function createOwedLaneHost(input: {
     ...input.overrides,
   });
   return { host, listings, steps };
+}
+
+/**
+ * A started service whose catch-up waits on a crawl the test settles by
+ * opening `crawl`, on a clock that never runs out by itself.
+ */
+export function awaitingCrawl(input: {
+  readonly known?: () => ReadonlyArray<string>;
+  readonly owed?: () => ReadonlyArray<string>;
+  readonly overrides?: Partial<ReconciliationHost>;
+}) {
+  const crawl = createGate();
+  const fixture = createOwedLaneHost({
+    known: input.known,
+    overrides: {
+      clock: createManualReconciliationClock(),
+      whenTreeCrawlSettles: async () => {
+        await crawl.wait;
+        return true;
+      },
+      ...input.overrides,
+    },
+    owed: input.owed ?? (() => []),
+  });
+  const service = createReconciliationService(fixture.host);
+  service.start();
+  return { ...fixture, crawl, service };
 }

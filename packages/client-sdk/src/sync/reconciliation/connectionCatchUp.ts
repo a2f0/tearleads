@@ -90,7 +90,9 @@ async function awaitCrawlVerdict(
       host.clock,
     );
   } catch (error) {
-    host.logError?.("Reconciliation: tree crawl outcome was not read", error);
+    if (!host.isIgnorableError(error)) {
+      host.logError?.("Reconciliation: tree crawl outcome was not read", error);
+    }
     return false;
   }
 }
@@ -126,7 +128,9 @@ async function catchUpAfterCrawl(
         // about the session or the connection that is current now.
         if (stop.aborted) return { containerIds: [] };
         try {
-          return await planCatchUp(host, state, crawlVouches);
+          const plan = await planCatchUp(host, state, crawlVouches);
+          // Superseded or stopped while the owed record was read.
+          return stop.aborted ? { containerIds: [] } : plan;
         } finally {
           // Deferral ends with the plan in hand, not before: a lane queued
           // while the owed record is read is the sweep's to list or vouch
@@ -179,22 +183,20 @@ export function requestAcknowledgedConnectionSweep(
   // connection. Its sweep lists and vouches for nothing when its turn comes.
   if (state.catchUp.status === "awaitingTurn") state.catchUp.wait.cancel();
   const stop = new AbortController();
-  // The wait names its own promise, so the work starts once it exists.
-  let start: () => void = () => undefined;
-  const started = new Promise<void>((resolve) => {
-    start = resolve;
-  });
   const wait: CatchUpWait = {
     cancel: () => stop.abort(),
     knownContainerIds: new Set(listFullRefreshContainerIds(host, state)),
+    // The callback runs after `wait` exists and the acknowledgement below
+    // has been dispatched.
     promise: reportUnawaitedSweep(
       host,
-      started.then(() => catchUpAfterCrawl(host, state, wait, stop.signal)),
+      Promise.resolve().then(() =>
+        catchUpAfterCrawl(host, state, wait, stop.signal),
+      ),
       "Reconciliation: connection catch-up failed",
     ),
   };
   dispatchCatchUp(state, { type: "acknowledged", wait });
-  start();
   return wait.promise;
 }
 

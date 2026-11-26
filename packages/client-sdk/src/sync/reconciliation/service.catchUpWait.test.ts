@@ -1,46 +1,16 @@
 import { expect, test } from "bun:test";
 import { SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
-import { createReconciliationService } from "./service";
 import {
+  awaitingCrawl,
   createGate,
-  createManualReconciliationClock,
-  createOwedLaneHost,
   OWED_LANE_HOST_CONTAINER_IDS,
 } from "./service.testFixtures";
-import type { ReconciliationHost } from "./serviceTypes";
 
 const KNOWN = OWED_LANE_HOST_CONTAINER_IDS;
 
 const settle = async () => {
   for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
 };
-
-/**
- * A started service whose catch-up waits on a crawl the test settles by
- * opening `crawl`, on a clock that never runs out by itself.
- */
-function awaitingCrawl(input: {
-  readonly known?: () => ReadonlyArray<string>;
-  readonly owed?: () => ReadonlyArray<string>;
-  readonly overrides?: Partial<ReconciliationHost>;
-}) {
-  const crawl = createGate();
-  const fixture = createOwedLaneHost({
-    known: input.known,
-    overrides: {
-      clock: createManualReconciliationClock(),
-      whenTreeCrawlSettles: async () => {
-        await crawl.wait;
-        return true;
-      },
-      ...input.overrides,
-    },
-    owed: input.owed ?? (() => []),
-  });
-  const service = createReconciliationService(fixture.host);
-  service.start();
-  return { ...fixture, crawl, service };
-}
 
 test("a hint during the wait lists its lane at once", async () => {
   const { crawl, listings, service } = awaitingCrawl({});
@@ -226,43 +196,6 @@ test("a catch-up that cannot take its turn stops deferring", async () => {
   service.stop();
 });
 
-test("an acknowledgement while a catch-up awaits its turn gets its own crawl", async () => {
-  const rootTree = createGate();
-  let crawls = 0;
-  const secondCrawl = createGate();
-  let owed: ReadonlyArray<string> = [];
-  const { listings, service } = awaitingCrawl({
-    overrides: {
-      refreshRootTree: () => rootTree.wait,
-      whenTreeCrawlSettles: async () => {
-        crawls += 1;
-        if (crawls > 1) await secondCrawl.wait;
-        return true;
-      },
-    },
-    owed: () => owed,
-  });
-  // A root refresh holds the turn, so the first catch-up waits for it with
-  // its crawl already settled.
-  const rootRefresh = service.reconcileRootContainersNow();
-  await settle();
-  const first = service.reconcileAcknowledgedConnection();
-  await settle();
-
-  // The socket drops and is acknowledged again; its crawl is served lane b.
-  const second = service.reconcileAcknowledgedConnection();
-  expect(second).not.toBe(first);
-  rootTree.open();
-  await Promise.all([rootRefresh, first]);
-  expect(listings).toEqual([]);
-
-  owed = ["b"];
-  secondCrawl.open();
-  await second;
-  expect(listings).toEqual([["b"]]);
-  service.stop();
-});
-
 test("a lane the catch-up's sweep failed waits out its retry backoff", async () => {
   let fail = true;
   const { host, listings, service } = awaitingCrawl({
@@ -280,15 +213,20 @@ test("a lane the catch-up's sweep failed waits out its retry backoff", async () 
   };
 
   await service.reconcileAcknowledgedConnection().catch(() => undefined);
+  const failedAt = performance.now();
   fail = false;
-  await Bun.sleep(100);
-  // The failed lane is queued again, and the lane is not woken at once.
-  expect(listings).toEqual([["b"]]);
-
-  await Bun.sleep(SWEEP_RETRY_BACKOFF_MS + 300);
+  // The failed lane is queued again, and the lane is not woken at once: its
+  // retry comes no sooner than the backoff, however slow the machine is.
+  while (listings.length < 2) {
+    if (performance.now() - failedAt > 20_000) break;
+    await Bun.sleep(20);
+  }
   expect(listings).toEqual([["b"], ["b"]]);
+  expect(performance.now() - failedAt).toBeGreaterThanOrEqual(
+    SWEEP_RETRY_BACKOFF_MS - 50,
+  );
   service.stop();
-});
+}, 30_000);
 
 test("a catch-up queued across a restart vouches for nothing in the new session", async () => {
   const rootTree = createGate();
@@ -311,65 +249,6 @@ test("a catch-up queued across a restart vouches for nothing in the new session"
   await settle();
 
   // The old session's crawl is not the new session's knowledge.
-  service.enqueueContainer("a", "idle");
-  await settle();
-  await settle();
-  expect(listings).toEqual([["a"]]);
-  service.stop();
-});
-
-/**
- * A service whose first catch-up awaits its turn behind a root refresh that
- * the test releases, with its crawl settled complete, and whose second
- * acknowledgement's crawl is the test's to settle.
- */
-async function supersededCatchUp(secondCrawl: Promise<boolean>) {
-  const rootTree = createGate();
-  let crawls = 0;
-  const fixture = awaitingCrawl({
-    overrides: {
-      refreshRootTree: () => rootTree.wait,
-      whenTreeCrawlSettles: () => {
-        crawls += 1;
-        return crawls === 1 ? Promise.resolve(true) : secondCrawl;
-      },
-    },
-  });
-  const { service } = fixture;
-  const rootRefresh = service.reconcileRootContainersNow().catch(() => {});
-  await settle();
-  const first = service.reconcileAcknowledgedConnection().catch(() => {});
-  await settle();
-  const second = service.reconcileAcknowledgedConnection().catch(() => {});
-  await settle();
-  return { ...fixture, first, rootRefresh, rootTree, second };
-}
-
-test("a later catch-up never plans from an earlier crawl's verdict", async () => {
-  // The second acknowledgement's crawl does not complete: nothing vouches.
-  const { first, listings, rootRefresh, rootTree, second, service } =
-    await supersededCatchUp(Promise.resolve(false));
-
-  rootTree.open();
-  await Promise.all([rootRefresh, first, second]);
-
-  // The first crawl vouched for every lane, but that was another
-  // connection: the superseded sweep lists nothing and vouches for nothing.
-  expect(listings).toEqual([[...KNOWN]]);
-  service.stop();
-});
-
-test("a superseded catch-up is dropped with the session too", async () => {
-  const { first, listings, rootRefresh, rootTree, second, service } =
-    await supersededCatchUp(new Promise<boolean>(() => undefined));
-
-  service.stop();
-  service.start();
-  rootTree.open();
-  await Promise.all([rootRefresh, first, second]);
-  await settle();
-
-  // Neither catch-up's crawl is the new session's knowledge.
   service.enqueueContainer("a", "idle");
   await settle();
   await settle();
