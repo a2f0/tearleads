@@ -9,7 +9,10 @@ import {
 } from "@tearleads/loro";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { BaselineGroupRun } from "./baselineGroupMachine";
-import { isColdPull, judgeServedBaselineGroups } from "./baselineGroupProgress";
+import {
+  isColdPullPage,
+  judgeServedBaselineGroups,
+} from "./baselineGroupProgress";
 import { isDocumentSyncUpdateIsolationError } from "./documentSyncUpdateIsolation";
 
 type ServedUpdate = DocumentSyncResponse["updates"][number];
@@ -80,12 +83,19 @@ function judge(
     run?: BaselineGroupRun | null;
   } = {},
 ) {
+  const run = options.run ?? null;
   return judgeServedBaselineGroups({
+    // As the pass works it out: a first page with no version, or the
+    // continuation of a group followed whole.
+    cold: isColdPullPage({
+      localVersionVector:
+        options.localVersionVector === undefined
+          ? null
+          : options.localVersionVector,
+      pullCursor: run ? "cursor" : undefined,
+      run,
+    }),
     documentId: DOCUMENT_ID,
-    localVersionVector:
-      options.localVersionVector === undefined
-        ? null
-        : options.localVersionVector,
     pullComplete: options.pullComplete ?? true,
     run: options.run ?? null,
     updates,
@@ -115,11 +125,37 @@ function at(updates: readonly ServedUpdate[], index: number): ServedUpdate {
   return update;
 }
 
-test("a pull with no version, or an empty one, is cold", () => {
-  expect(isColdPull(null)).toBe(true);
-  expect(isColdPull(emptyVersionVector())).toBe(true);
-  expect(isColdPull(WARM)).toBe(false);
-  expect(isColdPull("not-a-vector")).toBe(false);
+test("a page is cold when it was requested with no version and nothing ahead of it", () => {
+  const first = (localVersionVector: string | null) =>
+    isColdPullPage({ localVersionVector, run: null });
+  expect(first(null)).toBe(true);
+  expect(first(emptyVersionVector())).toBe(true);
+  expect(first(WARM)).toBe(false);
+  expect(first("not-a-vector")).toBe(false);
+  // A processed cursor starts the pull past updates the reader judged.
+  expect(
+    isColdPullPage({
+      localVersionVector: null,
+      processedThroughUpdateId: "processed",
+      run: null,
+    }),
+  ).toBe(false);
+  // A later page is cold only as the continuation of a group followed
+  // whole, which the pass requests with no version.
+  const whole = {
+    baselineId: "b",
+    digest: "d",
+    nextIndex: 1,
+    unapplied: false,
+  };
+  const later = (run: BaselineGroupRun | null) =>
+    isColdPullPage({ localVersionVector: null, pullCursor: "cursor", run });
+  expect(later(whole)).toBe(true);
+  expect(later({ ...whole, digest: null })).toBe(false);
+  expect(later(null)).toBe(false);
+  expect(
+    isColdPullPage({ localVersionVector: WARM, pullCursor: "c", run: whole }),
+  ).toBe(false);
 });
 
 test("a whole group passes, among ordinary updates and other groups", async () => {
@@ -285,12 +321,17 @@ test("a reader that sent a version is held to what it can know", async () => {
       warm,
     ),
   ).toContain("signs a count that does not fit its index");
-  // A group it is served from the start is not followed whole, so it carries
-  // no run, and a skipped segment is no failure.
+  // A group it is served from the start is not followed whole: its run has
+  // no digest, and a skipped segment is no failure.
   expect(
     await judge([at(whole, 0), at(whole, 1)], {
       ...warm,
       pullComplete: false,
     }),
-  ).toBeNull();
+  ).toEqual({
+    baselineId: "baseline-a",
+    digest: null,
+    nextIndex: 2,
+    unapplied: false,
+  });
 });

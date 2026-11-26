@@ -12,7 +12,6 @@ import { projectionIntegrityErrorCode } from "../../../data/documents/shared/pro
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   isRetryableDocumentSyncConflict,
-  persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
 } from "../../../data/documents/shared/responses";
 import { limitDocumentSyncRequestBytes } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
@@ -22,7 +21,10 @@ import type {
   IncomingDocumentSyncUpdateValidator,
   SyncRemoteDocumentResult,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
-import { continuedBaselineGroupRun } from "../../../data/documents/shared/sync/pullContinuation";
+import {
+  continuedBaselineGroupRun,
+  pullPageVersion,
+} from "../../../data/documents/shared/sync/pullContinuation";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
@@ -56,15 +58,13 @@ import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys"
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { withPullCompletion } from "./pullOutcome";
+import { settleEmptyReadOnlyPage } from "./readOnlyEmptyPage";
 import {
   handleReadOnlyProjectionCompletionError,
   REFRESH_CACHED_PROJECTION,
 } from "./readOnlyProjectionFailure";
 import type { RemoteDocumentSyncPass } from "./remoteDocumentSyncPass";
-import {
-  baselineGroupRunAfterPage,
-  syncRemoteDocumentResultFromResponse,
-} from "./syncResponseResult";
+import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 import { type DocumentSyncTraceEmitter, traceSubmitFailed } from "./syncTrace";
 
 async function completeReadOnlyRemoteDocumentSyncWithProjection(
@@ -76,7 +76,10 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     author: input.author,
     execSql: input.execSql,
     historyMode: input.historyMode,
-    localVersionVector: input.localVersionVector,
+    localVersionVector: pullPageVersion(
+      input.localVersionVector,
+      input.pullContinuation,
+    ),
     maxPageUpdates: input.maxPageUpdates,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     processedThroughUpdateId: input.processedThroughUpdateId,
@@ -190,7 +193,10 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     documentKekTargets: persisted.documentKekTargets,
     documentManifest: persisted.documentManifest,
     historyMode: input.historyMode,
-    localVersionVector: input.localVersionVector,
+    localVersionVector: pullPageVersion(
+      input.localVersionVector,
+      input.pullContinuation,
+    ),
     maxPageUpdates: input.maxPageUpdates,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     outgoingUpdates: [],
@@ -338,39 +344,6 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     ? { kind: "completed", result: freshResult }
     : { kind: "not_completed" };
 }
-/** The result of a read-only page that served no update. */
-async function emptyPageSyncResult(input: {
-  readonly persistedState: SyncRemoteDocumentResult["persistedState"];
-  readonly plan: DocumentSyncPlan;
-  readonly pullComplete: boolean;
-  readonly pullContinuation: DocumentSyncPullContinuation | undefined;
-  readonly response: DocumentSyncResponse;
-}): Promise<SyncRemoteDocumentResult> {
-  return {
-    // A page with no updates still ends a pull, or carries its run on.
-    baselineGroupRun: await baselineGroupRunAfterPage({
-      baselineGroupRun: continuedBaselineGroupRun(
-        input.pullContinuation,
-        input.plan.request.pullCursor,
-      ),
-      plan: input.plan,
-      response: input.response,
-    }),
-    contentKey: new Uint8Array(),
-    decryptedUpdates: [],
-    exhaustedPendingUpdateCount: 0,
-    hasDeferredPendingUpdates: false,
-    hasHeldPull: false,
-    hasIncompletePull: !input.pullComplete,
-    persistedState: input.persistedState,
-    plan: input.plan,
-    rekeyedPendingUpdateIds: [],
-    response: input.response,
-    settledPendingUpdateIds: [],
-    acceptedRecoveryBaseline: false,
-    voidedUpdates: [],
-  };
-}
 
 async function syncReadOnlyRemoteDocumentFromPersistedState(
   input: Omit<
@@ -453,29 +426,10 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
     });
   }
 
-  try {
-    const persistedState = await persistedDocumentSyncStateFromResponse(
-      plan,
-      submitted.response,
-      { resolveWriterPublicKey: input.resolveWriterPublicKey },
-    );
-
-    return {
-      kind: "completed",
-      result: await emptyPageSyncResult({
-        persistedState,
-        plan,
-        pullComplete: submitted.pullComplete,
-        pullContinuation: input.pullContinuation,
-        response: submitted.response,
-      }),
-    };
-  } catch (error) {
-    if (input.historyMode === "raw") {
-      throw error;
-    }
-    return { kind: "not_completed" };
-  }
+  const settled = await settleEmptyReadOnlyPage(input, plan, submitted);
+  return settled
+    ? { kind: "completed", result: settled }
+    : { kind: "not_completed" };
 }
 
 export async function tryPersistedReadOnlyDocumentSync(

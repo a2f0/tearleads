@@ -52,6 +52,14 @@ export function documentVerdictJudge(): string {
 export interface VoidedDocumentSyncUpdate {
   readonly error: DocumentSyncUpdateIsolationError;
   /**
+   * Set when this page judged the update unable to join because the reader
+   * lacks an operation it starts after or depends on. A rotation baseline's
+   * segment in that state, with every earlier segment of its group accepted,
+   * was served without the segments it builds on, and the pass fails
+   * instead of recording the void (`settleBaselineGroupVerdicts`).
+   */
+  readonly missingDependency?: true | undefined;
+  /**
    * This device's peer id, when the update reused ids of operations this
    * device holds under it with other operations: its writer committed them
    * as this device, and readers that took it first void this device's own.

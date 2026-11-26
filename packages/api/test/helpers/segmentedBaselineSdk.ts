@@ -102,6 +102,26 @@ function validatedAgainst(document: Doc): IncomingValidation {
     }).then(assertNoVoidedDocumentSyncUpdates);
 }
 
+type RouteSdkClient = ReturnType<typeof createRouteSdkClient>;
+
+/** `client`, with each sync's ordinary updates sent ahead of its baseline. */
+function sendingOrdinaryUpdatesFirst(client: RouteSdkClient): RouteSdkClient {
+  const reordered: RouteSdkClient = Object.create(client);
+  reordered.syncDocumentResult = (documentId, request) =>
+    client.syncDocumentResult(documentId, {
+      ...request,
+      outgoingUpdates: [
+        ...request.outgoingUpdates.filter(
+          (update) => update.baselineId === undefined,
+        ),
+        ...request.outgoingUpdates.filter(
+          (update) => update.baselineId !== undefined,
+        ),
+      ],
+    });
+  return reordered;
+}
+
 /**
  * Commits several updates to a new document, then rekeys the root inline in
  * a sync that must rotate the document's content key: its baseline covers
@@ -109,13 +129,22 @@ function validatedAgainst(document: Doc): IncomingValidation {
  */
 export async function healWithSegmentedBaseline(input: {
   containerId: string;
+  /**
+   * Sends the heal's ordinary update ahead of its baseline, an order the
+   * API accepts. A current-epoch update committed before the group keeps
+   * every later pull from being redirected to it.
+   */
+  ordinaryUpdateFirst?: boolean | undefined;
   organizationId: string;
   owner: TestUser;
 }) {
   const session = await sdkSession(input.owner, "segmented-heal");
   const author = documentAuthor(input.owner, input.organizationId);
+  const apiClient = input.ordinaryUpdateFirst
+    ? sendingOrdinaryUpdatesFirst(session.apiClient)
+    : session.apiClient;
   const shared = {
-    apiClient: session.apiClient,
+    apiClient,
     author,
     execSql: session.execSql,
     resolveProjectionUserKey: session.resolveTrustedUserIdentity,
@@ -150,6 +179,11 @@ export async function healWithSegmentedBaseline(input: {
       throw new Error("expected the SDK to commit every update");
     }
 
+    // Sent ahead of the group, the heal's update is one the group was cut
+    // before, so the group does not carry it.
+    const historyBeforeEdit = input.ordinaryUpdateFirst
+      ? exportFullHistorySnapshot(document)
+      : null;
     text += "written with the heal\n";
     const afterBaseline = editText(document, text);
     const healed = await syncSdkRemoteDocument({
@@ -179,7 +213,9 @@ export async function healWithSegmentedBaseline(input: {
         ];
       },
       buildRotationSnapshot: () =>
-        Promise.resolve(exportFullHistorySnapshot(document)),
+        Promise.resolve(
+          historyBeforeEdit ?? exportFullHistorySnapshot(document),
+        ),
       documentId: created.documentId,
       localVersionVector: encodeVersionVector(document),
       pendingUpdates: [afterBaseline],
@@ -204,11 +240,16 @@ export async function healWithSegmentedBaseline(input: {
 }
 
 /**
- * Pulls the document as an install that holds none of it, one update a page,
- * carrying each page's continuation into the next as a store does.
+ * Pulls the document as an install that holds none of it, paging as the
+ * document store does (`syncRequest.ts`): every page is sent with the
+ * version the reader has built so far, an empty one first, and carries the
+ * continuation and verified state the page before it left.
  */
-export async function pullDocumentAsColdSdk(input: {
+export async function pullDocumentAsNewInstall(input: {
   documentId: string;
+  /** Raw mode is never redirected to a baseline. */
+  historyMode?: "raw" | undefined;
+  maxPageUpdates: number;
   organizationId: string;
   reader: TestUser;
 }) {
@@ -227,10 +268,9 @@ export async function pullDocumentAsColdSdk(input: {
         author: documentAuthor(input.reader, input.organizationId),
         documentId: input.documentId,
         execSql: session.execSql,
-        localVersionVector: null,
-        maxPageUpdates: 1,
-        // What a store keeps between pages: where the pull stands, and the
-        // state the last page verified.
+        ...(input.historyMode ? { historyMode: input.historyMode } : {}),
+        localVersionVector: encodeVersionVector(recovered),
+        maxPageUpdates: input.maxPageUpdates,
         ...(pullContinuation ? { persistedState, pullContinuation } : {}),
         resolveProjectionUserKey: session.resolveTrustedUserIdentity,
         resolveWriterPublicKey: writerResolver(input.reader),
@@ -239,7 +279,7 @@ export async function pullDocumentAsColdSdk(input: {
         warmReferencedPrincipalPolicies:
           session.warmReferencedPrincipalPolicies,
       });
-      if (!synced) throw new Error("expected the cold SDK page to succeed");
+      if (!synced) throw new Error("expected the SDK page to succeed");
       importUpdates(
         recovered,
         synced.decryptedUpdates.map((update) => update.updateData),

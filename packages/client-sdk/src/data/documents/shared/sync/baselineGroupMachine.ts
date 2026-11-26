@@ -5,36 +5,58 @@
  * updates in commit order, so a group's segments arrive as one run, over as
  * many pages as they take.
  *
- * What a reader can hold a server to depends on what it asked for. A pull
- * sent with an empty version is served every segment of every group it
- * reaches, so a group that starts at index zero on such a pull is followed
- * whole: each next update must be the group's next segment, and the final
- * one must sign the count and the digest of the ones before it. The server
+ * What a reader can hold a server to depends on what it asked for. A page
+ * requested with no version, a cold page, is served every update in its
+ * range, so a group on it starts at index zero and is followed whole: each
+ * next update must be the group's next segment, and the final one must sign
+ * the count and the digest of the ones before it. The pages a whole group
+ * runs on to are requested cold too, whatever the reader holds by then, so
+ * the server leaves none of its segments out. On any other page the server
  * leaves out a segment whose operations the reader's version already holds,
- * so a reader that sent a version follows a group in part: indices only
- * rise, and a final segment's count must fit its index.
+ * so the reader follows a group in part: indices only rise, and a final
+ * segment's count must fit its index.
  */
 
-/** A group followed whole so far: what must come next, and the digest. */
+/**
+ * The group a page ended inside, carried to the pull's next page. Its
+ * presence with a digest is the stored fact that the group began on a cold
+ * page: the next page is requested cold and judged as one.
+ */
 export interface BaselineGroupRun {
   readonly baselineId: string;
-  /** The digest of the segments seen, which the final segment signs. */
-  readonly digest: string;
-  /** The index the next served update must have. */
+  /**
+   * The digest of the segments seen, which the final segment signs, when
+   * the group is followed whole; null when it is followed in part.
+   */
+  readonly digest: string | null;
+  /** One past the index of the last segment served. */
   readonly nextIndex: number;
+  /**
+   * Whether a segment of the group served so far in this pull was not
+   * accepted. A later segment that cannot join the reader's history is then
+   * its writer's doing, not a segment the server left out. The machine does
+   * not set it; the pass does, once it has the page's verdicts.
+   */
+  readonly unapplied: boolean;
 }
 
 export type BaselineGroupFault =
   | "count_mismatch"
   | "digest_mismatch"
   | "final_missing"
+  | "first_missing"
   | "group_interrupted"
   | "mixed_baseline"
   | "segment_out_of_order";
 
 export type BaselineGroupState =
   | { readonly status: "outside" }
-  | ({ readonly status: "whole" } & BaselineGroupRun)
+  | {
+      readonly status: "whole";
+      readonly baselineId: string;
+      readonly digest: string;
+      readonly nextIndex: number;
+    }
   | {
       readonly status: "partial";
       readonly baselineId: string;
@@ -67,7 +89,7 @@ export type BaselineGroupEvent =
       readonly type: "segment";
       readonly baselineId: string;
       readonly chain: BaselineSegmentChain | null;
-      /** Whether the pull that served it was sent with an empty version. */
+      /** Whether the page that served it was requested with no version. */
       readonly cold: boolean;
       readonly index: number;
       readonly seal: BaselineGroupSeal | null;
@@ -83,6 +105,9 @@ function failed(fault: BaselineGroupFault): BaselineGroupState {
 
 /** A segment met outside any group: one starts, or ends at once. */
 function startGroup(event: SegmentEvent): BaselineGroupState {
+  // Nothing is left out of a cold page, so a group on it starts at its
+  // first segment: one that starts later was served without the others.
+  if (event.cold && event.index !== 0) return failed("first_missing");
   if (event.seal) {
     if (event.seal.count !== event.index + 1) return failed("count_mismatch");
     // A group of one segment signs the digest every group starts from.
@@ -183,18 +208,39 @@ export function baselineGroupTransition(
 export function baselineGroupStateFromRun(
   run: BaselineGroupRun | null | undefined,
 ): BaselineGroupState {
-  return run ? { ...run, status: "whole" } : OUTSIDE;
+  if (!run) return OUTSIDE;
+  return run.digest === null
+    ? {
+        baselineId: run.baselineId,
+        lastIndex: run.nextIndex - 1,
+        status: "partial",
+      }
+    : {
+        baselineId: run.baselineId,
+        digest: run.digest,
+        nextIndex: run.nextIndex,
+        status: "whole",
+      };
 }
 
 /** The run a continuation carries to the next page, if a group is open. */
 export function baselineGroupRunOf(
   state: BaselineGroupState,
 ): BaselineGroupRun | null {
-  return state.status === "whole"
+  if (state.status === "whole") {
+    return {
+      baselineId: state.baselineId,
+      digest: state.digest,
+      nextIndex: state.nextIndex,
+      unapplied: false,
+    };
+  }
+  return state.status === "partial"
     ? {
         baselineId: state.baselineId,
-        digest: state.digest,
-        nextIndex: state.nextIndex,
+        digest: null,
+        nextIndex: state.lastIndex + 1,
+        unapplied: false,
       }
     : null;
 }

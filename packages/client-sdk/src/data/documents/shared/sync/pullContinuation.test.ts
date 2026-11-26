@@ -7,7 +7,12 @@ import {
   serializeDocumentSyncPullContinuation,
 } from "./pullContinuation";
 
-const RUN = { baselineId: "baseline-1", digest: "ab".repeat(32), nextIndex: 3 };
+const RUN = {
+  baselineId: "baseline-1",
+  digest: "ab".repeat(32),
+  nextIndex: 3,
+  unapplied: false,
+};
 
 test("document pull continuations round-trip through durable storage", () => {
   const continuation = {
@@ -53,10 +58,24 @@ test("a continuation carries the rotation baseline its page ended inside", () =>
       "tracked",
       "0/2A",
       "page-2",
-      ["baseline-1", 3, RUN.digest],
+      ["baseline-1", 3, RUN.digest, 0],
     ]),
   );
   expect(deserializeDocumentSyncPullContinuation(stored)).toEqual(continuation);
+  // A group followed in part has no digest, and either kind remembers that
+  // one of its segments went unapplied.
+  for (const run of [
+    { ...RUN, digest: null },
+    { ...RUN, unapplied: true },
+    { ...RUN, digest: null, unapplied: true },
+  ]) {
+    const carried = { ...continuation, baselineGroupRun: run };
+    expect(
+      deserializeDocumentSyncPullContinuation(
+        serializeDocumentSyncPullContinuation(carried),
+      ),
+    ).toEqual(carried);
+  }
   // No run is stored as null, and read back as no run.
   for (const baselineGroupRun of [null, undefined]) {
     const without = serializeDocumentSyncPullContinuation({
@@ -92,7 +111,7 @@ test("continuations with different runs are different continuations", () => {
   ).toBe(true);
   for (const other of [
     base,
-    { ...base, baselineGroupRun: { ...RUN, nextIndex: 4 } },
+    { ...base, baselineGroupRun: { ...RUN, nextIndex: 4, unapplied: false } },
     { ...base, baselineGroupRun: { ...RUN, digest: "cd".repeat(32) } },
     { ...base, baselineGroupRun: { ...RUN, baselineId: "baseline-2" } },
   ]) {

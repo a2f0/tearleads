@@ -11,7 +11,11 @@ import {
   persistedDocumentSyncStateFromResponse,
 } from "../../../data/documents/shared/responses";
 import type { BaselineGroupRun } from "../../../data/documents/shared/sync/baselineGroupMachine";
-import { judgeServedBaselineGroups } from "../../../data/documents/shared/sync/baselineGroupProgress";
+import {
+  isColdPullPage,
+  judgeServedBaselineGroups,
+  settleBaselineGroupVerdicts,
+} from "../../../data/documents/shared/sync/baselineGroupProgress";
 import type {
   IncomingDocumentSyncUpdateValidator,
   MaterializedDocumentSyncPlan,
@@ -171,9 +175,15 @@ export function baselineGroupRunAfterPage(input: {
   readonly plan: MaterializedDocumentSyncPlan["plan"];
   readonly response: DocumentSyncResponse;
 }): Promise<BaselineGroupRun | null> {
+  const { request } = input.plan;
   return judgeServedBaselineGroups({
+    cold: isColdPullPage({
+      localVersionVector: request.localVersionVector,
+      processedThroughUpdateId: request.processedThroughUpdateId,
+      pullCursor: request.pullCursor,
+      run: input.baselineGroupRun,
+    }),
     documentId: input.plan.documentId,
-    localVersionVector: input.plan.request.localVersionVector,
     pullComplete: (input.response.pullPage?.nextCursor ?? null) === null,
     run: input.baselineGroupRun,
     updates: input.response.updates,
@@ -185,7 +195,9 @@ export function baselineGroupRunAfterPage(input: {
  * not its declared update is void before import, and the import verdicts run
  * over what remains, so a writer's follow-up to a void update is void too.
  * Between the two, the rotation baselines among the served updates are held
- * to their group rules, which fail the pass before any update is imported.
+ * to their group rules, and after them a baseline segment served without
+ * the segments it builds on is told from a void; either fails the pass
+ * before any update is imported or any void recorded.
  */
 async function judgeDocumentSyncResponseUpdates(
   input: SyncRemoteDocumentResultInput,
@@ -209,9 +221,23 @@ async function judgeDocumentSyncResponseUpdates(
       response: input.response,
     }),
   );
+  const decryptedUpdates = withoutVoidedUpdates(
+    decrypted.accepted,
+    importVerdicts,
+  );
   return {
-    baselineGroupRun,
-    decryptedUpdates: withoutVoidedUpdates(decrypted.accepted, importVerdicts),
+    baselineGroupRun: settleBaselineGroupVerdicts({
+      appliedUpdateIds: new Set(decryptedUpdates.map(({ id }) => id)),
+      missingDependencyUpdateIds: new Set(
+        importVerdicts.voided
+          .filter((entry) => entry.missingDependency)
+          .map((entry) => entry.updateId),
+      ),
+      nextRun: baselineGroupRun,
+      run: input.baselineGroupRun,
+      updates: input.response.updates,
+    }),
+    decryptedUpdates,
     deferred: importVerdicts.deferredUpdateIds.length > 0,
     held: importVerdicts.heldUpdateIds.length > 0,
     voidedUpdates: inServerOrder(input.response, [

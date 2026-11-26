@@ -40,6 +40,11 @@ export type ScratchJudgement =
   | {
       readonly failure: unknown;
       /**
+       * Whether the update could not join because the reader lacks an
+       * operation it starts after or depends on.
+       */
+      readonly missingDependency: boolean;
+      /**
        * Set when the update reuses ids of operations this device wrote under
        * its own peer with other operations: a writer committed them as it.
        */
@@ -120,9 +125,11 @@ function importVoid(
   failure: unknown,
   scratchChanged: boolean,
   preemptedPeerId: string | null = null,
+  missingDependency = false,
 ): ScratchVoid {
   return {
     failure,
+    missingDependency,
     preemptedPeerId,
     scratchChanged,
     stage: "loro_import",
@@ -161,7 +168,7 @@ function judgeOnScratch(
 ): ScratchJudgement {
   const held = encodeVersionVector(document);
   if (startsPastHeldCounters(held, update)) {
-    return importVoid(new Error(MISSING_DEPENDENCY_MESSAGE), false);
+    return importVoid(new Error(MISSING_DEPENDENCY_MESSAGE), false, null, true);
   }
   const changed = () =>
     !versionVectorsEqual(encodeVersionVector(document), held);
@@ -173,6 +180,8 @@ function judgeOnScratch(
       // Loro keeps the operations it could not apply as pending.
       return importVoid(
         new Error(MISSING_DEPENDENCY_MESSAGE, { cause: error }),
+        true,
+        null,
         true,
       );
     }
@@ -208,6 +217,7 @@ function judgeUpdate(
     }
     return {
       failure: error,
+      missingDependency: false,
       preemptedPeerId: null,
       scratchChanged: false,
       stage: "loro_metadata",

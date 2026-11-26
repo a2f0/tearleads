@@ -26,6 +26,8 @@ const FAULT_MESSAGES: Record<BaselineGroupFault, string> = {
     "a rotation baseline's final segment signs another digest than its served segments have",
   final_missing:
     "the pull ended inside a rotation baseline, before its final segment",
+  first_missing:
+    "a rotation baseline was served from past its first segment to a reader that asked for every update",
   group_interrupted:
     "another update was served between a rotation baseline's segments",
   mixed_baseline:
@@ -34,14 +36,47 @@ const FAULT_MESSAGES: Record<BaselineGroupFault, string> = {
     "a rotation baseline's segments were not served in index order",
 };
 
-/** Whether a pull sent with `localVersionVector` asked for every update. */
-export function isColdPull(localVersionVector: string | null): boolean {
+function isEmptyVersion(localVersionVector: string | null): boolean {
   if (localVersionVector === null) return true;
   try {
     return versionVectorsEqual(localVersionVector, emptyVersionVector());
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether a page was requested cold: with no version, so the server leaves
+ * no update in its range out. A pull's first page is cold when it also
+ * names no processed cursor. A later page is cold only as the continuation
+ * of a group followed whole, which the pass requests with no version
+ * (`pullPageVersion`); what a host put in a later page's version is not
+ * taken as a reason to hold the server to a whole group.
+ */
+export function isColdPullPage(input: {
+  readonly localVersionVector: string | null;
+  readonly processedThroughUpdateId?: string | undefined;
+  readonly pullCursor?: string | undefined;
+  readonly run: BaselineGroupRun | null | undefined;
+}): boolean {
+  if (!isEmptyVersion(input.localVersionVector)) return false;
+  return input.pullCursor === undefined
+    ? input.processedThroughUpdateId === undefined
+    : input.run != null && input.run.digest !== null;
+}
+
+/** The fault message a failed pass reports. */
+function servedBaselineGroupError(
+  reason: string,
+  updateIds: readonly string[],
+) {
+  return isolateDocumentSyncBatchError({
+    cause: new Error(
+      `Document sync response is not a whole rotation baseline: ${reason}`,
+    ),
+    stage: "baseline_group",
+    updateIds,
+  });
 }
 
 /**
@@ -133,15 +168,15 @@ async function eventFor(input: {
  * hashes the digest is made of.
  */
 export async function judgeServedBaselineGroups(input: {
+  /** Whether the page was requested cold (`isColdPullPage`). */
+  readonly cold: boolean;
   readonly documentId: string;
-  /** The version vector the pull was sent with. */
-  readonly localVersionVector: string | null;
   /** Whether the server reported no further page. */
   readonly pullComplete: boolean;
   readonly run: BaselineGroupRun | null | undefined;
   readonly updates: readonly SyncResponseUpdate[];
 }): Promise<BaselineGroupRun | null> {
-  const cold = isColdPull(input.localVersionVector);
+  const { cold } = input;
   let state = baselineGroupStateFromRun(input.run);
   for (const update of input.updates) {
     state = baselineGroupTransition(
@@ -154,13 +189,62 @@ export async function judgeServedBaselineGroups(input: {
     state = baselineGroupTransition(state, { type: "pull_complete" });
   }
   if (state.status === "failed") {
-    throw isolateDocumentSyncBatchError({
-      cause: new Error(
-        `Document sync response is not a whole rotation baseline: ${FAULT_MESSAGES[state.fault]}`,
-      ),
-      stage: "encrypted_record",
-      updateIds: input.updates.map((update) => update.id),
-    });
+    throw servedBaselineGroupError(
+      FAULT_MESSAGES[state.fault],
+      input.updates.map((update) => update.id),
+    );
   }
   return baselineGroupRunOf(state);
+}
+
+/**
+ * Hold a page's verdicts to what a served rotation baseline allows, and
+ * return the run to carry to the pull's next page.
+ *
+ * The API commits a baseline only when each segment starts where the ones
+ * before it end and depends on nothing outside them, and it leaves a segment
+ * out of a page only when the reader's version holds its operations. So a
+ * reader always holds what a served segment builds on: from before, or from
+ * the segments served ahead of it. A segment that cannot join for want of
+ * such an operation was served without the segments it builds on. That is
+ * the server's doing and fails the pass; recording it void would outlast the
+ * server's correction.
+ *
+ * Unless a segment of the same group, served earlier in this pull, was not
+ * accepted. Then its writer signed a segment no reader takes, the ones
+ * after it build on nothing for every reader alike, and they are void as
+ * any update that follows a void one is. `run.unapplied` carries that across
+ * pages.
+ */
+export function settleBaselineGroupVerdicts(input: {
+  /** The served updates the page applies. */
+  readonly appliedUpdateIds: ReadonlySet<string>;
+  /** The voids this page judged for want of a held operation. */
+  readonly missingDependencyUpdateIds: ReadonlySet<string>;
+  /** The run the machine left for the next page. */
+  readonly nextRun: BaselineGroupRun | null;
+  /** The run the page began with. */
+  readonly run: BaselineGroupRun | null | undefined;
+  readonly updates: readonly SyncResponseUpdate[];
+}): BaselineGroupRun | null {
+  const unapplied = new Set<string>(
+    input.run?.unapplied ? [input.run.baselineId] : [],
+  );
+  for (const { baselineId, id } of input.updates) {
+    if (baselineId === undefined) continue;
+    if (
+      input.missingDependencyUpdateIds.has(id) &&
+      !unapplied.has(baselineId)
+    ) {
+      throw servedBaselineGroupError(
+        "a rotation baseline's segment was served without the segments it builds on",
+        input.updates.map((update) => update.id),
+      );
+    }
+    if (!input.appliedUpdateIds.has(id)) unapplied.add(baselineId);
+  }
+  const { nextRun } = input;
+  return nextRun
+    ? { ...nextRun, unapplied: unapplied.has(nextRun.baselineId) }
+    : null;
 }

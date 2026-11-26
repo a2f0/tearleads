@@ -1,6 +1,7 @@
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 
 type DocumentSyncUpdateIsolationStage =
+  | "baseline_group"
   | "content_key"
   | "decrypt"
   | "decrypt_runtime"

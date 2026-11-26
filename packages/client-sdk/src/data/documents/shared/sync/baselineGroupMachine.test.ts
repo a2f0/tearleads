@@ -168,8 +168,22 @@ test("a reader that sent a version follows a group in part", () => {
   ).toEqual({ fault: "count_mismatch", status: "failed" });
 });
 
-test("a cold pull that first meets a later segment follows the group in part", () => {
-  expect(run(OUTSIDE, [segment(2, { chain: null })])).toEqual({
+// Nothing is left out of a cold page, so a group that starts past its first
+// segment there was served without the others: a failed pass, never a run
+// followed in part whose segments the import judge would then void.
+test("a group that starts past its first segment on a cold page fails", () => {
+  for (const events of [
+    [segment(2, { chain: null })],
+    [segment(1, { chain: null }), segment(2, { chain: null, final: true })],
+    [segment(3, { chain: null, seal: { count: 4, digest: "any" } })],
+  ]) {
+    expect(run(OUTSIDE, events)).toEqual({
+      fault: "first_missing",
+      status: "failed",
+    });
+  }
+  // A page requested with a version may leave the first segments out.
+  expect(run(OUTSIDE, [segment(2, { chain: null, cold: false })])).toEqual({
     baselineId: A,
     lastIndex: 2,
     status: "partial",
@@ -179,7 +193,12 @@ test("a cold pull that first meets a later segment follows the group in part", (
 test("a run crosses pages through its continuation", () => {
   const firstPage = run(OUTSIDE, [segment(0), segment(1)]);
   const carried = baselineGroupRunOf(firstPage);
-  expect(carried).toEqual({ baselineId: A, digest: "d2", nextIndex: 2 });
+  expect(carried).toEqual({
+    baselineId: A,
+    digest: "d2",
+    nextIndex: 2,
+    unapplied: false,
+  });
   const nextPage = baselineGroupStateFromRun(carried);
   expect(run(nextPage, [segment(2), segment(3, { final: true })])).toEqual(
     OUTSIDE,
@@ -194,12 +213,20 @@ test("a run crosses pages through its continuation", () => {
     status: "failed",
   });
 
-  // Only a group followed whole is carried; no run starts outside one.
-  for (const state of [
-    OUTSIDE,
-    run(OUTSIDE, [segment(1, { chain: null, cold: false })]),
-    run(OUTSIDE, [segment(0), segment(2)]),
-  ]) {
+  // A group followed in part is carried too, with no digest: the next page
+  // still holds it to rising indices, and the pass keeps on it whether a
+  // segment of the group went unapplied.
+  const inPart = run(OUTSIDE, [segment(1, { chain: null, cold: false })]);
+  const carriedInPart = baselineGroupRunOf(inPart);
+  expect(carriedInPart).toEqual({
+    baselineId: A,
+    digest: null,
+    nextIndex: 2,
+    unapplied: false,
+  });
+  expect(baselineGroupStateFromRun(carriedInPart)).toEqual(inPart);
+  // No run starts outside a group or after a failure.
+  for (const state of [OUTSIDE, run(OUTSIDE, [segment(0), segment(2)])]) {
     expect(baselineGroupRunOf(state)).toBeNull();
   }
   expect(baselineGroupStateFromRun(null)).toEqual(OUTSIDE);

@@ -2,6 +2,7 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import { assertDocumentManifestBundleConsistent } from "../../../data/documents/shared/readers";
 import { isDocumentSyncRequestLimitError } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
+import { pullPageVersion } from "../../../data/documents/shared/sync/pullContinuation";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
@@ -108,7 +109,10 @@ export async function planDocumentSyncAttempt(input: {
       buildWithProjection: (projection) =>
         buildRemoteDocumentSyncPlan({
           pendingUpdates,
-          localVersionVector: input.localVersionVector,
+          localVersionVector: pullPageVersion(
+            input.localVersionVector,
+            input.pullContinuation,
+          ),
           preparedRekeys:
             projection === prepared.projection ? prepared.plans : undefined,
           minLsn: resolvePullContinuationMinLsn(
