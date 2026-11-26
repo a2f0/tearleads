@@ -64,9 +64,11 @@ async function openNoteBlame(scope: Scope): Promise<void> {
   await expect(prose).toHaveText(NOTE.text, { timeout: 60_000 });
   const legend = scope.locator(".explorer-blame-legend-item");
   for (const writer of WRITERS) {
-    await expect(legend.filter({ hasText: writer })).toHaveCount(1, {
-      timeout: 60_000,
-    });
+    // The whole label, so "You" does not also match a name containing it.
+    const label = writer.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    await expect(
+      legend.filter({ hasText: new RegExp(`^${label}$`, "u") }),
+    ).toHaveCount(1, { timeout: 60_000 });
   }
   await expect(legend).toHaveCount(WRITERS.length);
   await expect(scope.locator(".explorer-blame-run--unattributed")).toHaveCount(

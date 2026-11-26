@@ -16,9 +16,11 @@ import {
 } from "./seedDocument";
 import { type CliSession, withSession } from "./session";
 
+type FolderNodes = Awaited<ReturnType<typeof loadFolderTree>>["nodes"];
+
 // A group grant reaches a member's device as the organization read model and
-// the folder's key wrap catch up, which takes a few round trips. One deadline
-// bounds every attempt, its sync included.
+// the folder's key wrap catch up, which takes a few round trips. Attempts
+// stop at one deadline, which also bounds each attempt's discovery and sync.
 const SETTLE_TIMEOUT_MS = 120_000;
 const SETTLE_DELAY_MS = 250;
 
@@ -56,10 +58,51 @@ async function settle<T>(
   throw new Error(failure);
 }
 
-/** The root's folder with this name, made and synced when it has none. */
-async function ensureSeedFolder(run: SeedRun, name: string): Promise<string> {
+/**
+ * Whether the folder holds nothing but the dataset folder's seeded notes,
+ * if anything: no folder of its own and no other document.
+ */
+async function holdsOnlySeedNotes(
+  run: SeedRun,
+  folder: { id: string; nodes: FolderNodes },
+  notes: ContinuityFolder["notes"],
+): Promise<boolean> {
+  const { sdk } = run.session;
+  if (folder.nodes.some((node) => node.parentId === folder.id)) return false;
+  const noteIds = new Set<string>();
+  for (const { document } of notes) {
+    noteIds.add((await seedDocumentIds(run, document.key)).documentId);
+  }
+  // This session's device is new, so discovery returns every document in
+  // the folder, a page at a time.
+  const discover = () =>
+    sdk.containerContents.discoverContainerDocuments(folder.id);
+  let batch = await discover();
+  if (!batch) throw new Error("Could not list a folder the seed would reuse.");
+  while (batch?.length) {
+    if (
+      batch.some(
+        ({ documentId }) => documentId === null || !noteIds.has(documentId),
+      )
+    )
+      return false;
+    batch = await discover();
+  }
+  return true;
+}
+
+/**
+ * The root's folder with the dataset folder's name, made and synced when it
+ * has none. An existing one is reused only while it holds nothing but the
+ * seed's notes, so a folder of the user's own is never written to or shared.
+ */
+async function ensureSeedFolder(
+  run: SeedRun,
+  folder: ContinuityFolder,
+): Promise<string> {
   const { session, rootId } = run;
   const { sdk } = session;
+  const { name } = folder;
   const { nodes } = await loadFolderTree(session);
   const existing = nodes.find(
     (node) =>
@@ -68,7 +111,13 @@ async function ensureSeedFolder(run: SeedRun, name: string): Promise<string> {
       !node.systemSlot &&
       node.name === name,
   );
-  if (existing) return existing.id;
+  if (existing) {
+    if (await holdsOnlySeedNotes(run, { id: existing.id, nodes }, folder.notes))
+      return existing.id;
+    throw new Error(
+      `Your folder "${name}" holds items the seed did not write, so the seed will not use or share it. Rename it, then run the command again.`,
+    );
+  }
   const tree = await openReadyContainerTree(sdk, captureContinuityScope(sdk));
   const node = await tree.createChild(rootId, name);
   if (!node) throw new Error(`Could not create the ${name} folder.`);
@@ -138,6 +187,7 @@ async function openSharedNote(
   while (batch?.length && !deadline.aborted) {
     batch = await sdk.containerContents.discoverContainerDocuments(folderId);
   }
+  if (deadline.aborted) return null;
   const localId = await sdk.documents.findLocalIdByDocumentId(documentId);
   if (!localId) return null;
   const store = sdk.containerContents
@@ -241,8 +291,9 @@ async function addMemberLines(
 /**
  * Makes each dataset folder under the root and writes its notes. With the
  * roster, it also grants the folder's groups their access and has each
- * member append their lines. Idempotent: a rerun reuses the folder by name,
- * keeps held grants, and skips lines the note already has. Only the seeded
+ * member append their lines. Idempotent: a rerun reuses the folder by name
+ * while it holds only the seed's notes, keeps held grants, and skips lines
+ * the note already has. Only the seeded
  * folder is shared: a note the user moved elsewhere stays private to them,
  * so its missing lines are skipped and counted.
  */
@@ -255,7 +306,7 @@ export async function seedFolders(
   const count = { folders: 0, notes: 0, grants: 0, additions: 0, moved: 0 };
   for (const folder of folders) {
     const folderId = await tracer.span(`folder ${folder.name}`, () =>
-      ensureSeedFolder(run, folder.name),
+      ensureSeedFolder(run, folder),
     );
     run.folders.add(folderId);
     count.folders += 1;

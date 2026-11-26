@@ -8,6 +8,7 @@ import {
 import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   appendNoteAddition,
+  continuityDocuments,
   continuityFolders,
   continuityGroups,
   loadContinuityAssets,
@@ -16,7 +17,7 @@ import { loadFolderTree } from "./folderTree";
 
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { resolveSeedAccount } from "./seedAccount";
-import { createSeedRun } from "./seedDocument";
+import { createSeedRun, seedContinuityDocument } from "./seedDocument";
 import { seedFolders } from "./seedFolders";
 import { memberRecoveryKey, seedRoster } from "./seedRoster";
 import { type CliSession, withSession } from "./session";
@@ -122,6 +123,12 @@ function rootFolder(session: CliSession, nodes: FolderNodes, name: string) {
   return folders[0]?.id ?? "";
 }
 
+function syncIdle(sdk: Tearleads) {
+  return getOrCreateDomainSyncCoordinator(
+    sdk.runtime.input().state.domainScope,
+  ).waitForIdle({ timeoutMs: 30_000 });
+}
+
 /** The access levels the named group holds on the folder. */
 async function groupAccess(sdk: Tearleads, name: string, folderId: string) {
   const state = await sdk.organizations.loadDirectoryAndGroups();
@@ -217,11 +224,7 @@ test("a note the owner moved out of its folder stays unshared, without lines", a
       .openTree()
       .createChild(rootId, "Elsewhere");
     if (!elsewhere) throw new Error("Could not create the target folder.");
-    const idle = () =>
-      getOrCreateDomainSyncCoordinator(
-        sdk.runtime.input().state.domainScope,
-      ).waitForIdle({ timeoutMs: 30_000 });
-    expect(await idle()).toBe(true);
+    expect(await syncIdle(sdk)).toBe(true);
     const moved = await sdk.containerContents
       .documentLinks()
       .moveDocumentToContainer({
@@ -233,7 +236,7 @@ test("a note the owner moved out of its folder stays unshared, without lines", a
         setLinkedContainerIdsForDocument: () => {},
       });
     expect(moved.note?.containerId).toBe(elsewhere.id);
-    expect(await idle()).toBe(true);
+    expect(await syncIdle(sdk)).toBe(true);
     return elsewhere.id;
   });
 
@@ -254,5 +257,45 @@ test("a note the owner moved out of its folder stays unshared, without lines", a
     const { text, writers } = await readFolderNote(sdk, elsewhereId);
     expect(text).toBe(note.document.text ?? "");
     expect(writers).toEqual(new Set([session.userId]));
+  });
+}, 300_000);
+
+test("the seed refuses a folder of the user's own by the dataset's name", async () => {
+  const { family } = await familyFixture();
+  const { spec, datasetSha256, readAttachment } = await loadContinuityAssets();
+  const other = continuityDocuments(spec).find(
+    (document) => document.kind === "note",
+  );
+  if (!other) throw new Error("The pinned dataset has no root note.");
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  // The user's own folder by that name, holding a note of theirs.
+  const mineId = await asOwner(seedPhrase, async (session) => {
+    const { sdk } = session;
+    const account = await resolveSeedAccount(session, undefined);
+    const mine = await sdk.containerContents
+      .openTree()
+      .createChild(account.rootId, family.name);
+    if (!mine) throw new Error("Could not create the user's folder.");
+    expect(await syncIdle(sdk)).toBe(true);
+    const run = createSeedRun(session, {
+      rootId: account.rootId,
+      signingPrivateKey: account.signingPrivateKey,
+      datasetSha256,
+      readAttachment,
+      folders: new Set([mine.id]),
+    });
+    expect(await seedContinuityDocument(run, other, mine.id)).not.toBe(
+      "purged",
+    );
+    return mine.id;
+  });
+
+  await expect(seedFamily(seedPhrase)).rejects.toThrow(
+    `Your folder "${family.name}" holds items the seed did not write`,
+  );
+  await asOwner(seedPhrase, async (session) => {
+    const { nodes } = await loadFolderTree(session);
+    expect(rootFolder(session, nodes, family.name)).toBe(mineId);
+    expect(await groupAccess(session.sdk, family.name, mineId)).toEqual([]);
   });
 }, 300_000);

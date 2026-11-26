@@ -96,7 +96,10 @@ The command writes the pinned screenshot dataset into your personal
 organization. Contacts and avatars appear in Contacts. Notes, photos, ID
 documents, equipment with its avatar photo, passcodes, and health trackers
 sync under your root folder, and each dataset folder (today Family) is made
-under it, reused by name on a rerun, with its notes inside.
+under it with its notes inside. A rerun reuses a root folder of that name only
+while it holds nothing but the seed's notes; if you have a folder of your own
+by that name, the command stops and asks you to rename it, so it never writes
+to or shares your folder.
 The import commits each document with an encrypted fingerprint of its fixture.
 If it stops partway, run the
 same command again. For the same dataset version it reuses the documents,
