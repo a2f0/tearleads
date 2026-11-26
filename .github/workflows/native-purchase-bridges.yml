@@ -124,8 +124,26 @@ jobs:
           path: ${{ env.NATIVE_IOS_BUILD_ROOT }}
           key: native-ios-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.plan.outputs.identity }}-${{ hashFiles('packages/app-capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'packages/app-capacitor/ios/App/*/Package.swift') }}
 
+      # A restored file keeps its size and modification time but gets a new
+      # inode, which Xcode's build system compares by default.
+      - name: Let Xcode reuse the restored state
+        if: steps.restore-build-state.outputs.cache-hit == 'true'
+        run: |
+          defaults write com.apple.dt.XCBuild IgnoreFileSystemDeviceInodeChanges -bool YES
+          find "$NATIVE_IOS_BUILD_ROOT/DerivedData/SourcePackages/checkouts" -name '*.swift' | head -n 3 | xargs stat -f '%Fm %N'
+          touch "$RUNNER_TEMP/native-ios-restored"
+
       - name: Compile iOS purchase bridge
         run: bun scripts/testing/runVerifiedTurbo.ts test:native-ios-ci
+
+      - name: Report Xcode build reuse
+        if: steps.restore-build-state.outputs.cache-hit == 'true'
+        run: |
+          objects="$NATIVE_IOS_BUILD_ROOT/DerivedData/Build/Intermediates.noindex"
+          echo "Object files rebuilt after the restore, by target:"
+          find "$objects" -name '*.o' -newer "$RUNNER_TEMP/native-ios-restored" \
+            | sed -E 's#^.*/Intermediates.noindex/([^/]+)\.build/.*#\1#' | sort | uniq -c
+          echo "Object files in total: $(find "$objects" -name '*.o' | wc -l)"
 
       # Pull requests read the state main saves but never write their own, so
       # one entry per key stays in the shared Actions cache.
