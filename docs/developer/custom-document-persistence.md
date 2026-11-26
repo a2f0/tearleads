@@ -45,8 +45,8 @@ observed before the caller reports success.
 `replaceQueuedPendingUpdates(...)` merges a run of queued local updates into one
 before a send. In one mutation it checks that the canonical row still has
 `expectedDocumentId` and `expectedRecoveryGeneration`, and that every id in
-`memberUpdateIds` is still queued as an ordinary local row (not an outbox row,
-not a rotation checkpoint), the members are contiguous in queue order
+`memberUpdateIds` is still queued as a local row (not an outbox row), the
+members are contiguous in queue order
 (`created_at`, then insertion order) with no other queued row between them,
 and the first listed member comes first. If every check holds, it updates the
 first member in place, so the row keeps its identity, creation time, and queue
@@ -84,10 +84,12 @@ generation captured before it waited for the mutation queue; a stale writer
 returns a compare-and-set loss and reloads the recovered record rather than
 publishing old history.
 `supportsAtomicRecoveryHistoryPruning: true` declares that recovery checkpoint
-replacement, covered-history selection, rejection of unproven pending rows, and
-quarantine of queued checkpoint artifacts share the guarded
-`commitDocumentMutation(...)` transaction that advances `recoveryGeneration`;
-rotation raw-history recovery refuses an adapter without it.
+replacement, covered-history selection, and rejection of pending rows share
+the guarded `commitDocumentMutation(...)` transaction that advances
+`recoveryGeneration`; rotation raw-history recovery refuses an adapter without
+it. Every queued row is an ordinary update: the SDK builds a
+[rotation baseline](../glossary/keys.md#rotation-baseline) for the request
+that rotates and never queues one.
 
 `commitDocumentMutation(...)` conditionally writes an already-prepared mutation
 only when the complete expected durable record still matches. Its history

@@ -15,8 +15,9 @@ a newer head is accepted only when its signed chain extends the checkpoint. An
 [identity pin](./principals.md#identity-pin) is separate: it fixes one user's
 exact keys rather than tracking advancing signed state, and backup restore
 merges both monotonically. The word also names unrelated objects: local document-history
-Loro snapshots, a [rotation baseline](./keys.md#rotation-baseline)'s `checkpointKind`,
-and transparency tree checkpoints.
+Loro snapshots, transparency tree checkpoints, and, in the error code
+`document_sync_checkpoint_coverage_conflict`, a
+[rotation baseline](./keys.md#rotation-baseline).
 
 Related docs:
 
@@ -38,11 +39,12 @@ Related docs:
 
 One operation a document update depends on, written as its Loro peer and one
 past its counter. Each update signs its dependency frontiers in
-`dependencyVersionVector`, taken from its payload's Loro start frontiers; a
-snapshot has none. The API refuses an update with one past its peer's
-committed frontier with 409 `document_sync_dependency_uncommitted`, and a
-reader voids an update whose payload depends on other operations than it
-declares.
+`dependencyVersionVector`, taken from its payload's Loro start frontiers. The
+API refuses an update with one past its peer's committed frontier with 409
+`document_sync_dependency_uncommitted`, and a reader voids an update whose
+payload depends on other operations than it declares. A
+[rotation baseline](./keys.md#rotation-baseline) segment depends only on
+operations its group's earlier segments carry.
 
 Related docs:
 

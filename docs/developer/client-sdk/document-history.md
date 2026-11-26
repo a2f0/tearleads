@@ -109,8 +109,8 @@ It needs the network: it pulls the first raw-history page from a null version,
 verifies it like any sync page, and replays only the first update in a scratch
 document. It persists nothing and leaves open stores untouched. It resolves to
 `null` while the database is not ready or the device is offline, and when the
-document has no remote record, no updates, or a rotation baseline as its first
-update.
+document has no remote record, no updates, or a rotation baseline segment as
+its first update.
 
 The Continuity seed importer uses it before resuming uploads into a document an
 earlier run created. The current fingerprint cannot show when it was written:
@@ -170,7 +170,7 @@ has not sent is outside it. So is an update the device has not pulled, which
 | `offline` | The device is offline, or has no keys or signed-in author. |
 | `not_synced` | The document has no remote record, or the server holds no update of it. |
 | `epoch_key_unreachable` | An older content key cannot be reached from this device. The result carries `contentKeyEpoch` and the `DocumentRawHistoryUnavailableError`. |
-| `rejected` | A served page failed a signature or integrity check, or the server repeated a page cursor. |
+| `rejected` | A served page failed a signature or integrity check or served a rotation baseline that breaks its [group rules](../../document-link-and-sync-protocol.md#reader-checks), or the server repeated a page cursor. |
 | `unsettled` | This device could not finish reading: a Loro runtime failure, an update the judge held behind one or deferred past its rebuild budget, or a document already reading suspect updates one a page. |
 | `too_large` | The server holds more than 20,000 updates of the document ([limits](../../limits.md#loro-runtime)). |
 | `interrupted` | `options.signal` aborted, the session's scope changed, or a request, or material a check needed, did not arrive. |
@@ -198,7 +198,8 @@ good, stay void.
 It is on-demand work, not a background check:
 
 - It makes one request for every 64 updates or 48 MiB of history, and
-  downloads every rotation baseline ever committed, each a full snapshot.
+  downloads every rotation baseline ever committed. Each is a group of update
+  segments that carries the whole history again as of its rotation.
 - The judging, the rebuild, and the final comparison run on the main thread,
   a page at a time.
 - Memory holds the local history, the rebuild, and one page, beside the live

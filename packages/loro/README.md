@@ -38,8 +38,10 @@ imports them in order through `importUpdates`. It returns a generator that
 exports each segment when the caller asks for it, so a caller that hands each
 one on never holds the history twice. Each segment carries its index and the
 vectors `getUpdateVersionVectors` reads from it. An empty document has no
-segments. Nothing calls it yet: it is the first step toward a rotation
-baseline that is a run of updates instead of one snapshot.
+segments. The client SDK's rotation writer calls it to cut the history a
+rotation proved into the segments of a
+[rotation baseline](../../docs/glossary/keys.md#rotation-baseline), and the
+API holds each baseline group to `historySegmentsImportInOrder`.
 
 - **Cuts.** A segment may start and end at any counter of any peer: between
   changes, inside a change, or inside one long text or list insert. The
@@ -227,7 +229,8 @@ to each commit, never read from the clock) and the way each holder was fed.
 ## Import refusals
 
 Import blobs through `importUpdates` and `importSnapshot`, never through a
-document's own `import`. Loro throws its refusals as bare strings; these
+document's own `import`. A rotation baseline's segments are update blobs and
+go through `importUpdates`. Loro throws its refusals as bare strings; these
 helpers name the ones callers act on:
 
 - `LoroReusedOperationIdError`: the blob carries an operation id the document

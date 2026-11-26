@@ -72,8 +72,8 @@ Document write routes:
     `expectedLinkSetManifestHash` pins the document [head](./glossary/sync.md#head)
   - each outgoing update includes `id`, encrypted `encryptedData`, visible
     start, end, and dependency version vectors, required `plaintextHash`,
-    optional checkpoint fields, and a signed `writeHeader`; its metadata hash
-    commits the vectors and the opaque, record-key-derived plaintext HMAC
+    optional baseline segment fields, and a signed `writeHeader`; its metadata
+    hash commits them, the vectors, and the record-key-derived plaintext HMAC
   - response shape: `DocumentSyncResponse`
   - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
     `commitLsnMode`, `contentKeyBundles[]`, `documentId`, encrypted `updates[]`,
@@ -202,9 +202,9 @@ Behavior:
   Loro updates and retry them under the new epoch instead of replacing them
   with a full baseline
 - subtractive rotation for document epochs uses the
-  [fresh-baseline path](./document-rekey-and-audit-history.md#rotate-means-fresh-baseline-for-later-writes)
-  with source-frontier checkpoint metadata signed in the write header; a
-  baseline's own update row marks it for the coverage-gated redirect
+  [fresh-baseline path](./document-rekey-and-audit-history.md#rotate-means-fresh-baseline-for-later-writes):
+  the history again as an ordered group of updates, its segments, each signing
+  its place; their update rows mark the group for the coverage-gated redirect
 - note attachment rewrap-only work commits blob key-target updates without
   sending an unrelated Loro baseline
 - document discovery summaries from `POST /containers/documents/query` expose
@@ -263,7 +263,7 @@ drive document kind selection. Each change also [records its commit time](./docu
 The server never needs plaintext CRDT state. The visible metadata of an update
 is its `id`, `documentId`, `authorFingerprint`, `createdAt`, `accessEpoch`,
 partial start, end, and dependency version vectors, opaque `plaintextHash`,
-optional checkpoint fields, and signed `writeHeader`. One update may cover
+optional baseline segment fields, and signed `writeHeader`. One update may cover
 many local writes: the client merges queued local updates under a fresh `id`
 before sending ([limits](./limits.md#document-sync)), so attribution is per
 upload, and another runtime's in-flight writes may be stored twice, which the

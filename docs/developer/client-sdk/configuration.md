@@ -278,7 +278,7 @@ key resolver, policy warmer, and `stillCurrent` stay per call.
 ### Sync and container recitation
 
 Loop `remoteDocuments.syncRemoteDocument(...)`; resume with
-`readPullContinuation(...)` and validate via
+`readPullContinuation(result.response, result.baselineGroupRun)`; validate via
 `validateDocumentSyncUpdateImports(...)`, which returns
 `DocumentSyncImportVerdicts`. The pass skips each
 [void update](../../glossary/content.md#void-update), reporting it in

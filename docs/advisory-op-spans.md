@@ -36,16 +36,16 @@ user has, when that author names no user. The rule is modeled in
 
 Each update also signs, as `dependencyVersionVector`, the operations its
 payload depends on: its Loro start frontiers, each written as one past the
-operation's counter. A snapshot depends on nothing. In the same walk, before an
-update's spans, the server checks each of its
-[dependency frontiers](./glossary/sync.md#dependency-frontier) against the
-frontier the walk has reached, which counts earlier updates of the request. One
-past it rolls the request back with 409
+operation's counter. A baseline segment depends only on its group's earlier
+segments. In the same walk, before an update's spans, the server checks each
+of its [dependency frontiers](./glossary/sync.md#dependency-frontier) against
+the frontier the walk has reached, which counts earlier updates of the request.
+One past it rolls the request back with 409
 `document_sync_dependency_uncommitted`, whose `peerFrontiers` name the peers
 the same way. A peer another user owns outranks it, so a request refused for
 both carries `document_sync_peer_owned`. A dependency vector that does not
-decode, and a rotation baseline that declares any dependency, are refused with
-400 ([dependencies](#dependencies)).
+decode is refused with 400, and a segment depending outside its group with 409
+`document_sync_baseline_group_invalid` ([dependencies](#dependencies)).
 
 ## Void Updates
 
@@ -57,20 +57,21 @@ metadata and imports the update into its history plus every update it accepted
 before. An update is a [void update](./glossary/content.md#void-update) when
 AES-GCM or the plaintext hash fails under the committed key, its decoded span is
 not its declared one, its decoded dependencies are not its declared ones, its
-decoder cannot read it, its dependencies are on no earlier accepted update, or
-it carries other operations under ids the reader already holds. That comparison
-reads both copies of the operations in one canonical form, so the runs and
-changes an import split them into never make an honest update void: a
-checkpoint completing a change the reader holds part of is accepted. The reader
-records it in `document_void_updates`, reports it once as `Documents: sync
-update voided`, and goes on. A void never fails the pass or sets the document's
-sync failure. A reader whose key is not the committed one records no verdict for
-the update: that is an availability failure, and the pass fails as an unwrap
-failure does. So is a failure of its own runtime while it derives keys or
-decrypts, including an AES-GCM refusal when the reader cannot round-trip a
-canary of the record's size under the same key (stage `decrypt_runtime`). A sync
-pass whose judge (`validateIncomingUpdates`) returns no verdicts fails, rather
-than applying updates nobody judged.
+payload is not an update blob, its decoder cannot read it, its dependencies are
+on no earlier accepted update, or it carries other operations under ids the
+reader already holds. That comparison reads both copies of the operations in one
+canonical form, so the runs and changes an import split them into never make an
+honest update void: a baseline segment completing a change the reader holds part
+of is accepted. The reader records it in `document_void_updates`, reports it
+once as `Documents: sync update voided`, and goes on. A void never fails the
+pass or sets the document's sync failure. A reader whose key is not the
+committed one records no verdict for the update: that is an availability
+failure, and the pass fails as an unwrap failure does. So is a failure of its
+own runtime while it derives keys or decrypts, including an AES-GCM refusal when
+the reader cannot round-trip a canary of the record's size under the same key
+(stage `decrypt_runtime`). A sync pass whose judge (`validateIncomingUpdates`)
+returns no verdicts fails, rather than applying updates nobody judged. A served
+baseline that breaks its group rules also fails the pass and is no void.
 
 A void whose import changed the scratch history the reader judges against
 forces it to rebuild that history before the next update. Each page may spend
@@ -425,7 +426,7 @@ model an overclaim and the cursor.
 
 A rotation re-encrypts the document under a new content key from a
 [rotation baseline](./glossary/keys.md#rotation-baseline), and the API
-refuses one whose source version does not cover the committed frontier. An
+refuses one whose segments do not cover the committed frontier. An
 overclaim's ops are in no version, so on its own that check would refuse
 every rotation of the document, and with it every unlink.
 
@@ -433,8 +434,8 @@ Rotation's [raw-history recovery](./raw-document-history-recovery.md) judges
 the whole history with the import judge a sync pass uses, keeping each void
 this device recorded void without a Loro call and with no rebuild budget. It
 rebuilds exactly what a sync pass applied: every ordinary update and every
-served checkpoint the judge accepted, so the operations a writer's checkpoint
-alone carries reach the new baseline, and no checkpoint queued or installed on
+served baseline segment the judge accepted, so the operations a baseline
+alone carries reach the new one, and no history checkpoint installed on
 this device. It leaves out each void, which sync never applied either, and the
 rebuilt history must still equal the live one. Only then does it record each
 void its payload alone decides and report it the first time this device meets
@@ -445,25 +446,24 @@ rotation of the document, not the update; three under one judge leave the
 document's rotations to other members
 ([Loro runtime failures](#loro-runtime-failures)).
 
-Each baseline then signs its author's processed cursor in its content-record
-metadata as `coversThroughUpdateId`, but only when its snapshot holds the
-frontier the cursor was recorded with, so the snapshot holds every update the
-cursor's pull imported and the pull voided the rest. The sync and unlink gates
-weigh only the updates committed after that cursor, and a first page goes
-straight to a baseline when the baseline covers every later update it would
-skip. A baseline without a cursor, or with one the document does not hold,
-must cover every committed update. A container metadata baseline signs the
-cursor its metadata pulls recorded, so an overclaim in a folder's metadata no
-longer refuses the folder's rotations. The API stores the cursor beside the
-baseline and authenticates it with the rest of the signed metadata, so a
-stored cursor that is not the signed one fails the pull closed.
+Each baseline then signs its author's processed cursor in its final segment's
+content-record metadata as `coversThroughUpdateId`, but only when the history
+it carries holds the frontier the cursor was recorded with, so it holds every
+update the cursor's pull imported and the pull voided the rest. The sync and
+unlink gates weigh only the updates committed after that cursor, and a first
+page goes straight to a baseline when the baseline covers every later update
+it would skip. A baseline without a cursor, or with one the document does not
+hold, must cover every committed update. A container metadata baseline signs
+the cursor its metadata pulls recorded, so an overclaim in a folder's metadata
+does not refuse the folder's rotations. The API stores the cursor on that
+segment's row, where one that is not the signed cursor fails the pull closed.
 
-A document whose every update its author voided has an empty snapshot. Its
-baseline declares no operation and signs the cursor alone, so the gates weigh
+A document whose every update its author voided has an empty history. Its
+baseline is one empty segment that signs the cursor alone, so the gates weigh
 only the updates after it, and a new reader's first pull is redirected past
-the voids (#3194). The empty baseline carries nothing, so no pull serves it,
+the voids (#3194). The empty segment carries nothing, so no pull serves it,
 though a pull's cursor still reaches it, and it never keeps a later baseline
-from redirecting. The API admits an empty span only on a rotation baseline
+from redirecting. The API admits an empty span only as the whole of a baseline
 that signs a cursor. A document never written has no cursor, so its unlink
 carries no baseline and the API requires that no update is committed.
 

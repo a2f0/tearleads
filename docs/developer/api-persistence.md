@@ -110,17 +110,37 @@ The stored shapes enforce:
   stops old writers with the API maintenance Worker before it drops data and
   publishes the API Worker only after `migrate`, so no Worker that predates the
   column writes to the migrated table.
+- A [rotation baseline](../glossary/keys.md#rotation-baseline) is an ordered
+  group of ordinary update rows, its segments
+  ([#3238](https://github.com/a2f0/tearleads/issues/3238)). Each segment's
+  signed metadata carries `baselineId` and `baselineSegmentIndex`, and the
+  final segment's also carries `baselineSegmentCount`,
+  `baselineSegmentsDigest`, and an optional `coversThroughUpdateId`. Migration
+  `0015` adds the `document_updates` columns `baseline_id`,
+  `baseline_segment_index`, `baseline_segment_count`, and
+  `baseline_segments_digest`, keeps `baseline_covers_through_update_id`, and
+  drops `baseline_source_version_vector`: what a group covers is read from
+  its segments' spans. `document_updates_baseline_idx` becomes partial on
+  `baseline_id is not null`, and the unique partial index
+  `document_updates_baseline_segment_idx` covers
+  `(baseline_id, baseline_segment_index)`. A baseline stored as one snapshot
+  row signed fields no build reads, so it can never authenticate again. The
+  migration first adds a check constraint that fails, and rolls back, on a
+  database that still holds such a row, then drops the column. Deploying it
+  requires the reset above.
 - Signed write headers are the write-integrity mechanism (see
   [document write integrity](../document-rekey-and-audit-history.md#write-integrity));
   there is no server-side audit hash chain. A
-  [rotation baseline](../glossary/keys.md#rotation-baseline)'s update row keeps
-  only the source [version vector](../glossary/content.md#version-vector) its readers
-  consume, and `access_events.dependency_manifest_hashes` is the only copy of an
-  event's dependency citations.
+  [rotation baseline](../glossary/keys.md#rotation-baseline) segment's update
+  row keeps only the signed baseline fields its readers consume, and
+  `access_events.dependency_manifest_hashes` is the only copy of an event's
+  dependency citations.
 - The client SDK's outbound write queue lives in `document_history_updates`
   (`update_id` plus the queue columns). A local database without `update_id`
   is refused at startup with the obsolete-schema error, and edits it had not
-  synced are discarded with the reset.
+  synced are discarded with the reset. No queued row is a rotation baseline,
+  so local schema step 13 (`drop_queued_baseline_source_version`) drops the
+  `source_version_vector` column that marked one.
 - Login challenges are signed for the API origin
   (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`,
   so clients and the API release together.

@@ -178,7 +178,7 @@ reads out of the baseline, and so out of what new readers start from
 ([rotations and unlinks](../advisory-op-spans.md#rotations-and-unlinks));
 greenfield clients are expected to run the current Loro. A writer whose
 updates are all void no longer blocks the unlink of its document: the
-baseline is the empty snapshot signing the reader's processed cursor. A
+baseline is one empty segment signing the reader's processed cursor. A
 rotation judges raw history with no rebuild budget, so a writer who commits
 many voids behind a large update makes each rotation, and so each unlink, of
 that document rebuild once per void.

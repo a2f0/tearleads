@@ -82,7 +82,7 @@ is structural, it drains before the requested document lanes.
 Removing a link [rotates](./glossary/keys.md#rotate) the content key, so it
 needs a [full-history rotation proof](./document-rekey-and-audit-history.md):
 the document store pulls and verifies the raw history and exports the snapshot
-that becomes the unlink's
+that the unlink cuts into the segments of its
 [rotation baseline](./glossary/keys.md#rotation-baseline). The store proves
 before it accepts the unlink and keeps that proof in memory with the version
 vector it covers. The replay of the durable intent, including the unlink leg of

@@ -111,22 +111,23 @@ reads its fresh attempt makes (the listing and the evicted writer projection),
 and never a wrong commit.
 
 An unlink [rotates](./glossary/keys.md#rotate) the document content key and must
-carry a `rotationBaseline` — a signed `rotate_baseline` full-history snapshot
-whose source [version vector](./glossary/content.md#version-vector) covers the
+carry a `rotationBaseline`: the signed segments, in index order, of one
+[rotation baseline group](#rotation-baseline-groups) whose coverage holds the
 committed update frontier after the baseline's signed processed cursor
-(`coversThroughUpdateId`, or every committed update when it signs none) — with
-one exception: a document with **no committed
+(`coversThroughUpdateId`, or every committed update when it signs none). There
+is one exception: a document with **no committed
 updates** may be unlinked without a baseline. A baseline may declare no
 operations only when it signs a cursor: the author voided every update through
-the cursor, so its snapshot is empty; the server refuses an empty baseline
-without one with 400. The server proves that emptiness
+the cursor, so the baseline is one empty segment; the server refuses an empty
+baseline without a cursor with `409 document_sync_baseline_group_invalid`. For
+a baseline-less unlink, the server proves that no update is committed
 inside the mutation transaction under the document manifest-head write lock.
 Sync writers hold the corresponding exclusive lock, so no update can commit
 between the emptiness proof and the unlink. A baseline-less unlink against a
 non-empty committed frontier is rejected as a conflict. A link must not carry a
 [rotation baseline](./glossary/keys.md#rotation-baseline), so it may advance the
 [content-key epoch](./glossary/access.md#access-epoch) only under the same emptiness
-proof; otherwise the link is rejected as a conflict. A stored rotation baseline
+proof; otherwise the link is rejected as a conflict. A stored baseline segment
 counts as a committed update. Honest clients link at the current epoch.
 
 Encrypted [Loro sync](./loro-e2ee-sync-protocol.md) uses
@@ -159,9 +160,9 @@ container KEK target set its header's `targetHash` commits to, unless that hash
 equals the request's `expectedTargetHash`: the client then refills the set from
 the content-key bundle it planned against and re-hashes it against the signed
 `targetHash`, so a set omitted under any other hash fails closed. The stored
-write header keeps its target set. Checkpoint fields are either all absent or
-the tuple `rotate_baseline`, `full_history_snapshot`, and a non-empty source
-vector, with an optional `coversThroughUpdateId` UUID only beside them. Writes
+write header keeps its target set. An update carries
+[baseline segment fields](#rotation-baseline-groups) only when it is a
+segment of a rotation baseline, and an ordinary update carries none. Writes
 require path refs; the API requires an active path. Reads may
 omit refs and carry no rekeys or bundle. `expectedLinkSetManifestHash` pins the
 server-resolved document head instead of echoing the full manifest.
@@ -210,11 +211,13 @@ epoch, link-set hash, target hash, last returned update, and original upper
 bound with a deployment HMAC key. It is not an authorization capability: each
 request still reauthorizes the document, and both cursor ids must resolve within
 it. Cursor tampering or deployment-key rotation rejects the continuation as
-stale so the client restarts from a fresh bounded snapshot. A readable
-authenticated rotation baseline may move the initial lower bound forward before
-page selection only after its source frontier proves that it covers every update
-the client is missing before that baseline, other than those at or before the
-baseline's signed processed cursor, which its author imported or voided (see
+stale so the client restarts from a fresh bounded snapshot. The latest whole
+[rotation baseline group](#serving-and-the-redirect) at the current
+content-key epoch may move the initial lower bound forward, to just before the
+group's first segment, before page selection. It does so only when the group's
+coverage holds every update the client is missing before that group, other
+than those at or before the baseline's signed processed cursor, which its
+author imported or voided (see
 [advisory op spans](./advisory-op-spans.md#rotations-and-unlinks)). An
 explicit read-only `historyMode: "raw"` request bypasses that redirect and
 returns every retained
@@ -257,19 +260,180 @@ reports `"tracked"`. A backend without a portable WAL position would return
 `"untracked"` with the `0/0` reset sentinel, and the client replaces a
 previously tracked checkpoint with that explicit mode and sentinel.
 
+## Rotation Baseline Groups
+
+A [rotation baseline](./glossary/keys.md#rotation-baseline) is an ordered
+group of ordinary updates, its segments, sent whole in the one request that
+rotates. Imported in index order, the segments rebuild the document's whole
+history at the new content-key epoch.
+
+- An unlink's `rotationBaseline` is an array of 1 to 64 segments in index
+  order.
+- A sync sends a group's segments as entries of `outgoingUpdates`, contiguous
+  and in index order. Ordinary updates may precede or follow the group but
+  never sit between its segments, and a request carries at most one group.
+
+`MAX_DOCUMENT_BASELINE_SEGMENTS` is 64, the most updates one sync carries.
+
+Five optional update fields place an update in a group. All five are in the
+content-record metadata the update's metadata hash covers, so they reach the
+AES-GCM associated data and the
+[write-header](./document-rekey-and-audit-history.md#signed-write-headers)
+signature:
+
+| Field | Carried by | Meaning | Wire bound |
+| --- | --- | --- | --- |
+| `baselineId` | every segment | the group | UUID v4 |
+| `baselineSegmentIndex` | every segment | the segment's place in the group | integer from 0 to 63 |
+| `baselineSegmentCount` | the final segment | how many segments the group has | integer from 1 to 64 |
+| `baselineSegmentsDigest` | the final segment | a digest of the segments before it | 64 lowercase hex characters |
+| `coversThroughUpdateId` | the final segment, optional | the author's processed cursor | UUID |
+
+Request and response validation hold each update to one field set.
+`baselineId` and `baselineSegmentIndex` are absent together or both present.
+`baselineSegmentCount` and `baselineSegmentsDigest` appear only together and
+only with them. Only such a final segment may carry `coversThroughUpdateId`.
+
+The digest is a SHA-256 hash chain over canonical JSON under the domain
+`tearleads.document.baseline-segments`
+([`baselineSegmentsDigest.ts`](../packages/crypto/src/keying/core/baselineSegmentsDigest.ts)).
+It starts from a hash of the document id and the baseline id. Each segment
+before the final one, in index order, extends it with a hash of the digest so
+far and that segment's index, update id, metadata hash, and ciphertext hash.
+The final segment signs the chain's last value and is not an input, because
+its own signed metadata carries the digest. A one-segment group signs the
+start value. Because the digest is a chain, the writer, the API, and a reader
+that meets segments one at a time each keep one hash, never the list.
+
+### Group rules
+
+In the request's transaction, before it appends any update, the API holds
+the request's group to these rules (`judgeDocumentBaselineGroup`):
+
+1. Every segment names the same `baselineId`.
+2. The segments are in index order from zero, with none missing.
+3. Only the final segment carries the count, the digest, and the cursor, and
+   its count is the number of segments.
+4. Each peer's spans run gapless from zero across the segments, and each
+   segment depends only on operations that earlier segments carry.
+5. A segment with no operations is allowed only as the whole of an empty
+   baseline: one segment with `baselineSegmentCount` 1 that signs a cursor.
+   Its author voided every update through that cursor.
+6. The final segment's digest is the digest of the earlier segments' update
+   ids, metadata hashes, and ciphertext hashes.
+
+The API then weighs coverage. What a group covers is derived, not signed: for
+each peer, the highest end among its segments' `partialEndVersionVector`s.
+That version must hold the frontier of the updates committed after the
+group's signed cursor. A group that signs no cursor, or a cursor that names
+no update of the document, must cover every committed update.
+
+| Refused group | Response |
+| --- | --- |
+| It breaks a group rule; a sync puts other updates between its segments; or only some of a sync group's update ids are already committed. | `409 document_sync_baseline_group_invalid`, on both routes |
+| A sync's group does not cover the committed frontier after its cursor. | `409 document_sync_checkpoint_coverage_conflict` |
+| An unlink's group does not cover it. | `409 document_unlink_rotation_baseline_stale` |
+| A segment's declared fields are not the ones its write header signs. | `400`, the metadata hash mismatch of any update |
+| A new group reuses a committed group's `baselineId`. | `409`, an uncoded write conflict |
+| An unlink's group holds a segment whose update id is already committed. | `409`: an update id conflict, or an uncoded refusal when the committed row is identical |
+
+A group commits whole or not at all. Its segments, their spans, and their
+write headers are inserted in the request's transaction, in index order, so
+every refusal leaves no row. A sync that advances the content-key epoch must
+carry a newly written group. An identical retry of a committed group inserts
+nothing and is accepted when it advances nothing.
+
+The peer-ownership walk judges each segment's spans like any update's: a span
+ending at or below a peer's committed frontier re-asserts it, which any
+writer may do
+([advisory op spans](./advisory-op-spans.md#what-the-server-checks)).
+
+### One request bounds a baseline
+
+A baseline is not staged across requests, so the request that rotates must
+carry all of it. The SDK cuts a proven history into segments of about 4 MiB
+of plaintext, never more than 16 MiB, unless its caller passes other sizes
+(`rotationBaselineSegmentSizes`). A history cannot rotate when its group does
+not fit the request, when it needs more than 64 segments, or when one
+operation is larger than a segment may be. A sync that heals a stale
+content-key bundle then ends in the coded terminal failure
+`document_sync_request_too_large`. An unlink throws the segment-count and
+operation-size errors to its caller before anything is sent, and the API
+refuses a body past the route ceiling. This is the
+[unbounded-history defect](./limits.md#known-defect-unbounded-document-history).
+
+The SDK builds a group for the request that sends it and queues nothing
+locally as a baseline: every queued row is an ordinary update.
+
+### Serving and the redirect
+
+Segments are stored and paged as ordinary updates, in commit order, so a
+group's segments arrive as one run over as many pages as they take. Each
+served segment carries its baseline fields. A stored row whose columns no
+longer give its signed metadata hash fails the pull with `409`.
+
+The redirect picks the latest whole group at the current content-key epoch:
+the newest group whose stored rows each give their signed metadata hash and
+together pass the group rules. A group that is missing a row, holds an
+altered row, or is cut by the pull's upper bound is skipped. An earlier whole
+group may then serve; otherwise the pull serves every missing update. When
+the redirect applies, the first page starts just before the group's first
+segment.
+
+### Reader checks
+
+A reader authenticates, decrypts, judges, and imports a segment exactly as it
+does any update. Every served payload must be an `update`-mode Loro blob, and
+a snapshot payload is a [void update](./glossary/content.md#void-update). A
+page's accepted updates, segments included, go to the live document in one
+import.
+
+The reader also holds the groups a server serves to their rules
+(`judgeServedBaselineGroups`). What it can check depends on what it asked
+for:
+
+- **Cold pull.** A pull sent with a null or empty version vector that is
+  served index 0 of a group follows the group whole. Each next served update
+  must be the group's next index. The final segment's count must be its index
+  plus one, and its digest must be the digest of the served segments. An
+  ordinary update or another group's segment in between, a skipped or
+  repeated index, and a pull that ends before the final segment each break
+  the group.
+- **Pull sent with a version.** The server leaves out segments whose
+  operations the version already holds, so the reader checks less: indices
+  only rise within a group, a final segment's count must be its index plus
+  one, and a one-segment group's digest must be the start digest.
+
+A broken group fails the pass. It is never a void, because no single update
+is to blame for the order or number of updates a server served, and the
+reader imports nothing from the page. A group followed whole can cross pages:
+the pull continuation carries the baseline id, the next index, and the digest
+so far, and `readPullContinuation(response, baselineGroupRun)` takes that run
+from the pass result.
+
 ## Document Sync Conflict Codes
 
 JSON `409` responses retain `error` for diagnostics and carry a normative code:
 
 | Code                                         | Client action                                  |
 | -------------------------------------------- | ---------------------------------------------- |
-| `document_sync_checkpoint_coverage_conflict` | Regenerate the queued rotation checkpoint.     |
+| `document_sync_baseline_group_invalid`       | Terminal failure; a later pass rebuilds it.    |
+| `document_sync_checkpoint_coverage_conflict` | Terminal failure; a later pass heals again.    |
 | `document_sync_dependency_uncommitted`       | Move unsent ops off the named peers, retry.    |
 | `document_sync_descendant_rekeys_required`   | Commit the container rekeys standalone, retry. |
 | `document_sync_peer_owned`                   | Move unsent ops off the named peers, retry.    |
 | `document_sync_state_stale`                  | Refetch the writer projection and replan.      |
 | `document_sync_update_id_conflict`           | Run pending-update ID recovery.                |
 | `document_sync_conflict`                     | Report the terminal conflict without retrying. |
+
+Neither baseline code is retried within the pass, which ends in a terminal
+submit failure. The baseline was built for that request and never queued, so
+there is no local row to repair. After
+`document_sync_checkpoint_coverage_conflict`, a later pass that has pulled
+the missing history heals again from its then-current history. After
+`document_sync_baseline_group_invalid`, a resend of the same request is
+refused again, so a later pass builds the baseline anew from the history it
+proves.
 
 Retry and recovery decisions use status plus `code`, never `error` text. A
 missing or unknown code [fails closed](./glossary/access.md#fail-closed) as a terminal

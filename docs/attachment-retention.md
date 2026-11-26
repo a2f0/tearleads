@@ -130,7 +130,7 @@ Useful historical attachment retention requires deciding:
 - tombstones for removed attachments
 - whether retained-but-revoked users can keep reading old attachment versions
 - how historical attachment records relate to document update history and
-  baseline checkpoints
+  rotation baselines
 
 The [container KEK keyring](./glossary/keys.md#container-kek-keyring) partly
 answers how historical blob bytes are keyed after access shrink, and the
