@@ -8,7 +8,42 @@ const DOCUMENT_LISTING_CONFIG =
 const SHARED_DATABASE_MODULE = "formal/document-sync/SharedDatabaseListing.tla";
 const SHARED_DATABASE_CONFIG = "formal/document-sync/SharedDatabaseListing.cfg";
 
+const LANE_POLLING_MODULE = "formal/document-sync/DocumentLanePolling.tla";
+const LANE_POLLING_CONFIG = "formal/document-sync/DocumentLanePolling.cfg";
+
 export const DOCUMENT_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
+  {
+    id: "document-lane-write-without-folder-touch",
+    module: LANE_POLLING_MODULE,
+    config: LANE_POLLING_CONFIG,
+    constants: { TouchFolderOnWrite: "FALSE" },
+    expect: { kind: "invariant", name: "LaneEvidenceRetained" },
+    why: "A catch-up lists only the document lanes whose container row a tree listing was served. A write that changes a lane without republishing its container, as a purge once did, leaves nothing to point at the lane when its hint is lost.",
+  },
+  {
+    id: "document-lane-watermark-before-request",
+    module: LANE_POLLING_MODULE,
+    config: LANE_POLLING_CONFIG,
+    constants: { OweBeforeParentWatermark: "FALSE" },
+    expect: { kind: "invariant", name: "LaneEvidenceRetained" },
+    why: "A tree listing that saves its lane's watermark past a container's row before owing that container's document lane a listing loses the only evidence the lane moved when the process stops in between.",
+  },
+  {
+    id: "document-lane-settled-by-older-listing",
+    module: LANE_POLLING_MODULE,
+    config: LANE_POLLING_CONFIG,
+    constants: { SettleOnlyIfUnchanged: "FALSE" },
+    expect: { kind: "invariant", name: "LaneEvidenceRetained" },
+    why: "A listing already in flight when a tree listing was served the container's row may have been answered before the write behind that row. It must not settle the request the row caused.",
+  },
+  {
+    id: "document-lane-forgets-durable-request",
+    module: LANE_POLLING_MODULE,
+    config: LANE_POLLING_CONFIG,
+    constants: { ListDurableDebts: "FALSE" },
+    expect: { kind: "liveness", name: "Converges" },
+    why: "A request written before a crash names a lane whose container row the next tree listing is not served again, because the watermark already passed it. A catch-up that lists only what its own crawl owed never lists that lane.",
+  },
   {
     id: "shared-database-listing-reads-debts-only",
     module: SHARED_DATABASE_MODULE,

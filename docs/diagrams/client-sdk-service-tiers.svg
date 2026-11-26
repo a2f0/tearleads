@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="506" viewBox="0 0 600 506" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Client SDK service tiers</title>
+  <desc>A facade calls one service class, which calls repositories, which use the SQLite database. The composition root, a scoped singleton, or a test builds the service, passing in the collaborators that stay fixed for its lifetime.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <style>
+      .canvas,.box { fill: #fff; }
+      .box,.edge { stroke: #4b5563; stroke-width: 1.25; }
+      .edge { fill: none; }
+      .arrowhead { fill: #4b5563; }
+      .colhead { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+      .name { font-size: 15px; font-weight: 600; }
+      .colhead,.name { fill: #111827; }
+      .meta { fill: #4b5563; font-size: 13px; }
+      .mono { fill: #374151; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      @media (prefers-color-scheme: dark) {
+        .canvas,.box { fill: #18181b; }
+        .colhead,.name { fill: #fafafa; }
+        .meta,.arrowhead { fill: #d4d4d8; }
+        .mono { fill: #e4e4e7; }
+        .box,.edge { stroke: #d4d4d8; }
+      }
+    </style>
+  </defs>
+  <rect width="600" height="506" class="canvas"/>
+  <text x="16" y="24" class="colhead">SERVICE TIERS</text>
+  <text x="400" y="24" class="colhead">WHO BUILDS A SERVICE</text>
+
+  <rect x="16" y="40" width="360" height="88" rx="4" class="box"/>
+  <text x="28" y="61" class="name">Facade</text>
+  <text x="28" y="80" class="mono">client/&lt;name&gt;/</text>
+  <text x="28" y="98" class="meta">The entry point that hosts and the</text>
+  <text x="28" y="116" class="meta">app call for a subsystem</text>
+  <path d="M196 128 V150" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="152" width="360" height="106" rx="4" class="box"/>
+  <text x="28" y="173" class="name">Service</text>
+  <text x="28" y="192" class="mono">workflows/&lt;name&gt;/</text>
+  <text x="28" y="210" class="meta">One class per subsystem: the constructor takes</text>
+  <text x="28" y="228" class="meta">what is fixed for its lifetime, and methods take</text>
+  <text x="28" y="246" class="meta">per-call ids, signals, and expected heads</text>
+  <path d="M196 258 V280" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="282" width="360" height="88" rx="4" class="box"/>
+  <text x="28" y="303" class="name">Repository</text>
+  <text x="28" y="322" class="mono">data/persistence/&lt;name&gt;/</text>
+  <text x="28" y="340" class="meta">A class over the caller's executor and clock,</text>
+  <text x="28" y="358" class="meta">built where the caller reads that executor</text>
+  <path d="M196 370 V392" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="394" width="360" height="52" rx="4" class="box"/>
+  <text x="28" y="415" class="name">Database</text>
+  <text x="28" y="434" class="mono">data/sqlite/</text>
+
+  <rect x="400" y="40" width="184" height="88" rx="4" class="box"/>
+  <text x="412" y="61" class="name">Composition root</text>
+  <text x="412" y="80" class="meta">Tearleads.ts or a</text>
+  <text x="412" y="98" class="meta">runtime factory, with</text>
+  <text x="412" y="116" class="meta">production adapters</text>
+  <path d="M400 84 H388 V180 H378" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="400" y="152" width="184" height="106" rx="4" class="box"/>
+  <text x="412" y="173" class="name">Scoped singleton</text>
+  <text x="412" y="192" class="mono">getOrCreate…(scope)</text>
+  <text x="412" y="210" class="meta">One per database or</text>
+  <text x="412" y="228" class="meta">domain scope, held in</text>
+  <text x="412" y="246" class="meta">a module-private WeakMap</text>
+  <path d="M400 205 H378" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="400" y="282" width="184" height="88" rx="4" class="box"/>
+  <text x="412" y="303" class="name">Tests</text>
+  <text x="412" y="322" class="meta">The real service over</text>
+  <text x="412" y="340" class="meta">fakes: a fake API or</text>
+  <text x="412" y="358" class="meta">a manual clock</text>
+  <path d="M400 326 H388 V230 H378" class="edge" marker-end="url(#arrow)"/>
+
+  <text x="16" y="472" class="meta">A host interface hands a component its ports, never an import. Pure</text>
+  <text x="16" y="490" class="meta">functions, such as verifiers and canonical encoders, stay functions.</text>
+</svg>

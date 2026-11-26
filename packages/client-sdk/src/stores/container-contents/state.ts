@@ -6,8 +6,10 @@ import {
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import { ContainerStateMap } from "./containerState/containerStateMap";
 import { observeContainerBackgroundHydration } from "./hydration/backgroundHydration";
+import { releaseSettledConnectAttemptWaits } from "./hydration/connectAttemptGate";
 import { ReconnectRefresh } from "./hydration/reconnectRefresh";
 import { trackContainerHydration } from "./hydration/trackContainerHydration";
+import { getOrCreateTreeCatchUp } from "./hydration/treeCatchUp";
 import { didContainerWriteRuntimeChange } from "./remoteWrites/writeGeneration";
 import type {
   ContainerContentsStoreRuntime,
@@ -120,6 +122,9 @@ export function createContainerContentsStoreState(
     // acknowledgement's re-list, which is how hints lost earlier are recovered.
     reconnectRefresh: new ReconnectRefresh(
       (initialRuntime.state.serverEventsConnectionGeneration ?? 0) > 0,
+      // Whoever lists document lanes asks whether this crawl vouches for
+      // the lanes whose rows it was not served.
+      getOrCreateTreeCatchUp(initialRuntime.state.domainScope),
     ),
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
@@ -172,6 +177,7 @@ export function updateContainerContentsSnapshot(
 
 function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.lifecycleGeneration += 1;
+  releaseSettledConnectAttemptWaits(state, { all: true });
   state.containersById = new ContainerStateMap();
   state.containerParentIdsNeedingHydration = new Set();
   state.documentStoresNeedPriming = true;
@@ -251,6 +257,7 @@ export function updateContainerContentsStoreRuntime(
   if (serverEventsConnectionChanged) {
     state.reconnectRefresh.reset("acknowledged");
   }
+  releaseSettledConnectAttemptWaits(state);
 
   if (nextRuntime.infra.dbStatus !== "ready") {
     if (hasContainerContentsLoadState(state)) {
@@ -300,9 +307,11 @@ export function updateContainerContentsStoreRuntime(
   ) {
     // A pass blocked by missing prerequisites consumes its lane request before
     // returning early. Re-arm it directly when they return even if hydration
-    // finds no remote delta; this also primes unopened document stores.
+    // finds no remote delta; this also primes unopened document stores. The
+    // crawl gives way to a connection being made: its acknowledgement lists
+    // the tree anyway, and must do so after the acknowledgement.
     syncAgent.scheduleSync();
-    syncAgent.scheduleRemoteHydration();
+    syncAgent.scheduleRemoteHydration({ yieldToReconnectCrawl: true });
   }
 }
 
@@ -311,6 +320,7 @@ export function retireContainerStore(
 ): void {
   state.lifecycleGeneration++;
   state.reconnectRefresh.reset("disposed");
+  releaseSettledConnectAttemptWaits(state, { all: true });
 }
 
 export function consumePendingContainerContentsReconnectRefresh(

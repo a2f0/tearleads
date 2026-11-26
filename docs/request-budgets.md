@@ -59,7 +59,7 @@ unless noted.
 
 | Test | Operation | Request ceiling | Other pinned limits |
 | --- | --- | ---: | --- |
-| [`OrganizationBootstrapRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx) | Personal organization bootstrap: registration through Explorer showing Contacts, Trash and You | 25 | 5 document syncs (registration returns its commit position, so seeded documents skip empty first syncs), 5 parent-lane queries, 2 batched document listings, 1 container projection (the root's, for the Contacts create), 5 organization-policy and 2 history reads; provisioning seeds the destination roles of the containers it created; the device-first Contacts slot commits through its own create intent, which carries its first metadata update; no document projection, group-policy read or WebSocket ticket request; 280,000 request and 29,000 response bytes |
+| [`OrganizationBootstrapRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx) | Personal organization bootstrap: registration through Explorer showing Contacts, Trash and You | 21 | 5 document syncs (registration returns its commit position, so seeded documents skip empty first syncs), 2 parent-lane queries (a crawl lists every parent lane in one request), 3 batched document listings (the catch-up lists once more the lanes its tree crawl discovered), 1 container projection (the root's, for the Contacts create), 5 organization-policy and 2 history reads; provisioning seeds the destination roles of the containers it created; the device-first Contacts slot commits through its own create intent, which carries its first metadata update; no document projection, group-policy read or WebSocket ticket request; 280,000 request and 29,000 response bytes |
 | [`OrganizationBootstrapRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/OrganizationBootstrapRequestVolume.test.tsx) | Create and activate an additional organization | 6 | One `POST /organizations`, one batched listing, one document sync; `POST /organizations` reports no commit position; no document projection or history read; 215,000 request and 20,000 response bytes |
 | [`GroupMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx) | Create the first / a later custom group | 9 / 7 | One group create and no read-model read: the create's response carries the read-model delta from the cursor the SDK held (the hint naming its cursor costs none); no preparation response, because each stored Admins head publishes its strict authority progress; the first create reads the roster profile container's projection and its Admins history, which bootstrap no longer reads |
 | [`GroupMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx) | Add a new peer to the first / a later custom group | 41 / 8 | One policy commit, whose response carries the read-model delta the SDK applies as its post-commit read, so a later add reads no read model; the first add enrolls the peer in Members in the same commit, a later add reuses that roster membership; no write-bearing syncs, and no create or sync of the organization profile, which provisioning (registration or organization creation) committed |
@@ -68,16 +68,16 @@ unless noted.
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Link a document into the folder, keeping its root link | 2 | One link; no attachment listing, because the device holds no attachment row for the document; 9,300 request and 760 response bytes |
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Unlink the document from the folder | 5 | One unlink, one document projection, one rotation-preflight sync that the replay reuses; no attachment listing; 17,650 request and 21,200 response bytes |
 | [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the document to Trash | 4 | One link and one unlink; the link cites no rewraps without listing and the unlink re-cites what the link committed; the first write into Trash reads its projection, and the unlink reuses the unchanged document's rotation proof, so no sync or document projection; 26,700 request and 8,900 response bytes |
-| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the emptied folder to Trash | 10 | One move, no read-model read (an ungranted move stamps no grants); 16,350 request and 18,700 response bytes |
-| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Restore the folder to the root | 11 | One move, no read-model read; 16,500 request and 33,000 response bytes |
+| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Move the emptied folder to Trash | 10 | One move, no read-model read (an ungranted move stamps no grants); 16,700 request and 19,950 response bytes |
+| [`FolderMutationRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/FolderMutationRequestVolume.test.tsx) | Restore the folder to the root | 11 | One move, no read-model read; 16,850 request and 33,000 response bytes (the root lane is listed twice in one tree request, from its watermark and for membership) |
 | [`DualPaneProvider.groupsRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx) | Open Org Manager and select Admins | 3 | One read-model, one organization-policy and one Admins-policy read |
 | [`DualPaneProvider.groupsRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx) | Add a new peer to Admins, including peer convergence | 49, plus each validated preparation response (at most one) | 132,000 request and 490,000 response bytes; 10 organization-policy, 3 group-policy and 7 history reads; no read-model read (the commit's response carries the actor's delta); 9 document projections (10 after a real stale-target `409`); 11 syncs, all read-only, none of the organization profile; 2 recitations; 1 policy commit; no standalone share |
-| [`DualPaneProvider.sharing.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx) (root grant after attachment writes) | Create a folder and a note with an attachment, share the root with an active roster peer, and settle the peer's discovery; measured after provisioning and roster import | 55 | 104,700 request and 350,000 response bytes; 18 syncs (1-2 write-bearing, at most 16 read-only); 9 document projections; 11 parent-lane queries; 4 listings; no read-model read (the share's response carries the sharer's delta); 10 organization-policy reads; 4 recitations; 1 share |
+| [`DualPaneProvider.sharing.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx) (root grant after attachment writes) | Create a folder and a note with an attachment, share the root with an active roster peer, and settle the peer's discovery; measured after provisioning and roster import | 55 | 104,700 request and 350,000 response bytes; 18 syncs (1-2 write-bearing, at most 16 read-only); 9 document projections; 4 parent-lane queries; 4 listings; no read-model read (the share's response carries the sharer's delta); 10 organization-policy reads; 4 recitations; 1 share |
 | [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 6 | One document create, one multipart stage, one part upload, one attachment binding that carries the first content update and acknowledges its KEK targets by hash, no sync; one organization-policy read shared by the create and the bind's sync drain; no per-part authorization or stage-completion request; 34,500 request and 2,300 response bytes, plus the bytes of the one allowed root projection read when it happens |
 | [`DualPaneProvider.activePeerRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx) | An active peer reconciles an ungranted custom-group change | Exactly 4 | One read-model read, two organization-policy reads and one group-policy read; no container or document request and no Admins-policy read |
 | [`DeviceFirstOfflineRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx) | Offline folder create, cached note edit, and move to Trash | 0 each | After reconnect the queued create, link and unlink commit |
-| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged: the first restart after local creates / a later one / the first after a local edit | 22 / 14 / 16 | Two user folders; fresh SDK and SQLite worker; no replayed writes; the later restart costs 14 with two notes and with eight, and 16 with eight folders (three document listings either way, two more parent-lane queries) |
-| [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 16 / 23 | Disconnect costs zero; one WebSocket ticket and one memberships read each; no write-bearing syncs |
+| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged: the first restart after local creates / a later one / the first after a local edit | 19 / 11 / 13 | Two user folders; fresh SDK and SQLite worker; no replayed writes; the later restart costs at most 11 with two notes, with eight notes, and with eight folders |
+| [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 12 / 18 | Disconnect costs zero; one WebSocket ticket, one memberships read and one tree crawl each; no write-bearing syncs |
 
 [`DualPaneProvider.sidebarReloadBudget.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sidebarReloadBudget.test.tsx)
 bounds document link projection changes during cold bootstrap.
@@ -135,8 +135,8 @@ twin and the real proxied test API.
 The restart and unchanged reconnect use one pane with the `app` host profile
 and shared runtime policy. The peer-create case uses two panes with the `demo`
 profile, isolated runtimes and peer-sharing features enabled, but no demo
-identity seeding. These are distinct fixtures: the difference between 16 and
-23 is not a measured incremental cost of creating one folder.
+identity seeding. These are distinct fixtures: the difference between 12 and
+18 is not a measured incremental cost of creating one folder.
 
 The restart closes the SQLite connection, terminates its worker and disposes
 the SDK before mounting another instance with the persisted identity/session
@@ -164,15 +164,15 @@ be remeasured and documented when an optimization changes the baseline.
 | `POST /auth/ws-ticket` | 1 | 1 | 1 | 1 |
 | `GET /organization-memberships` | 1 | 1 | 1 | 1 |
 | `GET /organizations/:organizationId/billing` | 1 | 1 | 0 | 0 |
-| `POST /containers/parent-lanes/query` | 2 | 2 | 4 | 6 |
-| `POST /containers/documents/query` | 3 | 3 | 1 | 2 |
-| `GET /principals/organization/:organizationId/policy` | 3 | 1 | 3 | 4 |
+| `POST /containers/parent-lanes/query` | 1 | 1 | 1 | 2 |
+| `POST /containers/documents/query` | 3 | 2 | 1 | 2 |
+| `GET /principals/organization/:organizationId/policy` | 2 | 1 | 2 | 3 |
 | `GET /principals/group/:groupId/policy` | 0 | 0 | 0 | 0 |
 | `GET /principals/history` | 1 | 0 | 0 | 0 |
 | `GET /containers/:containerId/writer-projection` | 3 | 2 | 1 | 2 |
 | `GET /documents/:documentId/writer-projection` | 3 | 0 | 3 | 4 |
-| `POST /documents/:documentId/sync` (all read-only) | 4 | 3 | 2 | 3 |
-| **Total** | **22** | **14** | **16** | **23** |
+| `POST /documents/:documentId/sync` (all read-only) | 3 | 2 | 2 | 3 |
+| **Total** | **19** | **11** | **12** | **18** |
 
 No note is synced in any column. A listing
 [covers each note](./document-listing-coverage.md): its row carries the
@@ -183,17 +183,30 @@ pulled once per launch, and one probe for a document no listing names.
 The first restart is the first launch after the notes were created. Their
 lanes list the rows those creates published, and each listed row's head is
 verified with one document writer-projection read. The settled restart is
-every launch after that: no lane lists a row, so the cost is the same with two
-notes and with eight, which the canary runs at both sizes. Its three listing
-requests are one batch of queued lanes, one batch for the catch-up after the
-acknowledgement, and one unwatermarked batch for the initial document probe,
-which reads up to 32 lanes per request. A third size, eight folders of one
-note each, costs the same three listings; its total is 16 because the tree
-crawl lists four parent lanes per request and so sends two more. The first
-restart after a local edit lists the edited note's row again, which costs two
-more policy reads than a settled restart and no more listings; the note is not
-synced and its head is not read, because the device's own accepted update is
-behind its cursor.
+every launch after that: the tree crawl is served no folder's row, so the
+catch-up after the acknowledgement lists no document lane at all, and the cost
+is the same with two notes and with eight, which the canary runs at both
+sizes. Its two listing requests are one batch of queued lanes and one
+unwatermarked batch for the initial document probe, which reads up to 32 lanes
+per request. A third size, eight folders of one note each, costs no more: the
+tree crawl lists the root lane and each known folder's child lane, up to 32
+parent lanes per request, so it is one request here too. The first restart
+after a local edit is served the edited note's folder, whose lane the catch-up
+then lists: one more listing and one more policy read than a settled restart;
+the note is not synced and its head is not read, because the device's own
+accepted update is behind its cursor.
+
+A connect costs one tree crawl. Going online starts a crawl, and so does the
+interest acknowledgement that follows, which must list after the
+acknowledgement because hints sent before it are lost. The first crawl
+therefore gives way: it does not start while a connect attempt is pending,
+and it is neither started nor retried while the crawl of a current
+acknowledgement is owed. If the attempt ends without an acknowledgement, the
+first crawl lists. It waits without holding the store's hydration slot, so a
+refresh or a write's follow-up crawl made meanwhile lists at once. Before, a
+reconnect listed the tree twice. A crawl costs one request for every 32
+lanes; a lane with more children than its share of the 500-row page, 15 in a
+full batch, continues in a later request.
 
 Before listings covered documents, every opened document probed once per
 session: the first restart cost 23 requests with two notes and 35 with eight,
@@ -234,20 +247,23 @@ local application.
   costs one listing per four owed lanes at the next start, and a settled lane
   costs nothing. A start whose connect attempt is still pending at hydration
   does not resume: if the attempt is acknowledged, the catch-up below lists
-  every lane, owed ones included, and the resume never runs. The resume runs
+  every owed lane, and the resume never runs. The resume runs
   when no attempt is pending at hydration, or when the attempt ends without an
   acknowledgement (the socket opens before the tree can declare its interest,
   or no acknowledgement arrives within 15 seconds) or is replaced by a new
   one. A connection that starts or is acknowledged after that, the
-  replacement included, is a new catch-up and lists every lane again, the
-  resumed ones included.
+  replacement included, is a new catch-up: it lists the lanes still owed and
+  the lanes its tree crawl is served.
 - Upgrading costs at least one full listing. Devices that ran earlier
   releases have no settled mark on any document lane, so every known lane
   starts owed, and the first start after the upgrade lists all of them, four
   lanes per request, in the resume or the catch-up, or in both when a
   connection is acknowledged after the resume ran. That listing also repairs
   devices whose sign-in boot was cut short. A lane the server refuses never
-  settles, so it stays owed and is listed again on every start.
+  settles, so it stays owed and is listed again on every start. The release
+  that made the catch-up list only the lanes its tree crawl showed moved
+  costs one more: a local migration marks every document lane unsettled once,
+  because an earlier catch-up listed every lane and recorded none as owed.
 - Scoped hints force the affected lanes, including the parent lane needed to
   remove a nested revoked or deleted child. Newer force generations survive
   older completions, and temporary failures keep the force with bounded
@@ -257,8 +273,9 @@ local application.
   acknowledges the current interest set
   ([`packages/app/src/providers/sdk/serverEventsBinding.ts`](../packages/app/src/providers/sdk/serverEventsBinding.ts)).
   The acknowledgement advances the connection generation, and the SDK then
-  re-lists the tree and every known document lane, on a first connection as
-  on a reconnect.
+  re-lists the tree and each document lane whose container that listing was
+  served ([which lanes a catch-up lists](./document-listing-coverage.md#which-lanes-a-catch-up-lists)),
+  on a first connection as on a reconnect.
   Distinct login sessions of the same identity receive each other's events.
   An organization read-model hint carries the committed cursor instead of a
   session origin, so each client reads only when that cursor is ahead of the
@@ -303,7 +320,9 @@ batching also saves statements; every
 (`MAX_CONTAINER_PARENT_LANES`) on the same terms. Both routes list four lanes
 at a time, the size of the request's
 [database pool](./limits.md#database-connections), so a larger batch does not
-hold more database work at once than four singular listings did.
+hold more database work at once than four singular listings did. A document
+listing pinned to a parent page (`afterParentPage`) lists one lane at a time,
+inside one read-only transaction.
 
 ### Separate projection reads
 

@@ -10,6 +10,13 @@
   line-height: 1.45;
 }
 
+/* What the menu reveals sits in the backup block's own column, as if the box
+   were not there; a host that frames it apart gives it a box of its own
+   (RecoveryKeyBackupConfirmation.css). */
+.recovery-key-revealed {
+  display: contents;
+}
+
 .recovery-key-qr {
   display: grid;
   gap: var(--space-sm);
@@ -50,23 +57,4 @@
   flex: 0 0 auto;
   width: max(20px, var(--control-icon-size));
   height: max(20px, var(--control-icon-size));
-}
-
-/* The onboarding-style panel centers its contents and sizes each one to fit,
- * so the backup block takes the agreement form's width outright rather than
- * its contents': the menu (rows aligned to the start), the passphrase, and the
- * QR code fill one centered column under the prompt's copy. */
-.recovery-key-backup-confirmation .recovery-key-backup {
-  width: min(100%, 20rem);
-}
-
-.recovery-key-backup-agreement {
-  display: grid;
-  gap: var(--space-sm);
-  width: min(100%, 20rem);
-  text-align: start;
-}
-
-.recovery-key-backup-agreement .mini-app-button {
-  justify-self: center;
 }

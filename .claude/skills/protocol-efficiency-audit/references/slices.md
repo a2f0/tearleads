@@ -143,8 +143,8 @@ name and icon since #2539).
   four local records of listing position. Which reads need which?
 - Startup arms a probe per opened document and priming opens stores. Count
   the probes for the bootstrap fixture and say which a listing could answer.
-- A parent-lanes request is capped at 4 lanes on the client and the server;
-  the documents route allows 32. Count crawl requests against both caps.
+- A parent-lanes request and a documents request each take up to 32 lanes,
+  and the server lists four at a time. Count crawl requests against the cap.
 - No canary restarts or reconnects a pane, so restart cost stays Traced and
   this slice stayed partial in two audits. Measure it with a preload-driven
   restart scenario outside the checkout, or report it as not measured.

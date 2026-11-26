@@ -1,0 +1,142 @@
+/*
+ * The prompt a new identity backs up its recovery key in, in two layouts
+ * chosen by the width of whatever hosts it (OnboardingStepPanel's box), not
+ * the screen's:
+ *
+ * - stacked: one centered column, the copy, the backup menu, what the menu
+ *   reveals, and the agreement, for a phone held upright;
+ * - wide: two columns, the copy, the menu, and the agreement beside a frame
+ *   that holds the revealed key, for anything wider (a tablet either way up,
+ *   a phone on its side, a desktop or its windows). Revealed, the passphrase
+ *   and its QR code fill the frame instead of pushing the agreement below
+ *   them, and the menu row just chosen stays where it was.
+ *
+ * Unlike the legal terms, wide does not wait for a landscape host: an
+ * upright tablet stacked runs the revealed key past its screen, and side by
+ * side has the height to show it whole.
+ */
+
+/* The onboarding-style panel centers its contents and sizes each one to fit,
+ * so the backup block takes the agreement form's width outright rather than
+ * its contents': the menu (rows aligned to the start), the passphrase, and the
+ * QR code fill one centered column under the prompt's copy. */
+.recovery-key-backup-confirmation .recovery-key-backup {
+  width: min(100%, 20rem);
+}
+
+/* The whole passphrase, not the first few lines of it, wherever the browser
+   can size a field to its text. */
+.recovery-key-backup-confirmation .recovery-key-backup-textarea {
+  field-sizing: content;
+}
+
+.recovery-key-backup-feedback {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+/* Only the wide layout's frame needs a stand-in while the key is hidden. */
+.recovery-key-backup-placeholder {
+  display: none;
+}
+
+.recovery-key-backup-agreement {
+  display: grid;
+  gap: var(--space-sm);
+  width: min(100%, 20rem);
+  text-align: start;
+}
+
+.recovery-key-backup-agreement .mini-app-button {
+  justify-self: center;
+}
+
+/*
+ * Wide: the copy, the menu, and the agreement on the left, centered against
+ * the revealed key's frame, which runs the panel's full height on the right
+ * and scrolls inside itself. The state panel's actions box and the backup
+ * block step out of the layout so their parts are placed directly. How the
+ * last action went heads the frame, so nothing in the column moves when it
+ * appears.
+ */
+@container onboarding-step (width >= 36rem) {
+  .recovery-key-backup-confirmation > .recovery-key-backup-confirmation-panel {
+    display: grid;
+    grid-template-areas:
+      ". key"
+      "copy key"
+      "menu key"
+      "form key"
+      ". key";
+    /* The frame keeps room for most of the QR code; the left column gives way
+       first. The two minimums and the gap add up to the 36rem this layout
+       starts at. */
+    grid-template-columns: minmax(14rem, 24rem) minmax(20rem, 26rem);
+    grid-template-rows: 1fr auto auto auto 1fr;
+    /* The state panel centers its items; here the frame fills its area. The
+       step centers the columns (OnboardingStepPanel.css). */
+    align-items: stretch;
+    /* A length, not a spacing token: the breakpoint above counts it as 2rem,
+       and a container query cannot read a custom property. */
+    column-gap: 2rem;
+    row-gap: 0;
+    text-align: start;
+  }
+
+  .recovery-key-backup-confirmation-panel .mini-app-state-panel-copy {
+    grid-area: copy;
+    max-width: none;
+  }
+
+  .recovery-key-backup-confirmation-panel .mini-app-state-panel-actions,
+  .recovery-key-backup-confirmation .recovery-key-backup {
+    display: contents;
+  }
+
+  .recovery-key-backup-confirmation .recovery-key-actions {
+    grid-area: menu;
+    margin-block-start: var(--space-md);
+  }
+
+  .recovery-key-backup-agreement {
+    grid-area: form;
+    width: auto;
+    margin-block-start: var(--space-md);
+  }
+
+  .recovery-key-backup-agreement .mini-app-button {
+    justify-self: start;
+  }
+
+  .recovery-key-backup-confirmation .recovery-key-revealed {
+    grid-area: key;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    min-height: 0;
+    /* Its height comes from the column beside it, never from the key, which
+       would grow the rows and move the column. The panel's flexed height
+       already holds it so in Chromium; size containment holds it so in an
+       engine that sizes the rows from their content, as the legal terms'
+       documents frame does. */
+    contain: size;
+    box-sizing: border-box;
+    padding: var(--space-md);
+    border: var(--border-strong);
+    background: var(--color-light);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .recovery-key-backup-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: auto;
+    font-size: var(--font-size-sm);
+    line-height: 1.45;
+    text-align: center;
+    opacity: var(--opacity-muted);
+  }
+}

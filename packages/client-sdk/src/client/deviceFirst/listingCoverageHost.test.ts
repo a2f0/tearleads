@@ -12,6 +12,7 @@ import {
 } from "../../data/shared/domainScope";
 import { documentTables } from "../../data/sqlite/schema/documentRecordSchema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
+import { getOrCreateTreeCatchUp } from "../../stores/container-contents";
 import { registerDocumentStore } from "../../stores/documents/registry";
 import { registerDocumentStoreLoadedRecord } from "../../stores/documents/savedElsewhere";
 import type { DocumentStoreFacade } from "../../stores/documents/types";
@@ -97,4 +98,17 @@ test("a catch-up of another scope or an unready database asks nothing", async ()
   await hostFor({ dbStatus: "idle" }).requestOwedDocumentReads?.();
 
   expect(savedElsewhere.remoteSyncs()).toBe(0);
+});
+
+test("the catch-up asks the scope's tree crawl whether it vouches", async () => {
+  const host = hostFor({});
+  const treeCatchUp = getOrCreateTreeCatchUp(domainScope);
+
+  // No acknowledged connection has owed a crawl yet: nothing vouches.
+  expect(await host.whenTreeCrawlSettles?.()).toBe(false);
+
+  treeCatchUp.crawlOwed();
+  const settled = host.whenTreeCrawlSettles?.();
+  treeCatchUp.crawlSettled(true);
+  expect(await settled).toBe(true);
 });

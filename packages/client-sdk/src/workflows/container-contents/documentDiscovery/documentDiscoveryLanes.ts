@@ -37,10 +37,22 @@ export type ContainerDocumentDiscoveryOutcomeHandler = (
   outcome: ContainerDocumentDiscoveryOutcome,
 ) => Promise<void>;
 
+/** One lane's listing request a tree listing owed, read before the listing. */
+export interface OwedContainerDocumentLaneListing {
+  readonly containerId: string;
+  readonly revision: string;
+}
+
+/**
+ * Applies one lane's listing. With `owed`, a listing that applied with no
+ * candidate left pending settles that request; a listing that was refused,
+ * superseded or left candidates pending leaves the lane owed.
+ */
 async function applyListedLane(
   lane: ContainerDocumentDiscoveryLane,
   generation: number,
   listedDocuments: ContainerDocumentLaneListing,
+  settleOwed: (() => Promise<void>) | undefined,
 ): Promise<ContainerDocumentDiscoveryOutcome> {
   // A failed request is retryable, unlike a refused lane: reject it so the
   // caller retries and reports it rather than settling as if nothing changed.
@@ -65,6 +77,7 @@ async function applyListedLane(
       generation,
       listedDocuments,
     );
+    if (applied.status === "applied" && applied.settled) await settleOwed?.();
     return applied.status === "superseded"
       ? {
           containerId: lane.containerId,
@@ -94,12 +107,31 @@ export async function discoverContainerDocumentLanes(input: {
   readonly lanes: ReadonlyArray<ContainerDocumentDiscoveryLane>;
   readonly listContainerDocumentLanes: ContainerDocumentLaneLister;
   readonly loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
+  /**
+   * The listing requests owed to these lanes. Read before the listing is
+   * sent: a listing answers only what was owed before it began.
+   */
+  readonly loadOwedLaneListings?:
+    | ((
+        containerIds: ReadonlyArray<string>,
+      ) => Promise<ReadonlyArray<OwedContainerDocumentLaneListing>>)
+    | undefined;
   /** Awaited after each lane settles, before the next lane applies. */
   readonly onOutcome?: ContainerDocumentDiscoveryOutcomeHandler | undefined;
+  /** Settles a request that a settled listing answered. */
+  readonly settleOwedLaneListing?:
+    | ((owed: OwedContainerDocumentLaneListing) => Promise<void>)
+    | undefined;
 }): Promise<ReadonlyArray<ContainerDocumentDiscoveryOutcome>> {
   if (input.lanes.length === 0) return [];
   let listed: Awaited<ReturnType<typeof listContainerDocumentsFromWatermarks>>;
+  const owedByContainerId = new Map<string, OwedContainerDocumentLaneListing>();
   try {
+    const containerIds = input.lanes.map((lane) => lane.containerId);
+    for (const owed of (await input.loadOwedLaneListings?.(containerIds)) ??
+      []) {
+      owedByContainerId.set(owed.containerId, owed);
+    }
     listed = await listContainerDocumentsFromWatermarks({
       containerIds: input.lanes.map((lane) => lane.containerId),
       listContainerDocumentLanes: input.listContainerDocumentLanes,
@@ -119,10 +151,15 @@ export async function discoverContainerDocumentLanes(input: {
 
   const outcomes: ContainerDocumentDiscoveryOutcome[] = [];
   for (const lane of input.lanes) {
+    const owed = owedByContainerId.get(lane.containerId);
+    const settleOwedLaneListing = input.settleOwedLaneListing;
     const outcome = await applyListedLane(
       lane,
       input.generation,
       listed.get(lane.containerId) ?? null,
+      owed && settleOwedLaneListing
+        ? () => settleOwedLaneListing(owed)
+        : undefined,
     );
     outcomes.push(outcome);
     await input.onOutcome?.(outcome);
