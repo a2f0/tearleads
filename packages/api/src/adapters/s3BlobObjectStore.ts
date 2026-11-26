@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -7,10 +6,8 @@ import {
   GetObjectCommand,
   ListPartsCommand,
   type S3Client,
-  UploadPartCommand,
 } from "@aws-sdk/client-s3";
-import { isSha256HexString } from "@tearleads/validators/util";
-import { sha256Hex, summarizeSha256Stream } from "../utils/sha256";
+import { summarizeSha256Stream } from "../utils/sha256";
 import {
   type BlobObjectPart,
   type BlobObjectReadStream,
@@ -18,7 +15,6 @@ import {
   BlobObjectStoreError,
   blobObjectChunkToStream,
   type CompleteMultipartUploadPart,
-  MAX_UPLOAD_PART_BYTES,
 } from "./blobObjectStore";
 import { recordValue, responseBodyToStream } from "./s3BlobObjectStreams";
 
@@ -30,21 +26,6 @@ interface S3BlobObjectStoreInput {
 }
 
 const MAX_S3_PART_NUMBER = 10_000;
-
-function partContentMd5(bytes: Uint8Array, sha256: string): string {
-  if (!isSha256HexString(sha256)) {
-    throw new BlobObjectStoreError("Invalid SHA-256 digest", "invalid_part");
-  }
-  if (sha256Hex(bytes) !== sha256) {
-    throw new BlobObjectStoreError(
-      "Multipart upload part sha256 mismatch",
-      "invalid_part",
-    );
-  }
-  // R2 supports Content-MD5, but rejects flexible checksum headers on UploadPart.
-  // SHA-256 remains the application integrity check, above and after assembly.
-  return createHash("md5").update(bytes).digest("base64");
-}
 
 function errorName(error: unknown): string | undefined {
   const name = recordValue(error, "name");
@@ -368,63 +349,6 @@ function createListParts({
     );
 }
 
-function createUploadPart({
-  bucket,
-  client,
-}: S3BlobObjectStoreInput): BlobObjectStore["uploadPart"] {
-  return (input) =>
-    mapS3Errors("uploadPart", async () => {
-      requireValidPartNumber(input.partNumber);
-
-      // The part body is already read into memory at the route via Bun's native
-      // body consumption (c.req.arrayBuffer), not a hand-rolled ReadableStream
-      // reader — that reader is a Bun native-stream defect that fails a fraction
-      // of part reads behind the ingress tunnel (and segfaulted before the body
-      // was buffered). Send the in-memory bytes straight to the object store;
-      // they are rewindable, so the SDK can retry a reset part.
-      const partBytes = input.body.bytes;
-      if (partBytes.byteLength <= 0) {
-        throw new BlobObjectStoreError(
-          "Multipart upload part bytes are required",
-          "invalid_part",
-        );
-      }
-      // Reject an oversized declaration before comparing it to the buffered
-      // bytes, so an absurd Content-Length header fails on the ceiling rather
-      // than the mismatch. The strict equality below then bounds the actual
-      // bytes to the same ceiling.
-      if (input.body.byteLength > MAX_UPLOAD_PART_BYTES) {
-        throw new BlobObjectStoreError(
-          `Multipart upload part exceeds the maximum of ${MAX_UPLOAD_PART_BYTES} bytes`,
-          "invalid_part",
-        );
-      }
-      if (partBytes.byteLength !== input.body.byteLength) {
-        throw new BlobObjectStoreError(
-          "Multipart upload part byteLength mismatch",
-          "invalid_part",
-        );
-      }
-      const part = await client.send(
-        new UploadPartCommand({
-          Body: partBytes,
-          Bucket: bucket,
-          ContentMD5: partContentMd5(partBytes, input.body.sha256),
-          ContentLength: partBytes.byteLength,
-          Key: input.key,
-          PartNumber: input.partNumber,
-          UploadId: input.uploadId,
-        }),
-      );
-
-      return {
-        byteLength: partBytes.byteLength,
-        etag: requireString(part.ETag, "S3 multipart part ETag is missing"),
-        partNumber: input.partNumber,
-      };
-    });
-}
-
 export function createS3BlobObjectStore(
   input: S3BlobObjectStoreInput,
 ): BlobObjectStore {
@@ -435,6 +359,5 @@ export function createS3BlobObjectStore(
     deleteObject: createDeleteObject(input),
     getObjectStream: createGetObjectStream(input),
     listParts: createListParts(input),
-    uploadPart: createUploadPart(input),
   };
 }

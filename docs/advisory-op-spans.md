@@ -59,8 +59,8 @@ AES-GCM or the plaintext hash fails under the committed key, its decoded span is
 not its declared one, its decoded dependencies are not its declared ones, its
 decoder cannot read it, its dependencies are on no earlier accepted update, or
 it carries other operations under ids the reader already holds. That comparison
-replays both copies of the operations onto one history first, so the runs an
-import happened to split them into never make an honest update void: a
+reads both copies of the operations in one canonical form, so the runs and
+changes an import split them into never make an honest update void: a
 checkpoint completing a change the reader holds part of is accepted. The reader
 records it in `document_void_updates`, reports it once as `Documents: sync
 update voided`, and goes on. A void never fails the pass or sets the document's

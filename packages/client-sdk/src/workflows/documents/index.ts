@@ -157,7 +157,10 @@ export { documentCreateSeedCandidate } from "./sync/initialSync";
 export {
   type DocumentListingRevalidation,
   findOwedDocumentListingRead,
+  forgetUnheldDocumentListingReads,
   type ListedDocumentHead,
+  type LoadedDocumentRecord,
+  listLoadedRecordsSavedElsewhere,
   listOwedDocumentListingReads,
   oweListedDocumentReadsBehindListing,
   settleCoveredDocumentListingRead,

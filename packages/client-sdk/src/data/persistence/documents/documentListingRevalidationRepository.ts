@@ -1,5 +1,5 @@
 import { satisfiesVersionVector } from "@tearleads/loro";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notExists, sql } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
 import { documentListingRevalidations } from "../../sqlite/schema/documentListingRevalidationSchema";
 import {
@@ -241,6 +241,38 @@ export class DocumentListingRevalidationRepository {
       .from(documentListingRevalidations)
       .orderBy(documentListingRevalidations.documentId);
     return rows.map(({ documentId }) => documentId);
+  }
+
+  /**
+   * Forget the reads owed to documents this device no longer holds a record
+   * of: a purge, a revoked link, or a record pointed at another server
+   * document left them, and no store will ever pay them.
+   */
+  async forgetUnheld(): Promise<void> {
+    await ensureSqlTables(this.execSql, documentTables);
+    await getClientSQLitePersistenceRuntime(this.execSql).runMutation(
+      async (db) => {
+        await db
+          .delete(documentListingRevalidations)
+          .where(
+            notExists(
+              db
+                .select({ documentId: documents.documentId })
+                .from(documents)
+                .where(
+                  and(
+                    eq(documents.appKind, DOCUMENTS_APP_KIND),
+                    eq(
+                      documents.documentId,
+                      documentListingRevalidations.documentId,
+                    ),
+                  ),
+                ),
+            ),
+          )
+          .run();
+      },
+    );
   }
 
   /**

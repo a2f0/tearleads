@@ -85,6 +85,16 @@ export function getOrCreateDocumentStoreRegistry(
   return nextRegistry;
 }
 
+/** The scope's registered stores; none for a scope that never opened one. */
+export function listRegisteredDocumentStores(
+  domainScope: DomainScope,
+): ReadonlyArray<DocumentStoreFacade> {
+  return [
+    ...(documentStoreRegistriesByScope.get(domainScope)?.storesByKey.values() ??
+      []),
+  ];
+}
+
 export function resolveDocumentStoreKey(
   registry: DocumentStoreRegistry,
   localId: string,
