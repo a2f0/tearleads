@@ -145,19 +145,12 @@ API judges it in one pass (`judgeDocumentBaselineGroup`):
 | A new group reuses a `baselineId` its document committed. | `409`, an uncoded write conflict |
 | An unlink's group holds a segment whose update id is already committed. | `409`: an update id conflict, or an uncoded refusal when the committed row is identical |
 
-The SDK sends every baseline this way today. It cuts a proven history into
-segments of about 4 MiB of plaintext, never more than 16 MiB, unless its
-caller passes other sizes (`rotationBaselineSegmentSizes`). A history cannot
-rotate from the SDK when its group does not fit the request, when it needs
-more than 64 segments, or when one operation is larger than a segment may
-be. A sync that heals a stale content-key bundle then ends in the coded
-terminal failure `document_sync_request_too_large`. An unlink throws the
-segment-count and operation-size errors to its caller before anything is
-sent, and the API refuses a body past the route ceiling. This is the
-[unbounded-history defect](./limits.md#known-defect-unbounded-document-history),
-which the SDK's use of the stage below removes. The SDK builds a group for
-the request that sends it and queues nothing locally as a baseline: every
-queued row is an ordinary update.
+The SDK sends a baseline this way when the group fits: at most 64 segments
+whose payloads total no more than the sync request ceiling, 16 MiB, on
+either route. A small document's rotation is one request, as it was before
+staging existed. Any other history goes through [a stage](#the-sdk-writer).
+The SDK builds a group for the request that sends it and queues nothing
+locally as a baseline: every queued row is an ordinary update.
 
 ## A Baseline Staged Ahead
 
@@ -291,6 +284,15 @@ committed segment's payload, so a committed segment keeps its payload
 whatever stage later names the same id.
 [StagedBaselineCommit](../formal/document-sync/StagedBaselineCommit.md)
 models the stage, the commit, the sweep, and a reader paging through both.
+
+## The SDK Writer
+
+The client SDK sends a baseline whole when its group fits one request and
+stages it otherwise, on the sync heal and on the unlink path. Its writer is
+an explicit state machine that answers each refusal above: it stages a tail
+after a coverage refusal, signs stale headers again, and starts over when
+its stage is gone. See the
+[rotation baseline writer](./rotation-baseline-writer.md).
 
 ## Serving And The Redirect
 

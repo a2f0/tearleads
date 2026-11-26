@@ -111,15 +111,16 @@ for the exact-length rule.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Sync request body | 16 MiB (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`, [`validators/src/util/documentSyncLimits.ts`](../packages/validators/src/util/documentSyncLimits.ts)) | SDK applies the exact serialized-byte ceiling after encryption and trims the batch; the Worker entry bounds the stream at this ceiling before the route buffers it; API rejects. | Pagination for a batch. A single update that cannot fit abandons with `document_sync_request_too_large`. |
+| Sync request body | 16 MiB (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`, [`validators/src/util/documentSyncLimits.ts`](../packages/validators/src/util/documentSyncLimits.ts)) | SDK applies the exact serialized-byte ceiling after encryption and trims the batch; the Worker entry bounds the stream at this ceiling before the route buffers it; API rejects. | Pagination for a batch. A single update that cannot fit abandons with `document_sync_request_too_large`. A heal's rotation baseline that cannot fit is [staged](./rotation-baseline-writer.md) and never abandons for its size. |
 | Outgoing updates per request | 64 (`MAX_DOCUMENT_SYNC_OUTGOING_UPDATES`) | SDK: [`data/documents/shared/sync/documentSyncOutgoingBatch.ts`](../packages/client-sdk/src/data/documents/shared/sync/documentSyncOutgoingBatch.ts). | Pagination. |
-| Rotation baseline segments in one request | 64 (`MAX_DOCUMENT_BASELINE_SEGMENTS`) | Validators; SDK. | Refusal. A longer baseline is [staged](./document-rotation-baselines.md#a-baseline-staged-ahead). |
-| Segments of a staged rotation baseline | 4,096, the final one included (`MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS`) | Validators bound a segment's index and count and the stage route's `segmentIndex`, so index 4,094 is the last one staged. A commit inserts one small update row per staged segment under the document head lock, which this bounds. | Refusal (400). |
-| Staged baseline segment request | 16 MiB (`MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES`, the sync request ceiling) | The Worker entry bounds the stream before the route buffers it; the stage route rejects. One staged segment is one update, so every committed segment fits a response page. | Refusal (413). A stage's total is uncapped beyond 4,095 such requests. |
-| Open baseline stages | One per user and document (the unique index `document_baseline_stages_owner_idx`) | API: [`documents/baselineStages/`](../packages/api/src/workflows/documents/baselineStages/) deletes the caller's earlier stage, and what it staged, when another opens. | Replacement, never a refusal. |
+| Rotation baseline segments in one request | 64 (`MAX_DOCUMENT_BASELINE_SEGMENTS`), and payloads of 16 MiB in all for the SDK to send a group whole | Validators; SDK: `writeRotationBaseline`. | The SDK [stages](./rotation-baseline-writer.md) the baseline: every segment but the final one is uploaded ahead, and the rotating request carries the final one. The API refuses a longer group sent whole. |
+| Segments of a staged rotation baseline | 4,096, the final one included (`MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS`) | Validators bound a segment's index and count and the stage route's `segmentIndex`, so index 4,094 is the last one staged. A commit inserts one small update row per staged segment under the document head lock, which this bounds. SDK: the writer stops at the last index. | Refusal (400) from the API. The SDK deletes its stage and fails with `DocumentRotationBaselineSegmentLimitError`: a sync's heal ends in `document_sync_request_too_large`, and an unlink throws it. At the SDK's 4 MiB segments that is about 16 GiB of history. |
+| Staged baseline segment request | 16 MiB (`MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES`, the sync request ceiling) | The Worker entry bounds the stream before the route buffers it; the stage route rejects. One staged segment is one update, so every committed segment fits a response page. The SDK cuts segments of about 4 MiB of plaintext and at most 11 MiB (`ROTATION_BASELINE_SEGMENT_MAX_BYTES`), which fits once base64. | Refusal (413). One operation larger than the SDK's cap cannot be carried: `document_sync_request_too_large`. A stage's total is uncapped beyond 4,095 such requests. |
+| Open baseline stages | One per user and document (the unique index `document_baseline_stages_owner_idx`) | API: [`documents/baselineStages/`](../packages/api/src/workflows/documents/baselineStages/) deletes the caller's earlier stage, and what it staged, when another opens. | Replacement, never a refusal. Two devices of one user that stage the same document replace each other's stage: the one replaced finds its stage gone and uploads again. |
 | Baseline stage lifetime | One hour after its last staged segment or re-signed header (`DOCUMENT_BASELINE_STAGE_IDLE_SECONDS`), and 24 hours after it opened at most (`DOCUMENT_BASELINE_STAGE_MAX_SECONDS`) | API: `judgeDocumentBaselineStage` on every stage request and commit; the hourly maintenance run deletes expired stages. | 409 `document_baseline_stage_expired`, or that code beside `document_sync_baseline_group_invalid` on a commit; the writer opens a new stage. |
 | Expired stages deleted per maintenance run | 100 (`DEFAULT_EXPIRED_STAGE_SWEEP_LIMIT`, [`cleanupExpiredStages.ts`](../packages/api/src/workflows/documents/baselineStages/cleanupExpiredStages.ts)) | API: `cleanupExpiredDocumentBaselineStages`, oldest expiry first, one transaction per stage. | Pagination: the next hourly run deletes the rest. |
 | Sealed baselines searched for a whole one | 4 (`MAX_LATEST_BASELINE_GROUP_CANDIDATES`, [`api/src/documents/documentStoredBaselineGroup.ts`](../packages/api/src/documents/documentStoredBaselineGroup.ts)) | API: the baseline redirect looks at the newest sealed groups at the current epoch for one whose rows are still whole. | No redirect: the pull serves every missing update. Only a group that lost a row after it committed is passed over. |
+| Unapplied spans a pull carries for one rotation baseline | 8,192, one a peer (`MAX_UNAPPLIED_BASELINE_SPANS`, [`baselineGroupUnapplied.ts`](../packages/client-sdk/src/data/documents/shared/sync/baselineGroupUnapplied.ts)) | SDK: `settleBaselineGroupVerdicts` when a page adds to the run, and `deserializeDocumentSyncPullContinuation` when a stored run is read. The run is held in memory and stored with the pull's continuation. | The pass fails at stage `baseline_group`, as for a [group the server serves in part](#limits-that-trade-write-liveness): nothing of the page is imported. A stored run past the bound is not read, and its pull starts over. Only a group whose void segments name more peers than this reaches it. |
 | Merged queued update size | 8 MiB of base64 `updateData` (`QUEUED_UPDATE_MERGE_MAX_DATA_CHARACTERS`, half of `MAX_DOCUMENT_SYNC_REQUEST_BYTES`) | SDK: [`stores/documents/documentStore/sync/syncQueueMergePlan.ts`](../packages/client-sdk/src/stores/documents/documentStore/sync/syncQueueMergePlan.ts) plans within it and [`syncQueueMerge.ts`](../packages/client-sdk/src/stores/documents/documentStore/sync/syncQueueMerge.ts) rechecks the exported blob. | The run is cut there; rows past the cap start a new merge or go out unmerged. A merged update always fits a request. |
 | Queued rows inspected for merging per sync pass | 256 (`QUEUED_UPDATE_MERGE_MAX_ROWS_PER_PASS`) | SDK: [`stores/documents/documentStore/sync/syncQueueMergePlan.ts`](../packages/client-sdk/src/stores/documents/documentStore/sync/syncQueueMergePlan.ts) proves and plans only the first 256 queued rows (the front of the queue, sent first), whether or not they merge, so this bounds the proofs and export done while the SQL lock is held. | Rows past the bound are sent unmerged; a later pass inspects whatever is still queued. |
 | Authorization paths per request | 64 (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS`), each at most 100 deep, so 6,400 path refs (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS`) | Validators; derived from the structural limits so every valid link set stays syncable after later moves deepen its paths. | Refusal. |
@@ -128,7 +129,7 @@ for the exact-length rule.
 | Updates per response page | 64 (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES`); a request's `maxPageUpdates`, 1 to 64, lowers it but never raises it | Validators bound `maxPageUpdates`; API: [`workflows/documents/mutations/syncResponseUpdates.ts`](../packages/api/src/workflows/documents/mutations/syncResponseUpdates.ts) serves the smaller. The SDK asks for 1 while it [isolates](#loro-runtime) updates a death left unattributed. | Pagination via the pull cursor. |
 | Pull cursor length | 512 (`MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH`) | Validators. | Refusal. |
 | Refused peers named per refusal | 64 (`MAX_DOCUMENT_PEER_FRONTIERS`, [`validators/src/response/documentSyncError.ts`](../packages/validators/src/response/documentSyncError.ts)) in the `peerFrontiers` of a 409 `document_sync_peer_owned` or `document_sync_dependency_uncommitted` | API: `judgeDocumentPeerSpans` in [`validators/src/documentPeerSpans.ts`](../packages/validators/src/documentPeerSpans.ts), called from [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts), names the first 64 refused peers in canonical order, each with the frontier committed before the request; the response schema bounds the list. | Pagination. The client [recovers](./peer-ownership.md#rebasing-onto-a-fresh-peer) on the named peers, by a rebase onto a fresh peer or a relay, and its retry draws a refusal naming the rest. |
-| Span and peer-owner rows per insert statement | 8,192 (`DOCUMENT_PEER_ROWS_PER_INSERT`, [`api/src/documents/documentPeerRowChunks.ts`](../packages/api/src/documents/documentPeerRowChunks.ts)) | API: [`documents/documentUpdateSpans.ts`](../packages/api/src/documents/documentUpdateSpans.ts) inserts one span row per peer of each new update's declared span, and [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) one owner row per peer the write claims, in statements of at most this many rows inside the write's transaction. Document sync and a link-set mutation's rotation baseline both write through them. Postgres binds at most 65,535 parameters to one statement, and a span row binds five. | More statements in the same transaction; nothing is refused, so a write's rows are bounded only by its request body. A rotation baseline has span rows for every peer in the document's history, and nothing caps that history: see [the known defect](#known-defect-unbounded-document-history). |
+| Span and peer-owner rows per insert statement | 8,192 (`DOCUMENT_PEER_ROWS_PER_INSERT`, [`api/src/documents/documentPeerRowChunks.ts`](../packages/api/src/documents/documentPeerRowChunks.ts)) | API: [`documents/documentUpdateSpans.ts`](../packages/api/src/documents/documentUpdateSpans.ts) inserts one span row per peer of each new update's declared span, and [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) one owner row per peer the write claims, in statements of at most this many rows inside the write's transaction. Document sync and a link-set mutation's rotation baseline both write through them. Postgres binds at most 65,535 parameters to one statement, and a span row binds five. | More statements in the same transaction; nothing is refused, so a write's rows are bounded only by its request body. A rotation baseline has span rows for every peer in the document's history; a staged one inserts each segment's rows with its own stage request, and a commit moves them ([history bounds](#document-history-bounds)). |
 
 ## Loro runtime
 
@@ -326,23 +327,48 @@ whose history fell. See
 invariant and [client-sdk.md](./developer/client-sdk/public-api.md#public-api-entry-points)
 for how the SDK reports the parked state.
 
-### Known defect: unbounded document history
+### Document history bounds
 
-This defect stops writes outright rather than making a writer wait. Nothing
-caps a document's history: its peers, or its content, which deleting text
-does not shrink. A [rotation baseline](./glossary/keys.md#rotation-baseline)
-carries all of it, and the SDK sends one in a single request, as up to 64
-segments. Once the history outgrows that request, a sync abandons the
-baseline past 16 MiB with `document_sync_request_too_large`, and a link-set
-mutation is refused past the 32 MiB route ceiling. No member can then rotate
-the document's content key, unlink, move, or purge-unlink it, and unlink can
-no longer remove a link's access to it
-([#3238](https://github.com/a2f0/tearleads/issues/3238)). The API accepts a
-baseline [staged](./document-rotation-baselines.md#a-baseline-staged-ahead)
-across requests, of up to 4,096 segments of 16 MiB; the defect stands until
-the SDK stages one, and past that size after it.
-A member can cause this with many peers or with content alone, and a large
-honest document reaches it too. Writes other than rotation baselines stay far
-below both bounds. Span and owner rows are written in chunks, so a
-baseline's peer count alone no longer fails at the database
+Nothing caps a document's history: its peers, or its content, which deleting
+text does not shrink. A [rotation baseline](./glossary/keys.md#rotation-baseline)
+carries all of it. One that fits a request is sent whole, and any other is
+[staged](./rotation-baseline-writer.md) a segment a
+request and committed by its final segment, so a history larger than one
+request still rotates, unlinks, moves, and purge-unlinks
+([#3238](https://github.com/a2f0/tearleads/issues/3238)). These bounds
+remain:
+
+- **4,096 segments.** At the SDK's 4 MiB a segment that is about 16 GiB of
+  history. Past it the writer fails with a named limit
+  (`DocumentRotationBaselineSegmentLimitError`,
+  `document_sync_request_too_large` on a heal) and the document cannot
+  rotate from that device.
+- **One operation.** A segment is cut between operations and holds at most
+  11 MiB. One operation larger than that, a single map value or list
+  element, cannot be carried, and ends in the same failure.
+- **The final segment** shares the rotating request with what else that
+  request carries. The writer cuts it to about 1 MiB; a request already
+  near its ceiling still refuses it.
+- **Stage lifetime.** A stage expires an hour after its last upload and 24
+  hours after it opened. An upload slower than that starts over.
+- **Memory.** The writer holds the full-history snapshot and one request's
+  worth of segments, so a device must still hold the history once to rotate
+  it.
+- **A restart** drops the upload, which lives in memory: the next attempt
+  uploads every segment again.
+- **A writer faster than the rotator.** An unlink's baseline must cover
+  every update committed when it commits. One committed while the last
+  segment is in flight refuses the unlink; the rotator proves its history
+  again, stages a tail behind what is uploaded, and commits again. Each
+  round costs a pull and a request, not the upload, so a member who keeps
+  writing in that window delays an unlink and cannot undo its upload. A
+  heal cannot be raced this way: no ordinary write commits while the bundle
+  is stale, and another member's heal ends the stage
+  (`document_baseline_stage_epoch_stale`).
+- **One stage a user and document.** Two devices of one user that rotate
+  the same large document replace each other's stage and upload again.
+
+A member can reach these with many peers or with content alone. Span and
+owner rows are written in chunks, so a baseline's peer count alone does not
+fail at the database
 ([#3230](https://github.com/a2f0/tearleads/issues/3230), item 3).

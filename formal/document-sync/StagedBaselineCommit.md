@@ -32,6 +32,13 @@ The abstraction maps to production at these seams:
 | `Sweep` / `SweepLocksStageRow` | `cleanupExpiredDocumentBaselineStages`, which deletes each expired stage row and then its segments in one transaction |
 | `KeptAfterDelete` / `DeleteKeepsCommitted` | `deleteUncommittedBaselineSegments`, the one delete the sweep, abandon and replace-on-open share |
 | `ReaderPage` / `ServeOnlyCommittedRows` | `loadDocumentUpdatePageRows`, which reads committed update rows and joins a staged segment's payload to its row |
+| `RotatorStep` | the SDK writer: `writeRotationBaseline` decides whether a group travels whole, and `runStagedBaselineUpload` drives `transitionStagedBaseline` through one effect a state |
+| `OpenStage` (rotator) | `openStage`, the effect of the machine's `opening` state |
+| `StageSegment` (rotator) | `stageNext`, the effect of `staging`: it records the segment, signs it, and uploads it at the stage's next index |
+| `CommitGate` (rotator) | `submitLinkSetLeg` and `submitDocumentSyncAttempt`, which send the final segment with the stage's id and pass the answer to `settleStagedBaselineCommit` |
+| `Reprove` | `confirmStaged`, which holds every staged segment to the re-proven history with `stagedSegmentMatchesHistory`, and `continueRotationBaselineEncoder`, which cuts the tail after them |
+| `RotatorSeesRefusal` (rotator) | `stagedBaselineRefusalEvent`, which turns each stage code into the machine's event, and `dropStagedBaselineUpload`, after which the next run plans again |
+| `RotatorRestart` | `getOrCreateStagedBaselineUploads`, whose uploads live in memory: a restarted process has none, and its next run opens a stage that replaces the one left |
 | `RedirectStart` / `RedirectCandidates` / `GroupWhole` / `RedirectRequiresWholeGroup` | `findLatestWholeStoredBaselineGroup`, which finds the newest group whose rows are whole, and `readStoredBaselineGroupCoverage`, which reads what it covers from its spans; `resolveBaselineRedirectAfterSequence` and `loadLatestStoredDocumentBaselineGroup` call both |
 
 ## Properties
