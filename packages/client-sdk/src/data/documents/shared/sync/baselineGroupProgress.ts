@@ -194,7 +194,14 @@ export async function judgeServedBaselineGroups(input: {
       input.updates.map((update) => update.id),
     );
   }
-  return baselineGroupRunOf(state);
+  const next = baselineGroupRunOf(state);
+  // A page that goes on inside the group it began in keeps what the pull
+  // already knows of it; the page's own verdicts are added once judged.
+  return next &&
+    input.run?.unapplied &&
+    input.run.baselineId === next.baselineId
+    ? { ...next, unapplied: true }
+    : next;
 }
 
 /**

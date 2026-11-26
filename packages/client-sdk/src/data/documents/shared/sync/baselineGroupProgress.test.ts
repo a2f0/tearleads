@@ -158,6 +158,29 @@ test("a page is cold when it was requested with no version and nothing ahead of 
   ).toBe(false);
 });
 
+// The run remembers that a segment went unapplied for as long as the pull
+// stays inside that group, on a page that serves nothing new of it too.
+test("a run keeps its unapplied mark while the pull stays in its group", async () => {
+  const whole = await group("baseline-a", 4);
+  const run = await judge([at(whole, 0), at(whole, 1)], {
+    pullComplete: false,
+  });
+  if (!run) throw new Error("Expected a run");
+  const marked = { ...run, unapplied: true };
+  expect(
+    await judge([at(whole, 2)], { pullComplete: false, run: marked }),
+  ).toMatchObject({ nextIndex: 3, unapplied: true });
+  expect(await judge([], { pullComplete: false, run: marked })).toEqual(marked);
+  // Another group starts unmarked.
+  const other = await group("baseline-b", 3);
+  expect(
+    await judge([at(whole, 2), at(whole, 3), at(other, 0)], {
+      pullComplete: false,
+      run: marked,
+    }),
+  ).toMatchObject({ baselineId: "baseline-b", unapplied: false });
+});
+
 test("a whole group passes, among ordinary updates and other groups", async () => {
   const first = await group("baseline-a", 3);
   const second = await group("baseline-b", 1);
