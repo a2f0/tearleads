@@ -81,7 +81,6 @@
         ".github/workflows/native-purchase-bridges.yml"
       ],
       "env": ["ImageOS", "ImageVersion", "DEVELOPER_DIR"],
-      "passThroughEnv": ["NATIVE_IOS_BUILD_ROOT"],
       "outputs": []
     },
     "//#test:postgres-concurrency": {

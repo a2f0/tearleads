@@ -9,13 +9,8 @@ interface Workflow {
       with?: { force?: boolean | string };
       steps?: {
         uses?: string;
-        if?: string;
         run?: string;
-        with?: {
-          "server-port"?: number | string;
-          key?: string;
-          "restore-keys"?: string;
-        };
+        with?: { "server-port"?: number | string };
         env?: {
           CI_TURBO_PROTOCOL_CACHE?: string;
           CI_DEFER_PROTOCOL_MODELS?: string;
@@ -109,24 +104,4 @@ test("every Turbo cache server lets the OS assign its port", async () => {
   }
   expect(servers.length).toBeGreaterThan(0);
   expect(servers.filter(({ port }) => String(port) !== "0")).toEqual([]);
-});
-
-test("the iOS build state restores only an exact match and never saves from a pull request", async () => {
-  const { ios } = (await workflow("native-purchase-bridges")).jobs;
-  const steps = ios?.steps;
-  const restore = steps?.find(({ uses }) =>
-    uses?.startsWith("actions/cache/restore@"),
-  );
-  const save = steps?.find(({ uses }) =>
-    uses?.startsWith("actions/cache/save@"),
-  );
-  // Xcode's state embeds absolute paths and compiler output, so a partial
-  // match from another toolchain, checkout, or package pin set is never reused.
-  expect(restore?.with?.["restore-keys"]).toBeUndefined();
-  expect(restore?.with?.key).toContain("steps.plan.outputs.identity");
-  expect(restore?.with?.key).toContain("swiftpm/Package.resolved");
-  expect(save?.if).toContain("github.event_name != 'pull_request'");
-  expect(save?.with?.key).toBe(
-    "$" + "{{ steps.restore-build-state.outputs.cache-primary-key }}",
-  );
 });

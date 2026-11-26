@@ -42,11 +42,9 @@ in `Lint` reuse the same `app-capacitor#test` task as `Build and test`.
 The iOS compile syncs a placeholder page instead of the web build, which only
 the Android check builds and syncs. Its key therefore covers app-capacitor's
 iOS project, Capacitor configuration, and locked plugin versions, but not the
-web sources, workspace dependencies, or the app-capacitor manifest. When it
-runs, it restores Xcode's build state (Swift package checkouts and dependency
-builds) from the Actions cache. That entry must match the Xcode build, the
-checkout and state paths, and the Swift package pins exactly. Pull requests
-only read it; `main` and manual runs save it.
+web sources, workspace dependencies, or the app-capacitor manifest. It keeps no
+Xcode build state between runs: restoring DerivedData from the Actions cache
+still rebuilt every object file under the runner's Xcode 16.4.
 
 The two pure TLC model passes run in the `Protocol models (...)` jobs, one per
 pass, with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them

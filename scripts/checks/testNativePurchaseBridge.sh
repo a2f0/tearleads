@@ -21,11 +21,6 @@ if [ "$platform" = android ]; then
   exit 0
 fi
 
-# Xcode records absolute paths in its build state, so CI pins this directory
-# to restore it between runs. It stays outside the repository: the Swift
-# package checkouts in DerivedData contain symlink cycles that hang ls-lint.
-build_root=${NATIVE_IOS_BUILD_ROOT:-${TMPDIR:-/tmp}/tearleads-native-ios-$(pwd -P | cksum | cut -d ' ' -f 1)}
-
 # Xcode copies the web bundle into the app as an opaque folder and compiles
 # none of it, so a placeholder page keeps this check independent of the web
 # build. The Android check syncs the real bundle.
@@ -36,10 +31,8 @@ printf '<!doctype html><title>iOS compile check</title>\n' >"$web_dir/index.html
 cd packages/app-capacitor
 CAPACITOR_WEB_DIR=$web_dir CAPACITOR_BUILD_CONFIGURATION=Release-Staging \
   NATIVE_RELEASE_TIER=staging bunx cap sync ios
-swift test --package-path ios/App/RevenueCatPurchaseState \
-  --scratch-path "$build_root/RevenueCatPurchaseState"
-swift test --package-path ios/App/PasswordKeychainState \
-  --scratch-path "$build_root/PasswordKeychainState"
+swift test --package-path ios/App/RevenueCatPurchaseState
+swift test --package-path ios/App/PasswordKeychainState
 xcodebuild \
   -quiet \
   -project ios/App/App.xcodeproj \
@@ -47,7 +40,6 @@ xcodebuild \
   -configuration Release-Staging \
   -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath "$build_root/DerivedData" \
   -disableAutomaticPackageResolution \
   CODE_SIGNING_ALLOWED=NO \
   build
