@@ -5054,7 +5054,7 @@
               ],
               "additionalProperties": false
             },
-            "maxItems": 4,
+            "maxItems": 32,
             "minItems": 1
           }
         },
@@ -5062,7 +5062,7 @@
           "lanes"
         ],
         "additionalProperties": false,
-        "description": "Up to four parent lanes to list, each with its own watermark and page size."
+        "description": "Up to 32 parent lanes to list, each with its own watermark and page size."
       },
       "ListContainerParentLanesResponse": {
         "type": "object",
@@ -5087,7 +5087,7 @@
               ],
               "additionalProperties": false
             },
-            "maxItems": 4,
+            "maxItems": 32,
             "minItems": 1
           }
         },

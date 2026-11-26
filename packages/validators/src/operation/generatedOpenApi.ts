@@ -3353,7 +3353,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description Up to four parent lanes to list, each with its own watermark and page size. */
+        /** @description Up to 32 parent lanes to list, each with its own watermark and page size. */
         ListContainerParentLanesRequest: {
             lanes: {
                 laneId: string;

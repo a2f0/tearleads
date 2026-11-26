@@ -18,20 +18,24 @@ function result(
   return { laneId, page: page(), ...overrides };
 }
 
-test("accepts one through four strict container parent lane results", () => {
+test("accepts one through 32 strict container parent lane results", () => {
   expect(
     isListContainerParentLanesResponse({ results: [result("root")] }),
   ).toBe(true);
   expect(
     isListContainerParentLanesResponse({
-      results: Array.from({ length: 4 }, (_, index) => result(`lane-${index}`)),
+      results: Array.from({ length: 32 }, (_, index) =>
+        result(`lane-${index}`),
+      ),
     }),
   ).toBe(true);
 
   expect(isListContainerParentLanesResponse({ results: [] })).toBe(false);
   expect(
     isListContainerParentLanesResponse({
-      results: Array.from({ length: 5 }, (_, index) => result(`lane-${index}`)),
+      results: Array.from({ length: 33 }, (_, index) =>
+        result(`lane-${index}`),
+      ),
     }),
   ).toBe(false);
 });
