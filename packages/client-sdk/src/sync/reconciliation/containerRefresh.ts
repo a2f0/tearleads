@@ -315,6 +315,7 @@ function requestContainerRefresh(input: {
     return pending.join(signal);
   }
 
+  if (scope !== "acknowledged") treeCrawlWaits.get(state)?.abort();
   const refresh = new SharedRefresh({
     after: pending?.promise,
     onSettled: (settled) => {
@@ -383,11 +384,38 @@ async function planOwedLanesSweep(
   state: ReconciliationState,
 ): Promise<SweepPlan> {
   const owed = new Set(await host.listOwedDocumentDiscoveryContainerIds());
+  // The owed set covers the containers the reconciler lists in the
+  // background. An open container outside them is listed here and nowhere
+  // else, so nothing says whether it is owed: it is always listed.
+  const vouchable = new Set(host.listKnownContainerIds());
+  const isOwed = (id: string) => owed.has(id) || !vouchable.has(id);
   const known = listFullRefreshContainerIds(host, state);
   return {
-    containerIds: known.filter((id) => owed.has(id)),
-    vouchedContainerIds: known.filter((id) => !owed.has(id)),
+    containerIds: known.filter(isOwed),
+    vouchedContainerIds: known.filter((id) => !isOwed(id)),
   };
+}
+
+// A catch-up waiting on its tree crawl, by the state it waits in. An explicit
+// refresh or a root refresh queues behind the catch-up, so it ends the wait
+// rather than stall for it: the catch-up then lists every lane at once.
+const treeCrawlWaits = new WeakMap<ReconciliationState, AbortController>();
+
+async function awaitTreeCrawlForCatchUp(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+  stop: AbortSignal,
+): Promise<boolean> {
+  const hurry = new AbortController();
+  treeCrawlWaits.set(state, hurry);
+  try {
+    return await awaitTreeCrawl(
+      host.whenTreeCrawlSettles?.(),
+      AbortSignal.any([stop, hurry.signal]),
+    );
+  } finally {
+    if (treeCrawlWaits.get(state) === hurry) treeCrawlWaits.delete(state);
+  }
 }
 
 /** Reports a sweep nothing awaits; an ignorable failure never reaches it. */
@@ -420,7 +448,7 @@ export function requestAcknowledgedConnectionSweep(
       // The plan waits for the tree crawl, and covers every known lane.
       holdWhilePlanning: () => listFullRefreshContainerIds(host, state),
       planSweep: async (stop) =>
-        (await awaitTreeCrawl(host.whenTreeCrawlSettles?.(), stop))
+        (await awaitTreeCrawlForCatchUp(host, state, stop))
           ? planOwedLanesSweep(host, state)
           : { containerIds: listFullRefreshContainerIds(host, state) },
       scope: "acknowledged",

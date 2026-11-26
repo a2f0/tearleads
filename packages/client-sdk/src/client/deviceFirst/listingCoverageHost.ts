@@ -76,8 +76,9 @@ export function listReconcilableContainerIds(
 }
 
 /**
- * The scope's listing authority: the reconciler lists every reconcilable
- * container's document lane after each acknowledged connection, so a store
+ * The scope's listing authority: after each acknowledged connection the
+ * reconciler lists every reconcilable container's document lane that moved
+ * (a lane a complete tree crawl was not served did not), so a store
  * whose document one of them holds need not probe on its own. It answers
  * from the same list the sweep walks, rebuilt when the tree's node list is
  * replaced or the home organization changes.

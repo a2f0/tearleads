@@ -199,3 +199,41 @@ test("a catch-up that outlives its session leaves the next one's lanes alone", a
   expect(listings).toEqual([["a"]]);
   service.stop();
 });
+
+test("an open container the reconciler does not list in the background is always listed", async () => {
+  const { host, listings } = createOwedLaneHost({
+    overrides: {
+      canDiscoverContainerDocuments: () => true,
+      whenTreeCrawlSettles: async () => true,
+    },
+    owed: () => [],
+  });
+  const service = createReconciliationService(host);
+  // Another organization's system folder, open in Explorer: no owed-lane
+  // record covers it, so a complete crawl vouches for the others alone.
+  service.setActiveContainer("foreign");
+  await service.reconcileAcknowledgedConnection();
+
+  expect(listings).toEqual([["foreign"]]);
+});
+
+test("a refresh ends the catch-up's wait for the crawl", async () => {
+  const { host, listings } = createOwedLaneHost({
+    overrides: {
+      // The crawl never starts: the socket dropped again.
+      whenTreeCrawlSettles: () => new Promise<boolean>(() => undefined),
+    },
+    owed: () => [],
+  });
+  const service = createReconciliationService(host);
+  const catchUp = service.reconcileAcknowledgedConnection();
+  await settle();
+  expect(listings).toEqual([]);
+
+  // The refresh queues behind the catch-up, so it must not wait for it.
+  const refresh = service.reconcileNow();
+  await Promise.all([catchUp, refresh]);
+
+  // Nothing vouched for the catch-up's lanes, so it listed every one.
+  expect(listings[0]).toEqual([...KNOWN]);
+});

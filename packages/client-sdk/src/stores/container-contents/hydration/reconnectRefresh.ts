@@ -44,7 +44,9 @@ export class ReconnectRefresh {
     this.timer = undefined;
     const owedCrawl = this.owesCrawl;
     this.state = transitionReconnectRefresh(this.state, { type });
-    if (type === "acknowledged") this.observer?.crawlOwed();
+    if (type === "acknowledged" && this.state.status === "pending") {
+      this.observer?.crawlOwed();
+    }
     // A crawl a disposed store owed will never vouch for anything. A store
     // that owed none says nothing: the scope's port may be waiting on its
     // replacement's crawl.

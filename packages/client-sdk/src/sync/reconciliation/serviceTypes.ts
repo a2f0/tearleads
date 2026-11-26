@@ -158,7 +158,7 @@ export interface ReconciliationService {
    * session left owed, such as one a reload cut short mid-discovery. A start
    * whose connection is never acknowledged otherwise lists no lane until a
    * hint names it; one that connects leaves this to
-   * {@link reconcileAcknowledgedConnection}, which lists every lane.
+   * {@link reconcileAcknowledgedConnection}, which lists every owed lane.
    */
   resumeOwedDiscovery: () => void;
   /**
