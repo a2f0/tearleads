@@ -91,9 +91,10 @@ interface Restored {
 }
 
 async function register(profile: Profile, local: { close(): void }) {
-  const opened = openSdk(profile);
-  const { sdk } = opened;
+  let opened: ReturnType<typeof openSdk> | undefined;
   try {
+    opened = openSdk(profile);
+    const { sdk } = opened;
     await sdk.identity.generate();
     // The operator running the probe agrees to the terms for its accounts.
     const account = await sdk.session.registerIdentity({
@@ -123,7 +124,7 @@ async function register(profile: Profile, local: { close(): void }) {
     };
     return { opened, restored };
   } catch (error) {
-    sdk.dispose();
+    opened?.sdk.dispose();
     local.close();
     throw error;
   }
