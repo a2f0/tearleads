@@ -90,9 +90,10 @@ test("the metadata pass rebases the live state, never its detached copy", async 
     RemoteDocumentService.prototype,
     "syncRemoteDocument",
   ).mockImplementation(async (request) => {
-    outcome = await request.rebaseOntoFreshPeer?.([
-      { committedEndCounter: committed, peerId: WRITER_PEER },
-    ]);
+    outcome = await request.rebaseOntoFreshPeer?.({
+      kind: "peer_owned",
+      peerFrontiers: [{ committedEndCounter: committed, peerId: WRITER_PEER }],
+    });
     return null;
   });
   let reloads = 0;

@@ -23,6 +23,7 @@ import {
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
 import { DocumentRecordRepository } from "../records";
+import { clearDocumentCommittedVersionInTransaction } from "../records/documentCommittedVersionPersistence";
 import type {
   DiscardDocumentToShellResult,
   DocumentsPersistence,
@@ -164,6 +165,10 @@ async function clearDiscardedDocumentRows(input: {
     .run();
   const records = new DocumentRecordRepository(lockedExecSql);
   await records.deleteDocumentHistory(getDocumentScope(localId));
+  await clearDocumentCommittedVersionInTransaction(
+    tx,
+    getDocumentScope(localId),
+  );
   await records.clearDocumentSyncFailure(getDocumentScope(localId));
 }
 

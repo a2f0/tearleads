@@ -60,8 +60,12 @@
       "bytes": 15964
     },
     "docs/developer/client-sdk/public-api.md": {
-      "lines": 540,
-      "bytes": 37191
+      "lines": 547,
+      "bytes": 37688
+    },
+    "docs/limits.md": {
+      "lines": 313,
+      "bytes": 41330
     },
     "formal/blob-attachments/StagePromotion.tla": {
       "lines": 503,
@@ -70,6 +74,10 @@
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 596,
       "bytes": 24668
+    },
+    "formal/document-sync/PeerOwnership.tla": {
+      "lines": 569,
+      "bytes": 27259
     },
     "formal/document-sync/RawHistoryRecovery.tla": {
       "lines": 593,
@@ -84,12 +92,12 @@
       "bytes": 38101
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 700,
-      "bytes": 20715
+      "lines": 702,
+      "bytes": 20749
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 520,
-      "bytes": 39425
+      "lines": 522,
+      "bytes": 39568
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 603,

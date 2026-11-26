@@ -30,6 +30,7 @@ export const documentRecordSelection = {
   documentKekTargets: documents.documentKekTargets,
   pendingBaseVersion: documents.pendingBaseVersion,
   peerSalt: documents.peerSalt,
+  committedVersion: documents.committedVersion,
   pullContinuation: documents.pullContinuation,
 };
 
@@ -67,6 +68,10 @@ export function mapSelectedDocumentRecord(
 
   if (row.peerSalt !== null) {
     record.peerSalt = row.peerSalt;
+  }
+
+  if (row.committedVersion !== null) {
+    record.committedVersion = row.committedVersion;
   }
 
   const pullContinuation = deserializeDocumentSyncPullContinuation(
