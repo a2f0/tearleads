@@ -242,6 +242,40 @@ export function createLoroWindowBench() {
         currentDocument.free();
       }
     },
+    /**
+     * One lifetime's history-verification page reading `updates`, which it
+     * never settles. The verifier claims no dead lifetime's windows; this
+     * claims them first so a test sees what a claim does with a history one.
+     */
+    async verifyIn(
+      lifetimes: LoroLifetimes,
+      updates: readonly DecryptedDocumentSyncUpdate[],
+      window: DocumentSyncLoroWindow = createDocumentSyncLoroWindow(),
+    ) {
+      await claimDocumentSyncOrphanWindows({
+        ...MAIN,
+        execSql: current(),
+        lifetimes,
+      });
+      const currentDocument = await createDocument("windows-verify");
+      try {
+        return await judgeUnrecordedDocumentSyncImports({
+          currentDocument,
+          documentId: DOCUMENT_ID,
+          execSql: current(),
+          lifetimes,
+          loroWindow: window,
+          reads: { kind: "history" },
+          result: {
+            decryptedUpdates: [...updates],
+            response: EMPTY_RESPONSE,
+          },
+          scope: SCOPE,
+        });
+      } finally {
+        currentDocument.free();
+      }
+    },
     /** The scope's stored rotation deaths. */
     rotationDeaths() {
       return current()(

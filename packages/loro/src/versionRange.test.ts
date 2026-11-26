@@ -3,6 +3,7 @@ import type { LoroDoc } from "loro-crdt";
 import {
   createDocument,
   decodeVersionVector,
+  emptyVersionVector,
   encodeVersionVector,
   exportUpdatesSince,
   getImportBlobMetadata,
@@ -14,6 +15,7 @@ import {
 import { updateMatchesDocumentHistory } from "./updateIdentity";
 import {
   exportUpdatesInVersionRange,
+  meetVersionVectors,
   minimumVersionVectors,
 } from "./versionRange";
 
@@ -167,5 +169,36 @@ test("minimum version vector keeps each peer's smallest counter", async () => {
       ]),
       first.partialStartVersionVector,
     ),
+  ).toBe(true);
+});
+
+// Unlike `minimumVersionVectors`, a peer one vector does not name counts as
+// zero there, so the meet names only operations every vector covers.
+test("meet keeps only the operations every version vector covers", async () => {
+  const left = await createDocument("meet-left");
+  const right = await createDocument("meet-right");
+  const shared = commitText(left, "shared");
+  importUpdates(right, [shared]);
+  const sharedVersion = encodeVersionVector(left);
+  commitText(left, "shared left");
+  commitText(right, "shared right");
+  const leftVersion = encodeVersionVector(left);
+  const rightVersion = encodeVersionVector(right);
+
+  const meet = meetVersionVectors([leftVersion, rightVersion]);
+
+  expect(versionVectorsEqual(meet, sharedVersion)).toBe(true);
+  expect(decodeVersionVector(meet).get(right.peerIdStr)).toBeUndefined();
+  expect(
+    versionVectorsEqual(meetVersionVectors([leftVersion]), leftVersion),
+  ).toBe(true);
+  expect(
+    versionVectorsEqual(
+      meetVersionVectors([leftVersion, emptyVersionVector()]),
+      emptyVersionVector(),
+    ),
+  ).toBe(true);
+  expect(
+    versionVectorsEqual(meetVersionVectors([]), emptyVersionVector()),
   ).toBe(true);
 });

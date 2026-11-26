@@ -59,6 +59,29 @@ export function minimumVersionVectors(
 }
 
 /**
+ * The operations every version vector covers: each peer keeps its smallest
+ * counter, and a peer some vector does not name keeps none. Two documents
+ * hold exactly these operation ids in common. No vectors meet at the empty
+ * version.
+ */
+export function meetVersionVectors(
+  encodedVersionVectors: ReadonlyArray<string>,
+): string {
+  const [first, ...rest] = encodedVersionVectors.map((encoded) =>
+    decodeVersionVector(encoded),
+  );
+  const meet = new Map<PeerID, number>();
+  for (const [peer, counter] of first?.toJSON() ?? []) {
+    const covered = Math.min(
+      counter,
+      ...rest.map((version) => version.get(peer) ?? 0),
+    );
+    if (covered > 0) meet.set(peer, covered);
+  }
+  return encodeEncodedVersionVector(VersionVector.parseJSON(meet));
+}
+
+/**
  * Export exactly the document's operations in the per-peer spans
  * `[start, end)` as one `updates-in-range` blob. Returns null when the
  * document does not cover `end`, any peer's start exceeds its end, or the

@@ -1,6 +1,9 @@
 import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
-import type { DocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import type {
+  DocumentSyncImportVerdicts,
+  DocumentVoidStage,
+} from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import type { LoroLifetimes } from "../../../data/documents/shared/sync/loroLifetime";
 import { processLoroRuntimeFailures } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
@@ -15,15 +18,17 @@ import { readRecordedDocumentSyncVoids } from "./processedCursor";
 
 /**
  * Judges served updates for work that records no runtime attempts: a
- * rotation's raw history and a founding view. A trap there fails the work,
- * which retries later. An update the scope voided for good stays void
- * without a Loro call, and the reads run inside `loroWindow`, so a payload
- * that ends the process there is found by the next lifetime: a founding
- * view's `read` window counts it as a sync pass's would, and a rotation's
- * page of updates the device accepted counts it toward the rotation instead
- * (`DocumentSyncLoroReads`). The caller
- * settles the window once its Loro work on the page is over, which clears
- * the attempts of the updates it survived (#3194).
+ * rotation's raw history, a founding view, and history verification. A trap
+ * there fails the work, which retries later. An update the scope voided for
+ * good stays void without a Loro call, unless `honorKnownVoid` refuses its
+ * stage, and the reads run inside `loroWindow`, so a payload that ends the
+ * process there is found by the next lifetime: a founding view's `read`
+ * window counts it as a sync pass's would, a rotation's page of updates the
+ * device accepted counts it toward the rotation instead, and a verifier's
+ * `history` window counts it toward nothing (`DocumentSyncLoroReads`). The
+ * caller settles the window once its Loro work on the page is over, which
+ * clears the attempts of the updates a `read` or `rotation` window survived
+ * (#3194).
  */
 export async function judgeUnrecordedDocumentSyncImports(input: {
   readonly currentDocument: Parameters<
@@ -31,6 +36,13 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
   >[0]["currentDocument"];
   readonly documentId: string;
   readonly execSql: ExecSql;
+  /**
+   * Which recorded voids stay void unread, by stage; every one by default.
+   * An import void depends on the history it was judged against, which may
+   * have started from a rotation baseline, so a judge rebuilding from raw
+   * history to check this device's own judges it again.
+   */
+  readonly honorKnownVoid?: ((stage: DocumentVoidStage) => boolean) | undefined;
   /** @internal This realm's lifetime; tests stand in another one. */
   readonly lifetimes?: LoroLifetimes | undefined;
   readonly loroWindow: DocumentSyncLoroWindow;
@@ -48,7 +60,12 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
   >;
   readonly scope: DocumentScope;
 }): Promise<DocumentSyncImportVerdicts> {
-  const knownVoids = new Map(await readRecordedDocumentSyncVoids(input));
+  const honors = input.honorKnownVoid ?? (() => true);
+  const knownVoids = new Map(
+    [...(await readRecordedDocumentSyncVoids(input))].filter(([, stage]) =>
+      honors(stage),
+    ),
+  );
   for (const id of input.leftOut ?? []) knownVoids.set(id, "loro_runtime");
   const ledger = processLoroRuntimeFailures.unrecorded();
   const verdicts = await validateDocumentSyncUpdateImports({

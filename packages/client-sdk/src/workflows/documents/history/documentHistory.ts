@@ -202,12 +202,21 @@ export async function openDocumentHistory(input: {
       doc,
       history.tailUpdates.map((update) => update.updateData),
     );
-    return new DocumentHistoryReader(
-      openHistoryViewer(doc),
-      input.documentProjectors,
-    );
+    return replayDocumentHistory(doc, input.documentProjectors);
   } catch (error) {
     doc.free();
     throw error;
   }
+}
+
+/**
+ * A replay over a scratch document that already holds the history to browse.
+ * The replay takes ownership of `doc` and frees it on `close()`; `doc` is the
+ * caller's to free when this throws.
+ */
+export function replayDocumentHistory(
+  doc: HistoryViewer["doc"],
+  documentProjectors: DocumentProjectorRegistryInput,
+): DocumentHistory {
+  return new DocumentHistoryReader(openHistoryViewer(doc), documentProjectors);
 }
