@@ -69,6 +69,30 @@ test("openHistory waits for a ready database", async () => {
   }
 });
 
+// Verification's outcomes are statuses, so only a database that is not ready
+// resolves to null.
+test("verifyHistory reports why it could not check instead of throwing", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "client-document-history-verify",
+  );
+  try {
+    const documents = offlineDocuments(execSql);
+    const note = documents.open({ localId: "history-note" });
+    await note.setText("never uploaded");
+
+    expect(await documents.verifyHistory("history-note")).toEqual({
+      reason: "not_synced",
+      status: "unavailable",
+    });
+    expect(
+      await offlineDocuments(execSql, "idle").verifyHistory("history-note"),
+    ).toBeNull();
+    expect(note.getSnapshot().text).toBe("never uploaded");
+  } finally {
+    close();
+  }
+});
+
 test("open passes createIfMissing through to the store", async () => {
   const { close, execSql } = await createTestExecSql("client-open-no-create");
   try {

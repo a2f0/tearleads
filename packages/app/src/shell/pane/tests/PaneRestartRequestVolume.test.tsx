@@ -76,6 +76,8 @@ test("restart storage survives a closed and terminated worker", async () => {
 async function measureRestart(input: {
   readonly budget: ProxiedApiRequestBudget;
   readonly editedText?: string;
+  /** Folders of one note each, beyond the fixture's two. */
+  readonly extraFolders?: number;
   readonly label: string;
   readonly notesPerFolder: number;
   readonly settledRestarts?: number;
@@ -88,7 +90,7 @@ async function measureRestart(input: {
     localIdentityNamespace: namespace,
   }).withOverrides({ createSQLiteRuntime: storage.createRuntime });
   const first = renderLifecyclePane(hostConfig);
-  await seedLifecycleTree(first.pane, input.notesPerFolder);
+  await seedLifecycleTree(first.pane, input.notesPerFolder, input.extraFolders);
   await waitForLifecycleConnection(first.sdk(), 1);
   await waitForPersistedPaneLocalIdentity(namespace);
   const userId = getPaneUserId(first.pane);
@@ -216,15 +218,17 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
 // every restart after the first. The server holds nothing the device lacks,
 // so no lane lists a row and no note is synced or has its head read: the
 // cost is the same with two notes and with eight. The three syncs left are
-// system-container documents, which are pulled once per launch.
+// system-container documents, which are pulled once per launch. The three
+// listings are one batch of queued lanes, one for the catch-up after the
+// acknowledgement, and one unwatermarked batch for the initial probe.
 const SETTLED_RESTART_BUDGET: ProxiedApiRequestBudget = {
-  total: 17,
+  total: 14,
   byRequest: {
     "POST /auth/ws-ticket": 1,
     "GET /organization-memberships": 1,
     "GET /organizations/:organizationId/billing": 1,
     "POST /containers/parent-lanes/query": 2,
-    "POST /containers/documents/query": 6,
+    "POST /containers/documents/query": 3,
     "GET /principals/organization/:organizationId/policy": 1,
     "GET /principals/group/:groupId/policy": 0,
     "GET /principals/history": 0,
@@ -246,18 +250,36 @@ test("a settled restart costs the same whatever the number of notes", async () =
   }
 }, 180_000);
 
+test("a settled restart lists every folder's documents in one request", async () => {
+  // Six more folders cost no more document listings: the initial probe reads
+  // every lane's unwatermarked listing in one batch. Only the tree crawl
+  // grows, by one parent-lane request for every four folders.
+  await measureRestart({
+    budget: {
+      total: 16,
+      byRequest: {
+        ...SETTLED_RESTART_BUDGET.byRequest,
+        "POST /containers/parent-lanes/query": 4,
+      },
+    },
+    extraFolders: 6,
+    label: "settled restart with 8 folders",
+    notesPerFolder: 1,
+    settledRestarts: 1,
+  });
+}, 180_000);
+
 test("the first restart after a local edit owes that note no read", async () => {
   // The edited note's lane lists its row once more, which costs two more
-  // listings and two more policy reads than a settled restart. The device's
+  // policy reads than a settled restart and no more listings. The device's
   // own accepted update is behind its cursor, so the listing owes no read:
   // the three syncs are the same system-container documents, and the note
   // is neither synced nor has its head read.
   await measureRestart({
     budget: {
-      total: 21,
+      total: 16,
       byRequest: {
         ...SETTLED_RESTART_BUDGET.byRequest,
-        "POST /containers/documents/query": 8,
         "GET /principals/organization/:organizationId/policy": 3,
       },
     },
