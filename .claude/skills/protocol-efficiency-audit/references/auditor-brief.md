@@ -79,7 +79,8 @@ List plausible but untraced ideas separately as Estimated.
 
 Measurement: canary logs with the profile recorder on are in
 <MEASUREMENT_DIR>; read the per-endpoint tables, do not re-run the whole
-suite. To re-measure one scenario, run from packages/app:
+suite. So are the performance-harness results the coordinator noted for this
+slice; never run a `perf:*` command against a deployed tier. To re-measure one scenario, run from packages/app:
 `DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 bun test
 <file>` through `<REPO_ROOT>/node_modules/.bin/agent-tool run --`. Its
 receipt names the complete log: copy that file into your scratch directory

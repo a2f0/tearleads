@@ -45,6 +45,9 @@ Write the rest of the body in this order:
    - a preserved-by line for each capability it touches;
    - the security findings it touches and why each stays fixed;
    - the docs, canary ceilings, and formal models that change with it;
+   - how to measure it once it ships: the canary phase, test ceiling, or
+     `perf:*` command whose before and after the implementation PR
+     reports;
    - prerequisites among the proposals, by number;
    - twin paths it generalizes to, as separate evidence bullets.
 6. **Capability trades.** Proposals that give up a capability, each with the

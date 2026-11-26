@@ -77,11 +77,11 @@ export async function login(input: CommandInput): Promise<void> {
     { apiBaseUrl: context.apiBaseUrl(target), recoveryKey, tracer },
     async (session) => session.userId,
   );
-  await tracer.span("save recovery key in the Keychain", () =>
+  await tracer.span(`save recovery key in ${context.keyStore.label}`, () =>
     context.keyStore.save(target, recoveryKey),
   );
   context.stdout(printable(`Signed in to ${target} as ${userId}.`));
-  context.stdout("The recovery key is saved in the Keychain.");
+  context.stdout(`The recovery key is saved in ${context.keyStore.label}.`);
 }
 
 export async function register(input: CommandInput): Promise<void> {
@@ -103,17 +103,17 @@ export async function register(input: CommandInput): Promise<void> {
     ),
   );
   if (keyFromStdin) return;
-  await tracer.span("save recovery key in the Keychain", () =>
+  await tracer.span(`save recovery key in ${context.keyStore.label}`, () =>
     context.keyStore.save(target, recoveryKey),
   );
-  context.stdout("The recovery key is saved in the Keychain.");
+  context.stdout(`The recovery key is saved in ${context.keyStore.label}.`);
 }
 
 export async function logout({ context, target }: CommandInput): Promise<void> {
   const removed = await context.keyStore.remove(target);
   context.stdout(
     removed
-      ? `Removed the ${target} recovery key from the Keychain.`
+      ? `Removed the ${target} recovery key from ${context.keyStore.label}.`
       : `No ${target} recovery key was saved.`,
   );
 }
