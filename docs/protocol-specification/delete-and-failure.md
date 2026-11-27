@@ -108,9 +108,10 @@ The protocol is fail-closed:
   `409 document_sync_checkpoint_coverage_conflict`
 - a sync or unlink that commits a
   [staged baseline](../document-rotation-baselines.md#committing-a-stage)
-  whose stage is gone, expired, for another content key, or signed for
-  another manifest returns `409 document_sync_baseline_group_invalid` with a
-  `baselineStageCode`, commits nothing, and leaves the stage as it was
+  whose stage is gone, expired, for another content key, signed for
+  another manifest, or under an id a request has committed since returns
+  `409 document_sync_baseline_group_invalid` with a `baselineStageCode`,
+  commits nothing, and leaves the stage as it was
 - a reader served a rotation baseline that breaks its group rules fails the
   sync pass instead of voiding an update
 - a sync or unlink whose update extends a Loro peer past its committed

@@ -110,7 +110,9 @@ are unique by baseline and index, but it can still be abandoned, replaced or
 swept. `DeleteKeepsCommitted` is what keeps those deletes away from the
 committed baseline's payloads. Production refuses to open a stage under an
 id its document committed, but that is a read ahead of the insert, so the
-model does not rely on it.
+model does not rely on it. It also refuses to commit a stage whose id a
+request committed after the stage opened (`lockStagedBaselineForCommit`
+reads for it under the head lock), which the model's unique rows stand for.
 
 ## Liveness assumptions
 
@@ -166,8 +168,8 @@ states.
   checks both on every stage request and on the commit. A refusal changes
   nothing a stage holds, so to the model it is a step the rotator did not
   take, and a rotator that stays refused is one whose stage meets `Expire`.
-- The bounds on a stage are left out: its bytes
-  (`MAX_DOCUMENT_BASELINE_STAGE_BYTES`), its span rows
+- The bounds on a stage are left out: its bytes, a re-signed header's
+  among them (`MAX_DOCUMENT_BASELINE_STAGE_BYTES`), its span rows
   (`MAX_DOCUMENT_BASELINE_STAGE_SPANS`), and a user's open stages
   (`MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER`). Each refuses a request and
   changes nothing. `RotatorEventuallyCommits` is about a history that fits

@@ -28,7 +28,6 @@ formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTai
 formal/document-sync/DiscoveryLaneResumption.tla|formal/document-sync/DiscoveryLaneResumption.cfg
 formal/document-sync/DiscoveryPublication.tla|formal/document-sync/DiscoveryPublication.cfg
 formal/document-sync/EmptyFrontierUnlink.tla|formal/document-sync/EmptyFrontierUnlink.cfg
-formal/document-sync/StagedBaselineCommit.tla|formal/document-sync/StagedBaselineCommit.cfg
 formal/document-sync/MetadataListingConvergence.tla|formal/document-sync/MetadataListingConvergence.cfg
 formal/document-sync/MetadataListingConvergence.tla|formal/document-sync/MetadataListingConvergenceVoids.cfg
 formal/document-sync/OutgoingQueueMerge.tla|formal/document-sync/OutgoingQueueMerge.cfg
@@ -37,6 +36,7 @@ formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecov
 formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecoveryProgress.cfg
 formal/document-sync/RestartProbeConvergence.tla|formal/document-sync/RestartProbeConvergence.cfg
 formal/document-sync/SharedCopyReclaim.tla|formal/document-sync/SharedCopyReclaim.cfg
+formal/document-sync/StagedBaselineCommit.tla|formal/document-sync/StagedBaselineCommit.cfg
 formal/document-sync/VoidUpdateProgress.tla|formal/document-sync/VoidUpdateProgress.cfg
 formal/document-sync/VoidUpdateProgress.tla|formal/document-sync/VoidUpdateProgressKills.cfg
 formal/document-sync/VoidUpdateProgress.tla|formal/document-sync/VoidUpdateProgressTraps.cfg
