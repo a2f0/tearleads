@@ -1,12 +1,10 @@
 import { expect, test } from "bun:test";
-import { createDomainScope } from "../../data/shared/domainScope";
-import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import {
   awaitingCrawl,
   createGate,
   OWED_LANE_HOST_CONTAINER_IDS,
+  recordingLane,
 } from "./service.testFixtures";
-import type { ReconciliationHost } from "./serviceTypes";
 
 const KNOWN = OWED_LANE_HOST_CONTAINER_IDS;
 
@@ -147,31 +145,6 @@ test("a catch-up superseded while it reads the owed record lists nothing", async
   expect(listings).toEqual([["b"]]);
   service.stop();
 });
-
-/** A lane on the scope's coordinator that records each request to run. */
-function recordingLane(wakes: string[]): Partial<ReconciliationHost> {
-  const domainScope = createDomainScope();
-  return {
-    domainScope,
-    registerLane: (key, config) => {
-      const lane = getOrCreateDomainSyncCoordinator(domainScope).registerLane(
-        key,
-        config,
-      );
-      return {
-        ...lane,
-        requestSync: () => {
-          wakes.push("now");
-          lane.requestSync();
-        },
-        requestSyncAfter: (delayMs) => {
-          wakes.push(`after ${delayMs} ms`);
-          lane.requestSyncAfter(delayMs);
-        },
-      };
-    },
-  };
-}
 
 test("a catch-up superseded while it reads the owed record wakes no lane", async () => {
   const read = createGate();

@@ -144,26 +144,27 @@ crawl that the same acknowledgement starts already says which folders moved.
   known while that record is read was not tested, so it is neither listed
   nor counted as reconciled, and the next listing of it finds it owed.
 - While it waits. Nothing says yet whether a lane that was known at the
-  acknowledgement moved, so unforced work on those lanes is deferred, not
-  sent: one queued for an idle listing stays queued for the catch-up's sweep,
-  and a root refresh (Explorer opening, a share hint) lists the root lane and
-  leaves them to the catch-up. Listed at once all the same: a hint's lane, a
-  folder the user opens during the wait, a lane that was already owed a
-  listing when the acknowledgement arrived, and a lane found since, which no
-  crawl can vouch for (a new device's folders become known while it boots,
-  after its connection was acknowledged). The wait takes no turn among the
-  sweeps, so a root or full refresh runs beside it and does not end it. The
-  deferral lasts until the catch-up's sweep has read its plan and taken the
-  queue entries the plan covers, so a root sweep ahead of it in line lists
-  none of its lanes either, and the lane lists none the sweep is about to
-  list. A turn that has not come 15 seconds after the crawl settled (a sweep
-  ahead of it is stuck on its tree listing) ends the deferral early; the
-  sweep still runs when its turn comes. A turn that has come keeps the
-  deferral while the plan is read, however slow the read. An
-  acknowledgement that arrives during the wait shares it. One that arrives
-  after the crawl settled supersedes the catch-up and waits on a crawl of its
-  own: the earlier sweep then lists nothing, counts nothing as reconciled and
-  wakes no lane, and a lane listed at once for it waits for the new crawl.
+  acknowledgement moved, so unforced work on those lanes is deferred, not sent:
+  one queued for an idle listing stays queued for the catch-up's sweep, and a
+  root refresh (Explorer opening, a share hint) lists the root lane and leaves
+  them to the catch-up. Listed at once all the same: a hint's lane, a folder the
+  user opens during the wait, a lane that was already owed a listing when the
+  acknowledgement arrived, and a lane found since, which no crawl can vouch for
+  (a new device's folders become known while it boots, after its connection was
+  acknowledged). The wait takes no turn among the sweeps, so a root or full
+  refresh runs beside it and does not end it. The deferral lasts until the
+  catch-up's sweep has read its plan and taken the queue entries the plan
+  covers, so a root sweep ahead of it in line lists none of its lanes either,
+  and the lane lists none the sweep is about to list. A turn that has not come
+  15 seconds after the crawl settled (a sweep ahead of it is stuck on its tree
+  listing) ends the deferral early; the sweep still runs when its turn comes. A
+  turn that has come keeps the deferral while the plan is read, however slow the
+  read. An acknowledgement that arrives during the wait shares it, and a listing
+  sent before it no longer counts for the fallback below: it may have missed a
+  write made while the socket was down. One that arrives after the crawl settled
+  supersedes the catch-up and waits on a crawl of its own: the earlier sweep
+  then lists nothing, counts nothing as reconciled and wakes no lane, and a lane
+  listed at once for it waits for the new crawl.
 - Settling. A listing reads its lane's request before it is sent and settles
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been
@@ -180,9 +181,9 @@ crawl that the same acknowledgement starts already says which folders moved.
   socket dropped again), the host reports no crawl, or the crawl's outcome or
   the owed record cannot be read, nothing vouches for the lanes it was not
   served, and the catch-up lists every known lane, as it did before lanes were
-  owed listings, except one a listing sent after the acknowledgement already
-  listed (a full refresh beside the wait, or a hint's lane) and no hint has
-  forced since. A row the client refuses each time it is served leaves every
+  owed listings, except one a listing sent after the latest acknowledgement
+  already listed (a full refresh beside the wait, or a hint's lane) and no hint
+  has forced since. A row the client refuses each time it is served leaves every
   reconnect crawl incomplete, so while that row stays, every catch-up takes this
   fallback. When the database closes under the wait, the catch-up lists nothing.
 - Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's

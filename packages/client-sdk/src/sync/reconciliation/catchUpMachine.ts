@@ -28,17 +28,20 @@
  * A lane whose listing was sent after the acknowledgement read everything
  * the crawl could say about it, so the catch-up keeps those lanes: when
  * nothing vouches for the rest, its sweep lists every known lane but them.
+ * An acknowledgement the wait shares starts that record again: a listing
+ * sent before it may have missed a write made while the socket was down,
+ * so it counts only when no acknowledgement arrived after it was sent.
  *
  * | State | Event | Next |
  * | --- | --- | --- |
  * | idle | acknowledged | awaitingCrawl, with that wait and nothing listed |
- * | awaitingCrawl | acknowledged | unchanged: the wait in progress serves both |
+ * | awaitingCrawl | acknowledged | the same wait, serving both, with nothing listed since |
  * | awaitingTurn, overdue | acknowledged | awaitingCrawl, with the new wait and nothing listed |
  * | awaitingCrawl | crawlSettled, the same wait | awaitingTurn |
  * | awaitingTurn | turnOverdue, the same wait | overdue |
  * | awaitingCrawl, awaitingTurn | opened | the same, with that container listed now |
  * | awaitingCrawl, awaitingTurn | alreadyOwed, the same wait | the same, with those lanes listed now |
- * | awaitingCrawl, awaitingTurn, overdue | listed, the same wait | the same, with those lanes listed since |
+ * | awaitingCrawl, awaitingTurn, overdue | listed, the same wait and acknowledgement | the same, with those lanes listed since |
  * | awaitingCrawl, awaitingTurn, overdue | turnTaken, the same wait | idle |
  * | any | stopped | idle |
  *
@@ -59,6 +62,11 @@ export interface CatchUpWait {
 }
 
 interface CatchUpListings {
+  /**
+   * How many acknowledgements the wait serves. A listing counts for the
+   * catch-up only when it was sent after the latest of them.
+   */
+  readonly acknowledgements: number;
   /**
    * Containers whose document lane a listing sent after the acknowledgement
    * listed. Nothing a crawl could say about them is newer than that listing.
@@ -94,6 +102,8 @@ export type CatchUpEvent =
       readonly wait: CatchUpWait;
     }
   | {
+      /** The wait's acknowledgements when the listing was sent. */
+      readonly acknowledgements: number;
       readonly containerIds: ReadonlyArray<string>;
       readonly type: "listed";
       readonly wait: CatchUpWait;
@@ -107,8 +117,15 @@ function afterAcknowledged(
   state: CatchUpState,
   wait: CatchUpWait,
 ): CatchUpState {
-  if (state.status === "awaitingCrawl") return state;
+  if (state.status === "awaitingCrawl") {
+    return {
+      ...state,
+      acknowledgements: state.acknowledgements + 1,
+      listedSinceContainerIds: new Set(),
+    };
+  }
   return {
+    acknowledgements: 1,
     listedNowContainerIds: new Set(),
     listedSinceContainerIds: new Set(),
     status: "awaitingCrawl",
@@ -169,6 +186,7 @@ function transitionPending(
     case "turnOverdue":
       return state.status === "awaitingTurn" && state.wait === event.wait
         ? {
+            acknowledgements: state.acknowledgements,
             listedSinceContainerIds: state.listedSinceContainerIds,
             status: "overdue",
             wait: state.wait,
@@ -196,7 +214,8 @@ export function transitionCatchUp(
     return state.wait === event.wait ? IDLE_CATCH_UP : state;
   }
   if (event.type === "listed") {
-    return state.wait === event.wait
+    return state.wait === event.wait &&
+      state.acknowledgements === event.acknowledgements
       ? listedSince(state, event.containerIds)
       : state;
   }

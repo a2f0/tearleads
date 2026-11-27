@@ -409,6 +409,9 @@ export class ContainerSyncWatermarkRepository {
    * Upserts one lane row in a single statement: the cursor when `watermark`
    * is set and the freshness marker when `checked`; the other half is kept.
    * A document lane's row is written only while its container is stored.
+   * Resolves false only when `stillCurrent` refused the write: a document
+   * lane of a container not stored has no row to record, which is not a
+   * refusal.
    */
   async recordLaneFetch(
     lane: ContainerSyncWatermarkLane,

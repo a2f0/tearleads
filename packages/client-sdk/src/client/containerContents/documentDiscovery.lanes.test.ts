@@ -16,6 +16,7 @@ import { documentContainerProjection } from "../../data/sqlite/schema/documentPr
 import { documents } from "../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
+import * as containerDocumentListing from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { laneApi } from "../../workflows/container-contents/documentDiscovery/documentDiscovery.testUtils";
 import * as documentLaneDiscovery from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import * as tombstoneEvidence from "../../workflows/container-contents/tombstones/documentTombstoneEvidence";
@@ -280,6 +281,27 @@ test("an owed read that cannot be requested is reported unless the database clos
     ]);
     expect(logged).toEqual([
       ["Owed document reads were not requested", failure],
+    ]);
+  } finally {
+    native.close();
+  }
+});
+
+test("a runtime listing is never answered from a request sent before it", async () => {
+  stubSignedHeads();
+  const { discover, native } = await createLanes();
+  try {
+    const spy = spyOn(
+      containerDocumentListing,
+      "listContainerDocumentLanesFromApi",
+    );
+    restorers.push(() => spy.mockRestore());
+
+    await discover();
+
+    // It settles lane requests, so it is a request of its own.
+    expect(spy.mock.calls.map(([, , , inFlight]) => inFlight)).toEqual([
+      "ownRequest",
     ]);
   } finally {
     native.close();

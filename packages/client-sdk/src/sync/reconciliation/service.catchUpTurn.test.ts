@@ -5,6 +5,7 @@ import {
   createGate,
   createManualReconciliationClock,
   OWED_LANE_HOST_CONTAINER_IDS,
+  recordingLane,
 } from "./service.testFixtures";
 
 const KNOWN = OWED_LANE_HOST_CONTAINER_IDS;
@@ -79,8 +80,10 @@ test("a full sweep takes over a lane queued while its tree is listed", async () 
   const clock = createManualReconciliationClock();
   const fullTree = createGate();
   const rootTree = createGate();
+  const wakes: string[] = [];
   const { crawl, host, listings, service } = awaitingCrawl({
     overrides: {
+      ...recordingLane(wakes),
       clock,
       refreshRootTree: () => rootTree.wait,
       refreshTree: () => fullTree.wait,
@@ -113,13 +116,16 @@ test("a full sweep takes over a lane queued while its tree is listed", async () 
   fullTree.open();
   await fullRefresh;
   expect(listings).toEqual([[...KNOWN]]);
+  const wakesBefore = wakes.length;
 
   // The catch-up's turn is overdue, and what it held back is free: the full
-  // sweep took lane a over and listed it, so nothing is left to list.
+  // sweep took lane a over and listed it, so nothing is left to list and
+  // the lane is not woken.
   clock.advance(CATCH_UP_TURN_WAIT_MS);
   await settle();
   await settle();
   expect(listings).toEqual([[...KNOWN]]);
+  expect(wakes.slice(wakesBefore)).toEqual([]);
 
   rootTree.open();
   await Promise.all([rootRefresh, catchUp]);

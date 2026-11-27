@@ -21,7 +21,9 @@ const pending = (
   current: CatchUpWait,
   opened: ReadonlyArray<string> = [],
   listed: ReadonlyArray<string> = [],
+  acknowledgements = 1,
 ): CatchUpState => ({
+  acknowledgements,
   listedNowContainerIds: new Set(opened),
   listedSinceContainerIds: new Set(listed),
   status,
@@ -31,6 +33,7 @@ const overdueFor = (
   current: CatchUpWait,
   listed: ReadonlyArray<string> = [],
 ): CatchUpState => ({
+  acknowledgements: 1,
   listedSinceContainerIds: new Set(listed),
   status: "overdue",
   wait: current,
@@ -46,9 +49,28 @@ test("an acknowledgement starts a wait, and a second one shares it", () => {
   });
   expect(state).toEqual(awaiting(first));
 
-  expect(transitionCatchUp(state, { type: "acknowledged", wait: wait() })).toBe(
-    state,
+  // The second keeps the wait and what is listed now, and starts the record
+  // of listings again: one sent before it may have missed a write.
+  const shared = transitionCatchUp(
+    pending("awaitingCrawl", first, ["opened"], ["listed"]),
+    { type: "acknowledged", wait: wait() },
   );
+  expect(shared).toEqual(pending("awaitingCrawl", first, ["opened"], [], 2));
+  // A listing sent before it, answered after it, does not count either.
+  const listedA = {
+    containerIds: ["a"],
+    type: "listed",
+    wait: first,
+  } as const;
+  expect(transitionCatchUp(shared, { ...listedA, acknowledgements: 1 })).toBe(
+    shared,
+  );
+  expect(
+    listedSinceAcknowledgement(
+      transitionCatchUp(shared, { ...listedA, acknowledgements: 2 }),
+      first,
+    ),
+  ).toEqual(new Set(["a"]));
 });
 
 test("a settled crawl leaves the catch-up awaiting its turn", () => {
@@ -215,6 +237,7 @@ test("lanes already owed at the acknowledgement are listed without waiting", () 
 test("a lane listed after the acknowledgement is kept until the turn", () => {
   const current = wait(["a", "b"]);
   const listedA = {
+    acknowledgements: 1,
     containerIds: ["a"],
     type: "listed",
     wait: current,

@@ -204,7 +204,8 @@ async function catchUpAfterCrawl(
       refreshTree: () => Promise.resolve(),
       planSweep: async () => {
         // The turn has come: a slow read of the plan does not make it
-        // overdue, and deferral holds until the plan is in hand.
+        // overdue, and deferral holds until the plan is in hand. The plan is
+        // read from this device's database, never from another device.
         cancelTurnWait();
         // The service stopped, or a later acknowledgement superseded this
         // catch-up, while its sweep awaited its turn: its crawl says nothing
@@ -303,7 +304,12 @@ export function requestAcknowledgedConnectionSweep(
   state: ReconciliationState,
 ): Promise<void> {
   if (state.catchUp.status === "awaitingCrawl") {
-    return state.catchUp.wait.promise;
+    // Shared, but what was listed before this acknowledgement no longer
+    // vouches for a lane: it may have missed a write while the socket was
+    // down.
+    const { wait } = state.catchUp;
+    dispatchCatchUp(state, { type: "acknowledged", wait });
+    return wait.promise;
   }
   // A catch-up still awaiting its turn is superseded: its crawl settled
   // before this acknowledgement, so its verdict is about an earlier

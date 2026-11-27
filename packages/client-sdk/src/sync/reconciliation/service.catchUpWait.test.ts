@@ -219,7 +219,9 @@ test("a catch-up that cannot take its turn stops deferring", async () => {
 
 test("a lane the catch-up's sweep failed waits out its retry backoff", async () => {
   const domainScope = createDomainScope();
-  // Delayed requests are held for the test to run; immediate ones run.
+  // Every wake is recorded. Delayed ones are held for the test to run;
+  // immediate ones run.
+  const wakes: string[] = [];
   const delayed: Array<{ readonly delayMs: number; readonly run: () => void }> =
     [];
   let fail = true;
@@ -234,7 +236,12 @@ test("a lane the catch-up's sweep failed waits out its retry backoff", async () 
         );
         return {
           ...lane,
+          requestSync: () => {
+            wakes.push("now");
+            lane.requestSync();
+          },
           requestSyncAfter: (delayMs) => {
+            wakes.push(`after ${delayMs} ms`);
             delayed.push({ delayMs, run: () => lane.requestSync() });
           },
         };
@@ -247,6 +254,7 @@ test("a lane the catch-up's sweep failed waits out its retry backoff", async () 
   host.discoverContainerDocuments = async (requests, onOutcome) => {
     if (!fail) return discover(requests, onOutcome);
     listings.push(requests.map((request) => request.containerId));
+    wakes.push("failed");
     throw new Error("listing failed");
   };
 
@@ -258,9 +266,9 @@ test("a lane the catch-up's sweep failed waits out its retry backoff", async () 
   // The failed lane is queued again, and the lane is not woken at once: its
   // retry is asked for after the backoff.
   expect(listings).toEqual([["b"]]);
-  expect(delayed.map(({ delayMs }) => delayMs)).toContain(
-    SWEEP_RETRY_BACKOFF_MS,
-  );
+  const sinceFailure = wakes.slice(wakes.indexOf("failed") + 1);
+  expect(sinceFailure).not.toContain("now");
+  expect(sinceFailure).toContain(`after ${SWEEP_RETRY_BACKOFF_MS} ms`);
   expect(
     delayed.every(({ delayMs }) => delayMs >= SWEEP_RETRY_BACKOFF_MS),
   ).toBe(true);

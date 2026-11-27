@@ -73,12 +73,20 @@ test("requests of containers the device does not store are forgotten", async () 
     [],
   );
   await repository.request(["stored", "refused"]);
-  // A listing in flight across its container's delete settles the lane
-  // after the cascade cleared it, which writes no row.
   const watermarks = new ContainerSyncWatermarkRepository(execSql);
-  for (const containerId of ["stored", "deleted"]) {
-    await watermarks.markChecked(containerContentsSyncLane(containerId));
-  }
+  await watermarks.markChecked(containerContentsSyncLane("stored"));
+  // An SDK from before lane rows were guarded, in a tab sharing the
+  // database, settled a lane in flight across its container's delete after
+  // the cascade cleared it.
+  await execSql(
+    `INSERT INTO container_sync_watermarks
+       (lane_kind, lane_id, checked_at, updated_at)
+     VALUES ('container_documents', 'deleted', '2026-01-01', '2026-01-01')`,
+    [],
+  );
+  expect(await watermarks.listSettledContainerDocumentLaneIds()).toEqual(
+    new Set(["stored", "deleted"]),
+  );
 
   await repository.forgetUnheld();
 

@@ -81,8 +81,8 @@ export function isCurrentReconciliationLifecycle(
 // Reconcile containers whose discovered marks are already set, rolling a mark
 // back when its container is skipped or fails so a transient error (or a
 // container that later becomes eligible) can be retried. The catch-up is told
-// of each lane listed by a request sent after its acknowledgement: the one
-// current before the request, since every listing request is its own.
+// of each lane listed by a request sent after its latest acknowledgement: the
+// one current before the request, since every listing request is its own.
 export async function reconcileMarkedContainers(
   host: ReconciliationHost,
   state: KnownContainerSweepState,
@@ -113,6 +113,7 @@ export async function reconcileMarkedContainers(
   }
   if (catchUpAtRequest.status !== "idle") {
     dispatchCatchUp(state, {
+      acknowledgements: catchUpAtRequest.acknowledgements,
       containerIds: results.flatMap(({ containerId, listed }) =>
         listed ? [containerId] : [],
       ),

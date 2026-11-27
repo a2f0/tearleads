@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { awaitingCrawl } from "./service.testFixtures";
+import { awaitingCrawl, createGate } from "./service.testFixtures";
 
 const settle = async () => {
   for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
@@ -32,6 +32,40 @@ test("a catch-up nothing vouches for skips a lane listed since its acknowledgeme
 
   // No crawl vouches for b and c; the hint's listing already read a.
   expect(listings).toEqual([["a"], ["b", "c"]]);
+  service.stop();
+});
+
+test("a listing sent before an acknowledgement the wait shares vouches for nothing", async () => {
+  const { crawl, host, listings, service } = awaitingIncompleteCrawl();
+  const discover = host.discoverContainerDocuments;
+  const answer = createGate();
+  // The second listing is answered when the test says.
+  host.discoverContainerDocuments = async (...args) => {
+    const outcomes = await discover(...args);
+    if (listings.length === 2) await answer.wait;
+    return outcomes;
+  };
+  const catchUp = service.reconcileAcknowledgedConnection();
+  await settle();
+  // Lane b's listing is answered before the second acknowledgement, and lane
+  // a's is still out when it arrives.
+  for (const containerId of ["b", "a"]) {
+    service.enqueueContainer(containerId, "active", true);
+    await settle();
+    await settle();
+  }
+  expect(listings).toEqual([["b"], ["a"]]);
+
+  // The socket dropped and came back after both were sent: a write made
+  // meanwhile may be missing from either.
+  const shared = service.reconcileAcknowledgedConnection();
+  answer.open();
+  await settle();
+  await settle();
+  crawl.open();
+  await Promise.all([catchUp, shared]);
+
+  expect(listings).toEqual([["b"], ["a"], ["a", "b", "c"]]);
   service.stop();
 });
 
