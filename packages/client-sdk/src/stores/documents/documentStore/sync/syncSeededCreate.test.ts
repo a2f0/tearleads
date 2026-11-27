@@ -388,6 +388,41 @@ test("a refused seeded create falls back to the plain create once", async () => 
   expect(result.state.remoteUpdatePending).toBe(true);
 });
 
+async function advanceLocalRecordAheadOfInMemoryBase(
+  server: SeededCreateServer,
+) {
+  const state = server.state();
+  if (!state.doc || !state.record) throw new Error("Expected live store");
+  const firstVersion = encodeVersionVector(state.doc);
+  state.pendingBaseVersion = firstVersion;
+  state.doc.getText("text").insert(5, " world");
+  state.doc.commit();
+  const secondEditVersion = encodeVersionVector(state.doc);
+  const secondFields = createPendingUpdateFields(
+    exportUpdatesSince(state.doc, firstVersion),
+  );
+  if (!secondFields) throw new Error("Expected second edit update");
+  await defaultDocumentsPersistence.enqueuePendingUpdate(server.execSql, {
+    localId: state.localId,
+    ...secondFields,
+  });
+  const advancedRecord: DocumentRecord = {
+    ...state.record,
+    pendingBaseVersion: secondEditVersion,
+    snapshotEndVersion: secondEditVersion,
+    text: "hello world",
+  };
+  await defaultDocumentsPersistence.saveDocument(
+    server.execSql,
+    advancedRecord,
+  );
+  state.record = advancedRecord;
+  return {
+    secondEditUpdateData: secondFields.updateData,
+    secondEditVersion,
+  };
+}
+
 test("a settled seed does not regress a record pendingBaseVersion already advanced by a local write", async () => {
   let secondEditVersion = "";
   let secondEditUpdateData = "";
@@ -397,33 +432,9 @@ test("a settled seed does not regress a record pendingBaseVersion already advanc
       // Simulate a second local write committing to SQLite and updating
       // state.record.pendingBaseVersion while parked in post-commit compaction
       // (before advancePendingBaseVersion updates state.pendingBaseVersion).
-      const state = server.state();
-      if (!state.doc || !state.record) throw new Error("Expected live store");
-      const firstVersion = encodeVersionVector(state.doc);
-      state.pendingBaseVersion = firstVersion;
-      state.doc.getText("text").insert(5, " world");
-      state.doc.commit();
-      secondEditVersion = encodeVersionVector(state.doc);
-      const secondFields = createPendingUpdateFields(
-        exportUpdatesSince(state.doc, firstVersion),
-      );
-      if (!secondFields) throw new Error("Expected second edit update");
-      secondEditUpdateData = secondFields.updateData;
-      await defaultDocumentsPersistence.enqueuePendingUpdate(server.execSql, {
-        localId: state.localId,
-        ...secondFields,
-      });
-      const advancedRecord: DocumentRecord = {
-        ...state.record,
-        pendingBaseVersion: secondEditVersion,
-        snapshotEndVersion: secondEditVersion,
-        text: "hello world",
-      };
-      await defaultDocumentsPersistence.saveDocument(
-        server.execSql,
-        advancedRecord,
-      );
-      state.record = advancedRecord;
+      const advanced = await advanceLocalRecordAheadOfInMemoryBase(server);
+      secondEditVersion = advanced.secondEditVersion;
+      secondEditUpdateData = advanced.secondEditUpdateData;
       return acknowledge(request);
     },
   );
@@ -444,4 +455,26 @@ test("a settled seed does not regress a record pendingBaseVersion already advanc
   expect(result.remaining.map((row) => row.updateData)).toEqual([
     secondEditUpdateData,
   ]);
+});
+
+test("an unseeded create does not regress a record pendingBaseVersion already advanced by a local write", async () => {
+  let secondEditVersion = "";
+  const result = await runSeededCreate(
+    "unseeded-create-preserve-live-pending-base",
+    async (request, attempt, server) => {
+      if (attempt === 1) return paymentRequired;
+      const advanced = await advanceLocalRecordAheadOfInMemoryBase(server);
+      secondEditVersion = advanced.secondEditVersion;
+      return acknowledge(request);
+    },
+  );
+
+  expect(result.storedRecord?.pendingBaseVersion).toBeTruthy();
+  expect(
+    satisfiesVersionVector(
+      result.storedRecord?.pendingBaseVersion,
+      secondEditVersion,
+    ),
+  ).toBe(true);
+  expect(result.remaining).toHaveLength(2);
 });

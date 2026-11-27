@@ -7,7 +7,7 @@ import type {
 interface CreatedRemoteIdentity {
   readonly accessEpoch: number;
   readonly containerId: string | null;
-  readonly doc: DocumentState;
+  readonly doc: WeakRef<DocumentState>;
   readonly documentId: string;
 }
 
@@ -30,7 +30,7 @@ function canAdoptCreatedRemoteDocumentId(
   const recorded = createdRemoteIdentities.get(state);
   return (
     recorded !== undefined &&
-    recorded.doc === expectedDoc &&
+    recorded.doc.deref() === expectedDoc &&
     state.doc === expectedDoc &&
     recorded.documentId === documentId
   );
@@ -76,7 +76,7 @@ export function createdRemoteIdentityPersistenceHooks(input: {
         createdRemoteIdentities.set(state, {
           accessEpoch: result.record.accessEpoch,
           containerId: result.record.containerId,
-          doc: currentDoc,
+          doc: new WeakRef(currentDoc),
           documentId: result.record.documentId,
         });
         return;
@@ -84,7 +84,7 @@ export function createdRemoteIdentityPersistenceHooks(input: {
       const recorded = createdRemoteIdentities.get(state);
       if (
         recorded !== undefined &&
-        (recorded.doc !== state.doc ||
+        (recorded.doc.deref() !== state.doc ||
           result.record.documentId !== recorded.documentId ||
           result.record.containerId !== recorded.containerId ||
           result.record.accessEpoch !== recorded.accessEpoch ||
