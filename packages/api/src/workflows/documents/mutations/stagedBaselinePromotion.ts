@@ -190,15 +190,19 @@ function extendedPeers(input: PromoteStagedBaselineSegmentsInput): SQL {
  * A stage this refuses stays as it was, so its writer can send the commit
  * again, and the check also runs ahead of every commit that is accepted:
  * what it reads is what a writer can make the server read under the head
- * lock. A stage with no span extends nothing and is not read. Otherwise the
- * statement is a plain join of the stage's spans with the document's peer
- * owners, less the spans a committed span already reaches, over three
- * indexes that all run in peer order. The planner drives it from the
- * smaller side, by index, when one side is small, and merges or hashes
- * them when both are large: it reads at most each side once, never one
- * side once for every row of the other. Some staged span of a peer ends
- * past the frontier exactly when the highest does, so no span is
- * aggregated.
+ * lock. A stage with no span extends nothing and is not read.
+ *
+ * Otherwise the stage is reduced to one row a peer first, materialized by
+ * one pass over the index that holds its spans in peer order. A history
+ * staged in many segments names the same peers in every segment, and
+ * judging each span would look a peer's committed frontier up once for
+ * every span of it. The peers are then joined with the document's peer
+ * owners and filtered by the committed spans in a second materialized CTE
+ * before `order by ... limit 64`, so the small limit does not lure the
+ * planner into a nested-loop anti-join over hundreds of thousands of
+ * re-asserted peers. The cost grows with the stage's spans, with the
+ * staged peers other users own, and with the refused peers before the
+ * limit — never with spans times foreign peers.
  */
 async function assertStagedPeersNotOwnedByOthers(
   input: PromoteStagedBaselineSegmentsInput,
@@ -206,6 +210,26 @@ async function assertStagedPeersNotOwnedByOthers(
   if (input.commit.stage.stagedSpans === 0) return;
   const documentId = uuidValue(input.documentId);
   const owned = await input.executor.execute(sql`
+    with staged as materialized (
+      select peer_id, max(end_counter) as end_counter
+      from ${documentBaselineSegmentSpans}
+      where ${stagedSegmentsOf(input)}
+      group by peer_id
+    ),
+    all_refused as materialized (
+      select staged.peer_id
+      from staged
+      join ${documentPeerOwners} peer_owner
+        on peer_owner.document_id = ${documentId}
+        and peer_owner.peer_id = staged.peer_id
+      where peer_owner.owner_user_id <> ${uuidValue(input.userId)}
+        and not exists (
+          select 1 from ${documentUpdateSpans} committed
+          where committed.document_id = ${documentId}
+            and committed.peer_id = staged.peer_id
+            and committed.end_counter >= staged.end_counter
+        )
+    )
     select refused.peer_id as "peerId",
       coalesce((
         select max(span.end_counter)
@@ -214,22 +238,9 @@ async function assertStagedPeersNotOwnedByOthers(
           and span.peer_id = refused.peer_id
       ), 0) as "committedEndCounter"
     from (
-      select staged.peer_id
-      from ${documentBaselineSegmentSpans} staged
-      join ${documentPeerOwners} peer_owner
-        on peer_owner.document_id = staged.document_id
-        and peer_owner.peer_id = staged.peer_id
-      where staged.document_id = ${documentId}
-        and staged.baseline_id = ${uuidValue(input.commit.stage.id)}
-        and peer_owner.owner_user_id <> ${uuidValue(input.userId)}
-        and not exists (
-          select 1 from ${documentUpdateSpans} committed
-          where committed.document_id = staged.document_id
-            and committed.peer_id = staged.peer_id
-            and committed.end_counter >= staged.end_counter
-        )
-      group by staged.peer_id
-      order by staged.peer_id collate "C"
+      select peer_id
+      from all_refused
+      order by peer_id collate "C"
       limit ${MAX_DOCUMENT_PEER_FRONTIERS}
     ) refused
     order by refused.peer_id collate "C"
