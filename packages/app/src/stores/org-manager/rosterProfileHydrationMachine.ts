@@ -62,9 +62,10 @@ function onProfilesMissing(
 ): RosterProfileHydration {
   if (bindings.length === 0) return state;
   if (state.status === "idle") return running(0, bindings);
-  // Keep the latest list: profiles may have arrived while waiting.
-  return state.status === "awaitingContainer" || state.status === "waitingBusy"
-    ? { ...state, bindings }
+  // Keep the latest list: profiles may have arrived while waiting. A busy
+  // pause keeps what its pass did not reach, so one load stays in its budget.
+  return state.status === "awaitingContainer"
+    ? { status: "awaitingContainer", bindings }
     : state;
 }
 

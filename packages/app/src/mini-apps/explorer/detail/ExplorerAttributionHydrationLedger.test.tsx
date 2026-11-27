@@ -247,21 +247,18 @@ test("a profile refused as busy spends no attempt and is requested again", async
         readModelRevision: 1,
       }),
     );
-    const request = () =>
-      act(() =>
-        view.result.current({
-          contributorUserIds: ["profile-user-0", "profile-user-1"],
-          documentId: "document-a",
-        }),
-      );
+    act(() =>
+      view.result.current({
+        contributorUserIds: ["profile-user-0", "profile-user-1"],
+        documentId: "document-a",
+      }),
+    );
 
-    request();
     await waitFor(
       () => expect(pulls.get("profile-1")).toBe(DATABASE_BUSY_RUN_LIMIT),
       { timeout: 3_000 },
     );
-    await act(async () => Promise.resolve());
-    request();
+    // Nothing requests it again: the pause after the refusals does.
     await waitFor(
       () => expect(pulls.get("profile-1")).toBe(2 * DATABASE_BUSY_RUN_LIMIT),
       { timeout: 3_000 },

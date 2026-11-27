@@ -2,44 +2,98 @@ import {
   classifyDatabaseFailure,
   retryWhileDatabaseBusy,
 } from "@tearleads/client-sdk/sqlite";
-import { type MutableRefObject, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { useDatabase } from "../db/DatabaseProvider";
 import type { useIdentity } from "../identity/IdentityProvider";
 import type { useTearleads } from "../sdk/TearleadsProvider";
+import {
+  type RootBootstrap,
+  type RootBootstrapAttempt,
+  type RootBootstrapEvent,
+  rootBootstrapAttempt,
+  transitionRootBootstrap,
+} from "./rootBootstrapMachine";
 
 /**
  * How long a root bootstrap the SQLite worker kept refusing behind another
- * tab's transaction waits before it runs again. Nothing this effect depends
- * on changes when that transaction ends, so without the timer the bootstrap
- * waited for an unrelated status, client, or fingerprint change (#3360).
+ * tab's transaction waits before it runs again (#3360).
  */
 const BUSY_ROOT_BOOTSTRAP_RETRY_MS = 1_000;
 
-type BusyRetryTimer = MutableRefObject<ReturnType<typeof setTimeout> | null>;
-
-/**
- * Drops a bootstrap waiting out a busy refusal: its timer and its recorded
- * attempt, so the next qualifying render starts a fresh one.
- */
-function cancelBusyRetry(
-  timer: BusyRetryTimer,
-  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
-): void {
-  if (timer.current === null) return;
-  clearTimeout(timer.current);
-  timer.current = null;
-  containerBootstrapped.current = null;
+/** Runs the `RootBootstrap` machine and the effects of entering its states. */
+export interface RootBootstrapDriver {
+  readonly state: () => RootBootstrap;
+  readonly dispatch: (event: RootBootstrapEvent) => void;
+  /** Starts a run of the attempt; the bootstrap hook installs it. */
+  run: (attempt: RootBootstrapAttempt) => void;
 }
 
-export interface RootBootstrapAttempt {
-  readonly signIn: () => boolean;
-  readonly scope: ReturnType<typeof useTearleads>["domainScope"];
-  readonly dbClient: ReturnType<typeof useDatabase>["client"];
-  readonly signingFingerprint: string;
+export function createRootBootstrapDriver(): RootBootstrapDriver {
+  let state: RootBootstrap = { status: "idle" };
+  let busyPause: ReturnType<typeof setTimeout> | undefined;
+  const driver: RootBootstrapDriver = {
+    state: () => state,
+    dispatch(event) {
+      const previous = state;
+      const next = transitionRootBootstrap(previous, event);
+      if (next === previous) return;
+      state = next;
+      if (previous.status === "waitingBusy") clearTimeout(busyPause);
+      if (next.status === "waitingBusy") {
+        const { attempt } = next;
+        busyPause = setTimeout(
+          () => driver.dispatch({ type: "busyPauseEnded", attempt }),
+          BUSY_ROOT_BOOTSTRAP_RETRY_MS,
+        );
+      }
+      if (
+        next.status === "running" &&
+        (previous.status !== "running" || previous.attempt !== next.attempt)
+      ) {
+        driver.run(next.attempt);
+      }
+    },
+    run: () => undefined,
+  };
+  return driver;
+}
+
+async function runRootBootstrap(
+  driver: RootBootstrapDriver,
+  attempt: RootBootstrapAttempt,
+  tearleads: ReturnType<typeof useTearleads>,
+  logError: (message: string, error: unknown) => void,
+): Promise<void> {
+  const current = () => {
+    const state = driver.state();
+    return (
+      state.status === "running" &&
+      state.attempt === attempt &&
+      state.wanted &&
+      tearleads.domainScope === attempt.scope &&
+      attempt.signIn()
+    );
+  };
+  try {
+    await retryWhileDatabaseBusy(
+      () => tearleads.session.bootstrapLocalRootContainer(current),
+      { isCurrent: current },
+    );
+    driver.dispatch({ type: "settled", attempt });
+  } catch (error: unknown) {
+    const failure = classifyDatabaseFailure(error);
+    const wasCurrent = current();
+    driver.dispatch({ type: failure === "busy" ? "busy" : "failed", attempt });
+    // Reloads and identity transitions retire the worker beneath pending
+    // queries. The next ready client retries; real SQL failures still log.
+    if (wasCurrent && failure === "failed") {
+      logError("Failed to bootstrap root container", error);
+    }
+  }
 }
 
 export function useResetCryptoSession(
-  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
+  rootBootstrap: RootBootstrapDriver,
   signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
   resetSession: () => void,
 ) {
@@ -48,13 +102,13 @@ export function useResetCryptoSession(
       return;
     }
 
-    containerBootstrapped.current = null;
+    rootBootstrap.dispatch({ type: "reset" });
     resetSession();
-  }, [containerBootstrapped, resetSession, signingKeyPair]);
+  }, [resetSession, rootBootstrap, signingKeyPair]);
 }
 
 export function useBootstrapCryptoSessionContainer(
-  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
+  rootBootstrap: RootBootstrapDriver,
   tearleads: ReturnType<typeof useTearleads>,
   containerId: string | null,
   signingFingerprint: string | null,
@@ -64,79 +118,43 @@ export function useBootstrapCryptoSessionContainer(
 ) {
   const scope = tearleads.domainScope;
   const signIn = tearleads.session.captureSignIn();
-  const busyRetry: BusyRetryTimer = useRef(null);
-  const mounted = useRef(true);
+  // A StrictMode remount wants the running attempt again before it notices.
+  useEffect(
+    () => () => rootBootstrap.dispatch({ type: "lapse" }),
+    [rootBootstrap],
+  );
   useEffect(() => {
-    mounted.current = true;
-    return () => {
-      // Unmounting ends the attempt: its timer and any busy retries stop.
-      // A remount (StrictMode) keeps an attempt that is still running.
-      mounted.current = false;
-      cancelBusyRetry(busyRetry, containerBootstrapped);
-    };
-  }, [containerBootstrapped]);
-  useEffect(() => {
+    rootBootstrap.run = (attempt) =>
+      void runRootBootstrap(rootBootstrap, attempt, tearleads, logError);
     if (
       containerId !== null ||
       !signingFingerprint ||
       dbStatus !== "ready" ||
       !dbClient
     ) {
-      // A root container from elsewhere, or a database that went away, leaves
-      // a bootstrap waiting out a busy refusal nothing to do.
-      cancelBusyRetry(busyRetry, containerBootstrapped);
+      rootBootstrap.dispatch({ type: "lapse" });
       return;
     }
-    const previous = containerBootstrapped.current;
+    const previous = rootBootstrapAttempt(rootBootstrap.state());
     if (
       previous?.scope === scope &&
       previous.signIn() &&
-      previous?.dbClient === dbClient &&
+      previous.dbClient === dbClient &&
       previous.signingFingerprint === signingFingerprint
-    )
+    ) {
+      rootBootstrap.dispatch({ type: "wanted", attempt: previous });
       return;
-    // A new attempt replaces one waiting out a busy refusal.
-    cancelBusyRetry(busyRetry, containerBootstrapped);
-    const attempt = { scope, dbClient, signingFingerprint, signIn };
-    containerBootstrapped.current = attempt;
-    const current = () =>
-      mounted.current &&
-      containerBootstrapped.current === attempt &&
-      tearleads.domainScope === scope &&
-      signIn();
-    const run = async (): Promise<void> => {
-      try {
-        await retryWhileDatabaseBusy(
-          () => tearleads.session.bootstrapLocalRootContainer(current),
-          { isCurrent: current },
-        );
-      } catch (error: unknown) {
-        if (!current()) return;
-        const failure = classifyDatabaseFailure(error);
-        // The attempt stays recorded, so a re-render does not start a second.
-        if (failure === "busy") {
-          const retry = setTimeout(() => {
-            if (busyRetry.current === retry) busyRetry.current = null;
-            if (current()) void run();
-          }, BUSY_ROOT_BOOTSTRAP_RETRY_MS);
-          busyRetry.current = retry;
-          return;
-        }
-        containerBootstrapped.current = null;
-        // Reloads and identity transitions retire the worker beneath pending
-        // queries. The next ready client retries; real SQL failures still log.
-        if (failure === "failed") {
-          logError("Failed to bootstrap root container", error);
-        }
-      }
-    };
-    void run();
+    }
+    rootBootstrap.dispatch({
+      type: "start",
+      attempt: { scope, dbClient, signingFingerprint, signIn },
+    });
   }, [
-    containerBootstrapped,
     dbStatus,
     dbClient,
     containerId,
     logError,
+    rootBootstrap,
     scope,
     signIn,
     signingFingerprint,

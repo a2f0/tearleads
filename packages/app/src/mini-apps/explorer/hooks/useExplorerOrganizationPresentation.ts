@@ -90,6 +90,8 @@ interface ProfileHydrationRequest {
 }
 
 const MAX_PROFILE_HYDRATION_ATTEMPTS = 3;
+/** How long targets refused behind another tab's transaction wait to rerun. */
+const BUSY_PROFILE_HYDRATION_PAUSE_MS = 1_000;
 
 function setTargetReservations(
   targets: ReadonlyArray<ExplorerAttributionProfileHydrationTarget>,
@@ -209,6 +211,17 @@ async function hydratePendingTargets(
   return targets.filter((_target, index) => results[index] === "busy");
 }
 
+function resumeAfterBusyPause(input: ProfileHydrationRequest): void {
+  const pause = setTimeout(() => {
+    input.abortSignal.removeEventListener("abort", cancel);
+    if (scopesMatch(input.currentScope.current, input.requestScope)) {
+      void requestExplorerAttributionProfileHydration(input);
+    }
+  }, BUSY_PROFILE_HYDRATION_PAUSE_MS);
+  const cancel = () => clearTimeout(pause);
+  input.abortSignal.addEventListener("abort", cancel, { once: true });
+}
+
 async function requestExplorerAttributionProfileHydration(
   input: ProfileHydrationRequest,
 ): Promise<void> {
@@ -219,12 +232,15 @@ async function requestExplorerAttributionProfileHydration(
       return;
     }
     setTargetReservations(targets, input.requestedBindingKeys, true);
-    const releasedTargets = await hydratePendingTargets(input, targets);
+    const busyTargets = await hydratePendingTargets(input, targets);
     setTargetReservations(
-      releasedTargets ?? targets,
+      busyTargets ?? targets,
       input.requestedBindingKeys,
       false,
     );
+    // Nothing this request watches changes when that transaction ends, so
+    // the request runs again after a pause until its scope moves on.
+    if (busyTargets?.length) resumeAfterBusyPause(input);
   } catch (error) {
     input.tearleads.logError(
       "Failed to hydrate explorer attribution roster profiles",

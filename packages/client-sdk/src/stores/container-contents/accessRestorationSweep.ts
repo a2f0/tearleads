@@ -257,8 +257,9 @@ export function createRestoredAccessReconciler(input: {
         return;
       }
       const message = `${getContainerContentsStoreLogLabel(state)}: dormant metadata sweep failed`;
-      // A refusal behind another tab's transaction spent no sweep attempt,
-      // so the request stays for the next sweep.
+      // A refusal behind another tab's transaction is not the sweep's own
+      // failure. One at the claim spent no attempt; one that outlasted the
+      // completion's retries leaves the claimed attempt counted.
       if (classifyDatabaseFailure(error) === "busy") {
         state.runtime.util.log(
           `${message} behind another tab's database transaction`,

@@ -46,8 +46,9 @@ interface DatabaseBusyRetryOptions {
  * {@link DATABASE_BUSY_RUN_LIMIT} runs. A refused statement did not run, and
  * the worker never refuses a statement of the connection that holds the
  * transaction, so a refusal can only reach work that has no transaction open:
- * running it again is safe whenever the work tolerates repeating statements
- * that committed before the refusal. Any other failure is thrown at once.
+ * running it again is safe whenever the work tolerates repeating whatever
+ * finished before the refusal, its committed statements and any network
+ * requests alike. Any other failure is thrown at once.
  */
 export async function retryWhileDatabaseBusy<T>(
   work: () => Promise<T>,

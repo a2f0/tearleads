@@ -26,7 +26,7 @@ import {
   useLocalCryptoSessionPersistence,
 } from "./localCryptoSessionPersistence";
 import {
-  type RootBootstrapAttempt,
+  createRootBootstrapDriver,
   useBootstrapCryptoSessionContainer,
   useResetCryptoSession,
 } from "./useBootstrapCryptoSessionContainer";
@@ -331,7 +331,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   } = useDatabase();
   const { signingFingerprint, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
-  const containerBootstrapped = useRef<RootBootstrapAttempt | null>(null);
+  const [rootBootstrap] = useState(createRootBootstrapDriver);
   const sessionState = useSdkBackedCryptoSessionState(tearleads);
   const localSessionPersistence = useLocalCryptoSessionPersistence({
     createLocalKeyring: localKeyringLock.createLocalKeyring,
@@ -342,7 +342,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   });
 
   useResetCryptoSession(
-    containerBootstrapped,
+    rootBootstrap,
     signingKeyPair,
     sessionState.resetSession,
   );
@@ -353,7 +353,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     logError,
   );
   useBootstrapCryptoSessionContainer(
-    containerBootstrapped,
+    rootBootstrap,
     tearleads,
     sessionState.containerId,
     signingFingerprint,

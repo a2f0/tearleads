@@ -106,21 +106,17 @@ test("a pass stopped by a busy refusal pauses, then pulls what it did not reach"
     { type: "busy", bindings: latest },
   );
   expect(busy).toEqual({ status: "waitingBusy", attempt: 0, bindings: latest });
-  // Rows that arrive during the pause replace the list; listing changes and
-  // stale pass ends do not cut the pause short.
+  // The pause keeps what its pass did not reach, so a load never pulls more
+  // than its budget; nothing else cuts the pause short.
   expect(
     run(
       busy,
+      { type: "profilesMissing", bindings: first },
       { type: "containersChanged" },
       { type: "finished" },
       { type: "containerMissing" },
     ),
   ).toEqual(busy);
-  expect(run(busy, { type: "profilesMissing", bindings: first })).toEqual({
-    status: "waitingBusy",
-    attempt: 0,
-    bindings: first,
-  });
   expect(run(busy, { type: "busyPauseEnded" })).toEqual({
     status: "running",
     attempt: 1,

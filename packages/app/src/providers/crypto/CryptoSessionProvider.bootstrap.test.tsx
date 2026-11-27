@@ -295,3 +295,21 @@ test("a StrictMode remount keeps the running root bootstrap instead of starting 
     fixture.close();
   }
 });
+
+test("a busy root bootstrap stops once a root container exists", async () => {
+  const fixture = await createBootstrapFixture({
+    awaitQuery: false,
+    busyRefusals: Number.POSITIVE_INFINITY,
+  });
+  try {
+    await waitFor(() => expect(fixture.bootstrapCalls()).toBeGreaterThan(0));
+    act(() => fixture.tearleads.session.setContainerId("root-from-elsewhere"));
+    const callsWhenKnown = fixture.bootstrapCalls();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 1_500)));
+    expect(fixture.bootstrapCalls()).toBe(callsWhenKnown);
+    expect(fixture.tearleads.session.containerId).toBe("root-from-elsewhere");
+  } finally {
+    fixture.releaseQuery();
+    fixture.close();
+  }
+});
