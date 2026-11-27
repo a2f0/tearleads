@@ -58,3 +58,17 @@ test("falls back to neutral defaults without a host or a view", () => {
   const detached = document.createElement("div");
   expect(readCheckoutAppearance(detached).colorText).toBeTruthy();
 });
+
+test("resolves app control border and radius tokens when defined", () => {
+  const host = mountHost(`
+    :root {
+      --app-control-border: rgb(12, 34, 56);
+      --app-radius-control: 4px;
+    }
+  `);
+
+  const appearance = readCheckoutAppearance(host);
+
+  expect(appearance.colorBorder).toBe("rgb(12, 34, 56)");
+  expect(appearance.borderRadius).toBe("4px");
+});

@@ -1,0 +1,99 @@
+import { expect, test } from "bun:test";
+import { act, fireEvent } from "@testing-library/react";
+import {
+  forceMobileRoutedTier,
+  renderRoutedPane,
+} from "./routedPane.testUtils";
+import {
+  initialRoutedPaneOverlaysState,
+  isRoutedDrawerOpen,
+  isRoutedSidebarExpanded,
+  transitionRoutedPaneOverlays,
+} from "./routedPaneOverlaysMachine";
+
+test("routed overlay machine keeps mobile sidebar and drawer mutually exclusive", () => {
+  let state = initialRoutedPaneOverlaysState(false);
+  expect(state).toEqual({ status: "closed" });
+
+  state = transitionRoutedPaneOverlays(state, {
+    tier: "mobile",
+    type: "toggle-sidebar",
+  });
+  expect(state).toEqual({ status: "sidebar" });
+
+  state = transitionRoutedPaneOverlays(state, {
+    tier: "mobile",
+    type: "toggle-drawer",
+  });
+  expect(state).toEqual({ status: "drawer" });
+  expect(isRoutedSidebarExpanded(state)).toBe(false);
+  expect(isRoutedDrawerOpen(state)).toBe(true);
+
+  state = transitionRoutedPaneOverlays(state, {
+    tier: "mobile",
+    type: "toggle-sidebar",
+  });
+  expect(state).toEqual({ status: "sidebar" });
+  expect(isRoutedSidebarExpanded(state)).toBe(true);
+  expect(isRoutedDrawerOpen(state)).toBe(false);
+});
+
+test("routed overlay machine lets tablet sidebar coexist with drawer and resets on tier change", () => {
+  let state = initialRoutedPaneOverlaysState(true);
+  state = transitionRoutedPaneOverlays(state, {
+    tier: "tablet",
+    type: "toggle-drawer",
+  });
+  expect(state).toEqual({ status: "sidebar-and-drawer" });
+
+  const mobileState = transitionRoutedPaneOverlays(state, {
+    tier: "mobile",
+    type: "tier-changed",
+  });
+  expect(mobileState).toEqual({ status: "drawer" });
+
+  const tabletState = transitionRoutedPaneOverlays(state, {
+    tier: "tablet",
+    type: "tier-changed",
+  });
+  expect(tabletState).toEqual({ status: "sidebar" });
+});
+
+test("mobile sidebar and launcher sheet close each other and Escape restores focus", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    const sidebarButton = view.getByRole("button", { name: "Show Sidebar" });
+    const menuButton = view.getByRole("button", { name: "Menu" });
+    const sheet = view.container.querySelector(".routed-pane-sheet");
+
+    // Open mobile sidebar; then open launcher sheet -> sidebar closes.
+    fireEvent.click(sidebarButton);
+    expect(view.getByRole("dialog", { name: "Sidebar" })).toBeTruthy();
+
+    fireEvent.click(menuButton);
+    expect(sheet?.getAttribute("data-open")).toBe("true");
+    expect(view.queryByRole("dialog", { name: "Sidebar" })).toBeNull();
+
+    // Open mobile sidebar while launcher sheet is open -> sheet closes.
+    fireEvent.click(view.getByRole("button", { name: "Show Sidebar" }));
+    expect(view.getByRole("dialog", { name: "Sidebar" })).toBeTruthy();
+    expect(sheet?.getAttribute("data-open")).toBe("false");
+
+    // Pressing Escape dismisses the mobile sidebar and returns focus to the
+    // app bar's sidebar toggle button.
+    act(() => {
+      document.body.focus();
+    });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(view.queryByRole("dialog", { name: "Sidebar" })).toBeNull();
+    expect(document.activeElement).toBe(
+      view.getByRole("button", { name: "Show Sidebar" }),
+    );
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});

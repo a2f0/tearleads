@@ -3,7 +3,7 @@ import type {
   DomainSyncSnapshot,
   PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -28,7 +28,8 @@ export function WriteQueueDiscardConfirmDialog(params: {
   onConfirm: () => void;
 }) {
   const titleId = useId();
-  useModalEscapeAndFocusRestore(params.onCancel);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  useModalEscapeAndFocusRestore(params.onCancel, cancelButtonRef);
   return (
     <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
@@ -51,7 +52,9 @@ export function WriteQueueDiscardConfirmDialog(params: {
             {EXPLORER_LABELS.writeQueueDiscardConfirmBody}
           </MiniAppStatus>
           <MiniAppActions>
-            <MiniAppButton onClick={params.onCancel}>Cancel</MiniAppButton>
+            <MiniAppButton ref={cancelButtonRef} onClick={params.onCancel}>
+              Cancel
+            </MiniAppButton>
             <MiniAppButton type="submit" variant="danger">
               {EXPLORER_LABELS.writeQueueDiscardAction}
             </MiniAppButton>

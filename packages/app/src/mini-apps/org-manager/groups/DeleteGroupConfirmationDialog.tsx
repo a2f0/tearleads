@@ -1,5 +1,5 @@
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
-import { type FormEvent, useCallback, useId } from "react";
+import { type FormEvent, useId, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -25,12 +25,8 @@ function DeleteGroupConfirmationDialogOpen({
 }) {
   const titleId = useId();
   const messageId = useId();
-  const handleEscape = useCallback(() => {
-    if (!disabled) {
-      onCancel();
-    }
-  }, [disabled, onCancel]);
-  useModalEscapeAndFocusRestore(handleEscape);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  useModalEscapeAndFocusRestore(onCancel, cancelButtonRef);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -57,7 +53,11 @@ function DeleteGroupConfirmationDialogOpen({
             {GROUP_LABELS.deleteConfirmationMessageTail}
           </p>
           <MiniAppActions>
-            <MiniAppButton autoFocus onClick={onCancel} type="button">
+            <MiniAppButton
+              ref={cancelButtonRef}
+              onClick={onCancel}
+              type="button"
+            >
               {ORG_MANAGER_LABELS.cancel}
             </MiniAppButton>
             <MiniAppButton disabled={disabled} type="submit" variant="danger">

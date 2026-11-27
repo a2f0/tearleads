@@ -1,5 +1,5 @@
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
-import { type FormEvent, useCallback, useId } from "react";
+import { type FormEvent, useCallback, useId, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -36,12 +36,13 @@ function RevokeGrantConfirmationDialogOpen({
 }) {
   const titleId = useId();
   const messageId = useId();
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const handleEscape = useCallback(() => {
     if (!busy) {
       onCancel();
     }
   }, [busy, onCancel]);
-  useModalEscapeAndFocusRestore(handleEscape);
+  useModalEscapeAndFocusRestore(handleEscape, cancelButtonRef);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -87,7 +88,12 @@ function RevokeGrantConfirmationDialogOpen({
             </tbody>
           </MiniAppInfoTable>
           <MiniAppActions>
-            <MiniAppButton disabled={busy} onClick={onCancel} type="button">
+            <MiniAppButton
+              ref={cancelButtonRef}
+              disabled={busy}
+              onClick={onCancel}
+              type="button"
+            >
               {ORG_MANAGER_LABELS.cancel}
             </MiniAppButton>
             <MiniAppButton disabled={busy} type="submit" variant="danger">

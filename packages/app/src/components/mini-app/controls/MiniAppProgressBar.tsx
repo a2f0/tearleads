@@ -15,7 +15,9 @@ export function MiniAppProgressBar({
   percent: number;
   tone?: MiniAppProgressTone | undefined;
 }) {
-  const clamped = Math.max(0, Math.min(100, percent));
+  const clamped = Number.isFinite(percent)
+    ? Math.max(0, Math.min(100, percent))
+    : 0;
 
   return (
     <div

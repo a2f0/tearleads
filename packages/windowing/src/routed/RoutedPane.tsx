@@ -138,17 +138,7 @@ function RoutedPaneSurface({
     subscribeKeyboardVisibility,
   );
 
-  const {
-    closeDrawer,
-    closeSidebar,
-    dismissDrawer,
-    drawerOpen,
-    menuButtonRef,
-    moveLauncher,
-    sidebarExpanded,
-    toggleDrawer,
-    toggleSidebar,
-  } = useRoutedPaneOverlays({
+  const overlays = useRoutedPaneOverlays({
     initialSidebarExpanded: () =>
       initialRoutedSidebarExpanded(definition, tier, activeAppId),
     launcherPlacement,
@@ -156,7 +146,7 @@ function RoutedPaneSurface({
     onToggleLauncherPlacement,
     tier,
   });
-  const sidebarVisible = hasSidebar && sidebarExpanded;
+  const sidebarVisible = hasSidebar && overlays.sidebarExpanded;
 
   return (
     <section
@@ -169,24 +159,30 @@ function RoutedPaneSurface({
       <RoutedPaneAppBar
         activeAppId={activeAppId}
         hasSidebar={hasSidebar}
-        onToggleSidebar={toggleSidebar}
-        sidebarExpanded={sidebarExpanded}
+        onToggleSidebar={overlays.toggleSidebar}
+        sidebarButtonRef={overlays.sidebarButtonRef}
+        sidebarExpanded={overlays.sidebarExpanded}
         tier={tier}
       />
       <RoutedPaneNav
         activeAppId={activeAppId}
         appIds={appIds}
-        drawerOpen={drawerOpen}
+        drawerOpen={overlays.drawerOpen}
         launcherPlacement={launcherPlacement}
-        onCloseDrawer={dismissDrawer}
-        onNavigateRail={closeDrawer}
-        onToggleLauncherPlacement={moveLauncher}
+        onCloseDrawer={overlays.dismissDrawer}
+        onNavigateRail={overlays.closeDrawer}
+        onToggleLauncherPlacement={overlays.moveLauncher}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
         tier={tier}
       />
       {sidebarVisible && (
-        <RoutedPaneSidebar onClose={closeSidebar} tier={tier}>
+        <RoutedPaneSidebar
+          onClose={
+            tier === "mobile" ? overlays.dismissSidebar : overlays.closeSidebar
+          }
+          tier={tier}
+        >
           {sidebar}
         </RoutedPaneSidebar>
       )}
@@ -202,19 +198,19 @@ function RoutedPaneSurface({
         </div>
       )}
       <RoutedPaneTaskBar
-        drawerOpen={drawerOpen}
+        drawerOpen={overlays.drawerOpen}
         hidden={mobileKeyboardVisible}
         launcherPlacement={launcherPlacement}
-        menuButtonRef={menuButtonRef}
+        menuButtonRef={overlays.menuButtonRef}
         menuIcon={menuIcon}
         onOpenStartMenuSettings={
           onOpenStartMenuSettings &&
           (() => {
-            closeDrawer();
+            overlays.closeDrawer();
             onOpenStartMenuSettings();
           })
         }
-        onToggleDrawer={toggleDrawer}
+        onToggleDrawer={overlays.toggleDrawer}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
         tier={tier}

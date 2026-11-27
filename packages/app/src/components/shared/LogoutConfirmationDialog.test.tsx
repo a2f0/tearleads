@@ -79,3 +79,28 @@ test("does not confirm while busy", () => {
   fireEvent.submit(form);
   expect(confirmCalls).toEqual([]);
 });
+
+test("escape cancels when idle, is ignored while busy, and restores opener focus", () => {
+  const opener = document.createElement("button");
+  document.body.append(opener);
+  opener.focus();
+
+  try {
+    const busyView = renderDialog({ busy: true });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(busyView.getCancelCount()).toBe(0);
+    busyView.view.unmount();
+
+    opener.focus();
+    const idleView = renderDialog({ busy: false });
+    expect(document.activeElement).toBe(
+      idleView.view.getByRole("button", { name: "Cancel" }),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(idleView.getCancelCount()).toBe(1);
+    idleView.view.unmount();
+    expect(document.activeElement).toBe(opener);
+  } finally {
+    opener.remove();
+  }
+});

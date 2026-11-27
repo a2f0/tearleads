@@ -1,9 +1,6 @@
 /* Shared range slider control, styled across Chromium, Firefox, WebKit, and
-   forced-colors high-contrast mode. Keeps a 44px touch target in routed mode.
-   Also matches .explorer-document-history-slider so direct stylesheet tests
-   continue to target that class unchanged. */
-.mini-app-range,
-.explorer-document-history-slider {
+   forced-colors high-contrast mode. Keeps a 44px touch target in routed mode. */
+.mini-app-range {
   /* Fall back to solid ink when the browser cannot mix track colors. */
   --mini-app-range-track: var(--color-dark);
   --mini-app-range-thumb: var(--color-dark);
@@ -20,8 +17,7 @@
 }
 
 @supports (color: color-mix(in oklab, black, white)) {
-  .mini-app-range,
-  .explorer-document-history-slider {
+  .mini-app-range {
     --mini-app-range-track: color-mix(
       in oklab,
       var(--color-dark),
@@ -31,25 +27,21 @@
 }
 
 @supports not (color: color-mix(in oklab, black, white)) {
-  .mini-app-range::-webkit-slider-thumb,
-  .explorer-document-history-slider::-webkit-slider-thumb {
+  .mini-app-range::-webkit-slider-thumb {
     box-shadow: inset 0 0 0 2px var(--color-light);
   }
 
-  .mini-app-range::-moz-range-thumb,
-  .explorer-document-history-slider::-moz-range-thumb {
+  .mini-app-range::-moz-range-thumb {
     box-shadow: inset 0 0 0 2px var(--color-light);
   }
 }
 
-.mini-app-range:disabled,
-.explorer-document-history-slider:disabled {
+.mini-app-range:disabled {
   opacity: var(--opacity-disabled);
   cursor: default;
 }
 
-.mini-app-range::-webkit-slider-runnable-track,
-.explorer-document-history-slider::-webkit-slider-runnable-track {
+.mini-app-range::-webkit-slider-runnable-track {
   display: flex;
   align-items: center;
   height: var(--space-xs);
@@ -57,16 +49,14 @@
   background: var(--mini-app-range-track);
 }
 
-.mini-app-range::-moz-range-track,
-.explorer-document-history-slider::-moz-range-track {
+.mini-app-range::-moz-range-track {
   height: var(--space-xs);
   border: 0;
   border-radius: var(--space-xs);
   background: var(--mini-app-range-track);
 }
 
-.mini-app-range::-webkit-slider-thumb,
-.explorer-document-history-slider::-webkit-slider-thumb {
+.mini-app-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: var(--mini-app-range-thumb-size);
@@ -76,8 +66,7 @@
   background: var(--mini-app-range-thumb);
 }
 
-.mini-app-range::-moz-range-thumb,
-.explorer-document-history-slider::-moz-range-thumb {
+.mini-app-range::-moz-range-thumb {
   width: var(--mini-app-range-thumb-size);
   height: var(--mini-app-range-thumb-size);
   border: 0;
@@ -86,8 +75,7 @@
 }
 
 @media (forced-colors: active) {
-  .mini-app-range,
-  .explorer-document-history-slider {
+  .mini-app-range {
     -webkit-appearance: auto;
     appearance: auto;
     accent-color: auto;
@@ -97,16 +85,11 @@
   .mini-app-range::-webkit-slider-runnable-track,
   .mini-app-range::-webkit-slider-thumb,
   .mini-app-range::-moz-range-track,
-  .mini-app-range::-moz-range-thumb,
-  .explorer-document-history-slider::-webkit-slider-runnable-track,
-  .explorer-document-history-slider::-webkit-slider-thumb,
-  .explorer-document-history-slider::-moz-range-track,
-  .explorer-document-history-slider::-moz-range-thumb {
+  .mini-app-range::-moz-range-thumb {
     all: revert;
   }
 
-  .mini-app-range:disabled,
-  .explorer-document-history-slider:disabled {
+  .mini-app-range:disabled {
     opacity: revert;
   }
 }

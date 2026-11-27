@@ -9,6 +9,8 @@ import {
   MiniAppField,
   MiniAppFieldGroup,
   MiniAppInput,
+  MiniAppProgressBar,
+  MiniAppRange,
   MiniAppSelect,
   MiniAppStatus,
   MiniAppTextarea,
@@ -405,4 +407,56 @@ test("mini app status preserves element choice and tone classes", () => {
   expect(status.className).toBe(
     "mini-app-status mini-app-status--error custom-status",
   );
+});
+
+test("mini app progress bar clamps bounds, rejects non-finite values, and applies tone", () => {
+  const view = render(
+    <>
+      <MiniAppProgressBar label="Low" percent={-15} />
+      <MiniAppProgressBar label="High" percent={140} tone="muted" />
+      <MiniAppProgressBar
+        className="custom-progress"
+        label="Invalid"
+        percent={Number.NaN}
+        tone="error"
+      />
+    </>,
+  );
+
+  const low = view.getByRole("progressbar", { name: "Low" });
+  const high = view.getByRole("progressbar", { name: "High" });
+  const invalid = view.getByRole("progressbar", { name: "Invalid" });
+
+  expect(low.getAttribute("aria-valuenow")).toBe("0");
+  expect((low.firstElementChild as HTMLElement).style.width).toBe("0%");
+
+  expect(high.getAttribute("aria-valuenow")).toBe("100");
+  expect(high.className).toBe("mini-app-progress mini-app-progress--muted");
+  expect((high.firstElementChild as HTMLElement).style.width).toBe("100%");
+
+  expect(invalid.getAttribute("aria-valuenow")).toBe("0");
+  expect(invalid.className).toBe(
+    "mini-app-progress mini-app-progress--error custom-progress",
+  );
+  expect((invalid.firstElementChild as HTMLElement).style.width).toBe("0%");
+});
+
+test("mini app range renders a range input with merged class name and forwarded ref", () => {
+  const rangeRef = createRef<HTMLInputElement>();
+  const view = render(
+    <MiniAppRange
+      aria-label="Zoom"
+      className="custom-range"
+      max={4}
+      min={1}
+      ref={rangeRef}
+      value={2}
+      onChange={() => undefined}
+    />,
+  );
+
+  const slider = view.getByRole("slider", { name: "Zoom" });
+  expect(slider.getAttribute("type")).toBe("range");
+  expect(slider.className).toBe("mini-app-range custom-range");
+  expect(rangeRef.current).toBe(slider as HTMLInputElement);
 });

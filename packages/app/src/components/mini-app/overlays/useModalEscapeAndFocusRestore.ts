@@ -1,16 +1,25 @@
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 
 /**
  * The app's modal dismiss-and-focus contract: close on Escape, move focus to
- * the close button on open, and restore it to the triggering element on close,
- * so keyboard focus is never dropped to the document body. The active element
- * is narrowed with instanceof (not a cast) so `.focus()` is only called on
- * something that actually has it.
+ * the initial focus target on open, and restore it to the triggering element
+ * on close, so keyboard focus is never dropped to the document body.
+ *
+ * `previouslyFocusedRef` captures `document.activeElement` before React commits
+ * the dialog DOM (and any `autoFocus` attribute inside it), so focus restoration
+ * still returns to the triggering control outside the dialog rather than to an
+ * unmounting control inside it.
  */
 export function useModalEscapeAndFocusRestore(
   onClose: () => void,
-  closeButtonRef?: RefObject<HTMLButtonElement | null> | undefined,
+  initialFocusRef?: RefObject<HTMLElement | null> | undefined,
 ): void {
+  const previouslyFocusedRef = useRef<Element | null | undefined>(undefined);
+  if (previouslyFocusedRef.current === undefined) {
+    previouslyFocusedRef.current =
+      typeof document !== "undefined" ? document.activeElement : null;
+  }
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !event.defaultPrevented) {
@@ -25,12 +34,15 @@ export function useModalEscapeAndFocusRestore(
   }, [onClose]);
 
   useEffect(() => {
-    const previouslyFocused = document.activeElement;
-    closeButtonRef?.current?.focus();
+    const previouslyFocused = previouslyFocusedRef.current;
+    initialFocusRef?.current?.focus();
     return () => {
-      if (previouslyFocused instanceof HTMLElement) {
+      if (
+        previouslyFocused instanceof HTMLElement &&
+        previouslyFocused.isConnected
+      ) {
         previouslyFocused.focus();
       }
     };
-  }, [closeButtonRef]);
+  }, [initialFocusRef]);
 }

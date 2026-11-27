@@ -1,4 +1,4 @@
-import { useCallback, useId } from "react";
+import { useCallback, useId, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -39,13 +39,14 @@ function ExplorerPurgeProgressDialog(params: {
 }) {
   const { onCancel, onClose, run } = params;
   const titleId = useId();
+  const actionButtonRef = useRef<HTMLButtonElement>(null);
   const isRunning = run.status === "running";
   const handleEscape = useCallback(() => {
     if (!isRunning) {
       onClose();
     }
   }, [isRunning, onClose]);
-  useModalEscapeAndFocusRestore(handleEscape);
+  useModalEscapeAndFocusRestore(handleEscape, actionButtonRef);
 
   const total = run.progress?.totalCount ?? 0;
   const finished = run.progress
@@ -77,11 +78,19 @@ function ExplorerPurgeProgressDialog(params: {
         </MiniAppStatus>
         <MiniAppActions>
           {isRunning ? (
-            <MiniAppButton onClick={onCancel} type="button">
+            <MiniAppButton
+              ref={actionButtonRef}
+              onClick={onCancel}
+              type="button"
+            >
               {EXPLORER_LABELS.purgeProgressStopAction}
             </MiniAppButton>
           ) : (
-            <MiniAppButton onClick={onClose} type="button">
+            <MiniAppButton
+              ref={actionButtonRef}
+              onClick={onClose}
+              type="button"
+            >
               {EXPLORER_LABELS.purgeProgressCloseAction}
             </MiniAppButton>
           )}
