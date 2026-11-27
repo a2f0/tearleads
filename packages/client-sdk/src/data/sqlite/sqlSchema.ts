@@ -9,6 +9,14 @@ export {
   migrateLocalSchema,
   withLocalSchemaMigrationLock,
 } from "./migrations/migrateLocalSchema";
+export {
+  type ClientSqlMutationObserver,
+  type ClientSqlStatementObserver,
+  type ObservedClientSqlMutation,
+  type ObservedClientSqlStatement,
+  observeClientSqlMutations,
+  observeClientSqlStatements,
+} from "./observer/sqlObserver";
 export type {
   ExecSql,
   ExecSqlClientLike,

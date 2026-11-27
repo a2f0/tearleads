@@ -1,3 +1,4 @@
+import { formatClientSqlMarkdown } from "../statements/clientSqlSummary";
 import { formatPayloadAuditMarkdown } from "./payloadMarkdown";
 import type { CanaryReport } from "./report";
 import {
@@ -176,6 +177,21 @@ function wsHintsSection(report: CanaryReport): string[] {
   ];
 }
 
+function clientSqlSection(report: CanaryReport): string[] {
+  const lines: string[] = [];
+  for (const run of report.runs) {
+    if (run.status !== "passed" || run.clientSql?.status !== "captured")
+      continue;
+    lines.push(
+      ...formatClientSqlMarkdown(
+        `Client SQLite: ${run.canary} (#${run.sample})`,
+        run.clientSql.summary,
+      ),
+    );
+  }
+  return lines;
+}
+
 function payloadAuditSection(report: CanaryReport): string[] {
   const lines: string[] = [];
   for (const run of report.runs) {
@@ -225,6 +241,7 @@ export function formatCanaryReport(report: CanaryReport): string {
   lines.push(
     ...ceilingDriftSection(report),
     ...wsHintsSection(report),
+    ...clientSqlSection(report),
     ...payloadAuditSection(report),
   );
   return `${lines.join("\n")}\n`;
