@@ -143,10 +143,11 @@ async function requireSegmentContinuesStage(
 
 /**
  * A commit extends only peers its writer owns or that nobody does
- * (`claimStagedPeers`), so a segment that extends another user's peer now
- * belongs to a stage that could not commit as things stand, and is refused
- * before it is stored. This read holds no document lock: the commit's own
- * check, under the head lock, is the one that decides.
+ * (`assertStagedBaselinePromotable`), so a segment that extends another
+ * user's peer now belongs to a stage that could not commit as things
+ * stand, and is refused before it is stored. This read holds no document
+ * lock: the commit's own check, under the head lock, is the one that
+ * decides.
  */
 async function assertSegmentExtendsNoForeignPeer(
   executor: DatabaseTransaction,
