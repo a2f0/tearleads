@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
 import { createDatabaseWorkerConnectionFactory } from "../src/databaseConnections";
-import type { WorkerMethod, WorkerRequest, WorkerResponse } from "../src/types";
+import {
+  DATABASE_DELETED_MESSAGE,
+  WORKER_DATABASE_DELETED_MESSAGE_TYPE,
+  type WorkerMethod,
+  type WorkerRequest,
+  type WorkerResponse,
+} from "../src/types";
 import {
   type DatabaseWorkerScope,
   registerDatabaseWorker,
@@ -353,6 +359,39 @@ test("a database opens only after every overlapping storage wipe finishes", asyn
       Object.defineProperty(globalThis, "navigator", previousNavigator);
     } else {
       Reflect.deleteProperty(globalThis, "navigator");
+    }
+  }
+});
+
+test("an open attaching during another connection's delete either sees the delete or opens cleanly", async () => {
+  for (let ticks = 0; ticks <= 10; ticks += 1) {
+    const createOptions = createDatabaseWorkerConnectionFactory();
+    const notices: unknown[] = [];
+    const first = createOptions();
+    const second = createOptions((notice) => notices.push(notice));
+    const dbName = `attach-delete-${ticks}-${crypto.randomUUID()}.db`;
+
+    await first.onInit?.(initOptions(dbName));
+    await first.onExec?.({ sql: "CREATE TABLE items (value INTEGER)" });
+
+    const secondInit = second.onInit?.(initOptions(dbName));
+    for (let tick = 0; tick < ticks; tick += 1) {
+      await Promise.resolve();
+    }
+    const firstDelete = first.onDelete?.();
+
+    await Promise.all([secondInit, firstDelete]);
+
+    if (notices.length > 0) {
+      expect(notices).toEqual([{ type: WORKER_DATABASE_DELETED_MESSAGE_TYPE }]);
+      await expect(second.onExec?.({ sql: "SELECT 1" })).rejects.toThrow(
+        DATABASE_DELETED_MESSAGE,
+      );
+    } else {
+      expect(await second.onExec?.({ sql: "SELECT 1 AS value" })).toEqual([
+        { value: 1 },
+      ]);
+      await second.onClose?.();
     }
   }
 });

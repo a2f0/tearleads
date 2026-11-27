@@ -30,6 +30,7 @@ the host-facing contract. It may depend on `@tearleads/sqlite-instance` only.
 | `./types` | Request, response, cipher, and persistence types |
 | `./worker` | `registerDatabaseWorker` for a worker entry module |
 | `./worker-core` | Request handling without the worker registration |
+| `./database-connections` | Shared connection registry and transaction lease factory |
 | `./default-thread` | A ready-made worker entry module |
 | `./load-sqlite3` | Load SQLite and open, close, or delete a database |
 | `./purge-opfs-database` | Remove a database's OPFS storage |

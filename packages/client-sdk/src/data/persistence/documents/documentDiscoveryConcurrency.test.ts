@@ -1,21 +1,18 @@
 import { expect, test } from "bun:test";
-import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
-import { initTestSqliteDatabase } from "@tearleads/test-utils";
-import { createClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import type { SqlArrayRow, SqlRow } from "../../sqlite/sqlSchema";
+import type { DatabaseConnectionRegistryOptions } from "@tearleads/sqlite-worker/database-connections";
+import { createSharedWorkerSqliteConnections } from "../../../../test/helpers/data/sharedWorkerSqliteConnections";
+import { isDatabaseTransactionBusyError } from "../../sqlite/availability/databaseUnavailable";
 import { deleteDocumentPlacements } from "../container-contents/documentContainerProjectionPersistence";
 import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
-async function openCoordinatedDocumentConnections() {
-  const db = await initTestSqliteDatabase({
-    cipher: "chacha20",
-    dbName: `/${crypto.randomUUID()}.db`,
-    key: "document-discovery-race",
-  });
-  let transactionOwner: symbol | null = null;
-  let transactionReleased: Promise<void> = Promise.resolve();
-  let releaseTransaction = () => {};
+async function openCoordinatedDocumentConnections(
+  options: {
+    readonly leaseBounds?:
+      | DatabaseConnectionRegistryOptions["leaseBounds"]
+      | undefined;
+  } = {},
+) {
   let firstReadArmed = false;
   let releaseFirstRead = () => {};
   let firstReadReleased: Promise<void> = Promise.resolve();
@@ -26,56 +23,31 @@ async function openCoordinatedDocumentConnections() {
     signalSecondBegin = resolve;
   });
 
-  const createRuntime = (role: "first" | "second") => {
-    const owner = Symbol(role);
-    return createClientSQLitePersistenceRuntime({
-      exec: async (options) => {
-        const command = options.sql.trimStart().toUpperCase();
-        const beginsTransaction = command.startsWith("BEGIN");
-        const endsTransaction =
-          command.startsWith("COMMIT") || command.startsWith("ROLLBACK");
-        if (beginsTransaction) {
-          if (role === "second") signalSecondBegin();
-          while (transactionOwner !== null && transactionOwner !== owner) {
-            await transactionReleased;
-          }
-          if (transactionOwner === null) {
-            transactionOwner = owner;
-            transactionReleased = new Promise<void>((resolve) => {
-              releaseTransaction = resolve;
-            });
-          }
-        } else {
-          while (transactionOwner !== null && transactionOwner !== owner) {
-            await transactionReleased;
-          }
-        }
-        try {
-          const rows = execDatabaseStatement(db, options) as Array<
-            SqlRow | SqlArrayRow
-          >;
-          if (
-            role === "first" &&
-            firstReadArmed &&
-            command.startsWith("SELECT") &&
-            command.includes('"SNAPSHOT_END_VERSION"')
-          ) {
-            firstReadArmed = false;
-            signalFirstRead();
-            await firstReadReleased;
-          }
-          return { rows };
-        } finally {
-          if (endsTransaction && transactionOwner === owner) {
-            transactionOwner = null;
-            releaseTransaction();
-          }
-        }
-      },
-    });
-  };
-  const first = createRuntime("first");
+  const shared = createSharedWorkerSqliteConnections({
+    afterExec: async ({ command, role }) => {
+      if (
+        role === "first" &&
+        firstReadArmed &&
+        command.startsWith("SELECT") &&
+        command.includes('"SNAPSHOT_END_VERSION"')
+      ) {
+        firstReadArmed = false;
+        signalFirstRead();
+        await firstReadReleased;
+      }
+    },
+    beforeExec: ({ command, role }) => {
+      if (role === "second" && command.startsWith("BEGIN")) {
+        signalSecondBegin();
+      }
+    },
+    key: "document-discovery-race",
+    leaseBounds: options.leaseBounds,
+  });
+
+  const first = await shared.connect("first");
   await sqlDocumentsPersistence.ensureSchema(first.execSql);
+  const second = await shared.connect("second");
   return {
     armFirstDocumentRead() {
       firstReadArmed = true;
@@ -87,9 +59,9 @@ async function openCoordinatedDocumentConnections() {
       });
       return { firstRead, releaseFirstRead };
     },
-    close: () => db.close(),
+    close: () => shared.close(),
     first,
-    second: createRuntime("second"),
+    second,
     secondBegin,
   };
 }
@@ -171,7 +143,7 @@ test.each(["discovery", "relink"] as const)(
       });
     } finally {
       releasePausedRead();
-      race.close();
+      await race.close();
     }
   },
 );
@@ -247,6 +219,68 @@ test("discovery cannot recreate a document after its purge checkpoint commits", 
     ).resolves.toBeNull();
   } finally {
     releasePurge();
-    race.close();
+    await race.close();
+  }
+});
+
+test("a busy refusal behind an in-flight purge is not a rollback verdict and retries cleanly", async () => {
+  const race = await openCoordinatedDocumentConnections({
+    leaseBounds: { idleMs: 60_000, waitMs: 50 },
+  });
+  const documentId = "busy-discovery-document";
+  let releasePurge = () => {};
+  const purgeReleased = new Promise<void>((resolve) => {
+    releasePurge = resolve;
+  });
+  let signalPurgeLocked = () => {};
+  const purgeLocked = new Promise<void>((resolve) => {
+    signalPurgeLocked = resolve;
+  });
+
+  try {
+    const purge = sqlDocumentsPersistence.deleteDocumentSideRowsIfAbsent(
+      race.first.execSql,
+      "busy-local-document",
+      documentId,
+      async () => {
+        signalPurgeLocked();
+        await purgeReleased;
+      },
+      deleteDocumentPlacements,
+    );
+    await purgeLocked;
+
+    const refused = await sqlDocumentsPersistence
+      .upsertDiscoveredDocument(race.second.execSql, {
+        accessEpoch: 1,
+        containerId: "container",
+        createdAt: "2026-08-26T00:00:00.000Z",
+        documentId,
+        linkedContainerIds: ["container"],
+      })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+    expect(isDatabaseTransactionBusyError(refused)).toBe(true);
+    expect(refused).not.toMatchObject({ code: "rollback" });
+
+    releasePurge();
+    await expect(purge).resolves.toBe(true);
+
+    const retried = await sqlDocumentsPersistence.upsertDiscoveredDocument(
+      race.second.execSql,
+      {
+        accessEpoch: 1,
+        containerId: "container",
+        createdAt: "2026-08-26T00:00:00.000Z",
+        documentId,
+        linkedContainerIds: ["container"],
+      },
+    );
+    expect(retried.documentId).toBe(documentId);
+  } finally {
+    releasePurge();
+    await race.close();
   }
 });

@@ -133,6 +133,6 @@ test("recovery generation fences stale conflict and response settlement", async 
     ).resolves.toEqual(pendingBeforeRecovery);
   } finally {
     releaseRecovery();
-    close();
+    await close();
   }
 });
