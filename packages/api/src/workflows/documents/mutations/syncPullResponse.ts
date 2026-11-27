@@ -9,7 +9,6 @@ import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES } from "@tearleads/validators/uti
 import type { StoredDocumentContentKeyBundle } from "../../../access/read/documentContentKeyStore";
 import {
   resolveBaselineRedirectAfterSequence,
-  selectServedSyncUpdateEntries,
   selectServedSyncUpdates,
 } from "../../../documents/documentSyncBaselineRedirect";
 import { DocumentMutationError, documentSyncStateStale } from "./errors";
@@ -56,39 +55,31 @@ export async function listMissingSyncUpdatesForResponse(input: {
   readonly contentKeyBundle: StoredDocumentContentKeyBundle;
   readonly documentId: string;
   readonly executor: DatabaseSession;
-  readonly pullPagePlan: SyncPullPagePlan | null;
+  readonly pullPagePlan: SyncPullPagePlan;
   readonly request: DocumentSyncRequest;
 }) {
   const rawHistoryRequested = input.request.historyMode === "raw";
-  const effectivePullPagePlan =
-    input.pullPagePlan === null
-      ? null
-      : {
-          ...input.pullPagePlan,
-          afterSequence: rawHistoryRequested
-            ? input.pullPagePlan.afterSequence
-            : await resolveBaselineRedirectAfterSequence({
-                afterSequence: input.pullPagePlan.afterSequence,
-                contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
-                documentId: input.documentId,
-                executor: input.executor,
-                firstPage: input.request.pullCursor === undefined,
-                localVersionVector: input.request.localVersionVector,
-                upperBoundSequence: input.pullPagePlan.upperBoundSequence,
-              }),
-        };
+  const effectivePullPagePlan: SyncPullPagePlan = {
+    ...input.pullPagePlan,
+    afterSequence: rawHistoryRequested
+      ? input.pullPagePlan.afterSequence
+      : await resolveBaselineRedirectAfterSequence({
+          afterSequence: input.pullPagePlan.afterSequence,
+          contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+          documentId: input.documentId,
+          executor: input.executor,
+          firstPage: input.request.pullCursor === undefined,
+          localVersionVector: input.request.localVersionVector,
+          upperBoundSequence: input.pullPagePlan.upperBoundSequence,
+        }),
+  };
   const missingUpdateResult = await listMissingSyncUpdateEntries({
     documentId: input.documentId,
     executor: input.executor,
     expectedTargetHash: input.request.expectedTargetHash,
     localVersionVector: input.request.localVersionVector,
     maxPageUpdates: input.request.maxPageUpdates,
-    // The paged sync already checked this transaction before freezing its
-    // upper bound. The unpaged reader still needs its sole assertion.
-    minLsn: effectivePullPagePlan === null ? input.request.minLsn : undefined,
-    ...(effectivePullPagePlan === null
-      ? {}
-      : { pullPage: effectivePullPagePlan }),
+    pullPage: effectivePullPagePlan,
   });
   const missingUpdateEntries = missingUpdateResult.entries;
   if (
@@ -102,10 +93,6 @@ export async function listMissingSyncUpdatesForResponse(input: {
       "Document content key changed while building sync response",
     );
   }
-  // Readers behind a rotation receive the current-epoch baseline instead of
-  // older ciphertext only when that authenticated baseline covers every
-  // omitted update. The sequence ceiling keeps a newer concurrent baseline
-  // from redirecting a snapshot that cannot include it.
   const servedUpdateEntries = rawHistoryRequested
     ? selectServedSyncUpdates({
         baselineCoverage: null,
@@ -113,17 +100,10 @@ export async function listMissingSyncUpdatesForResponse(input: {
         entries: missingUpdateEntries,
         historyMode: "raw",
       })
-    : effectivePullPagePlan === null
-      ? await selectServedSyncUpdateEntries({
-          currentContentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
-          documentId: input.documentId,
-          entries: missingUpdateEntries,
-          executor: input.executor,
-        })
-      : missingUpdateEntries;
+    : missingUpdateEntries;
   return {
     entries: servedUpdateEntries,
-    page: "page" in missingUpdateResult ? missingUpdateResult.page : undefined,
+    page: missingUpdateResult.page,
   };
 }
 

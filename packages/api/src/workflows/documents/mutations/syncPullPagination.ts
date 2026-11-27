@@ -287,9 +287,12 @@ export async function resolveSyncPullPagePlan(input: {
     readonly upperBoundSequence: number;
   }>;
   readonly upperBound: DocumentUpdateCursorPosition | null;
-}): Promise<SyncPullPagePlan | null> {
+}): Promise<SyncPullPagePlan> {
   if (input.request.supportsPullPagination !== true) {
-    return null;
+    throw new DocumentMutationError(
+      "Paginated document pull support is required",
+      400,
+    );
   }
   if (input.request.pullCursor === undefined) {
     const upperBoundSequence = input.upperBound?.sequence ?? 0;

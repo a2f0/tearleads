@@ -26,16 +26,11 @@ import {
   traceSyncQueries,
   updateUpperBoundIndex,
 } from "../../../test/helpers/syncQueryTrace";
-import { getDocumentContentKeyBundle } from "../../access/read/documentContentKeyStore";
 import { readCurrentCommitLsn } from "../../documents/commitLsn";
-import {
-  listMissingDocumentUpdatePage,
-  listMissingDocumentUpdates,
-} from "../../documents/documentUpdateStore";
+import { listMissingDocumentUpdatePage } from "../../documents/documentUpdateStore";
 import { createRouteApp } from "../../routeApp";
 import { bindBlobAttachment } from "../../services/blobs/blobMutations";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
-import { listMissingSyncUpdatesForResponse } from "../../workflows/documents/mutations/syncPullResponse";
 
 const unreachableMinLsn = "FFFFFFFF/FFFFFFFF";
 const minLsnError = "Requested minimum commit LSN has not been reached";
@@ -167,45 +162,21 @@ test("stale sync state still takes precedence over an unsatisfied minLsn", async
   expect(await storedUpdates(document.id)).toEqual([]);
 });
 
-test("direct page, unpaged and unpaged response readers retain their minimum-LSN guard", async () => {
-  const { document, request } = await fixture();
-  const contentKeyBundle = await getDocumentContentKeyBundle(
-    document.id,
-    document.contentKeyEpoch,
-    db,
+test("direct page reader retains its minimum-LSN guard", async () => {
+  const { document } = await fixture();
+  const { events, result } = await traceSyncQueries(db, () =>
+    listMissingDocumentUpdatePage(db, {
+      afterSequence: 0,
+      documentId: document.id,
+      localVersionVector: null,
+      maxSerializedBytes: 100_000,
+      maxUpdates: 64,
+      minLsn: unreachableMinLsn,
+      upperBoundSequence: 0,
+    }).catch((error: unknown) => error),
   );
-  if (!contentKeyBundle) throw new Error("Expected stored content-key bundle");
-  const input = {
-    documentId: document.id,
-    localVersionVector: null,
-    minLsn: unreachableMinLsn,
-  };
-  const readers = [
-    () =>
-      listMissingDocumentUpdatePage(db, {
-        ...input,
-        afterSequence: 0,
-        upperBoundSequence: 0,
-        maxUpdates: 64,
-        maxSerializedBytes: 100_000,
-      }),
-    () => listMissingDocumentUpdates(db, input),
-    () =>
-      listMissingSyncUpdatesForResponse({
-        contentKeyBundle,
-        documentId: document.id,
-        executor: db,
-        pullPagePlan: null,
-        request: { ...request, minLsn: unreachableMinLsn },
-      }),
-  ];
-  for (const read of readers) {
-    const { events, result } = await traceSyncQueries(db, () =>
-      read().catch((error: unknown) => error),
-    );
-    expect(result).toMatchObject({ status: 503, message: minLsnError });
-    expect(commitLsnEvents(events).map(({ scope }) => scope)).toEqual(["root"]);
-  }
+  expect(result).toMatchObject({ status: 503, message: minLsnError });
+  expect(commitLsnEvents(events).map(({ scope }) => scope)).toEqual(["root"]);
 });
 
 test("an unsatisfied carried-sync minLsn rolls back binding and update", async () => {

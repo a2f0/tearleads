@@ -18,7 +18,6 @@ import {
 import {
   type DocumentUpdatePageWriteHeader,
   loadDocumentUpdatePageRows,
-  loadStoredDocumentUpdates,
   type StoredDocumentUpdate,
 } from "./documentUpdatePageRows";
 
@@ -203,30 +202,6 @@ async function listMissingDocumentUpdateCandidates(
   return candidates;
 }
 
-async function loadDocumentUpdatesByCandidate(
-  executor: DatabaseSession,
-  candidates: readonly MissingDocumentUpdateCandidate[],
-): Promise<StoredDocumentUpdate[]> {
-  if (candidates.length === 0) {
-    return [];
-  }
-  const rows = await loadStoredDocumentUpdates(
-    executor,
-    candidates.map(({ id }) => id),
-  );
-  const byId = new Map(rows.map((row) => [row.id, row]));
-  return candidates.map((candidate) => {
-    const row = byId.get(candidate.id);
-    if (!row || row.sequence !== candidate.sequence) {
-      throw new DocumentUpdateReadError(
-        "Document update changed while loading page; retry",
-        409,
-      );
-    }
-    return row;
-  });
-}
-
 export async function readDocumentUpdateUpperBound(
   executor: DatabaseSession,
   documentId: string,
@@ -285,19 +260,6 @@ export async function resolveDocumentUpdateCursorBounds(
     throw new DocumentUpdateReadError("Document pull cursor is invalid", 400);
   }
   return { afterSequence, upperBoundSequence };
-}
-
-export async function listMissingDocumentUpdates(
-  executor: DatabaseSession,
-  input: {
-    documentId: string;
-    localVersionVector: string | null;
-    minLsn?: string | undefined;
-  },
-): Promise<StoredDocumentUpdate[]> {
-  await assertMinLsnSatisfied(executor, input.minLsn);
-  const candidates = await listMissingDocumentUpdateCandidates(executor, input);
-  return loadDocumentUpdatesByCandidate(executor, candidates);
 }
 
 export async function hasMissingDocumentUpdatesThroughSequence(
