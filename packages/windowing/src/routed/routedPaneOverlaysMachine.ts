@@ -43,19 +43,19 @@ export function isRoutedDrawerOpen(state: RoutedPaneOverlaysState): boolean {
 }
 
 function overlaysStateFromFlags(
+  current: RoutedPaneOverlaysState,
   sidebarExpanded: boolean,
   drawerOpen: boolean,
 ): RoutedPaneOverlaysState {
-  if (sidebarExpanded && drawerOpen) {
-    return { status: "sidebar-and-drawer" };
-  }
-  if (sidebarExpanded) {
-    return { status: "sidebar" };
-  }
-  if (drawerOpen) {
-    return { status: "drawer" };
-  }
-  return { status: "closed" };
+  const nextStatus: RoutedPaneOverlaysState["status"] =
+    sidebarExpanded && drawerOpen
+      ? "sidebar-and-drawer"
+      : sidebarExpanded
+        ? "sidebar"
+        : drawerOpen
+          ? "drawer"
+          : "closed";
+  return current.status === nextStatus ? current : { status: nextStatus };
 }
 
 export function transitionRoutedPaneOverlays(
@@ -70,27 +70,31 @@ export function transitionRoutedPaneOverlays(
       const nextSidebar = !sidebarExpanded;
       const nextDrawer =
         nextSidebar && event.tier === "mobile" ? false : drawerOpen;
-      return overlaysStateFromFlags(nextSidebar, nextDrawer);
+      return overlaysStateFromFlags(state, nextSidebar, nextDrawer);
     }
     case "close-sidebar":
-      return overlaysStateFromFlags(false, drawerOpen);
+      return overlaysStateFromFlags(state, false, drawerOpen);
     case "toggle-drawer": {
       const nextDrawer = !drawerOpen;
       const nextSidebar =
         nextDrawer && event.tier === "mobile" ? false : sidebarExpanded;
-      return overlaysStateFromFlags(nextSidebar, nextDrawer);
+      return overlaysStateFromFlags(state, nextSidebar, nextDrawer);
     }
     case "close-drawer":
-      return overlaysStateFromFlags(sidebarExpanded, false);
+      return overlaysStateFromFlags(state, sidebarExpanded, false);
     case "set-drawer-open": {
       const nextSidebar =
         event.open && event.tier === "mobile" ? false : sidebarExpanded;
-      return overlaysStateFromFlags(nextSidebar, event.open);
+      return overlaysStateFromFlags(state, nextSidebar, event.open);
     }
     case "tier-changed":
       if (event.tier === "tablet") {
-        return overlaysStateFromFlags(sidebarExpanded, false);
+        return overlaysStateFromFlags(state, sidebarExpanded, false);
       }
-      return overlaysStateFromFlags(false, drawerOpen);
+      return overlaysStateFromFlags(state, false, drawerOpen);
+    default: {
+      const exhaustive: never = event;
+      return exhaustive;
+    }
   }
 }

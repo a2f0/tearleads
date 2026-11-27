@@ -3,7 +3,7 @@ import {
   createDomainScope,
   getDomainSyncCoordinatorSnapshot,
 } from "@tearleads/client-sdk";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import {
   ARCHIVE_NODE,
@@ -12,7 +12,10 @@ import {
   operation,
 } from "../../../../../test/helpers/explorer/syncPanelFixtures";
 import { EXPLORER_LABELS } from "../../labels";
-import { ExplorerWriteQueueEntryView } from "./ExplorerWriteQueueViews";
+import {
+  ExplorerWriteQueueEntryView,
+  WriteQueueDiscardConfirmDialog,
+} from "./ExplorerWriteQueueViews";
 
 afterEach(cleanup);
 
@@ -123,3 +126,33 @@ test.each([
     ).toBeTruthy();
   },
 );
+
+test("write queue discard dialog focuses cancel, closes on Escape, and restores focus", () => {
+  const opener = document.createElement("button");
+  document.body.append(opener);
+  opener.focus();
+
+  try {
+    let cancelCount = 0;
+    const view = render(
+      <WriteQueueDiscardConfirmDialog
+        item={item()}
+        onCancel={() => {
+          cancelCount += 1;
+        }}
+        onConfirm={() => undefined}
+      />,
+    );
+
+    expect(document.activeElement).toBe(
+      view.getByRole("button", { name: "Cancel" }),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(cancelCount).toBe(1);
+
+    view.unmount();
+    expect(document.activeElement).toBe(opener);
+  } finally {
+    opener.remove();
+  }
+});

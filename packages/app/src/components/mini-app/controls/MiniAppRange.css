@@ -82,9 +82,20 @@
     background: revert;
   }
 
-  .mini-app-range::-webkit-slider-runnable-track,
-  .mini-app-range::-webkit-slider-thumb,
-  .mini-app-range::-moz-range-track,
+  /* Separate rules per vendor pseudo-element: CSS invalidates an entire
+     selector list if any engine does not recognize another vendor's pseudo. */
+  .mini-app-range::-webkit-slider-runnable-track {
+    all: revert;
+  }
+
+  .mini-app-range::-webkit-slider-thumb {
+    all: revert;
+  }
+
+  .mini-app-range::-moz-range-track {
+    all: revert;
+  }
+
   .mini-app-range::-moz-range-thumb {
     all: revert;
   }

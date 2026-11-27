@@ -139,6 +139,7 @@ function RoutedPaneSurface({
   );
 
   const overlays = useRoutedPaneOverlays({
+    hasSidebar,
     initialSidebarExpanded: () =>
       initialRoutedSidebarExpanded(definition, tier, activeAppId),
     launcherPlacement,

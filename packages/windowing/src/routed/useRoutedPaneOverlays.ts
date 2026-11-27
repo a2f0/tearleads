@@ -12,6 +12,9 @@ export function invertBoolean(value: boolean): boolean {
   return !value;
 }
 
+// Listen on `window` (bubble phase) so any in-app modal or menu listening on
+// `document` handles Escape first and calls `preventDefault()`, preventing a
+// background shell overlay from stealing Escape or focus underneath a dialog.
 function useEscapeToDismissOverlay(open: boolean, onDismiss: () => void) {
   useEffect(() => {
     if (!open) {
@@ -23,8 +26,8 @@ function useEscapeToDismissOverlay(open: boolean, onDismiss: () => void) {
         onDismiss();
       }
     };
-    document.addEventListener("keydown", dismissOnEscape);
-    return () => document.removeEventListener("keydown", dismissOnEscape);
+    window.addEventListener("keydown", dismissOnEscape);
+    return () => window.removeEventListener("keydown", dismissOnEscape);
   }, [onDismiss, open]);
 }
 
@@ -35,12 +38,14 @@ function useEscapeToDismissOverlay(open: boolean, onDismiss: () => void) {
  * toggle).
  */
 export function useRoutedPaneOverlays({
+  hasSidebar,
   initialSidebarExpanded,
   launcherPlacement,
   navigationRailExpanded,
   onToggleLauncherPlacement,
   tier,
 }: {
+  hasSidebar: boolean;
   initialSidebarExpanded: () => boolean;
   launcherPlacement: LauncherPlacement;
   navigationRailExpanded: boolean;
@@ -81,7 +86,7 @@ export function useRoutedPaneOverlays({
 
   useEscapeToDismissOverlay(drawerOpen, dismissDrawer);
   useEscapeToDismissOverlay(
-    tier === "mobile" && sidebarExpanded,
+    tier === "mobile" && hasSidebar && sidebarExpanded,
     dismissSidebar,
   );
 

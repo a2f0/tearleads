@@ -57,11 +57,14 @@
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
-/* Raised and viewport backdrops reach the physical screen edges and absorb the
-   device cutouts; section takeovers sit inside a pane that already consumed
-   them. */
+/* Raised/viewport backdrops and routed takeover modals span the physical screen
+   edges and absorb device cutouts; windowed section takeovers sit inside a
+   floating desktop window that does not touch notches or home indicators. */
 :is(.mini-app-modal-backdrop--raised, .mini-app-modal-backdrop--viewport)
-> .mini-app-modal-panel--takeover {
+> .mini-app-modal-panel--takeover,
+:root[data-navigation-mode="routed"]
+  .mini-app-modal-backdrop--takeover
+  > .mini-app-modal-panel--takeover {
   padding-block: var(--safe-area-top) var(--safe-area-bottom);
   padding-inline: max(
       calc(var(--space-md) + var(--safe-area-left)),

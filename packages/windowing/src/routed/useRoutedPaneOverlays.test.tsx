@@ -57,6 +57,50 @@ test("routed overlay machine lets tablet sidebar coexist with drawer and resets 
     type: "tier-changed",
   });
   expect(tabletState).toEqual({ status: "sidebar" });
+
+  // No-op transitions preserve the exact state reference.
+  expect(
+    transitionRoutedPaneOverlays(tabletState, { type: "close-drawer" }),
+  ).toBe(tabletState);
+  expect(
+    transitionRoutedPaneOverlays(
+      { status: "closed" },
+      { type: "close-sidebar" },
+    ),
+  ).toEqual({ status: "closed" });
+  const closed = initialRoutedPaneOverlaysState(false);
+  expect(transitionRoutedPaneOverlays(closed, { type: "close-sidebar" })).toBe(
+    closed,
+  );
+});
+
+test("a document-level modal Escape handler runs before the routed overlay listener", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+  let modalEscapes = 0;
+  const modalListener = (event: KeyboardEvent) => {
+    if (event.key === "Escape" && !event.defaultPrevented) {
+      event.preventDefault();
+      modalEscapes += 1;
+    }
+  };
+
+  try {
+    view = renderRoutedPane();
+    fireEvent.click(view.getByRole("button", { name: "Show Sidebar" }));
+    expect(view.getByRole("dialog", { name: "Sidebar" })).toBeTruthy();
+
+    // Register the modal listener AFTER the sidebar is already open.
+    document.addEventListener("keydown", modalListener);
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(modalEscapes).toBe(1);
+    expect(view.getByRole("dialog", { name: "Sidebar" })).toBeTruthy();
+  } finally {
+    document.removeEventListener("keydown", modalListener);
+    view?.unmount();
+    restoreMatchMedia();
+  }
 });
 
 test("mobile sidebar and launcher sheet close each other and Escape restores focus", () => {

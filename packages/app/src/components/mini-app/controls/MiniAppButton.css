@@ -14,12 +14,12 @@
     color var(--transition);
 }
 
-.mini-app-button:focus-visible:not(:disabled) {
+.mini-app-button:focus-visible:not(:disabled):not([aria-pressed="true"]) {
   background: var(--app-hover-surface);
 }
 
 @media (hover: hover) {
-  .mini-app-button:hover:not(:disabled) {
+  .mini-app-button:hover:not(:disabled):not([aria-pressed="true"]) {
     background: var(--app-hover-surface);
   }
 }
