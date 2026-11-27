@@ -1,4 +1,11 @@
 import type { AccessEvent } from "@tearleads/crypto";
+import type { DocumentBaselineStageApi } from "../../../data/documents/shared/sync/baselineStageApi";
+import {
+  deleteDocumentStagedBaselineUpload,
+  loadDocumentStagedBaselineUploads,
+  type PersistedStagedBaselineUpload,
+  saveDocumentStagedBaselineUpload,
+} from "../../../data/persistence/documents/records/documentBaselineStagePersistence";
 import {
   type ExecSql,
   resolveCanonicalExecSql,
@@ -43,18 +50,23 @@ export interface RotationKeyTarget {
   readonly containerKeyEpochId: string;
 }
 
+function keyTargetId({
+  containerId,
+  containerKeyEpochId,
+}: RotationKeyTarget): string {
+  return JSON.stringify([containerId, containerKeyEpochId]);
+}
+
 function keyTargetIds(targets: readonly RotationKeyTarget[]): string[] {
-  return targets.map(({ containerId, containerKeyEpochId }) =>
-    JSON.stringify([containerId, containerKeyEpochId]),
-  );
+  return targets.map(keyTargetId);
 }
 
 /**
  * One document's upload through a stage: the machine's state, the plan
- * every attempt signs alike, and where the plan's key has gone. It lives in
- * memory only, so a process that restarts has no upload and starts the next
- * one over; the stage it left is replaced by that upload's, abandoned as an
- * orphan, or expires.
+ * every attempt signs alike, and where the plan's key has gone. When the
+ * registry is backed by local SQLite, the upload is saved before opening
+ * its stage and before each segment PUT so a restarted process resumes
+ * from the server-acknowledged index.
  */
 export class StagedBaselineUpload {
   state: StagedBaselineState = INITIAL_STAGED_BASELINE_STATE;
@@ -64,7 +76,7 @@ export class StagedBaselineUpload {
    * grows, and no attempt tag guards it: a request a superseded run sent
    * gave the key away as surely as the current run's.
    */
-  private readonly keyTargets = new Set<string>();
+  private readonly keyTargets = new Map<string, RotationKeyTarget>();
 
   constructor(
     readonly documentId: string,
@@ -72,6 +84,32 @@ export class StagedBaselineUpload {
     keyTargets: readonly RotationKeyTarget[],
   ) {
     this.wrapKeyFor(keyTargets);
+  }
+
+  /** Reconstruct an in-progress upload loaded from local SQLite after restart. */
+  static hydrate(
+    persisted: PersistedStagedBaselineUpload,
+  ): StagedBaselineUpload {
+    const upload = new StagedBaselineUpload(
+      persisted.documentId,
+      {
+        contentKey: persisted.contentKey,
+        contentKeyCommitment: persisted.contentKeyCommitment,
+        contentKeyEpoch: persisted.contentKeyEpoch,
+        linkSetEvent: persisted.linkSetEvent,
+        signedAt: persisted.signedAt,
+      },
+      persisted.keyTargets,
+    );
+    upload.state = {
+      attempt: 0,
+      baselineId: persisted.baselineId,
+      headersSignedFor: persisted.headersSignedFor,
+      reads: 0,
+      records: persisted.records,
+      status: "resuming",
+    };
+    return upload;
   }
 
   /** Apply `event`; the pure transition owns everything it changes. */
@@ -112,18 +150,44 @@ export class StagedBaselineUpload {
     const offered = new Set(keyTargetIds(targets));
     return (
       offered.size === this.keyTargets.size &&
-      [...this.keyTargets].every((target) => offered.has(target))
+      [...this.keyTargets.keys()].every((target) => offered.has(target))
     );
   }
 
   /** Remember that an attempt wraps the key for `targets`. */
   wrapKeyFor(targets: readonly RotationKeyTarget[]): void {
-    for (const target of keyTargetIds(targets)) this.keyTargets.add(target);
+    for (const target of targets) {
+      this.keyTargets.set(keyTargetId(target), {
+        containerId: target.containerId,
+        containerKeyEpochId: target.containerKeyEpochId,
+      });
+    }
+  }
+
+  /** Serializable snapshot for SQLite, or null before a baseline id exists or once over. */
+  snapshot(): PersistedStagedBaselineUpload | null {
+    const { state } = this;
+    if (state.status === "planning" || isStagedBaselineOver(state)) return null;
+    return {
+      baselineId: state.baselineId,
+      contentKey: this.plan.contentKey,
+      contentKeyCommitment: this.plan.contentKeyCommitment,
+      contentKeyEpoch: this.plan.contentKeyEpoch,
+      documentId: this.documentId,
+      headersSignedFor:
+        "headersSignedFor" in state ? state.headersSignedFor : null,
+      keyTargets: [...this.keyTargets.values()],
+      linkSetEvent: this.plan.linkSetEvent,
+      records: "records" in state ? state.records : [],
+      signedAt: this.plan.signedAt,
+    };
   }
 }
 
 /** The uploads of one database's documents, at most one a document. */
 export interface StagedBaselineUploads {
+  /** Hydrate any persisted uploads from SQLite once per registry. */
+  ensureLoaded(): Promise<void>;
   /** The document's upload, whatever its state. */
   get(documentId: string): StagedBaselineUpload | null;
   /** Start an upload, replacing the document's earlier one. */
@@ -132,24 +196,88 @@ export interface StagedBaselineUploads {
     plan: StagedBaselinePlan,
     keyTargets: readonly RotationKeyTarget[],
   ): StagedBaselineUpload;
-  /** Forget `upload`, unless another has replaced it. */
+  /** Persist `upload`'s current state if it still owns its document. */
+  persist(upload: StagedBaselineUpload): Promise<void>;
+  /** Forget `upload` in memory, unless another has replaced it. */
   end(upload: StagedBaselineUpload): void;
+  /** Forget `upload` in memory and remove its persisted row unless replaced. */
+  forget(upload: StagedBaselineUpload): Promise<void>;
   /** Whether an upload here is filling the stage `baselineId`. */
   tracks(documentId: string, baselineId: string): boolean;
 }
 
-function createStagedBaselineUploads(): StagedBaselineUploads {
+function createStagedBaselineUploads(execSql?: ExecSql): StagedBaselineUploads {
   const uploads = new Map<string, StagedBaselineUpload>();
+  const touched = new Set<string>();
+  const writeQueueByDocument = new Map<string, Promise<void>>();
+  let loadPromise: Promise<void> | null = null;
+
+  function serializeDocumentWrite(
+    documentId: string,
+    operation: () => Promise<void>,
+  ): Promise<void> {
+    const previous = writeQueueByDocument.get(documentId) ?? Promise.resolve();
+    const next = previous.then(operation);
+    const tracked = next
+      .catch(() => undefined)
+      .finally(() => {
+        if (writeQueueByDocument.get(documentId) === tracked) {
+          writeQueueByDocument.delete(documentId);
+        }
+      });
+    writeQueueByDocument.set(documentId, tracked);
+    return next;
+  }
+
   return {
+    async ensureLoaded() {
+      if (!execSql) return;
+      if (!loadPromise) {
+        loadPromise = loadDocumentStagedBaselineUploads(execSql)
+          .then((persisted) => {
+            for (const [documentId, record] of persisted) {
+              if (!uploads.has(documentId) && !touched.has(documentId)) {
+                uploads.set(documentId, StagedBaselineUpload.hydrate(record));
+              }
+            }
+          })
+          .catch((error: unknown) => {
+            loadPromise = null;
+            throw error;
+          });
+      }
+      await loadPromise;
+    },
     begin(documentId, plan, keyTargets) {
+      touched.add(documentId);
       const upload = new StagedBaselineUpload(documentId, plan, keyTargets);
       uploads.set(documentId, upload);
       return upload;
     },
+    async persist(upload) {
+      if (!execSql) return;
+      await serializeDocumentWrite(upload.documentId, async () => {
+        if (uploads.get(upload.documentId) !== upload) return;
+        const snap = upload.snapshot();
+        if (!snap) return;
+        await saveDocumentStagedBaselineUpload(execSql, snap);
+      });
+    },
     end(upload) {
+      touched.add(upload.documentId);
       if (uploads.get(upload.documentId) === upload) {
         uploads.delete(upload.documentId);
       }
+    },
+    async forget(upload) {
+      touched.add(upload.documentId);
+      const owned = uploads.get(upload.documentId) === upload;
+      if (owned) uploads.delete(upload.documentId);
+      if (!execSql || !owned) return;
+      await serializeDocumentWrite(upload.documentId, async () => {
+        if (uploads.has(upload.documentId)) return;
+        await deleteDocumentStagedBaselineUpload(execSql, upload.documentId);
+      });
     },
     get: (documentId) => uploads.get(documentId) ?? null,
     tracks(documentId, baselineId) {
@@ -168,14 +296,10 @@ const uploadsByDatabase = new WeakMap<ExecSql, StagedBaselineUploads>();
 
 /**
  * The staged baseline uploads of the database `execSql` reaches: one
- * registry per database, so a sync's heal and an unlink of one document
- * share its upload, and a refused commit's next attempt finds the stage it
- * left. A caller with no database gets a registry of its own, whose uploads
- * end with the call.
- *
- * This is the seam for durable resume: a registry that reads and writes its
- * uploads through `execSql` survives a restart, and nothing above it would
- * change.
+ * registry per database, backed by local SQLite so an upload survives a
+ * process restart and resumes from the server-acknowledged index. A sync's
+ * heal and an unlink of one document share its upload. A caller with no
+ * database gets an in-memory registry whose uploads end with the call.
  */
 export function getOrCreateStagedBaselineUploads(
   execSql: ExecSql | undefined,
@@ -184,8 +308,27 @@ export function getOrCreateStagedBaselineUploads(
   const database = resolveCanonicalExecSql(execSql);
   let uploads = uploadsByDatabase.get(database);
   if (!uploads) {
-    uploads = createStagedBaselineUploads();
+    uploads = createStagedBaselineUploads(database);
     uploadsByDatabase.set(database, uploads);
   }
   return uploads;
+}
+
+/** Forget the upload in memory/SQLite and, if a stage may stand, delete it. */
+export async function dropStagedBaselineUpload(
+  context: {
+    readonly api: DocumentBaselineStageApi;
+    readonly uploads: StagedBaselineUploads;
+  },
+  upload: StagedBaselineUpload,
+): Promise<void> {
+  await context.uploads.forget(upload);
+  const { state } = upload;
+  if (state.status === "planning" || state.status === "done") return;
+  if ("stageStands" in state && !state.stageStands) return;
+  await context.api
+    .abandonDocumentBaselineStageResult(upload.documentId, state.baselineId, {
+      reportErrors: false,
+    })
+    .catch(() => undefined);
 }

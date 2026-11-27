@@ -37,9 +37,10 @@ import {
   type StagedBaselineState,
   stagedSegmentCount,
 } from "./stagedBaselineState";
-import type {
-  StagedBaselineUpload,
-  StagedBaselineUploads,
+import {
+  dropStagedBaselineUpload,
+  type StagedBaselineUpload,
+  type StagedBaselineUploads,
 } from "./stagedBaselineUploads";
 
 /** What every run of an upload is given. */
@@ -170,6 +171,17 @@ async function openStage(
 ): Promise<void> {
   const { plan } = run.upload;
   const { api, uploads } = run.context;
+  // Save the stage identity, fresh key, and wrapped targets before opening
+  // on the server so a crash after the POST can resume or replace safely.
+  // If persistence fails, drop the in-memory upload too so no later attempt
+  // skips persistence or assumes a stage exists.
+  try {
+    await uploads.persist(run.upload);
+  } catch (error) {
+    uploads.end(run.upload);
+    throw error;
+  }
+  if (!isCurrent(run)) return;
   // A user who holds every open stage it may is told so only once the
   // stages nobody is filling are abandoned and the open has been refused
   // again.
@@ -291,12 +303,15 @@ async function resignHeader(
       requestOptions(run),
     );
   if (!result.ok) return refuse(run, result);
-  run.upload.dispatch({
+  const next = run.upload.dispatch({
     attempt: run.attempt,
     segmentIndex,
     signedFor: signer.identity,
     type: "headerResigned",
   });
+  if (next.status === "staging") {
+    await run.context.uploads.persist(run.upload);
+  }
 }
 
 /**
@@ -337,6 +352,10 @@ async function stageNext(
   if (!isCurrent(run)) return;
   const record = stagedSegmentRecord(segment);
   upload.dispatch({ attempt, record, segmentIndex, type: "segmentSent" });
+  // Persist the segment record before uploading so a crash after the server
+  // stores the segment still has the record needed to confirm on resume.
+  await run.context.uploads.persist(upload);
+  if (!isCurrent(run)) return;
   const result = await run.context.api.stageDocumentBaselineSegmentResult(
     upload.documentId,
     state.baselineId,
@@ -354,24 +373,6 @@ async function stageNext(
       ? { attempt, segmentIndex, type: "segmentStaged" }
       : { attempt, type: "segmentOutOfOrder" },
   );
-}
-
-/** Forget the upload and, if a stage may stand, ask the API to delete it. */
-export async function dropStagedBaselineUpload(
-  context: Pick<StagedBaselineRunContext, "api" | "uploads">,
-  upload: StagedBaselineUpload,
-): Promise<void> {
-  context.uploads.end(upload);
-  const { state } = upload;
-  if (state.status === "planning" || state.status === "done") return;
-  if ("stageStands" in state && !state.stageStands) return;
-  // Best effort: a stage the API keeps is replaced by this user's next one
-  // for the document, or expires.
-  await context.api
-    .abandonDocumentBaselineStageResult(upload.documentId, state.baselineId, {
-      reportErrors: false,
-    })
-    .catch(() => undefined);
 }
 
 /** What an upload that is over means for the run that found it so. */
@@ -420,7 +421,7 @@ async function step(
       const baselineId = run.plannedBaselineId;
       run.plannedBaselineId = null;
       if (baselineId === null) {
-        run.context.uploads.end(run.upload);
+        await run.context.uploads.forget(run.upload);
         return { kind: "restart" };
       }
       run.upload.dispatch({

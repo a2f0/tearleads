@@ -130,7 +130,7 @@ async function resolveStaleHealMaterial(
   // that goes on with it wraps that key, not a new one. It may only for the
   // exact target set the key was wrapped for (`reusableStagedBaselinePlan`),
   // which the bundle just built says.
-  const held = reusableStagedBaselinePlan(
+  const held = await reusableStagedBaselinePlan(
     input.execSql,
     input.writerProjection.documentId,
     contentKeyBundle.contentKeyEpoch,
