@@ -1,15 +1,17 @@
 import { expect, test } from "bun:test";
-import { MAX_MULTIPART_BLOB_PART_BYTES } from "./blob";
 import {
+  MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
   MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
 } from "./documentSyncLimits";
 
 const WORKERS_ISOLATE_BYTES = 128 * 1024 * 1024;
 
-test("a response page still carries the largest accepted rotation baseline", () => {
-  expect(MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES).toBeGreaterThanOrEqual(
-    MAX_MULTIPART_BLOB_PART_BYTES,
+test("a response page carries the largest accepted update and re-signed header", () => {
+  expect(MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES).toBeGreaterThan(
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES +
+      MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
   );
 });
 

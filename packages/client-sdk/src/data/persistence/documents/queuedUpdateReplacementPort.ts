@@ -13,7 +13,7 @@ export interface QueuedPendingUpdateReplacementPort {
    * all or nothing. Inside one mutation, check that the document still has
    * `expectedDocumentId` and `expectedRecoveryGeneration`, and that every
    * member is still queued under its id as an ordinary local row (not an
-   * outbox row, not a rotation checkpoint), the members are contiguous in
+   * outbox row), the members are contiguous in
    * queue order with no other queued row between them, and the first listed
    * member is first. On success, update the first member in place (same row,
    * same queue and history position) with a fresh update id, the merged data
