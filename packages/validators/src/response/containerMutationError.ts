@@ -59,6 +59,11 @@ export const ContainerMutationFailureResponseSchema = z.union([
       nonEmptyStringSchema,
       MAX_ROTATION_CONTAINER_REKEYS,
     ).optional(),
+    /**
+     * Uncoded and final: the organization already holds a container in the
+     * create's system slot. The client folds its copy into the listed one.
+     */
+    systemSlotTaken: z.literal(true).optional(),
   }),
   PrincipalPolicyStaleErrorResponseSchema,
 ]);

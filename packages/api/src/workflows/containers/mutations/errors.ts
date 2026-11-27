@@ -142,12 +142,26 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
 }
 
 const PREDECESSOR_SUCCESSOR_CONSTRAINT = "container_key_epochs_predecessor_idx";
+const SYSTEM_SLOT_CONSTRAINT = "containers_org_system_slot_idx";
 
-function hasPredecessorSuccessorConstraint(error: unknown): boolean {
+function hasConstraint(error: unknown, constraint: string): boolean {
   return errorCauseChain(error).some(
-    (candidate) =>
-      Reflect.get(candidate, "constraint") === PREDECESSOR_SUCCESSOR_CONSTRAINT,
+    (candidate) => Reflect.get(candidate, "constraint") === constraint,
   );
+}
+
+/**
+ * The organization already holds a container in the create's system slot.
+ * Uncoded, so a client that does not read the flag treats it as final rather
+ * than replanning against fresh heads: the same create never succeeds, and the
+ * client folds its copy into the listed one instead.
+ */
+export function containerSystemSlotTaken(): ContainerMutationError {
+  const message = "Container system slot is already taken";
+  return new ContainerMutationError(message, 409, {
+    error: message,
+    systemSlotTaken: true,
+  });
 }
 
 /**
@@ -168,16 +182,23 @@ export async function runConflictBoundary<T>(
       throw error;
     }
 
-    if (hasPredecessorSuccessorConstraint(error)) {
+    if (hasConstraint(error, PREDECESSOR_SUCCESSOR_CONSTRAINT)) {
       throw mutationStateStale(
         "Container KEK predecessor already has a successor",
       );
     }
 
+    if (
+      isUniqueViolation(error) &&
+      hasConstraint(error, SYSTEM_SLOT_CONSTRAINT)
+    ) {
+      throw containerSystemSlotTaken();
+    }
+
+    // A driver message names the statement and its parameters, so a client
+    // gets a fixed one.
     if (isUniqueViolation(error) || isSerializationFailure(error)) {
-      throw mutationStateStale(
-        error instanceof Error ? error.message : String(error),
-      );
+      throw mutationStateStale("Container state changed concurrently");
     }
 
     throw error;

@@ -198,6 +198,7 @@ test("local system reconciliation converges regardless of remote page ordering",
     expect(fixture.rootReconciliations[0]).toMatchObject({
       descendantReparents: [
         {
+          awaitParentListing: true,
           containerId: "local-contacts",
           parentContainerId: "remote-root",
           updateCreateIntent: true,
@@ -212,6 +213,64 @@ test("local system reconciliation converges regardless of remote page ordering",
       remoteOrganizationId: ORGANIZATION_ID,
     });
   }
+});
+
+test("a root fold holds only a re-homed system create for its new parent's listing", async () => {
+  const fixture = await reconciliationFixture();
+  const folder = await containerState({
+    id: "local-folder",
+    organizationId: "",
+    parentId: fixture.localRoot.container.id,
+    remote: false,
+  });
+  const nestedSystem = await containerState({
+    id: "local-nested-system",
+    organizationId: "",
+    parentId: folder.container.id,
+    remote: false,
+    systemSlot: "sys_v1_nested",
+  });
+  for (const container of [folder, nestedSystem]) {
+    fixture.state.containersById.set(container.container.id, container);
+  }
+
+  await reconcileLocalOnlyRootContainers({
+    remoteRootState: fixture.remoteRoot,
+    state: fixture.state,
+  });
+
+  const holds = Object.fromEntries(
+    (fixture.rootReconciliations[0]?.descendantReparents ?? []).map(
+      (reparent) => [reparent.containerId, reparent.awaitParentListing],
+    ),
+  );
+  expect(holds).toEqual({
+    "local-contacts": true,
+    "local-folder": false,
+    "local-nested-system": false,
+  });
+});
+
+test("a root fold re-homes a child the hydration pass's index missed", async () => {
+  // The boot's own Contacts can be created while a hydration pass runs, after
+  // the pass indexed the tree. The fold must still move it off the local root.
+  const fixture = await reconciliationFixture();
+
+  await reconcileLocalOnlyRootContainers({
+    childIdsByParentId: new Map(),
+    remoteRootState: fixture.remoteRoot,
+    state: fixture.state,
+  });
+
+  expect(fixture.rootReconciliations[0]?.descendantReparents).toEqual([
+    {
+      awaitParentListing: true,
+      containerId: "local-contacts",
+      parentContainerId: "remote-root",
+      updateCreateIntent: true,
+    },
+  ]);
+  expect(fixture.localSystem.container.parentId).toBe("remote-root");
 });
 
 test("root reconciliation requests priming after known system twins converge", async () => {

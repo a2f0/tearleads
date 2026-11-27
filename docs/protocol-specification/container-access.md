@@ -267,6 +267,10 @@ create may instead return `409 document_manifest_already_exists`; that conflict
 can roll back the newly created container, so it is terminal unless the client
 independently verifies both remote artifacts. Clients replan or adopt only on
 the exact status and code. Missing, malformed, and unknown tags are terminal.
+A create for a system slot the organization already holds returns an uncoded
+`409` with `systemSlotTaken: true`. It is terminal too: the client never sends
+that create again and folds its copy into the listed container. No conflict
+body carries database statement text.
 
 ## Document Link And Sync Protocol
 

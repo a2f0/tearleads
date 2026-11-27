@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
+import { CONTAINER_CREATE_AWAITS_PARENT_LISTING } from "../../containers/shared/systemSlotCreate";
 import {
   containers,
   inContainerIntentLanes,
@@ -221,6 +222,9 @@ export async function updateReparentedDescendantContainers(input: {
       await saveContainerCreateIntent({
         containerId: reparent.containerId,
         createIntent: { parentContainerId: reparent.parentContainerId },
+        lastError: reparent.awaitParentListing
+          ? CONTAINER_CREATE_AWAITS_PARENT_LISTING
+          : null,
         tx,
         updatedAt,
       });

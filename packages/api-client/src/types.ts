@@ -108,6 +108,11 @@ export interface RequestFailure {
    * A hint, never authority; verify each container before signing for it.
    */
   readonly requiredContainerIds?: readonly string[] | undefined;
+  /**
+   * An uncoded container-create 409: the organization already holds the
+   * create's system slot, so the same create never succeeds.
+   */
+  readonly systemSlotTaken?: true | undefined;
 }
 
 export interface RequestSuccess<T> {

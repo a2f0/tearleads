@@ -76,6 +76,16 @@ export function isContainerPathTooDeepFailure(
   );
 }
 
+/**
+ * The organization already holds a container in the create's system slot.
+ * Final for that create: only a fold into the listed container settles it.
+ */
+export function isContainerSystemSlotTakenFailure(
+  failure: Pick<ContainerMutationSubmitFailure, "status" | "systemSlotTaken">,
+): boolean {
+  return failure.status === 409 && failure.systemSlotTaken === true;
+}
+
 export function isStaleParentContainerPathFailure(
   failure: Pick<ContainerMutationSubmitFailure, "code" | "status">,
 ): boolean {

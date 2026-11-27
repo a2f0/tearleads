@@ -170,6 +170,40 @@ testApiClient(
   },
 );
 
+testApiClient(
+  "flags container creates refused for a taken system slot",
+  async () => {
+    const refusal = () =>
+      HttpResponse.json(
+        {
+          error: "Container system slot is already taken",
+          systemSlotTaken: true,
+        },
+        { status: 409, statusText: "Conflict" },
+      );
+    server.use(
+      http.post(`${apiBaseUrl}/containers`, refusal),
+      http.post(`${apiBaseUrl}/containers/with-metadata-document`, refusal),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    for (const result of [
+      await client.createContainerResult(createContainerMutationRequest(), {
+        reportErrors: false,
+      }),
+      await client.createContainerWithMetadataDocumentResult(
+        createContainerCreateWithMetadataDocumentRequest(),
+        { reportErrors: false },
+      ),
+    ]) {
+      expect(result).toMatchObject({ ok: false, status: 409 });
+      if (result.ok) throw new Error("expected create failure");
+      expect(result.code).toBeUndefined();
+      expect(result.systemSlotTaken).toBe(true);
+    }
+  },
+);
+
 testApiClient("deletes containers through the route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
