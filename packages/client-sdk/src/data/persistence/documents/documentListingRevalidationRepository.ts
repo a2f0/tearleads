@@ -260,7 +260,12 @@ export class DocumentListingRevalidationRepository {
     return behind;
   }
 
-  /** Record, or renew, a request that each record read its document. */
+  /**
+   * Record, or renew, a request that each record read its document. Repeating
+   * an existing debt for the same document without raising its advertised
+   * epoch or count leaves its revision in place, so a pull already in flight
+   * for that debt can still settle it.
+   */
   async request(requests: ReadonlyArray<OwedDocumentRead>): Promise<void> {
     if (requests.length === 0) return;
     await ensureSqlTables(this.execSql, documentTables);
@@ -268,6 +273,7 @@ export class DocumentListingRevalidationRepository {
     // A listing read from a lagging replica never lowers a debt of the same
     // document; a record that now names another document owes that one.
     const sameDocument = sql`${documentListingRevalidations.documentId} = excluded.document_id`;
+    const unchanged = sql`${sameDocument} AND excluded.advertised_access_epoch <= ${documentListingRevalidations.advertisedAccessEpoch} AND excluded.advertised_update_count <= ${documentListingRevalidations.advertisedUpdateCount}`;
     await getClientSQLitePersistenceRuntime(this.execSql).runMutation(
       async (db) => {
         for (const batch of batches(requests)) {
@@ -289,8 +295,8 @@ export class DocumentListingRevalidationRepository {
                 advertisedAccessEpoch: sql`CASE WHEN ${sameDocument} THEN max(${documentListingRevalidations.advertisedAccessEpoch}, excluded.advertised_access_epoch) ELSE excluded.advertised_access_epoch END`,
                 advertisedUpdateCount: sql`CASE WHEN ${sameDocument} THEN max(${documentListingRevalidations.advertisedUpdateCount}, excluded.advertised_update_count) ELSE excluded.advertised_update_count END`,
                 documentId: sql`excluded.document_id`,
-                requestedAt: sql`excluded.requested_at`,
-                revision: sql`excluded.revision`,
+                requestedAt: sql`CASE WHEN ${unchanged} THEN ${documentListingRevalidations.requestedAt} ELSE excluded.requested_at END`,
+                revision: sql`CASE WHEN ${unchanged} THEN ${documentListingRevalidations.revision} ELSE excluded.revision END`,
               },
             })
             .run();

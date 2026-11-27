@@ -159,6 +159,7 @@ export async function createSeededDocument(
     execSql: runtime.infra.execSql,
     encapsulationSecretKey: keys.secretKey,
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
+    logError: runtime.util.logError,
   });
   let failure: { message: string; status: number | null } | undefined;
   const verification = {

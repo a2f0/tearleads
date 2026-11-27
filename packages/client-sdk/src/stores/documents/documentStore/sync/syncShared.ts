@@ -283,6 +283,7 @@ export async function ensureRemoteDocument(
     encapsulationSecretKey: encapsulationKeyPair.secretKey,
     execSql: runtime.infra.execSql,
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
+    logError: runtime.util.logError,
   });
   const created = await remoteDocuments.createRemoteDocument({
     author,

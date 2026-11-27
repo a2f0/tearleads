@@ -30,8 +30,10 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  *   showed. Each head of a document has its own epoch, and a head move
  *   raises it, so a read settles the request only once the manifest the
  *   record's last pull saved is at that epoch or a later one.
- * - `revision`: Replaced on every request, so a read settles only the
- *   request it saw before it began.
+ * - `revision`: Replaced when the debt points to another document or raises
+ *   its advertised count or access epoch, and kept when a request repeats
+ *   an unchanged or lower debt for the same document, so an in-flight read
+ *   can still settle a repeated debt while newer debts stay protected.
  * - `requestedAt`: When this device last recorded the request.
  */
 export const documentListingRevalidations = sqliteTable(

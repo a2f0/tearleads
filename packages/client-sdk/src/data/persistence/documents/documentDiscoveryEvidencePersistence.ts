@@ -11,7 +11,10 @@ import {
   remoteResetBatches,
   sqliteInsertBatchSize,
 } from "../../sqlite/sqliteBindBudget";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import { excludedValue } from "../../sqlite/sqliteUpsert";
 import {
   type ExecSql,
@@ -387,12 +390,11 @@ export interface AuthoredDiscoveryHead {
   readonly linkedContainerIds: readonly string[];
 }
 
-/** Writes authored heads inside the caller's serialized write transaction. */
-export async function primeAuthoredDocumentDiscoveryHeads(
-  execSql: ExecSql,
+/** Writes authored heads inside the caller's transaction scope. */
+export async function writeAuthoredDocumentDiscoveryHeads(
+  db: ClientSQLiteTransactionScope,
   authored: readonly AuthoredDiscoveryHead[],
 ): Promise<void> {
-  const db = getClientSQLitePersistenceRuntime(execSql).db;
   for (const head of authored) {
     const row = {
       documentId: head.documentId,
@@ -411,4 +413,15 @@ export async function primeAuthoredDocumentDiscoveryHeads(
       })
       .run();
   }
+}
+
+/** Writes authored heads inside the caller's serialized write transaction. */
+export async function primeAuthoredDocumentDiscoveryHeads(
+  execSql: ExecSql,
+  authored: readonly AuthoredDiscoveryHead[],
+): Promise<void> {
+  await writeAuthoredDocumentDiscoveryHeads(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    authored,
+  );
 }

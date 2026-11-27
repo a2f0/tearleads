@@ -1,5 +1,8 @@
 import type { DomainScope } from "../../data/shared/domainScope";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ExecSql,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 import {
   getOrCreateTreeCatchUp,
   isReconcilableContainerNode,
@@ -82,14 +85,20 @@ export function createListingCoverageHost(
  * notices, once a launch, a record whose cursor or head fell behind a row it
  * was served before (a local backup restore can replace a record's row, for
  * one). The debts are durable before each owed record's open store is asked
- * to pull; a store that opens later reads its debt when it loads. A failure
- * to owe is logged and leaves the listing's ids as they were.
+ * to pull; a store that opens later reads its debt when it loads. Each lane
+ * owes in its own serialized mutation, skipping paused containers and any
+ * listing whose probe generation was superseded meanwhile. A failure to owe
+ * is logged and leaves the listing's ids as they were.
  */
 export function createProbeLaneListing(
   runtimeService: InternalRuntime,
   domainScope: DomainScope,
+  options?: {
+    readonly isContainerPaused?: (containerId: string) => boolean;
+    readonly loadSyncPauses?: (execSql: ExecSql) => Promise<void>;
+  },
 ): ReconciliationHost["listContainerDocumentIds"] {
-  return async (containerIds) => {
+  return async (containerIds, listingOptions) => {
     const { apiClient } = createContainerContentsStoreRuntime(runtimeService);
     const listed = await listAllContainerDocumentLanes({
       lanes: containerIds.map((containerId) => ({
@@ -101,7 +110,10 @@ export function createProbeLaneListing(
         listContainerDocumentLanesFromApi(apiClient, lanes, false, "mayJoin"),
     });
     const documentIds = new Map<string, ReadonlyArray<string> | null>();
-    const heads: ListedDocumentHead[] = [];
+    const headsByContainer = new Map<
+      string,
+      ReadonlyArray<ListedDocumentHead>
+    >();
     for (const containerId of containerIds) {
       const lane = listed.get(containerId);
       if (!lane || lane === "unavailable") {
@@ -111,32 +123,63 @@ export function createProbeLaneListing(
       documentIds.set(containerId, [
         ...new Set(lane.items.map(({ id }) => id)),
       ]);
-      for (const document of lane.items) {
-        heads.push({
-          accessEpoch: document.currentAccessEpoch,
-          accessStateHash: document.currentAccessStateHash,
-          documentId: document.id,
-          updateCount: document.updateCount,
-        });
+      if (lane.items.length > 0) {
+        headsByContainer.set(
+          containerId,
+          lane.items.map((document) => ({
+            accessEpoch: document.currentAccessEpoch,
+            accessStateHash: document.currentAccessStateHash,
+            documentId: document.id,
+            updateCount: document.updateCount,
+          })),
+        );
       }
     }
-    await oweProbedReads(runtimeService, domainScope, heads);
+    await oweProbedReads({
+      domainScope,
+      headsByContainer,
+      isContainerPaused: options?.isContainerPaused,
+      loadSyncPauses: options?.loadSyncPauses,
+      runtimeService,
+      stillCurrent: listingOptions?.stillCurrent,
+    });
     return documentIds;
   };
 }
 
-async function oweProbedReads(
-  runtimeService: InternalRuntime,
-  domainScope: DomainScope,
-  heads: ReadonlyArray<ListedDocumentHead>,
-): Promise<void> {
+async function oweProbedReads(input: {
+  readonly domainScope: DomainScope;
+  readonly headsByContainer: ReadonlyMap<
+    string,
+    ReadonlyArray<ListedDocumentHead>
+  >;
+  readonly isContainerPaused?: ((containerId: string) => boolean) | undefined;
+  readonly loadSyncPauses?: ((execSql: ExecSql) => Promise<void>) | undefined;
+  readonly runtimeService: InternalRuntime;
+  readonly stillCurrent?: (() => boolean) | undefined;
+}): Promise<void> {
+  const { domainScope, headsByContainer, runtimeService, stillCurrent } = input;
   const execSql = scopeExecSql(runtimeService, domainScope);
-  if (!execSql || heads.length === 0) return;
+  if (!execSql || headsByContainer.size === 0 || stillCurrent?.() === false) {
+    return;
+  }
+  const canOweContainer = (containerId: string): boolean =>
+    stillCurrent?.() !== false &&
+    scopeExecSql(runtimeService, domainScope) === execSql &&
+    !input.isContainerPaused?.(containerId);
   try {
-    requestRemoteSyncsOfOwedRecords(
-      domainScope,
-      await oweListedRecordReads(execSql, heads),
-    );
+    await input.loadSyncPauses?.(execSql);
+    for (const [containerId, heads] of headsByContainer) {
+      if (!canOweContainer(containerId)) continue;
+      const owed = await runSerializedSqlMutation(execSql, async (locked) =>
+        canOweContainer(containerId)
+          ? oweListedRecordReads(locked, heads)
+          : null,
+      );
+      if (owed && owed.length > 0 && canOweContainer(containerId)) {
+        requestRemoteSyncsOfOwedRecords(domainScope, owed);
+      }
+    }
   } catch (error) {
     runtimeService
       .workflowInput()

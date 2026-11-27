@@ -23,6 +23,7 @@ export interface InitialDocumentProbeHost {
    */
   readonly listContainerDocumentIds: (
     containerIds: ReadonlyArray<string>,
+    options?: { readonly stillCurrent?: () => boolean },
   ) => Promise<ReadonlyMap<string, ReadonlyArray<string> | null>>;
   readonly probeUndiscoveredDocumentsBatch: (
     input: InitialDocumentProbeBatchInput,
@@ -304,7 +305,9 @@ async function listNextEligibleContainers(input: {
 
   let listed: ReadonlyMap<string, ReadonlyArray<string> | null>;
   try {
-    listed = await host.listContainerDocumentIds(containerIds);
+    listed = await host.listContainerDocumentIds(containerIds, {
+      stillCurrent: () => state.generation === runGeneration,
+    });
   } catch {
     listed = new Map();
   }
