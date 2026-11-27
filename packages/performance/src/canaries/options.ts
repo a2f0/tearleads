@@ -43,7 +43,7 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
     args,
     options: {
       canary: { type: "string", multiple: true, default: [] },
-      samples: { type: "string", default: "1" },
+      samples: { type: "string" },
       baseline: { type: "string" },
       compare: { type: "boolean", default: false },
       statements: { type: "boolean", default: false },
@@ -60,6 +60,7 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
       throw new Error("--compare takes exactly two report paths.");
     if (
       values.canary.length > 0 ||
+      values.samples !== undefined ||
       values.baseline !== undefined ||
       values.statements ||
       values["param-hash"]
@@ -74,7 +75,10 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
   return {
     mode: "run",
     canaries: values.canary,
-    samples: integer(values.samples, "--samples", 1, 5),
+    samples:
+      values.samples === undefined
+        ? 1
+        : integer(values.samples, "--samples", 1, 5),
     baseline: values.baseline ?? null,
     statements: values.statements,
     paramHash: values["param-hash"],

@@ -100,14 +100,23 @@ export function createStatementRecorder(
 
 const metricsMarker = "[dual-pane-request-metrics] ";
 
-/** The phase a canary's metrics line closes, or null for any other line. */
+/**
+ * The phase a canary's metrics line closes, or null for any other line. A
+ * malformed metrics line is null too: the preload must still log it, so the
+ * profile parser fails that run, rather than throw inside the canary.
+ */
 export function phaseFromConsole(
   args: readonly unknown[],
 ): { label: string; requests: number } | null {
   const [first] = args;
   if (typeof first !== "string" || !first.startsWith(metricsMarker))
     return null;
-  const metrics: unknown = JSON.parse(first.slice(metricsMarker.length));
+  let metrics: unknown;
+  try {
+    metrics = JSON.parse(first.slice(metricsMarker.length));
+  } catch {
+    return null;
+  }
   if (typeof metrics !== "object" || metrics === null) return null;
   const label: unknown = Reflect.get(metrics, "label");
   const requests: unknown = Reflect.get(metrics, "total");

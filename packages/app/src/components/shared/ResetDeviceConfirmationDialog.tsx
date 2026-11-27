@@ -2,6 +2,8 @@ import { useState } from "react";
 import { requestDeviceReset } from "../../providers/device-reset/deviceReset";
 import { PhraseConfirmationDialog } from "./PhraseConfirmationDialog";
 
+export const RESET_DEVICE_CONFIRMATION_PHRASE = "Reset device";
+
 interface ResetDeviceConfirmationDialogProps {
   readonly onCancel: () => void;
 }
@@ -35,7 +37,7 @@ export function ResetDeviceConfirmationDialog({
           setRequestState("failed");
         }
       }}
-      phrase="reset device"
+      phrase={RESET_DEVICE_CONFIRMATION_PHRASE}
       title="Reset this device"
       warning="This is a non-recoverable operation. It erases everything the app keeps on this device: every identity's keys, databases, and stored files, the PIN, and your preferences. The app then restarts as a fresh install. Data on the server remains; an identity's recovery phrase signs it back in."
     />

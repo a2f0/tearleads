@@ -104,3 +104,27 @@ test("parses capture lines and rejects foreign ones", () => {
   ]);
   expect(() => parseCapture('{"sql":"select 1"}')).toThrow(/line 1/);
 });
+
+test("summarizes a large capture under one label in linear time", () => {
+  // Grouping by copying each label's list took about 30 s for these
+  // 200,000 records, and never finished at the 1,000,000-record default
+  // limit; one pass takes well under a second.
+  const records = Array.from(
+    { length: 200_000 },
+    (_, index): CaptureRecord => ({
+      label: "one long test",
+      sql: "select * from t where id = $1",
+      params: 1,
+      paramHash: `k${index % 1_000}`,
+      request: index % 500,
+    }),
+  );
+  const started = performance.now();
+  const summary = summarizeCapture(records);
+  expect(performance.now() - started).toBeLessThan(5_000);
+  expect(summary.labels).toHaveLength(1);
+  expect(summary.labels[0]).toMatchObject({
+    statements: 200_000,
+    requestScopes: 500,
+  });
+}, 30_000);

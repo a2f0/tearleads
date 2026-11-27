@@ -418,7 +418,7 @@ test("identity manager confirms before destroying a key package", async () => {
     }) as HTMLButtonElement;
     expect(destroyButton.disabled).toBe(true);
 
-    fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
+    fireEvent.change(view.getByLabelText(/Type Confirm delete to continue/u), {
       target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
     });
     expect(destroyButton.disabled).toBe(false);

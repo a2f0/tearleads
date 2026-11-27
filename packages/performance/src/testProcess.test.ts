@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { packagePreloads, testFileArgument } from "./testProcess";
@@ -32,6 +32,12 @@ test("reads a package's test preloads in either bunfig form", async () => {
   await expect(
     packagePreloads(await packageWith("[test]\npreload = [1]\n")),
   ).rejects.toThrow(/preload/);
+});
+
+test("a bunfig.toml that cannot be read stops the run", async () => {
+  const root = await packageWith();
+  await mkdir(resolve(root, "bunfig.toml"));
+  await expect(packagePreloads(root)).rejects.toThrow(/EISDIR/);
 });
 
 test("the repository's own packages name their preloads", async () => {

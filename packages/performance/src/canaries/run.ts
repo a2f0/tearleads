@@ -10,6 +10,7 @@ import {
 import { appRoot, type Canary } from "./discover";
 import { type CanaryOutput, parseCanaryOutput } from "./output";
 import type { CanaryRun, CanaryRunStatus } from "./report";
+import type { RunStatements } from "./runStatements";
 
 /** A canary file takes under a minute; this stops one that hangs. */
 const canaryTimeoutMs = 10 * 60_000;
@@ -58,18 +59,21 @@ export function phaseStatements(
   return phases.map((phase) => phase.statements);
 }
 
+export interface CanaryRunInput {
+  readonly canary: Canary;
+  readonly sample: number;
+  readonly log: string;
+  readonly capture?: CanaryCapture;
+  /** The app package to run in; `packages/app` unless a test passes one. */
+  readonly root?: string;
+}
+
 /**
  * Runs one canary file alone from `packages/app`, as its suite runs, with
  * the request profile on and, when asked, the statement capture. Its output
  * goes to `log`, owner-only.
  */
-export async function runCanary(input: {
-  readonly canary: Canary;
-  readonly sample: number;
-  readonly log: string;
-  readonly capture?: CanaryCapture;
-  readonly root?: string;
-}): Promise<CanaryRun> {
+export async function runCanary(input: CanaryRunInput): Promise<CanaryRun> {
   const root = input.root ?? appRoot;
   const { capture } = input;
   const preloads = capture
@@ -108,28 +112,26 @@ export async function runCanary(input: {
     phases: output?.phases ?? [],
     statements:
       output && capture && status === "passed"
-        ? {
-            capture: capture.out,
-            perPhase: await capturedPhaseStatements(output, capture.out),
-          }
-        : null,
+        ? await capturedStatements(output, capture.out)
+        : { status: "off" },
   };
 }
 
 /**
- * Statements per phase, or null when the capture cannot be matched to the
- * profile: its markers differ, it was never written, or it cannot be read
- * or parsed. The run keeps its result, and the report names the capture.
+ * Statements per phase, or `unmatched` when the capture cannot be matched to
+ * the profile: its markers differ, it was never written, or it cannot be
+ * read or parsed. The run keeps its result, and the report names the capture.
  */
-async function capturedPhaseStatements(
+async function capturedStatements(
   output: CanaryOutput,
-  path: string,
-): Promise<number[] | null> {
-  try {
-    return phaseStatements(output, (await readCaptureFile(path)) ?? "");
-  } catch {
-    return null;
-  }
+  capture: string,
+): Promise<RunStatements> {
+  const perPhase = await readCaptureFile(capture)
+    .then((text) => phaseStatements(output, text ?? ""))
+    .catch(() => null);
+  return perPhase === null
+    ? { status: "unmatched", capture }
+    : { status: "captured", capture, perPhase };
 }
 
 /**

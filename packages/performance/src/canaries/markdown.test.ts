@@ -26,10 +26,16 @@ function report(counts: number[], statements = false): CanaryReport {
     tests: { pass: 1, fail: 0 },
     log: "/private/upload.log",
     phases: [phase("upload", count), phase("upload", 1)],
-    statements: statements ? { capture: "c", perPhase: [10 * count, 4] } : null,
+    statements: statements
+      ? {
+          status: "captured" as const,
+          capture: "c",
+          perPhase: [10 * count, 4],
+        }
+      : { status: "off" as const },
   }));
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     scenario: "request-volume-canaries",
     runId: "run",
     startedAt: "2026-11-26T00:00:00.000Z",
@@ -110,4 +116,34 @@ test("adds a statements column when the runs captured statements", () => {
     { before: "b", after: "a" },
   );
   expect(comparison).toContain("| 30 → 20 (-10) |");
+});
+
+test("leaves statements blank when only one report captured them", () => {
+  const comparison = formatComparison(
+    comparePhases(report([3]).summary, report([2], true).summary),
+    { before: "b", after: "a" },
+  );
+  expect(comparison).toContain(
+    "| Upload | upload | 3 → 2 (-1) | 4,500 → 3,000 (-1,500) | 20 |  |",
+  );
+  expect(comparison).not.toContain("new: 20");
+  expect(comparison).not.toContain("30 → removed");
+  const added = formatComparison(comparePhases([], report([2], true).summary), {
+    before: "b",
+    after: "a",
+  });
+  expect(added).toContain(
+    "| Upload | upload | new: 2 | new: 3,000 | new: 20 | new: 20 |",
+  );
+});
+
+test("an unchanged lowest value prints both ranges without a delta", () => {
+  const comparison = formatComparison(
+    comparePhases(report([2, 3]).summary, report([2, 4]).summary),
+    { before: "b", after: "a" },
+  );
+  expect(comparison).toContain(
+    "| Upload | upload | 2–3 → 2–4 | 3,000–4,500 → 3,000–6,000 | 20 |",
+  );
+  expect(comparison).not.toContain("(0)");
 });

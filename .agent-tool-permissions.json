@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "agentToolVersion": "0.1.74",
+  "agentToolVersion": "0.1.76",
   "claude": {
     "allow": [
       "Bash(bun run agent-tool --help)",
@@ -17,6 +17,7 @@
       "Bash(bun run agent-tool policy check *)",
       "Bash(bun run agent-tool toolchain check *)",
       "Bash(bun run agent-tool ci gate *)",
+      "Bash(bun run agent-tool ci timings *)",
       "Bash(bun run agent-tool release plan *)",
       "Bash(bun run agent-tool release verify *)",
       "Bash(bun run agent-tool pr context *)",
@@ -89,6 +90,7 @@
       "Bash(node_modules/.bin/agent-tool policy check *)",
       "Bash(node_modules/.bin/agent-tool toolchain check *)",
       "Bash(node_modules/.bin/agent-tool ci gate *)",
+      "Bash(node_modules/.bin/agent-tool ci timings *)",
       "Bash(node_modules/.bin/agent-tool release plan *)",
       "Bash(node_modules/.bin/agent-tool release verify *)",
       "Bash(node_modules/.bin/agent-tool pr context *)",
@@ -161,6 +163,7 @@
       "Bash(agent-tool policy check *)",
       "Bash(agent-tool toolchain check *)",
       "Bash(agent-tool ci gate *)",
+      "Bash(agent-tool ci timings *)",
       "Bash(agent-tool release plan *)",
       "Bash(agent-tool release verify *)",
       "Bash(agent-tool pr context *)",
@@ -224,6 +227,6 @@
   },
   "codex": {
     "file": ".codex/rules/agent-tool.rules",
-    "sha256": "4c0bc0c04a922b64748b03789baf21b4dc6d6b6486628873cbb33735b0233e6b"
+    "sha256": "0e91ffdc7954185bc2fce15c694b358a35a55767ce5e078bb64897f30df7ad62"
   }
 }

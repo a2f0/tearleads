@@ -76,10 +76,33 @@ test("the app helpers still print the profile line discovery relies on", async (
   );
   expect(budget).toContain("export function profileProxiedApiRequests(");
   expect(budget).toContain("[dual-pane-request-metrics] ");
-  expect(budget).toContain("[dual-pane-request-profile-detail] ");
   expect(budget).toContain('DUAL_PANE_REQUEST_PROFILE !== "1"');
+  // The repeated-paths block parseCanaryOutput reads: a heading with the
+  // phase label, then one `count METHOD path` line per repeated path, or a
+  // placeholder line when none repeated.
+  expect(budget).toMatch(
+    /`\[dual-pane-request-profile-detail\] \$\{label\} repeated-paths\\n\$\{summarizeRepeatedProxiedApiRequestPaths\(requests\)\}`/u,
+  );
+  expect(budget).toMatch(
+    /const key = `\$\{request\.method\} \$\{shortRequestPathIds\(requestPathAndQuery\(request\.url\)\)\}`;/u,
+  );
+  expect(budget).toMatch(
+    /\.map\(\(\[key, count\]\) => `\$\{count\.toString\(\)\.padStart\(3, " "\)\} \$\{key\}`\)/u,
+  );
+  expect(budget).toContain('return "(no repeated exact paths)";');
   expect(workflow).toContain("export async function measureWorkflowRequests(");
   expect(workflow).toContain("profileProxiedApiRequests(input.label");
+});
+
+test("refuses two canaries with one file name", async () => {
+  const root = await appWith({
+    "src/shell/Volume.test.tsx": "profileProxiedApiRequests('a', 0);",
+    "src/mini-apps/Volume.test.tsx": "profileProxiedApiRequests('b', 0);",
+    "src/mini-apps/Other.test.tsx": "profileProxiedApiRequests('c', 0);",
+  });
+  await expect(discoverCanaries(root)).rejects.toThrow(
+    "each needs its own file name: Volume (src/mini-apps/Volume.test.tsx, src/shell/Volume.test.tsx).",
+  );
 });
 
 test("an app without canaries is an error, not an empty run", async () => {

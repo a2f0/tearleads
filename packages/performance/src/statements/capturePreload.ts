@@ -12,8 +12,8 @@
  * the README for the environment variables.
  */
 import { beforeEach } from "bun:test";
-import { appendFileSync } from "node:fs";
 import { observeDatabaseStatements } from "@tearleads/api-shared/statement-observer";
+import { createCaptureWriter } from "./captureFile";
 import {
   createStatementRecorder,
   phaseFromConsole,
@@ -32,7 +32,7 @@ function probeLabel(): string | undefined {
 const recorder = createStatementRecorder({
   paramHash: environment.paramHash,
   limit: environment.limit,
-  write: (line) => appendFileSync(environment.out, line, { mode: 0o600 }),
+  write: createCaptureWriter(environment.out),
   label: probeLabel,
 });
 

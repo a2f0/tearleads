@@ -1,6 +1,6 @@
 import { PhraseConfirmationDialog } from "./PhraseConfirmationDialog";
 
-export const DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE = "confirm delete";
+export const DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE = "Confirm delete";
 
 interface DestroyKeyPackageConfirmationDialogProps {
   readonly busy?: boolean;

@@ -284,7 +284,8 @@ per-endpoint counts. With `DUAL_PANE_REQUEST_PROFILE_DETAIL=1`, the phase also
 prints the exact paths it requested more than once. A canary is any test
 under `packages/app/src` that calls `profileProxiedApiRequests` or
 `measureWorkflowRequests`. The runner finds them there, so a new canary needs
-no registration. A canary that only asserts counts, such as
+no registration; it is named by its file's base name, which must be unique. A
+canary that only asserts counts, such as
 `DualPaneProvider.activePeerRequestVolume`, prints nothing and is not run.
 
 Each canary file runs alone from `packages/app` with both variables set, the
@@ -300,6 +301,7 @@ printed twice is two phases.
 | --- | --- |
 | `runs[].status` | `passed`, `failed`, `timed-out`, or `unprofiled` (passed, printed no phase) |
 | `runs[].phases` | Every metrics line the file printed, with its repeated exact paths |
+| `runs[].statements` | With `--statements`: `captured` with statements per phase, `unmatched` when the capture's phase markers do not match the profile, or `off` (no capture, or the run did not pass) |
 | `summary[].requests` | Proxied API requests in the phase |
 | `summary[].requestBytes`, `responseBytes` | Request and response body bytes, headers excluded |
 | `summary[].byRequest` | Per `METHOD /normalized/path`: count and body bytes |
@@ -310,9 +312,12 @@ panes, so a path counted twice may be one read per device. Reports are saved
 as `.test_files/performance/canaries-<run>.json` and `.md`. Each file's
 complete output is kept in `canaries-<run>/` beside them. `--baseline` adds a
 comparison with an earlier report to the Markdown, and `--compare` prints one
-without running anything. Both refuse a saved report that did not complete;
-a failed new run is compared, with its status beside its name. Relative
-report paths resolve from the repository root. The canaries still assert
+without running anything, refusing the flags that only a run uses. Both refuse
+a saved report that did not complete; a failed new run is compared, with its
+status beside its name. A report saved before schema version 2 loads with its
+missing fields as not captured. Deltas compare the lowest values. For a phase
+both reports have, the statements cell stays blank unless both captured it.
+Relative paths resolve from the repository root. The canaries still assert
 their ceilings, so a count above one fails that canary's run.
 
 ## Statement capture
@@ -329,10 +334,12 @@ hands each one to any observer registered with
 `@tearleads/api-shared/statement-observer`. The
 [capture preload](src/statements/capturePreload.ts) registers one inside a
 `bun test` process and appends a JSON line per statement to
-`PERF_STATEMENTS_OUT`. `perf:statements` runs the named test files from
-`packages/<package>` with the package's own preloads first, then the capture.
-API tests default to `API_DATABASE=memory`. `--name` passes Bun's `-t`
-pattern.
+`PERF_STATEMENTS_OUT`, which it opens once, at the first record.
+`perf:statements` runs the named test files from `packages/<package>` with
+the package's own preloads first, then the capture; a `bunfig.toml` that
+exists but cannot be read stops the run. API tests default to
+`API_DATABASE=memory`. `--name` passes Bun's `-t` pattern. `--summarize`
+refuses the flags that only a run uses.
 
 | Record | Fields |
 | --- | --- |

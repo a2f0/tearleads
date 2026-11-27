@@ -11,6 +11,22 @@ const taskHeader = /^##\[group\](\S+):(\S+)$/;
 const cacheLine = /^cache .* ([0-9a-f]{16})$/;
 const fileHeader = /^##\[group\](\S+):$/;
 const caseResult = /^\((?:pass|fail)\) .* \[(\d+(?:\.\d+)?)ms\]$/;
+// Direct CI jobs and those of the nightly run, which calls CI as `checks`.
+const testJob = /(?:^|\/ )(?:Build and test|Test \(.+\))$/;
+
+/** Whether a CI job runs package tests through Turbo. */
+export function isTestJob(name: string): boolean {
+  return testJob.test(name);
+}
+
+/** The paths a package's `bun test` script names, which scope its files. */
+export function testScriptPaths(script: string): string[] {
+  const words = script.split(/\s+/).filter(Boolean);
+  const start = words.indexOf("test");
+  if (start < 1 || words[start - 1] !== "bun")
+    throw new Error(`Expected a bun test script: ${script}`);
+  return words.slice(start + 1).filter((word) => !word.startsWith("-"));
+}
 
 export type TestTask = {
   readonly name: string;
@@ -55,6 +71,28 @@ export function caseDurations(log: string): TestTask[] {
   return tasks;
 }
 
+/**
+ * Each named package's case durations per file, one sample per distinct Turbo
+ * task: a replay of a task another job or run already printed counts once.
+ */
+export function collectSamples(
+  tasks: Iterable<TestTask>,
+  names: ReadonlySet<string>,
+): Map<string, Map<string, number[]>> {
+  const samples = new Map<string, Map<string, number[]>>();
+  const seen = new Set<string>();
+  for (const { name, hash, files } of tasks) {
+    const key = `${name}#${hash}`;
+    if (!names.has(name) || !hash || seen.has(key)) continue;
+    seen.add(key);
+    const table = samples.get(name) ?? new Map<string, number[]>();
+    samples.set(name, table);
+    for (const [path, ms] of files)
+      table.set(path, [...(table.get(path) ?? []), ms]);
+  }
+  return samples;
+}
+
 const byPath = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** The median of each file's samples, in the order Bun writes a table. */
@@ -79,18 +117,20 @@ export function formatTimings(files: TimingsTable): string {
   return `${JSON.stringify({ version: 1, files }, null, 2)}\n`;
 }
 
+export type TimedShard = { readonly files: string[]; readonly cost: number };
+
 /**
- * The files of each `--shard=<i>/<count>` under Bun 1.4.3's `--timings`
- * partition: path-sorted files cut into contiguous runs of about equal cost,
- * where a file the table lacks costs the table's median. Every shard computes
- * the same cut from the same files and table, so each file runs in exactly
- * one shard.
+ * Each `--shard=<i>/<count>` under Bun 1.4.3's `--timings` partition:
+ * path-sorted files cut into contiguous runs of about equal cost, where a
+ * file the table lacks costs the table's median. Every shard computes the
+ * same cut from the same files and table, so each file runs in exactly one
+ * shard. `cost` is the shard's total in ms as Bun counts it.
  */
 export function timedShards(
   table: TimingsTable,
   testFiles: readonly string[],
   count: number,
-): string[][] {
+): TimedShard[] {
   const known = Object.values(table)
     .map(Math.round)
     .toSorted((a, b) => a - b);
@@ -100,7 +140,7 @@ export function timedShards(
     Math.max(Math.round(table[path] ?? median), 1),
   );
   let remaining = costs.reduce((sum, cost) => sum + cost, 0);
-  const shards: string[][] = [];
+  const shards: TimedShard[] = [];
   let next = 0;
   for (let shard = 0; shard < count; shard += 1) {
     const target = Math.floor(remaining / (count - shard));
@@ -116,7 +156,7 @@ export function timedShards(
       next += 1;
     }
     remaining -= load;
-    shards.push(files.slice(start, next));
+    shards.push({ files: files.slice(start, next), cost: load });
   }
   return shards;
 }

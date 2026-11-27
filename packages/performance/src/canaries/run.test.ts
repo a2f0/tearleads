@@ -96,22 +96,30 @@ test("a failing file is failed and one without metrics is unprofiled", async () 
 });
 
 test("a malformed metrics line fails that run instead of the batch", async () => {
-  const root = await fakeApp(`
+  for (const line of ['{"label":"broken"}', '{"label":"unparsable"']) {
+    const root = await fakeApp(`
 test("prints a bad line", () => {
-  console.info('[dual-pane-request-metrics] {"label":"broken"}');
+  console.info(${JSON.stringify(`[dual-pane-request-metrics] ${line}`)});
   expect(1).toBe(1);
 });`);
-  const log = resolve(root, "bad.log");
-  const run = await runCanary({
-    canary: { name: "Fake", file: "src/Fake.test.ts" },
-    sample: 1,
-    log,
-    root,
-  });
-  expect(run.status).toBe("failed");
-  expect(run.exitCode).toBe(0);
-  expect(run.phases).toEqual([]);
-  expect(await readFile(log, "utf8")).toContain('{"label":"broken"}');
+    // With the capture, the preload reads the line too; the canary's own
+    // test must still pass and log it.
+    for (const capture of [undefined, { out: resolve(root, "c.jsonl") }]) {
+      const log = resolve(root, `bad-${capture ? "capture" : "plain"}.log`);
+      const run = await runCanary({
+        canary: { name: "Fake", file: "src/Fake.test.ts" },
+        sample: 1,
+        log,
+        root,
+        ...(capture && { capture: { ...capture, paramHash: false } }),
+      });
+      expect(run.status).toBe("failed");
+      expect(run.exitCode).toBe(0);
+      expect(run.phases).toEqual([]);
+      expect(run.statements).toEqual({ status: "off" });
+      expect(await readFile(log, "utf8")).toContain(line);
+    }
+  }
 });
 
 test("a capture that was never written leaves the run's result", async () => {
@@ -131,7 +139,7 @@ test("profiles", () => {
     root,
   });
   expect(run.status).toBe("passed");
-  expect(run.statements).toEqual({ capture: out, perPhase: null });
+  expect(run.statements).toEqual({ status: "unmatched", capture: out });
 });
 
 test("a timeout or a missing tally fails the run", () => {
@@ -181,7 +189,11 @@ test("two phases", async () => {
   });
   expect(run.status).toBe("passed");
   expect(run.phases.map((phase) => phase.label)).toEqual(["first", "second"]);
-  expect(run.statements).toEqual({ capture: out, perPhase: [1, 2] });
+  expect(run.statements).toEqual({
+    status: "captured",
+    capture: out,
+    perPhase: [1, 2],
+  });
   const records = (await readFile(out, "utf8")).trim().split("\n");
   expect(records.map((line) => Object.keys(JSON.parse(line)))).toEqual([
     ["label", "sql", "params", "paramHash"],
