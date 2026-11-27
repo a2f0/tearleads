@@ -1,8 +1,18 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { notifyDatabaseStatement } from "./databaseStatementObserverRegistry";
+import {
+  hasDatabaseRequestScopeObservers,
+  notifyDatabaseRequestScope,
+  notifyDatabaseStatement,
+} from "./databaseStatementObserverRegistry";
 
 export interface DatabaseStatementCounter {
   statements: number;
+  /**
+   * Statements executed inside a managed database transaction, accumulated
+   * only when the caller initializes it. Inside a transaction every statement
+   * runs serially on one pinned connection.
+   */
+  txStatements?: number;
   /**
    * Milliseconds spent waiting on the database driver, accumulated only when
    * the caller initializes it. A sum over driver calls: concurrent queries can
@@ -21,6 +31,7 @@ interface CounterScope {
 }
 
 const scopes = new AsyncLocalStorage<CounterScope>();
+const transactionScopes = new AsyncLocalStorage<object>();
 
 function openScope<T>(
   counter: DatabaseStatementCounter,
@@ -31,6 +42,15 @@ function openScope<T>(
     { counter, parent: scopes.getStore(), request, token: Object.freeze({}) },
     work,
   );
+}
+
+/**
+ * Mark a managed database transaction so counters and statement observers
+ * know which statements ran serially inside one transaction, even on PGlite
+ * where `BEGIN`/`COMMIT` bypass the ORM logger.
+ */
+export function withDatabaseTransactionScope<T>(work: () => T): T {
+  return transactionScopes.run(Object.freeze({}), work);
 }
 
 /**
@@ -58,20 +78,52 @@ export function withRequestStatementCounter<T>(
 }
 
 /**
+ * Attach route metadata to the innermost open request scope for any registered
+ * request-scope observer. A no-op with no allocation when no observer listens.
+ */
+export function recordRequestScopeMetadata(
+  resolveMeta: () => {
+    readonly method: string;
+    readonly route: string;
+    readonly status: number;
+  },
+): void {
+  if (!hasDatabaseRequestScopeObservers()) return;
+  for (let scope = scopes.getStore(); scope; scope = scope.parent) {
+    if (scope.request) {
+      notifyDatabaseRequestScope(scope.token, resolveMeta());
+      return;
+    }
+  }
+}
+
+/**
  * The ORM logger every API database is built with: it counts each statement
  * for the enclosing counters and hands it to any statement observer, with the
  * innermost request scope's token, or else the outermost scope's.
  */
 export const databaseStatementLogger = {
   logQuery(query: string, parameters: unknown[]): void {
+    const transaction = transactionScopes.getStore();
     let request: CounterScope | undefined;
     let outermost: CounterScope | undefined;
     for (let scope = scopes.getStore(); scope; scope = scope.parent) {
       scope.counter.statements += 1;
+      if (
+        transaction !== undefined &&
+        scope.counter.txStatements !== undefined
+      ) {
+        scope.counter.txStatements += 1;
+      }
       if (scope.request) request ??= scope;
       outermost = scope;
     }
-    notifyDatabaseStatement(query, parameters, (request ?? outermost)?.token);
+    notifyDatabaseStatement(
+      query,
+      parameters,
+      (request ?? outermost)?.token,
+      transaction,
+    );
   },
 };
 

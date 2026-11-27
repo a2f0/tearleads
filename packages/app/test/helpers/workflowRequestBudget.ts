@@ -8,6 +8,7 @@ import {
 } from "./principalPreparationRequests";
 import {
   expectProxiedApiRequestBudget,
+  markProxiedApiPhaseStart,
   type ProxiedApiRequestBudget,
   profileProxiedApiRequests,
 } from "./proxiedApiRequestBudget";
@@ -21,6 +22,7 @@ export async function measureWorkflowRequests(input: {
   mutations: readonly ExpectedWorkflowMutation[];
 }) {
   await waitForPaneRuntimeToSettle(20_000);
+  markProxiedApiPhaseStart(input.label);
   const start = listProxiedApiRequests().length;
   await input.operation();
   // Some local-first actions return before their structural queue is registered

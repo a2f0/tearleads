@@ -12,7 +12,15 @@ export interface CostEvent {
   eventTimestamp: number | null;
   cpuMs: number | null;
   wallMs: number | null;
-  costs: { statements: number; wallMs: number; dbMs: number; status: number }[];
+  costs: {
+    statements: number;
+    txStatements?: number;
+    wallMs: number;
+    dbMs: number;
+    status: number;
+    reqBytes?: number;
+    resBytes?: number;
+  }[];
 }
 
 function parseCost(message: unknown): CostEvent["costs"][number] | null {
@@ -28,12 +36,25 @@ function parseCost(message: unknown): CostEvent["costs"][number] | null {
   const wallMs = finite(Reflect.get(cost, "wallMs"));
   const dbMs = finite(Reflect.get(cost, "dbMs"));
   const status = finite(Reflect.get(cost, "status"));
-  return statements !== null &&
-    wallMs !== null &&
-    dbMs !== null &&
-    status !== null
-    ? { statements, wallMs, dbMs, status }
-    : null;
+  if (
+    statements === null ||
+    wallMs === null ||
+    dbMs === null ||
+    status === null
+  )
+    return null;
+  const txStatements = finite(Reflect.get(cost, "txStatements"));
+  const reqBytes = finite(Reflect.get(cost, "reqBytes"));
+  const resBytes = finite(Reflect.get(cost, "resBytes"));
+  return {
+    statements,
+    ...(txStatements !== null ? { txStatements } : {}),
+    wallMs,
+    dbMs,
+    status,
+    ...(reqBytes !== null ? { reqBytes } : {}),
+    ...(resBytes !== null ? { resBytes } : {}),
+  };
 }
 
 function parseCosts(logs: unknown): CostEvent["costs"] {

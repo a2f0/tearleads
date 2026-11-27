@@ -196,6 +196,13 @@ function summarizeRepeatedProxiedApiRequestPaths(
     .join("\n");
 }
 
+export function markProxiedApiPhaseStart(label: string) {
+  if (requestProfileEnv.DUAL_PANE_REQUEST_PROFILE !== "1") {
+    return;
+  }
+  console.info(`[dual-pane-request-phase-start] ${JSON.stringify({ label })}`);
+}
+
 export function profileProxiedApiRequests(
   label: string,
   requestStartIndex: number,
