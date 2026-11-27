@@ -39,9 +39,8 @@ build results. The nightly `Uncached tests` workflow reuses that lane.
 npm version of `@a2f0/agent-tool`. After changing it, run `bun run agents:sync`
 and commit the lockfile, the managed skill and
 [permission manifests](developer/static-analysis.md#harness-permissions), the
-skills, and the generated [`.claude/settings.json`](../.claude/settings.json),
-[`.codex/rules/agent-tool.rules`](../.codex/rules/agent-tool.rules), and
-[`.gemini/policies/agent-tool.toml`](../.gemini/policies/agent-tool.toml)
+skills, and the generated [`.claude/settings.json`](../.claude/settings.json)
+and [`.codex/rules/agent-tool.rules`](../.codex/rules/agent-tool.rules)
 together. Check
 [hook installation](developer/static-analysis.md#ci-and-the-push-gate) and the
 branch, commit, CI-gate, and release-policy fixtures; the repository's own Turbo
