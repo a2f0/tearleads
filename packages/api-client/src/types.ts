@@ -114,6 +114,17 @@ export interface RequestFailure {
    */
   readonly nextSegmentIndex?: number | undefined;
   /**
+   * With `document_baseline_stage_limit_reached`: the caller's open stages,
+   * so a writer can abandon one it no longer uploads.
+   */
+  readonly openStages?:
+    | readonly {
+        readonly baselineId: string;
+        readonly documentId: string;
+        readonly expiresAt: string;
+      }[]
+    | undefined;
+  /**
    * With `container_descendant_rekeys_required`, the full owed set, parent-first;
    * with `container_descendant_rekeys_inaccessible`, its unwritable subset.
    * A hint, never authority; verify each container before signing for it.

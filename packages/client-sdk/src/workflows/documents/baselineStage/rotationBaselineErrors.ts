@@ -35,10 +35,11 @@ export function isDocumentRotationBaselineStageError(
 
 /**
  * The user already holds as many open baseline stages as the API lets one
- * user hold (`MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER`): other uploads
- * are in flight, or stages a restarted process left are still to expire.
- * Nothing was opened and nothing is retried; the rotation goes once one of
- * them commits, is abandoned, or expires.
+ * user hold (`MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER`), and none of
+ * them is an orphan this writer may abandon (`openPastOrphanedStages`):
+ * other uploads are in flight, here or on another device. Nothing was
+ * opened and nothing more is retried; the rotation goes once one of them
+ * commits, is abandoned, or expires.
  */
 export class DocumentRotationBaselineStageLimitError extends DocumentRotationBaselineStageError {
   override readonly name = "DocumentRotationBaselineStageLimitError";

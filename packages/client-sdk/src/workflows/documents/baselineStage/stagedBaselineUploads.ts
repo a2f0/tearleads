@@ -53,7 +53,7 @@ export interface StagedSegmentRecord {
  * One document's upload through a stage: the machine's state and what the
  * writer remembers beside it. It lives in memory only, so a process that
  * restarts has no upload and starts the next one over; the stage it left is
- * replaced by that upload's, or expires.
+ * replaced by that upload's, abandoned as an orphan, or expires.
  */
 export class StagedBaselineUpload {
   state: StagedBaselineState = INITIAL_STAGED_BASELINE_STATE;
@@ -111,6 +111,8 @@ export interface StagedBaselineUploads {
   begin(documentId: string, plan: StagedBaselinePlan): StagedBaselineUpload;
   /** Forget `upload`, unless another has replaced it. */
   end(upload: StagedBaselineUpload): void;
+  /** Whether an upload here is filling the stage `baselineId`. */
+  tracks(documentId: string, baselineId: string): boolean;
 }
 
 function createStagedBaselineUploads(): StagedBaselineUploads {
@@ -127,6 +129,15 @@ function createStagedBaselineUploads(): StagedBaselineUploads {
       }
     },
     get: (documentId) => uploads.get(documentId) ?? null,
+    tracks(documentId, baselineId) {
+      const state = uploads.get(documentId)?.state;
+      return (
+        state !== undefined &&
+        state.status !== "planning" &&
+        !isStagedBaselineOver(state) &&
+        state.baselineId === baselineId
+      );
+    },
   };
 }
 

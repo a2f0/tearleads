@@ -83,7 +83,7 @@ Each refusal is an event of the machine:
 | `id_conflict` at the open | chooses another id |
 | `segment_out_of_order` | reads the stage and goes on from the index it expects |
 | `segment_conflict`, `segment_invalid`, a group refusal with no stage code | deletes the stage and builds the baseline anew |
-| `limit_reached` at the open | fails with `DocumentRotationBaselineStageLimitError` and does not retry: the user holds four open stages already. A sync records a failure row with that code, and an unlink reports it. |
+| `limit_reached` at the open | abandons the [orphaned stages](#orphaned-stages) the refusal names and opens once more. If none is an orphan, or the open is refused again, it fails with `DocumentRotationBaselineStageLimitError` and does not retry: the user holds four open stages already. A sync records a failure row with that code, and an unlink reports it. |
 | `too_large` | deletes the stage and fails with `DocumentRotationBaselineLimitError`: the history needs more bytes or span rows than a stage stores. |
 | A stage request, or the rotating request, refused for the writer itself (`402`, `403`, or any other refusal with no stage code) | gives the upload up and deletes the stage, so it does not hold one of the user's four open stages until it expires. Nothing is retried. A sync records the failure with the refusal's own status as it records a refused submit; an unlink reports it to its caller with that status. |
 | A stage request that got no answer, or a `5xx` | stops, and leaves the stage as it is: the failure says nothing about it. The next run reads the stage and goes on. |
@@ -116,9 +116,51 @@ per database (`getOrCreateStagedBaselineUploads`), so a sync's heal and an
 unlink of one document share it, and the next attempt after a refusal or a
 lost answer finds it. A process that restarts has no upload. Its next
 attempt opens a new stage, which replaces the one left behind, and uploads
-every segment again; a stage nobody replaces expires, and holds one of the
-user's four open stages until it does. Durable resume across a restart is
-not built.
+every segment again. A stage nobody replaces holds one of the user's four
+open stages until it expires or a later upload finds it
+[orphaned](#orphaned-stages). Durable resume across a restart is not built.
+
+## Orphaned Stages
+
+A user holds at most four open stages across documents, and the refusal of
+a fifth (`limit_reached`) names the four as `openStages`, each with its
+document, its id, and its expiry. The writer then abandons every listed
+stage that is an orphan and sends the open once more
+(`openPastOrphanedStages`). A stage is an orphan when both hold:
+
+- no upload of this database is filling it
+  (`StagedBaselineUploads.tracks`); and
+- it has gone untouched for ten minutes or more
+  (`ORPHANED_STAGE_IDLE_MS`).
+
+A stage expires an hour after its last staged segment or re-signed header,
+so the writer takes the expiry less that hour as the time of the last
+write. A live upload writes to its stage with every segment, so a stage
+idle for ten minutes is one a restarted process left, or an upload that
+stalled.
+
+The idle rule is what keeps two devices of one user apart. Each sees the
+other's stages in the list and tracks none of them, and leaves any that was
+written to in the last ten minutes. A stage of this database's own upload
+is never an orphan however long it stands: a tail waits for a longer
+history, and a lost answer for the next pass.
+
+Three cases read a live stage as an orphan. Each costs its upload a stage,
+never a write: the writer that finds its stage gone (`not_found`) opens
+another and sends its segments again.
+
+- Another device's upload that stalled for ten minutes, by a slow link or a
+  pass that ended, and has not gone on.
+- A stage in the last fifty minutes of the 24 hours a stage may stand. Its
+  expiry is then the end of those hours and not an hour after its last
+  write, so it reads as idle since the hour before its end.
+- A device whose clock runs ten minutes or more ahead of the API's. The
+  expiry is the API's time and is read against the device's clock.
+
+An abandon that fails frees no place, and an abandon that finds the stage
+gone has. If no place was freed the open is not sent again, and it is sent
+again at most once: a limit that still stands is reported as
+`DocumentRotationBaselineStageLimitError`.
 
 ## What A Caller Sees
 
@@ -127,7 +169,8 @@ A sync reports progress as trace lines
 state and one every sixteen staged segments, and an unlink through the
 host's log. Three failures are terminal for a history, and a fourth,
 `DocumentRotationBaselineStageLimitError`, for the moment: the user has
-four other uploads open.
+four other uploads open and none of them is an
+[orphan](#orphaned-stages).
 
 - One operation larger than a segment may be:
   `DocumentSyncRequestLimitError`. A sync's heal ends in the coded failure

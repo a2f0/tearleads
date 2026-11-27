@@ -16,7 +16,9 @@ import {
   type DocumentBaselineStageErrorCode,
   type DocumentBaselineStageStatusResponse,
 } from "@tearleads/validators/response";
+import { MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER } from "@tearleads/validators/util";
 import type {
+  DocumentBaselineOpenStage,
   DocumentBaselineStageApi,
   DocumentBaselineStageFailure,
 } from "../../../src/data/documents/shared/sync/baselineStageApi";
@@ -83,6 +85,12 @@ export class FakeBaselineStageServer {
   readonly committed: DocumentOutgoingUpdate[][] = [];
   /** How many bytes of ciphertext were staged, across every stage. */
   stagedCharacters = 0;
+  /**
+   * The user's open stages on other documents, as a test places them: with
+   * four of them an open is refused for the limit and names them, and an
+   * abandon removes the one it names.
+   */
+  readonly elsewhere: DocumentBaselineOpenStage[] = [];
   private readonly stages = new Map<string, Stage>();
   private readonly injected: {
     readonly call: string;
@@ -252,6 +260,14 @@ export class FakeBaselineStageServer {
     abandonDocumentBaselineStageResult: async (documentId, baselineId) => {
       const injected = await this.enter("abandon");
       if (injected) return injected;
+      const other = this.elsewhere.findIndex(
+        (open) =>
+          open.documentId === documentId && open.baselineId === baselineId,
+      );
+      if (other >= 0) {
+        this.elsewhere.splice(other, 1);
+        return { data: { baselineId }, ok: true };
+      }
       const stage = this.stages.get(documentId);
       if (stage?.baselineId !== baselineId) return refusal(CODES.notFound);
       this.stages.delete(documentId);
@@ -266,6 +282,12 @@ export class FakeBaselineStageServer {
     openDocumentBaselineStageResult: async (documentId, input) => {
       const injected = await this.enter("open");
       if (injected) return injected;
+      if (this.elsewhere.length >= MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER) {
+        return {
+          ...refusal(CODES.limitReached),
+          openStages: [...this.elsewhere],
+        };
+      }
       const held = this.stages.get(documentId);
       if (
         held &&

@@ -35,6 +35,7 @@ import {
   stagedBaselineRefusalEvent,
   stagedSegmentCount,
 } from "./stagedBaselineMachine";
+import { openPastOrphanedStages } from "./stagedBaselineOrphans";
 import type {
   StagedBaselineUpload,
   StagedBaselineUploads,
@@ -143,14 +144,22 @@ async function openStage(
   state: Extract<StagedBaselineState, { status: "opening" }>,
 ): Promise<void> {
   const { plan } = run.upload;
-  const result = await run.context.api.openDocumentBaselineStageResult(
-    run.upload.documentId,
-    {
-      baselineId: state.baselineId,
-      contentKeyCommitment: plan.contentKeyCommitment,
-      contentKeyEpoch: plan.contentKeyEpoch,
-    },
-    requestOptions(run),
+  const { api, uploads } = run.context;
+  // A user who holds every open stage it may is told so only once the
+  // stages nobody is filling are abandoned and the open has been refused
+  // again.
+  const result = await openPastOrphanedStages(
+    () =>
+      api.openDocumentBaselineStageResult(
+        run.upload.documentId,
+        {
+          baselineId: state.baselineId,
+          contentKeyCommitment: plan.contentKeyCommitment,
+          contentKeyEpoch: plan.contentKeyEpoch,
+        },
+        requestOptions(run),
+      ),
+    { api, uploads },
   );
   if (!result.ok) return refuse(run, result);
   const { attempt } = run;

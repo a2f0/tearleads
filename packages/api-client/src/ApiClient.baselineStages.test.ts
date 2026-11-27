@@ -153,6 +153,57 @@ testApiClient("a stage refusal keeps its code and next index", async () => {
   });
 });
 
+// A writer that is refused for the open-stage limit can only clear a stage a
+// restarted process left if the refusal's list reaches it.
+testApiClient(
+  "an open refused for the limit names the open stages",
+  async () => {
+    const openStages = [1, 2, 3, 4].map((index) => ({
+      baselineId: `5f0c1d8e-6f0b-4c6e-8a55-0c2f3e1d4b6${index}`,
+      documentId: `document-${index}`,
+      expiresAt: `2026-07-26T0${index}:00:00.000Z`,
+    }));
+    const refuse = (body: Record<string, unknown>) =>
+      server.use(
+        http.post(STAGE, () =>
+          HttpResponse.json(
+            {
+              code: "document_baseline_stage_limit_reached",
+              error: "Too many open document baseline stages",
+              ...body,
+            },
+            { status: 409 },
+          ),
+        ),
+      );
+    const client = new ApiClient(apiBaseUrl);
+    const open = () =>
+      client.openDocumentBaselineStageResult(
+        DOCUMENT_ID,
+        {
+          baselineId: BASELINE_ID,
+          contentKeyCommitment: "a".repeat(64),
+          contentKeyEpoch: 2,
+        },
+        { reportErrors: false },
+      );
+
+    refuse({ openStages });
+    expect(await open()).toMatchObject({
+      code: "document_baseline_stage_limit_reached",
+      ok: false,
+      openStages,
+      status: 409,
+    });
+
+    // A list the schema does not admit is not handed on in part.
+    refuse({ openStages: [...openStages, ...openStages] });
+    const unlisted = await open();
+    expect(unlisted).toMatchObject({ ok: false, status: 409 });
+    expect(unlisted).not.toHaveProperty("openStages");
+  },
+);
+
 for (const [route, operation] of [
   ["sync", documentSyncOperation],
   ["unlink", unlinkDocumentOperation],

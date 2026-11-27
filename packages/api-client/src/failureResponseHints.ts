@@ -21,6 +21,7 @@ export type RequestFailureHints = Pick<
   RequestFailure,
   | "baselineStageCode"
   | "nextSegmentIndex"
+  | "openStages"
   | "peerFrontiers"
   | "requiredContainerIds"
   | "stalePrincipalHeads"
@@ -64,7 +65,10 @@ export function peerFrontiersField(
 export function baselineStageFields(
   value: object,
   schema?: FailureResponseSchema,
-): Pick<RequestFailureHints, "baselineStageCode" | "nextSegmentIndex"> {
+): Pick<
+  RequestFailureHints,
+  "baselineStageCode" | "nextSegmentIndex" | "openStages"
+> {
   if (
     (schema === DocumentSyncErrorResponseSchema ||
       schema === DocumentMutationFailureResponseSchema) &&
@@ -73,11 +77,18 @@ export function baselineStageFields(
   ) {
     return { baselineStageCode: value.baselineStageCode };
   }
-  return schema === DocumentBaselineStageConflictErrorResponseSchema &&
-    isDocumentBaselineStageConflictErrorResponse(value) &&
-    value.nextSegmentIndex !== undefined
-    ? { nextSegmentIndex: value.nextSegmentIndex }
-    : {};
+  if (
+    schema !== DocumentBaselineStageConflictErrorResponseSchema ||
+    !isDocumentBaselineStageConflictErrorResponse(value)
+  ) {
+    return {};
+  }
+  return {
+    ...(value.nextSegmentIndex === undefined
+      ? {}
+      : { nextSegmentIndex: value.nextSegmentIndex }),
+    ...(value.openStages === undefined ? {} : { openStages: value.openStages }),
+  };
 }
 
 /** A failure's recovery hints, each set only when its body carried it. */
@@ -98,5 +109,6 @@ export function requestFailureHints(
     ...(input.nextSegmentIndex === undefined
       ? {}
       : { nextSegmentIndex: input.nextSegmentIndex }),
+    ...(input.openStages ? { openStages: input.openStages } : {}),
   };
 }

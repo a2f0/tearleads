@@ -28,7 +28,7 @@ The abstraction maps to production at these seams:
 | `CommitRefusedStale` / `CoverageFromSpans` | `assertStagedBaselineCoversCommittedFrontier`, which compares the stage's walked spans and the final segment's own with `committedFrontierAfterBaselineCursor` |
 | `Promote` / `PromoteAllOrNone` | `promoteStagedBaselineSegments` inside `appendDocumentUpdates`, which inserts the staged rows in index order ahead of the final segment and deletes the stage row |
 | `Write` / `CommitUnderHeadLock` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
-| `Abandon` | `abandonDocumentBaselineStage` |
+| `Abandon` | `abandonDocumentBaselineStage`, whoever asks: the stage's own writer, or another device of its user whose `abandonOrphanedStages` took a stage idle for ten minutes for one a restart left. The rotator that loses its stage plans again either way |
 | `Sweep` / `SweepLocksStageRow` | `cleanupExpiredDocumentBaselineStages`, which deletes each expired stage row and then its segments in one transaction, stage after stage until none is left or its budget ends |
 | `KeptAfterDelete` / `DeleteKeepsCommitted` | `deleteUncommittedBaselineSegments`, the one delete the sweep, abandon and replace-on-open share |
 | `ReaderPage` / `ServeOnlyCommittedRows` | `loadDocumentUpdatePageRows`, which reads committed update rows and joins a staged segment's payload to its row |

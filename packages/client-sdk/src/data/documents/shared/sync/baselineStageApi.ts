@@ -15,12 +15,21 @@ interface DocumentBaselineStageRequestOptions {
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
+/** One of the caller's open stages, as a `limit_reached` refusal names it. */
+export interface DocumentBaselineOpenStage {
+  readonly baselineId: string;
+  readonly documentId: string;
+  readonly expiresAt: string;
+}
+
 /** A refused or failed stage request, with the stage's code if it sent one. */
 export interface DocumentBaselineStageFailure {
   readonly code?: string | undefined;
   readonly message: string;
   /** With `segment_out_of_order`: the index the stage expects next. */
   readonly nextSegmentIndex?: number | undefined;
+  /** With `limit_reached`: the caller's open stages. */
+  readonly openStages?: readonly DocumentBaselineOpenStage[] | undefined;
   readonly ok: false;
   readonly status: number | null;
 }
