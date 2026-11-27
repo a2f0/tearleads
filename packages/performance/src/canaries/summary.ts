@@ -1,4 +1,5 @@
 import type { PhaseMetrics } from "./output";
+import { phaseStatementCount, type RunStatements } from "./runStatements";
 
 export interface Range {
   readonly min: number;
@@ -30,8 +31,7 @@ export interface EndpointSummary {
 export interface CanarySample {
   readonly canary: string;
   readonly phases: readonly PhaseMetrics[];
-  /** Statements per phase, in the same order, when captured. */
-  readonly statements?: { readonly perPhase: readonly number[] | null } | null;
+  readonly statements?: RunStatements;
 }
 
 function range(values: readonly number[]): Range {
@@ -89,7 +89,7 @@ export function summarizePhases(
         statements: [],
       };
       group.phases.push(phase);
-      group.statements.push(sample.statements?.perPhase?.[index]);
+      group.statements.push(phaseStatementCount(sample.statements, index));
       groups.set(key, group);
     }
   }
