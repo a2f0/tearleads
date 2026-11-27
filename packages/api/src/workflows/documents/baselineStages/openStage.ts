@@ -172,8 +172,12 @@ async function lockStageOwner(
 /**
  * The caller's stage on this document, if it is the one being opened again:
  * it is returned as it stands and keeps what it staged. Any other stage of
- * the caller's here, an earlier baseline's or an expired one, is replaced,
- * so it is deleted with what it staged.
+ * the caller's here, an earlier baseline's or an expired one a request held
+ * a moment ago, is replaced, so it is deleted with what it staged. That
+ * delete is the one an open does under the lifecycle lock, and a purge of
+ * the document or another user's open there waits for it: replacing a
+ * stage and storing the new one are one transaction, so an open that is
+ * then refused keeps the stage it would have replaced.
  *
  * The caller holds the document's lifecycle lock, so the row is locked
  * without waiting: a request of the caller's own that holds it, a segment
@@ -231,13 +235,14 @@ function callersStagesElsewhere(input: OpenDocumentBaselineStageInput) {
  * What an open does before it asks for any lock another request waits for,
  * in a transaction of its own. A caller who cannot write the document is
  * refused here, so it never holds the document's lifecycle lock, which a
- * create and a purge of it wait for. Then the caller's expired stages on
- * other documents, which are dead, are deleted with what they staged: one
- * may hold a gigabyte and a million span rows, and deleting it under this
- * document's lifecycle lock would keep a purge of the document and other
- * users' opens waiting for that long. A stage another request holds is
- * skipped, so nothing is waited for, and the transaction commits before
- * the open asks for a lock: its row locks are never held across a wait.
+ * create and a purge of it wait for. Then the caller's expired stages,
+ * which are dead, are deleted with what they staged, on this document and
+ * on every other: one may hold a gigabyte and a million span rows, and
+ * deleting it under this document's lifecycle lock would keep a purge of
+ * the document and other users' opens waiting for that long. A stage
+ * another request holds is skipped, so nothing is waited for, and the
+ * transaction commits before the open asks for a lock: its row locks are
+ * never held across a wait.
  */
 async function admitCallerAndDropExpiredStages(
   executor: DatabaseTransaction,
@@ -253,7 +258,7 @@ async function admitCallerAndDropExpiredStages(
     .from(documentBaselineStages)
     .where(
       and(
-        callersStagesElsewhere(input),
+        eq(documentBaselineStages.ownerUserId, input.userId),
         lte(documentBaselineStages.expiresAt, now),
       ),
     )
@@ -314,12 +319,17 @@ async function openDocumentBaselineStageInTransaction(
     .from(documentBaselineStages)
     .where(callersStagesElsewhere(input));
   if (elsewhere.length >= MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER) {
+    // Every row counts, but only the open ones are named: a writer is told
+    // which stages it can abandon, and an expired one another request holds
+    // is on its way out.
     throw documentBaselineStageLimitReached(
-      elsewhere.map((stage) => ({
-        baselineId: stage.id,
-        documentId: stage.documentId,
-        expiresAt: stage.expiresAt.toISOString(),
-      })),
+      elsewhere
+        .filter((stage) => stage.expiresAt.getTime() > now.getTime())
+        .map((stage) => ({
+          baselineId: stage.id,
+          documentId: stage.documentId,
+          expiresAt: stage.expiresAt.toISOString(),
+        })),
     );
   }
 

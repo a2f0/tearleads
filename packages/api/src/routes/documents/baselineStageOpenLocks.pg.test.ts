@@ -243,11 +243,12 @@ test.skipIf(!onPostgres)(
   120_000,
 );
 
-// An open deletes the caller's expired stages elsewhere, and waits for
-// none of them: one another request holds is skipped, and counts until
-// that request lets it go.
+// An open deletes the caller's expired stages, and waits for none of them:
+// one another request holds is skipped, still counts toward the cap until
+// that request lets it go, and is left out of `openStages` because it is
+// already on its way out.
 test.skipIf(!onPostgres)(
-  "an expired stage elsewhere that is in use is skipped and still counts",
+  "an expired stage elsewhere that is in use is skipped, still counts, and is omitted from openStages",
   async () => {
     const { created, owner, root } = await documentWithHistory();
     const cap = MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER;
@@ -275,7 +276,13 @@ test.skipIf(!onPostgres)(
       expect(refused.status).toBe(409);
       const body = await refused.json();
       expect(body.code).toBe(STAGE.limitReached);
-      expect(body.openStages).toHaveLength(cap);
+      expect(body.openStages).toHaveLength(cap - 1);
+      expect(
+        body.openStages.some(
+          (stage: { baselineId: string }) =>
+            stage.baselineId === expired.baselineId,
+        ),
+      ).toBe(false);
     } finally {
       await busy.release();
     }
@@ -287,26 +294,36 @@ test.skipIf(!onPostgres)(
 );
 
 // An expired stage may hold a gigabyte and a million span rows. An open
-// deletes the caller's expired stages on other documents in a transaction
-// of its own, before it asks for this document's lifecycle lock, so the
-// delete is never done under that lock, which a purge of the document and
-// other users' opens wait for: the stage is gone while the open still
-// waits.
+// deletes the caller's expired stages — on this document and on every
+// other — in a transaction of its own, before it asks for this document's
+// lifecycle lock, so the delete is never done under that lock, which a
+// purge of the document and other users' opens wait for: both stages are
+// gone while the open still waits.
 test.skipIf(!onPostgres)(
   "an open deletes the caller's expired stages before it asks for a lock",
   async () => {
     const { created, owner, root } = await documentWithHistory();
     const other = await createDocument({ owner, root });
-    const expired = crypto.randomUUID();
+    const expiredElsewhere = crypto.randomUUID();
+    const expiredHere = crypto.randomUUID();
     expect(
       (
         await openStage(owner, created.id, {
-          baselineId: expired,
+          baselineId: expiredElsewhere,
           contentKeyEpoch: created.contentKeyEpoch,
         })
       ).status,
     ).toBe(200);
-    await setStageExpiry(created.id, expired, new Date(0));
+    expect(
+      (
+        await openStage(owner, other.id, {
+          baselineId: expiredHere,
+          contentKeyEpoch: other.contentKeyEpoch,
+        })
+      ).status,
+    ).toBe(200);
+    await setStageExpiry(created.id, expiredElsewhere, new Date(0));
+    await setStageExpiry(other.id, expiredHere, new Date(0));
 
     const purging = await holdLifecycleLock(other.id);
     let opening: Promise<Response> | undefined;
@@ -317,6 +334,7 @@ test.skipIf(!onPostgres)(
         queryFragment: "pg_advisory_xact_lock",
       });
       expect((await stagedRows(created.id)).stages).toEqual([]);
+      expect((await stagedRows(other.id)).stages).toEqual([]);
     } finally {
       await purging.release();
     }
