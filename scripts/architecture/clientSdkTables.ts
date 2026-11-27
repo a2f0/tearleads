@@ -5,6 +5,7 @@
 export const documentStoreTables = [
   "containerDocumentTombstoneHolds",
   "documentAttachmentBlobProjection",
+  "documentBaselineStageUploads",
   "documentDiscoveryHeads",
   "documentDiscoverySequence",
   "documentHistoryCheckpoints",
