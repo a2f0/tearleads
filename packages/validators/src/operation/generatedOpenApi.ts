@@ -832,7 +832,7 @@ export type paths = {
         put?: never;
         /**
          * Open a rotation baseline stage
-         * @description Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document, as every later stage request does, and replaces the caller's earlier stage for it; a user holds at most 4 open stages, and one more returns 409 `document_baseline_stage_limit_reached`. The stage expires 60 minutes after its last upload and at most 24 hours after it opened; nothing staged is served until a rotating request commits it.
+         * @description Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document, as every later stage request does, and replaces the caller's earlier stage for it; a user holds at most 4 open stages, and one more returns 409 `document_baseline_stage_limit_reached`. The stage expires 60 minutes after its last upload and at most 24 hours after it opened; nothing staged is served until a rotating request commits it. An open does not wait for the caller's own stage on the document: while another of the caller's requests holds it (a segment being staged, a header being re-signed, a commit) the open returns 503 with `Retry-After` and changes nothing, so a writer lets its other requests to that stage finish before it opens again.
          */
         post: operations["documents.baselineStages.open"];
         delete?: never;
@@ -8966,9 +8966,10 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Service Unavailable */
+            /** @description Another request of the caller's holds its stage on the document, and the open did not wait for it. Nothing changed. Retry after the `Retry-After` delay (1 second), once the writer's other requests to that stage have finished. Also the answer when the database cannot be reached, as on every route. */
             503: {
                 headers: {
+                    "retry-after"?: "1";
                     [name: string]: unknown;
                 };
                 content: {

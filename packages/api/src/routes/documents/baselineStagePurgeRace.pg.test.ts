@@ -15,6 +15,7 @@ import { createDocument } from "../../../test/helpers/keyingWriterProjectionKit"
 import {
   holdAccessManifestHeadForUpdate,
   holdPostgresLock,
+  settledWithoutWaiting,
   waitForPostgresLockWait,
 } from "../../../test/helpers/postgresConcurrency";
 import { lockDocumentBaselineStageRow } from "../../documents/documentBaselineStageStore";
@@ -126,15 +127,12 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       });
     });
     try {
-      const opened = await Promise.race([
+      const opened = await settledWithoutWaiting(
         openStage(owner, created.id, {
           baselineId: crypto.randomUUID(),
           contentKeyEpoch: created.contentKeyEpoch,
         }),
-        Bun.sleep(5_000).then(() => {
-          throw new Error("The open waited for the stage elsewhere");
-        }),
-      ]);
+      );
       expect(opened.status).toBe(200);
     } finally {
       await busy.release();

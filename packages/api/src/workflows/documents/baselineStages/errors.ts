@@ -92,9 +92,11 @@ export function documentBaselineStageLimitReached(
 }
 
 /**
- * A request of the caller's own holds the stage this one would replace. It
- * is not a conflict the writer resolves: the same request sent again finds
- * the stage free.
+ * A request of the caller's own holds the stage this open would return or
+ * replace, and an open does not wait for it. Nothing changed. The open has
+ * no place in a queue: sent again while the writer keeps staging to that
+ * stage, it may find it held again every time, so a writer lets its other
+ * requests to the stage finish first. The route adds `Retry-After`.
  */
 export function documentBaselineStageBusy(): DocumentBaselineStageError {
   return new DocumentBaselineStageError(

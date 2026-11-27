@@ -6,6 +6,7 @@ import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { documentBaselineStages } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import { openDocumentBaselineStageOperation as operation } from "@tearleads/validators/operation";
 import { DOCUMENT_BASELINE_STAGE_ERROR_CODES as STAGE } from "@tearleads/validators/response";
 import { MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER } from "@tearleads/validators/util";
 import { eq, sql } from "drizzle-orm";
@@ -24,6 +25,7 @@ import { createDocument } from "../../../test/helpers/keyingWriterProjectionKit"
 import {
   holdPostgresLock,
   waitForPostgresLockWait,
+  settledWithoutWaiting as withoutWaiting,
 } from "../../../test/helpers/postgresConcurrency";
 import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 import { lockDocumentBaselineStageRow } from "../../documents/documentBaselineStageStore";
@@ -37,16 +39,6 @@ async function holdLifecycleLock(documentId: string) {
   return holdPostgresLock(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${first}, ${second})`);
   });
-}
-
-/** The response, if it arrives while the test still holds its lock. */
-function withoutWaiting(request: Response | Promise<Response>) {
-  return Promise.race([
-    Promise.resolve(request),
-    Bun.sleep(5_000).then(() => {
-      throw new Error("The request waited for a lock");
-    }),
-  ]);
 }
 
 function open(
@@ -140,13 +132,25 @@ test.skipIf(!onPostgres)(
         openStage(owner, created.id, stage),
       ]) {
         const refused = await withoutWaiting(request);
-        expect([refused.status, await refused.json()]).toEqual([
+        const body = await refused.json();
+        expect([refused.status, body]).toEqual([
           503,
           {
             error:
               "Document baseline stage is in use by another request; retry",
           },
         ]);
+        // As the operation declares it: the plain error body, and the
+        // delay to wait before the open is sent again.
+        expect(operation.failureResponses[503].safeParse(body).success).toBe(
+          true,
+        );
+        expect(refused.headers.get("retry-after")).toBe("1");
+        expect(
+          operation.responseHeaders[503].safeParse({
+            "retry-after": refused.headers.get("retry-after"),
+          }).success,
+        ).toBe(true);
       }
       // The refused opens left the document's lifecycle lock free.
       const [first, second] = await deriveDocumentLifecycleLockKeys(created.id);
@@ -280,4 +284,44 @@ test.skipIf(!onPostgres)(
     expect(await stagesOf(owner.userId)).toHaveLength(cap);
   },
   120_000,
+);
+
+// An expired stage may hold a gigabyte and a million span rows. An open
+// deletes the caller's expired stages on other documents in a transaction
+// of its own, before it asks for this document's lifecycle lock, so the
+// delete is never done under that lock, which a purge of the document and
+// other users' opens wait for: the stage is gone while the open still
+// waits.
+test.skipIf(!onPostgres)(
+  "an open deletes the caller's expired stages before it asks for a lock",
+  async () => {
+    const { created, owner, root } = await documentWithHistory();
+    const other = await createDocument({ owner, root });
+    const expired = crypto.randomUUID();
+    expect(
+      (
+        await openStage(owner, created.id, {
+          baselineId: expired,
+          contentKeyEpoch: created.contentKeyEpoch,
+        })
+      ).status,
+    ).toBe(200);
+    await setStageExpiry(created.id, expired, new Date(0));
+
+    const purging = await holdLifecycleLock(other.id);
+    let opening: Promise<Response> | undefined;
+    try {
+      opening = Promise.resolve(open(owner, other));
+      await waitForPostgresLockWait({
+        blockerPid: purging.backendPid,
+        queryFragment: "pg_advisory_xact_lock",
+      });
+      expect((await stagedRows(created.id)).stages).toEqual([]);
+    } finally {
+      await purging.release();
+    }
+    if (!opening) throw new Error("Expected the open");
+    expect((await opening).status).toBe(200);
+  },
+  60_000,
 );

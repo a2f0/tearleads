@@ -14,6 +14,7 @@ import type {
 } from "@tearleads/validators/response";
 import { DOCUMENT_BASELINE_STAGE_ERROR_CODES } from "@tearleads/validators/response";
 import {
+  DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS,
   MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
   MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
 } from "@tearleads/validators/util";
@@ -60,6 +61,15 @@ function respondToStageError(c: Context<SessionEnv>, error: unknown) {
   }
   if (!(error instanceof DocumentBaselineStageError)) throw error;
   if (error.status !== 409) {
+    // A stage route's 503 is a request that lost to another for a lock and
+    // changed nothing: an open that found the caller's stage in use, or a
+    // transaction the database chose to abort. Either is sent again.
+    if (error.status === 503) {
+      c.header(
+        "Retry-After",
+        String(DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS),
+      );
+    }
     return c.json({ error: error.message }, error.status);
   }
   const { code, nextSegmentIndex, openStages } = error;
