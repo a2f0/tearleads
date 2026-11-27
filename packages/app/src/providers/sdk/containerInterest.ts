@@ -16,7 +16,10 @@ export interface ContainerInterestDeclaration {
     declarationId: string,
     acceptedIds: readonly string[],
   ) => boolean;
-  /** The initial declaration is sent and its acknowledgement outstanding. */
+  /**
+   * The initial acknowledgement is outstanding: the declaration is sent, or
+   * waits for the local tree to load before it sends.
+   */
   readonly awaitingInitialAcknowledgement: () => boolean;
   readonly stop: () => void;
   readonly sync: () => void;
@@ -272,8 +275,7 @@ function declareInterest(
       if (result.retry || syncRequested) syncInterest();
       return initial;
     },
-    awaitingInitialAcknowledgement: () =>
-      !stopped && !initialAcknowledged && initialDeclarationIds.size > 0,
+    awaitingInitialAcknowledgement: () => !stopped && !initialAcknowledged,
     retryRefused: () => {
       if (stopped) return;
       // Keep accepted and pending IDs declared. A pending refusal observes

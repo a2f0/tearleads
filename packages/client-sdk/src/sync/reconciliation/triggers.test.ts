@@ -70,9 +70,11 @@ test("prerequisites-regained trigger resets the discovered set first", () => {
     activeContainerId: "c-1",
     reason: "prerequisites-regained",
   });
+  reconcileListener({ activeContainerId: "c-1", reason: "idle-backfill" });
 
   // Reset must happen before the enqueue/backfill, otherwise those calls are
-  // suppressed for already-discovered containers.
+  // suppressed for already-discovered containers. The backfill is its own
+  // signal: the projection raises it once a connect attempt settles.
   expect(calls).toEqual(["reset", "enqueue:c-1", "backfill"]);
 });
 

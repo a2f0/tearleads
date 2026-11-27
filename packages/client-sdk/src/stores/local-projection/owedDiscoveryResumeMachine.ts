@@ -1,3 +1,9 @@
+import {
+  type ConnectAttemptWaitTransition,
+  NO_CONNECT_ATTEMPT_WAIT,
+  transitionConnectAttemptWait,
+} from "../../workflows/shared/connectAttemptWaitMachine";
+
 /**
  * Decides when a start lists the document lanes an earlier boot left owed
  * ([owed document lanes](../../../../../docs/developer/device-first.md#owed-document-lanes)).
@@ -6,14 +12,17 @@
  * acknowledgement instead of listing owed lanes in both. A start with no
  * attempt pending (offline, realtime unavailable, between retries), or whose
  * attempt ends without an acknowledgement, resumes the owed lanes itself.
+ * Whether it waits is decided by `connectAttemptWaitMachine.ts`, as for the
+ * other work an acknowledgement does; a resume handed to the catch-up is
+ * done, since that catch-up's own record survives a lost connection.
  *
  * | State | Event | Next | Resume |
  * | --- | --- | --- | --- |
  * | awaiting-hydration | hydrated, acknowledgement latched | done | no |
  * | awaiting-hydration | hydrated, attempt pending | awaiting-acknowledgement | no |
  * | awaiting-hydration | hydrated, no attempt pending | done | yes |
- * | awaiting-acknowledgement | runtime, acknowledged | done | no |
  * | awaiting-acknowledgement | runtime, the same attempt pending | unchanged | no |
+ * | awaiting-acknowledgement | runtime, attempt settled, acknowledged | done | no |
  * | awaiting-acknowledgement | runtime, attempt ended or replaced | done | yes |
  * | any | reset | awaiting-hydration | no |
  *
@@ -42,6 +51,24 @@ export const INITIAL_OWED_DISCOVERY_RESUME: OwedDiscoveryResumeState = {
 };
 
 const DONE: OwedDiscoveryResumeState = { status: "done" };
+/** What a waiting resume waits to do: list the owed lanes. */
+const RESUME = "resume" as const;
+
+function afterWait(next: ConnectAttemptWaitTransition<typeof RESUME>): {
+  readonly resume: boolean;
+  readonly state: OwedDiscoveryResumeState;
+} {
+  if (next.state.status === "waiting") {
+    return {
+      resume: false,
+      state: {
+        attempt: next.state.attempt,
+        status: "awaiting-acknowledgement",
+      },
+    };
+  }
+  return { resume: next.released !== undefined, state: DONE };
+}
 
 export function transitionOwedDiscoveryResume(
   state: OwedDiscoveryResumeState,
@@ -53,25 +80,27 @@ export function transitionOwedDiscoveryResume(
   if (event.type === "hydrated") {
     if (state.status !== "awaiting-hydration") return { resume: false, state };
     if (event.acknowledged) return { resume: false, state: DONE };
-    if (event.pendingConnectAttempt !== undefined) {
-      return {
-        resume: false,
-        state: {
-          attempt: event.pendingConnectAttempt,
-          status: "awaiting-acknowledgement",
-        },
-      };
-    }
-    return { resume: true, state: DONE };
+    return afterWait(
+      transitionConnectAttemptWait(NO_CONNECT_ATTEMPT_WAIT, {
+        pendingConnectAttempt: event.pendingConnectAttempt,
+        request: RESUME,
+        type: "hold",
+      }),
+    );
   }
   if (state.status !== "awaiting-acknowledgement") {
     return { resume: false, state };
   }
-  if (event.acknowledged) return { resume: false, state: DONE };
-  if (event.pendingConnectAttempt === state.attempt) {
-    return { resume: false, state };
-  }
-  return { resume: true, state: DONE };
+  return afterWait(
+    transitionConnectAttemptWait(
+      { attempt: state.attempt, request: RESUME, status: "waiting" },
+      {
+        acknowledged: event.acknowledged,
+        pendingConnectAttempt: event.pendingConnectAttempt,
+        type: "observe",
+      },
+    ),
+  );
 }
 
 /**

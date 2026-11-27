@@ -25,6 +25,37 @@ export const eventRouter = createMswEventRouter({
   },
 });
 
+// The in-process router acknowledges an interest declaration at once, while
+// a remote hub answers a round trip later. A canary that orders work against
+// the acknowledgement delays it to the latency it models.
+let interestAcknowledgementDelayMs = 0;
+
+/** Delays the container-interest acknowledgements of sockets opened next. */
+export function delayInterestAcknowledgements(delayMs: number): void {
+  interestAcknowledgementDelayMs = delayMs;
+}
+
+function delayingAcknowledgements(client: MswSocketClient): MswSocketClient {
+  const delayMs = interestAcknowledgementDelayMs;
+  if (delayMs === 0) return client;
+  const send = (data: string) => {
+    if (!data.includes('"known_containers_ack"')) return client.send(data);
+    setTimeout(() => {
+      try {
+        client.send(data);
+      } catch {
+        // The socket closed meanwhile: nothing is waiting for the answer.
+      }
+    }, delayMs);
+  };
+  const delaying: MswSocketClient = { send };
+  if (client.addEventListener) {
+    delaying.addEventListener = client.addEventListener.bind(client);
+  }
+  if (client.url) delaying.url = client.url;
+  return delaying;
+}
+
 interface ClosableConnection {
   close: (code?: number, reason?: string) => void;
 }
@@ -75,6 +106,8 @@ export async function drainSocketClients(): Promise<void> {
 export const eventsSocketHandler = eventsSocket.addEventListener(
   "connection",
   ({ client }) => {
-    eventRouter.handleConnection(client as MswSocketClient);
+    eventRouter.handleConnection(
+      delayingAcknowledgements(client as MswSocketClient),
+    );
   },
 );
