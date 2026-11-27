@@ -142,16 +142,16 @@ Some of that cost is deliberate:
   either way, measured while the API also ran on SQLite). Plain `--parallel`
   implies `--isolate` and cost about 2.4 times the CPU for the SDK, 1.5 times
   for the app, and 2 times for the API (880 s wall).
-- **Split the long suites across CI runners.** On CI, the API runs in three Bun
-  shards, the app, client SDK, and bob-and-alice suites in two each, and the
-  CLI in five, so no job carries a whole suite. The CLI suite (33 files, about
-  15-19 minutes serially on CI) used to run inside `Build and test` and was the
-  whole critical path of that job. Its shards still run one file at a time: each
-  seed e2e file runs the whole Continuity seed against an in-process API, and
-  their timeouts allow about three times a file's usual CI time
-  ([#3174](https://github.com/a2f0/tearleads/pull/3174)). API shards keep two
-  workers: with `--parallel=4`, four PGlite workers on one 4-vCPU runner pushed
-  a test that takes 3.3 s of its 5 s budget on main past the limit. The
+- **Split the long suites across CI runners.** On CI, the API and app suites
+  run in three Bun shards each, the client SDK and bob-and-alice suites in two
+  each, and the CLI in five, so no job carries a whole suite. The CLI suite (33
+  files, about 15-19 minutes serially on CI) used to run inside `Build and test`
+  and was the whole critical path of that job. Its shards still run one file at
+  a time: each seed e2e file runs the whole Continuity seed against an
+  in-process API, and their timeouts allow about three times a file's usual CI
+  time ([#3174](https://github.com/a2f0/tearleads/pull/3174)). API shards keep
+  two workers: with `--parallel=4`, four PGlite workers on one 4-vCPU runner
+  pushed a test that takes 3.3 s of its 5 s budget on main past the limit. The
   bob-and-alice scenarios run in four isolated workers (each boots its own
   in-process API): 35 tests took 167 s locally, where the serial CI run of 34
   took 850 s. A new shard layout regroups files inside `--no-isolate` workers,
@@ -178,24 +178,29 @@ Some of that cost is deliberate:
 ## Balance shards by measured time
 
 Without a table, Bun's `--shard=<i>/<n>` deals the path-sorted files
-round-robin, so one shard can draw several of a suite's slowest files. A
-package whose `test` script passes `--timings=test-timings.json` splits by that
-committed table of per-file milliseconds instead: Bun 1.4.3 cuts the
-path-sorted files into contiguous runs of about equal total time and costs a
-file the table lacks, such as a new test, at the table's median. Every shard
-computes the same cut from the same files and table, so each file still runs in
-exactly one shard.
+round-robin, so one shard can draw several of a suite's slowest files. Every
+sharded suite's `test` script therefore passes `--timings=test-timings.json`
+and splits by that committed table of per-file milliseconds instead: Bun 1.4.3
+cuts the path-sorted files into contiguous runs of about equal total time and
+costs a file the table lacks, such as a new test, at the table's median. Every
+shard computes the same cut from the same files and table, so each file still
+runs in exactly one shard.
 [`testTimings.test.ts`](../../scripts/checks/staticAnalysis/testTimings.test.ts)
 runs the real `bun test` over a fixture with an unlisted and a stale entry to
 prove it, and
 [`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
-requires a suite's shards to share their other arguments and the table to
-exist (a missing table silently falls back to round-robin). Under `--parallel`
-the table also starts the slowest files first.
+requires every sharded suite to pass `--timings`, its shards to share their
+other arguments, and the table to exist (a missing table silently falls back to
+round-robin). Under `--parallel` the table also starts the slowest files first,
+so a `--no-isolate` worker meets its files in a new order; run each new shard
+with CI's arguments before changing a suite's table or shard count.
 
-The table is one of its package's files, so it is an input of that package's
-Turbo tasks: refreshing it reruns the suite once. Refresh it from CI runs that
-executed the suites, such as the nightly `Uncached tests` run:
+A table is an input of its package's `test` task only: the root `build`,
+`runtime-sources`, and `sources` tasks leave `test-timings.json` out of their
+hashes, so a refresh reruns that suite's shards and no dependent's tests
+([`turboCache.test.ts`](../../scripts/checks/staticAnalysis/turboCache.test.ts)).
+Refresh the tables from CI runs that executed the suites, such as the nightly
+`Uncached tests` run:
 
 ```sh
 bun run generate:test-timings <ci-run-id>...
@@ -204,10 +209,31 @@ bun run generate:test-timings <ci-run-id>...
 [`refreshTestTimings.ts`](../../scripts/testing/refreshTestTimings.ts) reads the
 `Build and test` and `Test (...)` job logs, sums the case durations Bun printed
 for each file, counts each Turbo task hash once (a replay repeats the run that
-produced it), and writes each file's median over the runs. It then prints each
-lane's predicted shard sums. Case sums leave out imports and hooks, which are
-small beside the CLI's e2e cases. Refresh after adding or removing slow files,
-when the shards' times drift apart, or before changing a lane's shard count.
+produced it), and writes each file's median over the runs for every package
+whose script passes `--timings`. It then prints each suite's predicted shard
+sums, costing untimed files at the median as Bun does. Case sums leave out
+imports and hooks, and under `--parallel` a shard's job takes about half its
+sum. Refresh after adding or removing slow files, when the shards' times drift
+apart, or before changing a suite's shard count; restore a table you did not
+mean to change, since each refresh moves files between shards.
+
+The app, API, client SDK, and bob-and-alice tables come from three nightly runs
+and one forced run (45775108795, 45567863191, 45347697881, and 45872629320).
+Costed by those tables, the round-robin and timed cuts give these shard case
+sums:
+
+| Suite | Round-robin (s) | Timed (s) |
+| --- | --- | --- |
+| app | 841, 695 (two shards) | 513, 531, 492 (three shards) |
+| API | 477, 618, 628 | 575, 570, 579 |
+| client SDK | 360, 365 | 360, 365 |
+| bob-and-alice | 1050, 792 | 945, 897 |
+
+The client SDK's 1,361 short files already balance round-robin; its table
+still starts the slowest files first. The app moved to three shards, since
+two timed shards would still sum to 704 and 832 s. Its middle shard holds only
+the 13 `DualPaneProvider` files (531 s, the slowest 233 s), which run together
+in two `--no-isolate` workers.
 
 Because the cut is contiguous, the slowest shard cannot drop below the slowest
 file and often sits above it. The CLI table from six CI runs (931 s in all)

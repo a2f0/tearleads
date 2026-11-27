@@ -1,0 +1,4 @@
+interface:
+  display_name: "Optimize CI"
+  short_description: "Cut CI wall-clock time in measured rounds without checking less"
+  default_prompt: "Use $optimize-ci to make this repository's CI faster: measure which job holds the wall clock, change one lever, prove it on CI, and ship."

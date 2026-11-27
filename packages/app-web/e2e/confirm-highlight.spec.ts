@@ -60,7 +60,7 @@ test("the phrase to type stays set apart in every theme without relying on bold"
 
     await reset.click();
     const dialog = page.getByRole("dialog", { name: "Reset this device" });
-    const phrase = dialog.getByText("reset device", { exact: true });
+    const phrase = dialog.getByText("Reset device", { exact: true });
     await expect(phrase).toBeVisible();
     const colors = await readHighlightColors(phrase);
 

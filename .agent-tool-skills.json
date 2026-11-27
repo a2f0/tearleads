@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "agentToolVersion": "0.1.74",
+  "agentToolVersion": "0.1.76",
   "files": {
     ".agents/skills/cross-agent-review/SKILL.md": "61087439df8ee1dfbe4ff55a803aad2e0ae567e209096129097c212025fbdac3",
     ".agents/skills/open-pr/SKILL.md": "5d6d45b635ee153a0d53b83ef58d94cbd05bbf5d2933df647909a95b6f5c0bf2",
@@ -65,6 +65,12 @@
     ".claude/skills/space-cleanup/agents/openai.yaml": "77169dec910f20c97381f476a09e8a072c43d577381cbd4ed1143ed5a8a059f3",
     ".claude/skills/take-screenshots/SKILL.md": "a95e48c72df57db152093c00de0bfd5f6bffd8f6eae2567fbdd1221a425aa5ca",
     ".claude/skills/take-screenshots/references/adding-capture.md": "167def724045f90bb1c730fa815e20d0e66972598e9095a2e9e968e5bc165ee7",
-    ".claude/skills/take-screenshots/agents/openai.yaml": "1a82dc2cd3e7bedb83e75963af5b402ec86e97b1fc92b1aaf5fbf605f011aa6a"
+    ".claude/skills/take-screenshots/agents/openai.yaml": "1a82dc2cd3e7bedb83e75963af5b402ec86e97b1fc92b1aaf5fbf605f011aa6a",
+    ".agents/skills/optimize-ci/SKILL.md": "c3d74a610f8f772d52a7c57689f000f633a48e9a48bae68150d0bbf4531c29ec",
+    ".agents/skills/optimize-ci/references/lessons.md": "37d9e03d1a0774254fd5fb5ec8b380350c980bb158cd4de9ab08be3d4e1d4a2f",
+    ".agents/skills/optimize-ci/agents/openai.yaml": "dd9cb2b4c1d7bb826a1cd6bfb971ea22a0c337b171571024462fa4d13fb3de57",
+    ".claude/skills/optimize-ci/SKILL.md": "c3d74a610f8f772d52a7c57689f000f633a48e9a48bae68150d0bbf4531c29ec",
+    ".claude/skills/optimize-ci/references/lessons.md": "37d9e03d1a0774254fd5fb5ec8b380350c980bb158cd4de9ab08be3d4e1d4a2f",
+    ".claude/skills/optimize-ci/agents/openai.yaml": "dd9cb2b4c1d7bb826a1cd6bfb971ea22a0c337b171571024462fa4d13fb3de57"
   }
 }

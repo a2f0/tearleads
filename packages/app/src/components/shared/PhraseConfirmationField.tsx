@@ -5,7 +5,11 @@ import {
   MiniAppModalHighlight,
 } from "../mini-app/MiniAppLayout";
 
-/** Whether `typed` is the confirmation `phrase`. Matched case-sensitively. */
+/**
+ * Whether `typed` is the confirmation `phrase`. Matched case-sensitively, so
+ * a phrase is written in sentence case: what a touch keyboard types by
+ * default, capitalizing only the first letter.
+ */
 export function isPhraseConfirmed(typed: string, phrase: string): boolean {
   return typed.trim() === phrase;
 }
@@ -27,7 +31,7 @@ export function PhraseConfirmationField({
   readonly describedBy?: string | undefined;
   readonly disabled?: boolean;
   readonly onChange: (value: string) => void;
-  /** Typed verbatim by the user. */
+  /** Typed verbatim by the user; in sentence case (see isPhraseConfirmed). */
   readonly phrase: string;
   /** Completes the label "Type <phrase> …". */
   readonly purpose?: string;
@@ -41,6 +45,7 @@ export function PhraseConfirmationField({
       </span>
       <MiniAppInput
         aria-describedby={describedBy}
+        autoCapitalize="sentences"
         autoComplete="off"
         autoFocus={autoFocus}
         disabled={disabled}

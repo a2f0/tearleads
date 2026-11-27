@@ -330,9 +330,9 @@ test.describe("signed in", () => {
     await page.goto("/app/explorer");
     // Waits for the new identity to be registered: a folder can be created
     // only once it is.
-    await createFolder(page);
+    const folderId = await createFolder(page);
     // A note with two edits, each uploaded and signed.
-    await createNote(page);
+    await createNote(page, folderId);
 
     await page.getByRole("button", { name: "History", exact: true }).click();
     await expect(page).toHaveURL(/\/documents\/[^/]+\/history$/u);

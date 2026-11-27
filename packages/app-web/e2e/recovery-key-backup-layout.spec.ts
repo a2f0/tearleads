@@ -14,7 +14,7 @@ import { agreeToLegalTerms } from "./legalTermsAgreement";
  * agreement and the Continue button below a tablet's or a desktop's screen.
  */
 
-const ACKNOWLEDGEMENT = /Type i understand to continue/u;
+const ACKNOWLEDGEMENT = /Type I understand to continue/u;
 
 async function boxOf(locator: Locator) {
   const box = await locator.boundingBox();
@@ -87,7 +87,7 @@ async function openPrompt(page: Page): Promise<Prompt> {
 
 /** Acknowledges a disclosure the menu asked for, in its dialog. */
 async function acknowledge(page: Page, confirmLabel: string) {
-  await page.getByLabel(ACKNOWLEDGEMENT).fill("i understand");
+  await page.getByLabel(ACKNOWLEDGEMENT).fill("I understand");
   await page.getByRole("button", { name: confirmLabel }).click();
 }
 

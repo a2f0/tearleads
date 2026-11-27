@@ -27,7 +27,10 @@ interface PhraseConfirmationDialogProps {
   readonly isOpen: boolean;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
-  /** Typed verbatim by the user to unlock the action. Matched case-sensitively. */
+  /**
+   * Typed verbatim by the user to unlock the action. Matched case-sensitively,
+   * so written in sentence case (see isPhraseConfirmed).
+   */
   readonly phrase: string;
   readonly title: string;
   readonly warning: ReactNode;

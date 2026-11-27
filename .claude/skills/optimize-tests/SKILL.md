@@ -115,7 +115,9 @@ Read the test and its fixture helpers, not only the name or coverage percentage.
   verifier under test with a fake, drop backends, skip/quarantine tests, relax
   assertions/timeouts, weaken required checks, or hide work behind cache hits
   to claim a speedup. Treat production algorithm changes and CI sharding as
-  separate proposals unless the user requested them.
+  separate proposals unless the user requested them; CI wall-clock work
+  (sharding, runner parallelism, caches, path filters) follows the managed
+  `optimize-ci` skill.
 
 If a slow test has no safe optimization or redundancy proof, retain it and
 record why. There is no deletion quota.
