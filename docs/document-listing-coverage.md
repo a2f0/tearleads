@@ -38,8 +38,9 @@ adding an update. The mechanism is the one
   applied and before the lane's watermark advances past it. Applying a row
   whose access epoch moved drops the key bundle the record held, which would
   hide that move from a later check. A listing read from a lagging replica
-  never lowers a debt. A pause or a newer sweep that skips the debt write
-  stops the listing: none of its rows apply and its watermark stays.
+  never lowers a debt. A pause or a newer sweep that skips any of the
+  listing's writes stops the listing, even once the pause is lifted: none of
+  its later writes apply and its watermark stays.
 - One debt per record. After an identity recovery or a relink, two records
   can name one server document, each with its own cursor and key bundle. Each
   record the listing shows behind owes its own read, and a store reads and

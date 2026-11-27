@@ -174,3 +174,50 @@ test("a pause set and cleared around the debt write stops the listing", async ()
     expect(await loadWatermark(execSql)).toBeNull();
   });
 });
+
+test("a pause set and cleared around the document upsert stops the listing", async () => {
+  await withWatermarks(async (execSql) => {
+    // The pause is in force when the upsert takes the lock, and resumed by
+    // the time anything later checks.
+    let pausesLeft = 0;
+    const guarded = guardDocumentDiscoveryWrites({
+      execSql,
+      isPaused: () => {
+        if (pausesLeft === 0) return false;
+        pausesLeft -= 1;
+        return true;
+      },
+      verifyDiscoveredDocuments: verifiedListing,
+    });
+    const linked: string[] = [];
+    const lane = {
+      ...guarded,
+      containerId: CONTAINER_ID,
+      listHeldContainerDocumentTombstones: async () => [],
+      listKnownContainerDocumentPlacements: async () => [],
+      replaceDocumentLinksBatch: async (
+        ...args: Parameters<typeof guarded.replaceDocumentLinksBatch>
+      ) => {
+        if (await args[1]()) linked.push("links");
+      },
+      upsertDiscoveredDocuments: (
+        ...args: Parameters<typeof guarded.upsertDiscoveredDocuments>
+      ) => {
+        pausesLeft = 1;
+        return guarded.upsertDiscoveredDocuments(...args);
+      },
+    } as unknown as ContainerDocumentDiscoveryLane;
+
+    const outcome = await applyListedContainerDocuments(lane, 1, {
+      isFullListing: false,
+      items: [],
+      nextWatermark: WATERMARK,
+      tombstones: [],
+    });
+
+    // Its documents were not stored, so nothing after them may land.
+    expect(outcome).toEqual({ status: "superseded" });
+    expect(linked).toEqual([]);
+    expect(await loadWatermark(execSql)).toBeNull();
+  });
+});
