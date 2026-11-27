@@ -22,11 +22,14 @@ interface ScenarioHttpObservation {
   readonly url: string;
 }
 
-type ScenarioHttpSink = (observation: ScenarioHttpObservation) => void;
-
-function activeHttpSink(): ScenarioHttpSink | null {
+function activeHttpSink():
+  | ((observation: ScenarioHttpObservation) => void)
+  | null {
   const sink: unknown = Reflect.get(globalThis, httpSinkKey);
-  return typeof sink === "function" ? (sink as ScenarioHttpSink) : null;
+  if (typeof sink !== "function") return null;
+  return (observation) => {
+    sink(observation);
+  };
 }
 
 function countKnownManifests(header: string | null): number {

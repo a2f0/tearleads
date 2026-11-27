@@ -185,6 +185,12 @@ function apiStatementsSection(report: ScenarioReport): string[] {
       `## API statements: ${run.scenario} (#${run.sample})`,
       "",
       `${integers.format(summary.statements)} API ORM statements (${integers.format(summary.txStatements)} in ${integers.format(summary.transactions)} transactions, ${integers.format(summary.lockHoldStatements)} under locks).`,
+      ...(summary.truncated
+        ? [
+            "",
+            "Capture reached its record limit; API statement counts are lower bounds.",
+          ]
+        : []),
       "",
       ...apiStatementsRows(summary),
     );
@@ -247,6 +253,18 @@ export function formatScenarioReport(report: ScenarioReport): string {
       [false, true, false, false, true],
     ),
   ];
+  const truncatedRuns = report.runs.filter(
+    (run) =>
+      run.http?.truncated ||
+      (run.statements.status === "captured" &&
+        run.statements.summary.truncated),
+  );
+  if (truncatedRuns.length > 0) {
+    lines.push(
+      "",
+      `Warning: capture limit reached for ${truncatedRuns.map((run) => `\`${cell(run.scenario)}\` (#${run.sample})`).join(", ")}; counts are lower bounds.`,
+    );
+  }
   if (report.summary.length > 0) {
     lines.push("", "## Summary", "", ...overviewTable(report.summary));
     for (const item of report.summary) {

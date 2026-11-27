@@ -17,6 +17,14 @@ test("normalizes keying, revocation, and baseline staging routes", () => {
   expect(
     normalizeScenarioRoute(
       "PUT",
+      "http://127.0.0.1:4123/documents/doc-1/baseline-stages/stg-9/segments/2/write-header",
+    ),
+  ).toBe(
+    "PUT /documents/:documentId/baseline-stages/:stageId/segments/:index/write-header",
+  );
+  expect(
+    normalizeScenarioRoute(
+      "PUT",
       "http://127.0.0.1:4123/documents/doc-1/baseline-stages/stg-9/segments/2",
     ),
   ).toBe("PUT /documents/:documentId/baseline-stages/:stageId/segments/:index");

@@ -63,11 +63,14 @@ function describeRun(run: ScenarioRun): string {
   if (!run.http) return base;
   const parts = [
     `${run.http.requests} requests`,
+    ...(run.http.truncated ? ["truncated"] : []),
     ...(run.http.conflicts > 0 ? [`${run.http.conflicts} 409s`] : []),
     `${run.http.requestBytes} B sent`,
     `${run.http.responseBytes} B received`,
     ...(run.statements.status === "captured"
-      ? [`${run.statements.summary.statements} API stmts`]
+      ? [
+          `${run.statements.summary.statements} API stmts${run.statements.summary.truncated ? " (truncated)" : ""}`,
+        ]
       : []),
     ...(run.clientSql?.status === "captured"
       ? [`${run.clientSql.summary.statements} client SQL`]

@@ -103,7 +103,13 @@ function installFetchStackWrapper(): void {
             fetchRequestUrl(input),
             filteredStack(),
           );
-      const pending = original(input, init);
+      let pending: Promise<Response>;
+      try {
+        pending = original(input, init);
+      } catch (error) {
+        cleanup?.();
+        throw error;
+      }
       if (!cleanup) return pending;
       return pending.finally(cleanup);
     },

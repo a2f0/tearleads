@@ -134,3 +134,122 @@ test("summarizes ranges across samples and formats report and comparison", () =>
   expect(markdown).toContain("`rotationHistory`");
   expect(markdown).toContain("`stale_container_write`: 2");
 });
+
+test("formats API statements, client SQL, payload audit, and truncation warnings", () => {
+  const baseRoute = {
+    route: "POST /containers/:containerId/revoke",
+    requests: 1,
+    statements: 120,
+    txStatements: 80,
+    lockHoldStatements: 10,
+    maxPerRequest: 120,
+    sameKeyRepeats: 12,
+    pureReadRepeats: 9,
+    topRepeat: { sql: "select 1", count: 9 },
+  };
+  const baseStmtSummary = {
+    statements: 120,
+    truncated: true,
+    paramHashes: true,
+    txStatements: 80,
+    transactions: 4,
+    lockHoldStatements: 10,
+    top: [{ sql: "select 1", count: 50 }],
+    labels: [],
+    phases: [],
+    routes: [baseRoute],
+  };
+  const capturedRun = sampleRun({
+    http: { ...baseHttp, truncated: true },
+    statements: {
+      status: "captured",
+      capture: "/tmp/s.jsonl",
+      summary: baseStmtSummary,
+    },
+    clientSql: {
+      status: "captured",
+      capture: "/tmp/c.jsonl",
+      summary: {
+        label: "total",
+        statements: 240,
+        inLockStatements: 100,
+        durationMs: 22.5,
+        mutations: 15,
+        maxMutationHoldMs: 5.1,
+        maxMutationWaitMs: 0.4,
+        maxStatementsPerMutation: 20,
+        avgStatementsPerMutation: 6.7,
+        top: [{ sql: "SELECT 1", count: 40, durationMs: 4.2 }],
+        truncated: false,
+        phases: [],
+      },
+    },
+    payloadAudit: {
+      status: "captured",
+      capture: "/tmp/p.jsonl",
+      summary: {
+        requests: 42,
+        requestBytes: 12000,
+        responseBytes: 34000,
+        echoBytes: 256,
+        redeliveredBytes: 1024,
+        reDownloadedUploadBytes: 0,
+        manifestCitations: 7,
+        exactHeadRereadsCount: 1,
+        byPane: [],
+        byRoute: [],
+        exactHeadRereads: [],
+        topIssuers: [],
+      },
+    },
+  });
+  const before = summarizeScenarios([capturedRun]);
+  const after = summarizeScenarios([
+    {
+      ...capturedRun,
+      statements: {
+        status: "captured",
+        capture: "/tmp/s2.jsonl",
+        summary: {
+          ...baseStmtSummary,
+          statements: 95,
+          routes: [{ ...baseRoute, statements: 95, pureReadRepeats: 3 }],
+        },
+      },
+    },
+  ]);
+  const cmp = formatScenarioComparison(compareScenarios(before, after), {
+    before: "b",
+    after: "a",
+  });
+  expect(cmp).toContain("Pure repeats");
+  expect(cmp).toContain("9 → 3 (-6)");
+
+  const markdown = formatScenarioReport({
+    schemaVersion: 1,
+    scenario: "bob-and-alice-scenarios",
+    runId: "r-2",
+    startedAt: "2026-11-27T18:00:00.000Z",
+    updatedAt: "2026-11-27T18:01:00.000Z",
+    status: "complete",
+    revision: "abc1234",
+    dirty: false,
+    runtime: { bun: "1.4.3", platform: "darwin", arch: "arm64", cpu: "M2" },
+    options: {
+      scenarios: [],
+      samples: 1,
+      statements: true,
+      paramHash: true,
+      clientStatements: true,
+      payloadAudit: true,
+      stacks: false,
+    },
+    boundary: "test boundary",
+    summary: before,
+    runs: [capturedRun],
+  });
+  expect(markdown).toContain("Warning: capture limit reached");
+  expect(markdown).toContain("## API statements: rotationHistory (#1)");
+  expect(markdown).toContain("## Client SQLite: rotationHistory (#1)");
+  expect(markdown).toContain("## Payload audit: rotationHistory (#1)");
+});

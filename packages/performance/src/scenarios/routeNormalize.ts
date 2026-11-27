@@ -67,6 +67,10 @@ const routeRules: readonly [RegExp, string][] = [
   [/^\/containers\/[^/]+\/move$/u, "/containers/:containerId/move"],
   [/^\/containers\/[^/]+\/recite$/u, "/containers/:containerId/recite"],
   [
+    /^\/documents\/[^/]+\/baseline-stages\/[^/]+\/segments\/\d+\/write-header$/u,
+    "/documents/:documentId/baseline-stages/:stageId/segments/:index/write-header",
+  ],
+  [
     /^\/documents\/[^/]+\/baseline-stages\/[^/]+\/segments\/\d+$/u,
     "/documents/:documentId/baseline-stages/:stageId/segments/:index",
   ],
