@@ -124,6 +124,21 @@ function isBootStillCurrent(
   return options?.isCurrent ? options.isCurrent() : true;
 }
 
+async function pauseBeforeContentionRetry(
+  error: unknown,
+  label: string,
+  log: (message: string) => void,
+  options?: Pick<BootSQLiteRuntimeOptions, "isCurrent">,
+): Promise<void> {
+  log(bootContentionMessage(error, label));
+  // The SDK's worker and migration lock each wait out their own bound; a
+  // host worker or mock that refuses at once must not spin in a tight loop.
+  await new Promise((resolve) => setTimeout(resolve, BUSY_RETRY_PAUSE_MS));
+  if (!isBootStillCurrent(options)) {
+    throw error;
+  }
+}
+
 /**
  * Run a boot step again each time another tab's transaction or migration lock
  * holds it off.
@@ -147,6 +162,9 @@ async function retryWhileAnotherTabHoldsDatabase<T>(
   let waiting = false;
   try {
     for (;;) {
+      if (!isBootStillCurrent(options)) {
+        throw new Error(`SQLite boot superseded before ${label}.`);
+      }
       try {
         return await step();
       } catch (error) {
@@ -157,15 +175,7 @@ async function retryWhileAnotherTabHoldsDatabase<T>(
           waiting = true;
           options?.onWaitingForAnotherTab?.(true);
         }
-        log(bootContentionMessage(error, label));
-        // The SDK's worker and migration lock each wait out their own bound; a
-        // host worker or mock that refuses at once must not spin in a tight loop.
-        await new Promise((resolve) =>
-          setTimeout(resolve, BUSY_RETRY_PAUSE_MS),
-        );
-        if (!isBootStillCurrent(options)) {
-          throw error;
-        }
+        await pauseBeforeContentionRetry(error, label, log, options);
       }
     }
   } finally {

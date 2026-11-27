@@ -71,8 +71,7 @@ export function SystemBootstrapGate({
   const { isBootstrapping } = useSystemBootstrap();
   const { status, clearWorker, waitingForAnotherTab = false } = useDatabase();
   const databaseFailed = status === "error";
-  const waitingForOtherTab =
-    waitingForAnotherTab && status !== "ready" && !databaseFailed;
+  const waitingForOtherTab = waitingForAnotherTab && status === "idle";
   const errorPanel = useMemo(
     () => (
       <MiniAppStatePanel

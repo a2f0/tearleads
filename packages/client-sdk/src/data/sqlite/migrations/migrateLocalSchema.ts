@@ -257,16 +257,18 @@ export async function withLocalSchemaMigrationLock<T>(
       { signal: controller.signal },
       async () => {
         acquired = true;
+        timedOut = false;
         clearTimeout(timer);
         return run();
       },
     );
   } catch (error) {
-    clearTimeout(timer);
-    if (timedOut) {
+    if (timedOut && !acquired) {
       throw new LocalSchemaMigrationLockTimeoutError(waitTimeoutMs);
     }
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

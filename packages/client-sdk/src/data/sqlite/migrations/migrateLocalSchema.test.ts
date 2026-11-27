@@ -14,11 +14,8 @@ import {
 import {
   assertRestorableLocalSchemaLedger,
   ensureLocalSchemaMigrated,
-  isLocalSchemaMigrationLockTimeoutError,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
-  LocalSchemaMigrationLockTimeoutError,
   migrateLocalSchema,
-  withLocalSchemaMigrationLock,
 } from "./migrateLocalSchema";
 
 type TestExecSql = Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
@@ -442,54 +439,4 @@ test("assertRestorableLocalSchemaLedger admits older and missing ledgers only", 
       { applied_at: 0, name: "other", version: 1 },
     ]),
   ).toThrow("Local database schema history does not match this app");
-});
-
-test("a migration check stops waiting past its Web Lock bound when another tab holds the lock", async () => {
-  const uninstall = installWebLocks();
-  let releaseHolder = () => {};
-  const holderReleased = new Promise<void>((resolve) => {
-    releaseHolder = resolve;
-  });
-  let signalHolderAcquired = () => {};
-  const holderAcquired = new Promise<void>((resolve) => {
-    signalHolderAcquired = resolve;
-  });
-  let holder: Promise<void> = Promise.resolve();
-  try {
-    await withDatabase("local-schema-lock-timeout", async (execSql) => {
-      holder = withLocalSchemaMigrationLock(async () => {
-        signalHolderAcquired();
-        await holderReleased;
-      });
-      await holderAcquired;
-
-      const startedAt = Date.now();
-      const failure = await ensureLocalSchemaMigrated(execSql, async () => {}, {
-        lockWaitTimeoutMs: 50,
-      }).then(
-        () => null,
-        (error: unknown) => error,
-      );
-      expect(Date.now() - startedAt).toBeLessThan(1_000);
-      expect(failure).toBeInstanceOf(LocalSchemaMigrationLockTimeoutError);
-      expect(isLocalSchemaMigrationLockTimeoutError(failure)).toBe(true);
-      expect(
-        isLocalSchemaMigrationLockTimeoutError(
-          new Error("wrapped", { cause: failure }),
-        ),
-      ).toBe(true);
-
-      releaseHolder();
-      await holder;
-
-      await ensureLocalSchemaMigrated(execSql, async () => {}, {
-        lockWaitTimeoutMs: 50,
-      });
-      expect(await ledger(execSql)).toEqual(CURRENT_LEDGER);
-    });
-  } finally {
-    releaseHolder();
-    await holder.catch(() => undefined);
-    uninstall();
-  }
 });

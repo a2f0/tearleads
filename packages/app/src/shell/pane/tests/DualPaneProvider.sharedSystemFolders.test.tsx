@@ -216,6 +216,7 @@ test.each(["admin", "write"] as const)(
             (node) =>
               node.id === folder.id &&
               node.name === OWNER_SHARED_FOLDER &&
+              node.organizationId === root.organizationId &&
               node.effectiveAccessLevel === accessLevel &&
               node.metadataReady !== false,
           )

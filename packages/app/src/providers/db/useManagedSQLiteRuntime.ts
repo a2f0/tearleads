@@ -309,6 +309,17 @@ function useSQLiteRuntimeRecovery(params: {
   );
 }
 
+function useSQLiteRuntimeRefs(dbName: string) {
+  return {
+    bootGenerationRef: useRef(0),
+    bootingRef: useRef(false),
+    currentDbNameRef: useRef<string | null>(null),
+    runtimeOperationRef: useRef<SQLiteRuntimeOperation | null>(null),
+    runtimeRef: useRef<SQLiteRuntime | null>(null),
+    targetDbNameRef: useRef(dbName),
+  };
+}
+
 export function useManagedSQLiteRuntime(
   createSQLiteRuntime: () => SQLiteRuntime,
   dbName: string,
@@ -321,24 +332,19 @@ export function useManagedSQLiteRuntime(
 ): DatabaseContextValue {
   const snapshot = useTearleadsStoreSnapshot(tearleads.database);
   const [waitingForAnotherTab, setWaitingForAnotherTab] = useState(false);
-  const runtimeRef = useRef<SQLiteRuntime | null>(null);
-  const bootGenerationRef = useRef(0);
-  const bootingRef = useRef(false);
-  const targetDbNameRef = useRef(dbName);
-  const currentDbNameRef = useRef<string | null>(null);
-  const runtimeOperationRef = useRef<SQLiteRuntimeOperation | null>(null);
+  const resetWaitingForAnotherTab = useCallback(
+    () => setWaitingForAnotherTab(false),
+    [],
+  );
+  const refs = useSQLiteRuntimeRefs(dbName);
   // Indirection breaks the cycle between spawn and its recovery handlers.
-  const spawnRuntimeRef = useRef<(dbName: string) => void>(() => {});
+  const spawnRuntimeRef = useRef<(nextDbName: string) => void>(() => {});
   const { clearCurrentRuntime, destroyCurrentRuntime, purgeCurrentRuntime } =
     useSQLiteRuntimeActions({
-      bootGenerationRef,
-      bootingRef,
-      currentDbNameRef,
+      ...refs,
       log,
+      onResetWaitingForAnotherTab: resetWaitingForAnotherTab,
       reuseWorker,
-      runtimeOperationRef,
-      runtimeRef,
-      targetDbNameRef,
       tearleads,
     });
   const recovery = useSQLiteRuntimeRecovery({
@@ -350,57 +356,47 @@ export function useManagedSQLiteRuntime(
   });
   const spawnRuntimeForDbName = useSpawnSQLiteRuntimeForDbName({
     ...recovery,
-    bootGenerationRef,
-    bootingRef,
+    ...refs,
     createSQLiteRuntime,
-    currentDbNameRef,
     log,
     logError,
     onWaitingForAnotherTab: setWaitingForAnotherTab,
     persistence: persistencePolicy.databasePersistence,
     resolveCipherKey,
     reuseWorker,
-    runtimeOperationRef,
-    runtimeRef,
-    targetDbNameRef,
     tearleads,
   });
   useEffect(() => {
     spawnRuntimeRef.current = spawnRuntimeForDbName;
   }, [spawnRuntimeForDbName]);
   const controls = useSQLiteRuntimeControls({
+    ...refs,
     clearCurrentRuntime,
-    currentDbNameRef,
     destroyCurrentRuntime,
     log,
     purgeCurrentRuntime,
     reuseWorker,
-    runtimeRef,
     spawnRuntimeForDbName,
-    targetDbNameRef,
     tearleads,
   });
 
   useSQLiteRuntimeLifecycle(
     dbName,
-    targetDbNameRef,
-    currentDbNameRef,
-    runtimeRef,
+    refs.targetDbNameRef,
+    refs.currentDbNameRef,
+    refs.runtimeRef,
     destroyCurrentRuntime,
     log,
     reuseWorker,
   );
-  useReleaseRuntimeOnPageHide(runtimeRef, runtimeOperationRef);
+  useReleaseRuntimeOnPageHide(refs.runtimeRef, refs.runtimeOperationRef);
   useWarnBeforeUnloadWithPendingDocumentWrites(tearleads);
 
   return {
     id: snapshot.id,
     client: snapshot.client,
     status: snapshot.status,
-    waitingForAnotherTab:
-      waitingForAnotherTab &&
-      snapshot.status !== "ready" &&
-      snapshot.status !== "error",
+    waitingForAnotherTab: waitingForAnotherTab && snapshot.status === "idle",
     ...controls,
   };
 }
