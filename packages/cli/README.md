@@ -57,7 +57,8 @@ started by `scripts/dev/runApi.sh` (`http://localhost:3001`, the URL the app
 uses in dev). Each target keeps its own saved key.
 
 `register` creates the account a recovery key derives, the way a new app
-install does, then saves the key like `login`. An account that already exists
+install does, then saves the key like `login`. Its organization is born with
+the app's Trash folder, as an app install's is. An account that already exists
 is left as it is.
 
 Creating an account means agreeing to the Tearleads
