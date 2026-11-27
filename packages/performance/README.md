@@ -26,9 +26,9 @@ The [request-volume canaries](#request-volume-canaries) record app canary traffi
 payload audit (`--payload-audit`, `--stacks`), API SQL (`--statements`), and
 SQLite (`--client-statements`) via `bun run perf:canaries`. The
 [scenario profiler and probes](scenarios-and-probes.md) profile
-`packages/bob-and-alice` (`bun run perf:scenarios`) and key rotations/revocations
-(`bun run perf:rotations`). The [statement capture](#statement-capture) records
-API and SQLite statements for any package (`bun run perf:statements`).
+`packages/bob-and-alice` (`perf:scenarios`), key rotations (`perf:rotations`),
+and rotation baselines (`perf:baselines`). The [statement capture](#statement-capture)
+records API and SQLite statements for any package (`bun run perf:statements`).
 
 The [PostgreSQL plan analyzer and static inventory](plans-and-inventory.md)
 screen captured `SELECT`s with `EXPLAIN (GENERIC_PLAN)` (`bun run perf:plans`)
@@ -44,8 +44,8 @@ as this README describes, and record a run that supports a shipped change in
 
 | Skill | Tasks |
 | --- | --- |
-| `protocol-efficiency-audit` | `perf:canaries --payload-audit [--stacks]` for requests, wire bytes, WS hints, ceiling drift, and pane/field/echo attribution; `perf:reload` (`--ack-delay-ms`, `--peer-edits`) for scaled reload requests; `perf:inventory` for static route/table/field census; `perf:realtime` and `perf:realtime-contention` for the hub; `perf:provision`, `perf:seed --cloudflare`, and `perf:database` results for deployed costs |
-| `database-efficiency-audit` | `perf:canaries --statements --param-hash --client-statements` and `perf:statements` for API route/tx/lock-hold/pure-repeat and client SQLite baselines; `perf:plans` for Postgres generic-plan screening; `perf:inventory` for schema/index/unread-column census; `perf:realtime` and `perf:realtime-contention` for hub statements and stalls; `perf:reload` for scaled API and client SQLite statements/plans; `perf:database`, `perf:provision --cloudflare`, and `perf:seed --cloudflare` results for deployed costs |
+| `protocol-efficiency-audit` | `perf:canaries --payload-audit [--stacks]` for app canary requests, wire bytes, WS hints, ceiling drift, and pane/field/echo attribution; `perf:scenarios --payload-audit` for multi-party `bob-and-alice` HTTP/409/payload traces; `perf:reload` (`--ack-delay-ms`, `--peer-edits`), `perf:rotations`, and `perf:baselines` (`--race`) for scaled reload, rotation/revocation, and baseline staging costs; `perf:inventory` for static route/table/field census; `perf:realtime` and `perf:realtime-contention` for the hub; `perf:provision`, `perf:seed --cloudflare`, and `perf:database` results for deployed costs |
+| `database-efficiency-audit` | `perf:canaries --statements --param-hash --client-statements`, `perf:scenarios --statements --param-hash --client-statements`, and `perf:statements` for API route/tx/lock-hold/pure-repeat and client SQLite baselines; `perf:plans` for Postgres generic-plan screening; `perf:inventory` for schema/index/unread-column census; `perf:realtime` and `perf:realtime-contention` for hub statements and stalls; `perf:reload`, `perf:rotations`, and `perf:baselines` for scaled API and client SQLite statements/plans; `perf:database`, `perf:provision --cloudflare`, and `perf:seed --cloudflare` results for deployed costs |
 
 The audits run local tasks themselves. A task that touches a deployed tier
 (`perf:provision`, `perf:seed`, `perf:database`) creates accounts or a

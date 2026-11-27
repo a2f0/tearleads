@@ -47,8 +47,16 @@ const routeRules: readonly [RegExp, string][] = [
     "/organizations/:organizationId/leave-request",
   ],
   [
+    /^\/organizations\/[^/]+\/policy-history$/u,
+    "/organizations/:organizationId/policy-history",
+  ],
+  [
     /^\/organization-memberships\/[^/]+\/leave-request$/u,
     "/organization-memberships/:organizationId/leave-request",
+  ],
+  [
+    /^\/principals\/(group|organization|user)\/[^/]+\/policy\/member-envelopes$/u,
+    "/principals/$1/:principalId/policy/member-envelopes",
   ],
   [
     /^\/principals\/(group|organization|user)\/[^/]+\/policy$/u,
@@ -66,6 +74,17 @@ const routeRules: readonly [RegExp, string][] = [
   [/^\/containers\/[^/]+\/revoke$/u, "/containers/:containerId/revoke"],
   [/^\/containers\/[^/]+\/move$/u, "/containers/:containerId/move"],
   [/^\/containers\/[^/]+\/recite$/u, "/containers/:containerId/recite"],
+  [/^\/containers\/[^/]+\/rekey$/u, "/containers/:containerId/rekey"],
+  [/^\/containers\/[^/]+\/kek-log$/u, "/containers/:containerId/kek-log"],
+  [
+    /^\/containers\/[^/]+\/replacement-authorizations\/[^/]+$/u,
+    "/containers/:containerId/replacement-authorizations/:replacesOrganizationId",
+  ],
+  [
+    /^\/containers\/with-metadata-document$/u,
+    "/containers/with-metadata-document",
+  ],
+  [/^\/containers\/[^/]+$/u, "/containers/:containerId"],
   [
     /^\/documents\/[^/]+\/baseline-stages\/[^/]+\/segments\/\d+\/write-header$/u,
     "/documents/:documentId/baseline-stages/:stageId/segments/:index/write-header",
@@ -89,11 +108,19 @@ const routeRules: readonly [RegExp, string][] = [
   [/^\/documents\/[^/]+\/sync$/u, "/documents/:documentId/sync"],
   [/^\/documents\/[^/]+\/link$/u, "/documents/:documentId/link"],
   [/^\/documents\/[^/]+\/unlink$/u, "/documents/:documentId/unlink"],
+  [/^\/documents\/[^/]+\/purge$/u, "/documents/:documentId/purge"],
+  [/^\/documents\/[^/]+\/purge-proof$/u, "/documents/:documentId/purge-proof"],
   [
     /^\/documents\/[^/]+\/attachments\/[^/]+$/u,
     "/documents/:documentId/attachments/:attachmentId",
   ],
   [/^\/documents\/[^/]+\/attachments$/u, "/documents/:documentId/attachments"],
+  [
+    /^\/documents\/[^/]+\/attribution\/ranges$/u,
+    "/documents/:documentId/attribution/ranges",
+  ],
+  [/^\/documents\/[^/]+\/attribution$/u, "/documents/:documentId/attribution"],
+  [/^\/documents\/[^/]+$/u, "/documents/:documentId"],
   [
     /^\/blobs\/[^/]+\/attachment-bindings$/u,
     "/blobs/:blobId/attachment-bindings",

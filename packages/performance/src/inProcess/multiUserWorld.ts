@@ -191,6 +191,68 @@ export class MultiUserWorld {
     }
   }
 
+  private async heldSummary(device: MultiUserDevice, document: ProbeDocument) {
+    const localId = await device.sdk.documents.findLocalIdByDocumentId(
+      document.documentId,
+    );
+    const note = (await device.sdk.documents.list())?.rows.find(
+      (row) => row.id === localId,
+    );
+    if (!note) {
+      throw new Error(
+        `${device.label} does not hold document ${document.documentId}.`,
+      );
+    }
+    return note;
+  }
+
+  async linkDocument(
+    actor: ProbeActor,
+    document: ProbeDocument,
+    folderId: string,
+    device = primary(actor),
+  ): Promise<void> {
+    const note = await this.heldSummary(device, document);
+    const linked = await device.sdk.containerContents
+      .documentLinks()
+      .linkDocumentToContainer({
+        mergeDocumentSummary: () => undefined,
+        note,
+        setLinkedContainerIdsForDocument: () => undefined,
+        targetContainerId: folderId,
+      });
+    if (!linked) {
+      throw new Error(`Could not link document into ${folderId}.`);
+    }
+    await device.idle();
+    if (!document.containerIds.includes(folderId)) {
+      document.containerIds.push(folderId);
+    }
+  }
+
+  async unlinkDocument(
+    actor: ProbeActor,
+    document: ProbeDocument,
+    folderId: string,
+    device = primary(actor),
+  ): Promise<void> {
+    const note = await this.heldSummary(device, document);
+    const unlinked = await device.sdk.containerContents
+      .documentLinks()
+      .unlinkDocumentFromContainer({
+        mergeDocumentSummary: () => undefined,
+        note,
+        removedContainerId: folderId,
+        setLinkedContainerIdsForDocument: () => undefined,
+      });
+    if (!unlinked) {
+      throw new Error(`Could not unlink document from ${folderId}.`);
+    }
+    await device.idle();
+    const idx = document.containerIds.indexOf(folderId);
+    if (idx >= 0) document.containerIds.splice(idx, 1);
+  }
+
   async createGroup(actor: ProbeActor, name: string): Promise<ProbeGroup> {
     const device = primary(actor);
     const group = await device.sdk.organizations.createGroup(name);
