@@ -44,13 +44,17 @@ A lane is a job name without shard counters, so `Test (api 1/3)` and
      sets that job's length; give it its own matrix entries. Balance shards by
      measured time, not file count (Bun's `--shard` with `--timings`,
      Playwright's `--shard` from spec durations): a count split of uneven files
-     is lopsided. No shard is shorter than its longest file, so split that file
-     when its cases are independent.
+     is lopsided. Bun falls back to a count split without a word when the
+     timings file is missing, so let a policy test require it. No shard is
+     shorter than its longest file, so split that file when its cases are
+     independent.
    - Use the cores the runner has. Check effective parallelism: test runners'
      CI defaults (Playwright uses half the cores), tool flags (TLC
      `-workers 1`), and pool sizes. Raise them only with measured memory
      headroom, and keep timing-sensitive end-to-end suites on their own runners
-     rather than crowding one.
+     rather than crowding one. Time each item before and after: when more
+     workers only make each item slower, total work bounds the job, and the
+     lever is splitting it across runners.
    - Schedule longest first in any pool, so a long item never starts last.
    - Cache what every run rebuilds: toolchains, browsers, package stores,
      compiler output (Xcode DerivedData and SwiftPM, Gradle), and task results.
@@ -94,8 +98,10 @@ A lane is a job name without shard counters, so `Test (api 1/3)` and
 - Turbo buffers a task's output until it ends, so log timestamps show
   completion, not progress. Use the test runner's own case durations.
 - Turning a job into a matrix renames its check (`Web E2E` becomes
-  `Web E2E (1/3)`). Update branch protection, rulesets, and the merge helper's
-  required checks together, or require an aggregate gate job instead.
+  `Web E2E (1/3)`), and so does moving it into a reusable workflow, which
+  prefixes the caller's job name (`models / Protocol models`). Update branch
+  protection, rulesets, and the merge helper's required checks together, or
+  require an aggregate gate job instead.
 - Changing a shard count reshuffles which files share a worker; with test
   isolation off, that can surface leaks between files. Run every new shard
   composition before pushing.

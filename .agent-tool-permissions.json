@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
-  "agentToolVersion": "0.1.76",
+  "agentToolVersion": "0.1.78",
+  "scope": "all",
   "claude": {
     "allow": [
       "Bash(bun run agent-tool --help)",
@@ -228,5 +229,9 @@
   "codex": {
     "file": ".codex/rules/agent-tool.rules",
     "sha256": "0e91ffdc7954185bc2fce15c694b358a35a55767ce5e078bb64897f30df7ad62"
+  },
+  "gemini": {
+    "file": ".gemini/policies/agent-tool.toml",
+    "sha256": "203695c19c3835377166fa6297077f5d43a5cfa39c411d00af8f9be1dffe0ca3"
   }
 }
