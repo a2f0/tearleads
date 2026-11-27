@@ -21,12 +21,12 @@ The abstraction maps to production at these seams:
 
 | Model action or predicate | Production implementation |
 | --- | --- |
-| `OpenStage` / `OpenReplacesPriorStage` | `openDocumentBaselineStage`, which takes the document lifecycle lock, checks write access and billing (`requireStageWriter`), roots the stage in the stored document id, and replaces the caller's prior stage for the document |
-| `StageSegment` | `stageDocumentBaselineSegment`, which locks the stage row, checks write access and billing again (`requireStageWriter`), takes only the stage's next index, verifies the segment and walks its spans against the stage frontier; `resignStagedBaselineSegmentHeader` makes the same checks, re-signs a staged header and changes no span |
+| `OpenStage` / `OpenReplacesPriorStage` | `openDocumentBaselineStage`, which checks write access and billing (`requireStageWriter`) before any lock and again under the document lifecycle lock, roots the stage in the stored document id, and replaces the caller's prior stage for the document |
+| `StageSegment` | `stageDocumentBaselineSegment`, which locks the stage row, checks write access and billing again (`requireStageWriter`), takes only the stage's next index, verifies the segment, walks its spans against the stage frontier and refuses one that extends another user's peer; `resignStagedBaselineSegmentHeader` makes the same checks, re-signs a staged header and changes no span |
 | `StageUsable` / `RotatorSeesRefusal` | `judgeDocumentBaselineStage`, whose verdict the stage routes and the commit return as a coded refusal |
 | `CommitGate` / `FinalIndexes` / `CommitRequiresNextIndex` | `lockStagedBaselineForCommit`, called from `assertSyncRotationBaselinesSound` and `assertAtomicRotationBaselineCoversCommittedFrontier` |
 | `CommitRefusedStale` / `CoverageFromSpans` | `assertStagedBaselineCoversCommittedFrontier`, which compares the stage's walked spans and the final segment's own with `committedFrontierAfterBaselineCursor` |
-| `Promote` / `PromoteAllOrNone` | `promoteStagedBaselineSegments` inside `appendDocumentUpdates`, which inserts the staged rows in index order ahead of the final segment and deletes the stage row |
+| `Promote` / `PromoteAllOrNone` | `assertStagedBaselinePromotable` and `promoteStagedBaselineSegments` inside `appendDocumentUpdates`: the first makes every check that can refuse the stage and writes nothing, the second inserts the staged rows in index order ahead of the final segment and deletes the stage row |
 | `Write` / `CommitUnderHeadLock` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
 | `Abandon` | `abandonDocumentBaselineStage`, whoever asks: the stage's own writer, or another device of its user whose `abandonOrphanedStage` took the stage, idle for ten minutes or more, for one a restart left. The rotator that loses its stage plans again either way |
 | `Sweep` / `SweepLocksStageRow` | `cleanupExpiredDocumentBaselineStages`, which deletes each expired stage row and then its segments in one transaction, stage after stage until none is left or its budget ends |
@@ -171,11 +171,15 @@ states.
   can overlap, and a superseded run's answers are events of an attempt the
   machine no longer takes.
 - Peer ownership of the staged spans is
-  [PeerOwnership](./PeerOwnership.md)'s.
+  [PeerOwnership](./PeerOwnership.md)'s. Production checks it when a
+  segment is staged and decides it at the commit, before the stage is
+  promoted.
 - A document purge, which deletes a document's stages and segments with its
   updates, is not modeled. An open takes the lifecycle lock a purge holds
   (`lockDocumentLifecycleInTransaction`), so no stage is opened for a
-  document a purge removed.
+  document a purge removed. An open waits for no stage row: one that finds
+  the caller's stage held by another request is refused and changes
+  nothing, a step the rotator did not take.
 - Access and billing are left out: the rotator can always write. Production
   checks both on every stage request and on the commit. A refusal changes
   nothing a stage holds, so to the model it is a step the rotator did not

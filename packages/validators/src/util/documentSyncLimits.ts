@@ -57,6 +57,10 @@ export const MAX_DOCUMENT_BASELINE_STAGE_BYTES = 1024 * 1024 * 1024;
 export const MAX_DOCUMENT_BASELINE_STAGE_SPANS = 1_048_576;
 // Stages one user may hold open at once, across every document.
 export const MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER = 4;
+// What an open's 503 names in `Retry-After`: the caller's stage on the
+// document is held by another of its requests, which the open does not
+// wait for.
+export const DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS = 1;
 // Individual updates may use the request's remaining budget. The SDK applies
 // the exact serialized-byte ceiling after encryption and trims the batch; a
 // smaller estimate here would permanently strand an otherwise valid update.

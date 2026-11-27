@@ -26,7 +26,11 @@ import {
   uniqueOutgoingUpdates,
   verifyOutgoingWriteHeader,
 } from "./outgoingUpdateVerification";
-import { promoteStagedBaselineSegments } from "./stagedBaselinePromotion";
+import {
+  assertStagedBaselinePromotable,
+  type PromoteStagedBaselineSegmentsInput,
+  promoteStagedBaselineSegments,
+} from "./stagedBaselinePromotion";
 import type { AppendDocumentUpdatesInput } from "./types";
 
 /**
@@ -298,22 +302,22 @@ async function verifyAndCollectNewOutgoingUpdates(input: {
 /**
  * A request that commits a staged baseline carries the group's final
  * segment, which the loop above has just verified in full. The staged
- * segments are committed here, before the request's own updates are walked
- * and inserted: the final segment starts every peer where they end and
- * depends on them, and their rows must take the lower sequences, so a
- * reader pages the group in index order with nothing between.
+ * segments are committed before the request's own updates are inserted:
+ * the final segment starts every peer where they end and depends on them,
+ * and their rows must take the lower sequences, so a reader pages the group
+ * in index order with nothing between.
  */
-async function commitStagedBaselineAhead(input: {
+function stagedBaselinePromotion(input: {
   readonly acceptedHeaderHashes: ReadonlyMap<
     string,
     { readonly header: WriteHeader }
   >;
   readonly appendInput: AppendDocumentUpdatesInput;
   readonly newUpdates: readonly DocumentOutgoingUpdate[];
-}): Promise<void> {
+}): PromoteStagedBaselineSegmentsInput | null {
   const { appendInput } = input;
   const commit = appendInput.stagedBaseline;
-  if (!commit) return;
+  if (!commit) return null;
   const finalHeader = input.acceptedHeaderHashes.get(commit.final.id)?.header;
   if (
     !finalHeader ||
@@ -325,7 +329,7 @@ async function commitStagedBaselineAhead(input: {
       409,
     );
   }
-  await promoteStagedBaselineSegments({
+  return {
     accessEpoch: appendInput.accessEpoch,
     authorizationTargets:
       appendInput.writeAuthorization.documentKekTargets.targets,
@@ -336,7 +340,7 @@ async function commitStagedBaselineAhead(input: {
     finalHeader,
     fingerprint: appendInput.fingerprint,
     userId: appendInput.userId,
-  });
+  };
 }
 
 export async function appendDocumentUpdates(
@@ -371,17 +375,24 @@ export async function appendDocumentUpdates(
     existingRowsById,
     outgoingUpdates,
   });
-  await commitStagedBaselineAhead({
+  // Everything that can refuse the request is asked before the stage is
+  // promoted: whether the stage can commit, then whether the request's own
+  // updates may follow it, judged against the frontier and the owners the
+  // promotion will leave. A refused commit keeps its stage and can be sent
+  // again, so it must not cost the promotion's writes each time.
+  const staged = stagedBaselinePromotion({
     acceptedHeaderHashes,
     appendInput: input,
     newUpdates,
   });
+  if (staged) await assertStagedBaselinePromotable(staged);
   // Retried ids already committed skip the ownership and dependency checks
   // as they skip the insert; the caller's document head lock spans the checks
   // and the insert.
   const refusal = await claimDocumentPeers(input.executor, {
     documentId: input.documentId,
     documentInsertedInTransaction: input.documentInsertedInTransaction,
+    stagedBaselineId: staged?.commit.stage.id,
     updates: newUpdates,
     userId: input.userId,
   });
@@ -391,6 +402,7 @@ export async function appendDocumentUpdates(
   if (refusal?.kind === "dependency_uncommitted") {
     throw documentDependencyUncommitted(refusal.peerFrontiers);
   }
+  if (staged) await promoteStagedBaselineSegments(staged);
 
   const insertedUpdateIds = await insertNewDocumentUpdates({
     accessEpoch: input.accessEpoch,

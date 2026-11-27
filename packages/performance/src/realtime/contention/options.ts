@@ -1,5 +1,9 @@
 import { parseArgs } from "node:util";
-import { ascendingIntegers, integer, MAX_DECLARED_IDS } from "../optionValues";
+import {
+  ascendingIntegers,
+  integer,
+  MAX_DECLARED_IDS,
+} from "../../inProcess/optionValues";
 
 // The root and the three system containers registration provisions. Above
 // one, it also keeps the measured sockets' authorization calls apart from

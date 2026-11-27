@@ -130,6 +130,7 @@
     "perf:reload": "bun run --cwd packages/performance reload",
     "perf:canaries": "bun run --cwd packages/performance canaries",
     "perf:statements": "bun run --cwd packages/performance statements",
+    "perf:plans": "bun run --cwd packages/performance plans",
     "tearleads": "bun run --cwd packages/cli start"
   },
   "workspaces": [

@@ -22,6 +22,7 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import {
   abandonDocumentBaselineStage,
+  DocumentBaselineStageBusyError,
   DocumentBaselineStageError,
   DocumentBaselineStageNotFoundError,
   getDocumentBaselineStage,
@@ -60,6 +61,12 @@ function respondToStageError(c: Context<SessionEnv>, error: unknown) {
   }
   if (!(error instanceof DocumentBaselineStageError)) throw error;
   if (error.status !== 409) {
+    // Only an open that found the caller's stage in use names a delay, as
+    // only the open operation declares the header. A 503 for a transaction
+    // the database chose to abort, on any stage route, carries none.
+    if (error instanceof DocumentBaselineStageBusyError) {
+      c.header("Retry-After", String(error.retryAfterSeconds));
+    }
     return c.json({ error: error.message }, error.status);
   }
   const { code, nextSegmentIndex, openStages } = error;

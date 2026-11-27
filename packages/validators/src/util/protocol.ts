@@ -4,6 +4,11 @@ export const ML_DSA87_PUBLIC_KEY_BYTES = 2592;
 export const ML_DSA87_SIGNATURE_BYTES = 4627;
 export const ML_KEM1024_PUBLIC_KEY_BYTES = 1568;
 
+// An access event names itself (`eventId`) and the device its signer signed
+// on (`signerDeviceId`) in strings the signer chooses: the SDK's are a UUID
+// and its signing key's fingerprint under a short prefix, 76 characters.
+export const MAX_ACCESS_EVENT_NAME_LENGTH = 128;
+
 const BASE64_ALPHABET = "[A-Za-z0-9+/]";
 // The final character before padding carries 2 (one byte) or 4 (two bytes)
 // unused bits; canonical base64 keeps them zero, so each byte string has

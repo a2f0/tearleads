@@ -27,7 +27,7 @@ export interface ReloadOutcome {
 }
 
 /** The browser profile a reload keeps: its database and keyring. */
-interface Profile {
+export interface ReloadProfile {
   readonly origin: string;
   readonly databaseId: string;
   readonly client: ExecSqlClientLike;
@@ -35,7 +35,27 @@ interface Profile {
   readonly historyKey: Uint8Array;
 }
 
-function openSdk(profile: Profile) {
+export interface OpenedReloadSdk {
+  readonly sdk: Tearleads;
+  readonly metrics: ApiRequestMetrics;
+}
+
+/** Injected seams for unit testing registration, grow, and reload cleanup. */
+export interface ReloadAccountServices {
+  readonly openLocalDatabase?: typeof openLocalDatabase;
+  readonly openSdk?: (profile: ReloadProfile) => OpenedReloadSdk;
+  readonly waitIdle?: (sdk: Tearleads, timeoutMs?: number) => Promise<void>;
+  readonly waitQuiet?: (
+    opened: OpenedReloadSdk,
+    quietMs: number,
+    started?: number,
+  ) => {
+    readonly totals: () => ReturnType<typeof requestTotals>;
+    readonly settled: Promise<number>;
+  };
+}
+
+function defaultOpenSdk(profile: ReloadProfile): OpenedReloadSdk {
   const metrics = new ApiRequestMetrics();
   const sdk = createSdkHost(
     profile.origin,
@@ -90,8 +110,12 @@ interface Restored {
   readonly session: SessionContext;
 }
 
-async function register(profile: Profile, local: { close(): void }) {
-  let opened: ReturnType<typeof openSdk> | undefined;
+async function register(
+  profile: ReloadProfile,
+  local: { close(): void },
+  openSdk: (profile: ReloadProfile) => OpenedReloadSdk,
+) {
+  let opened: OpenedReloadSdk | undefined;
   try {
     opened = openSdk(profile);
     const { sdk } = opened;
@@ -131,8 +155,8 @@ async function register(profile: Profile, local: { close(): void }) {
 }
 
 /** Waits until the SDK is idle and its requests have gone quiet. */
-function quiet(
-  { sdk, metrics }: ReturnType<typeof openSdk>,
+function defaultQuiet(
+  { sdk, metrics }: OpenedReloadSdk,
   quietMs: number,
   started = performance.now(),
 ) {
@@ -155,10 +179,12 @@ function quiet(
  * is when the SDK was built.
  */
 async function start(
-  opened: ReturnType<typeof openSdk>,
+  opened: OpenedReloadSdk,
   restored: Restored,
   quietMs: number,
   started: number,
+  waitQuiet: NonNullable<ReloadAccountServices["waitQuiet"]>,
+  ackDelayMs = 0,
 ): Promise<ReloadOutcome> {
   const { sdk } = opened;
   await sdk.identity.importKeyPackage(restored.keyPackage);
@@ -167,12 +193,13 @@ async function start(
   view.updateRuntime(sdk.containerContents.workflowRuntime());
   // The explorer shows the root after a reload.
   view.setActiveContainer(restored.rootId);
+  if (ackDelayMs > 0) await Bun.sleep(ackDelayMs);
   // The interest acknowledgement starts the HTTP catch-up. The runtime
   // copies the connection state, so the view is bound again, as the app
   // binds it again when it renders the new state.
   sdk.events.setConnected(true);
   view.updateRuntime(sdk.containerContents.workflowRuntime());
-  const { totals, settled } = quiet(opened, quietMs, started);
+  const { totals, settled } = waitQuiet(opened, quietMs, started);
   const settledMs = await settled;
   const { total, endpoints } = totals();
   return {
@@ -188,6 +215,7 @@ async function createFolders(
   rootId: string,
   folders: string[],
   count: number,
+  waitIdle: NonNullable<ReloadAccountServices["waitIdle"]>,
 ): Promise<void> {
   const tree = sdk.deviceFirst.open().containerStore;
   while (folders.length < count) {
@@ -202,7 +230,7 @@ async function createFolders(
       if (!folder) throw new Error("Folder creation failed.");
       folders.push(folder.id);
     }
-    await idle(sdk);
+    await waitIdle(sdk);
   }
 }
 
@@ -224,24 +252,98 @@ async function createNote(
     throw new Error(`Note ${position + 1} did not sync.`);
 }
 
+async function createNotesRange(input: {
+  readonly sdk: Tearleads;
+  readonly folders: readonly string[];
+  readonly start: number;
+  readonly target: number;
+  readonly perFolder: number;
+  readonly waitIdle: NonNullable<ReloadAccountServices["waitIdle"]>;
+}): Promise<number> {
+  let created = input.start;
+  while (created < input.target) {
+    const first = created;
+    const batch = Math.min(CREATE_BATCH, input.target - first);
+    await allSettled(
+      Array.from({ length: batch }, async (_, offset) => {
+        const position = first + offset;
+        const folder = input.folders[Math.floor(position / input.perFolder)];
+        if (!folder) throw new Error("The note's folder is missing.");
+        await createNote(input.sdk, folder, position);
+      }),
+    );
+    created += batch;
+    await input.waitIdle(input.sdk);
+  }
+  return created;
+}
+
+async function runPeerEdits(input: {
+  readonly origin: string;
+  readonly restored: Restored;
+  readonly folderId: string;
+  readonly startPosition: number;
+  readonly count: number;
+  readonly quietMs: number;
+  readonly openDb: typeof openLocalDatabase;
+  readonly openSdk: (profile: ReloadProfile) => OpenedReloadSdk;
+  readonly waitIdle: NonNullable<ReloadAccountServices["waitIdle"]>;
+  readonly waitQuiet: NonNullable<ReloadAccountServices["waitQuiet"]>;
+}): Promise<void> {
+  const peerDb = await input.openDb();
+  let peerOpened: OpenedReloadSdk | undefined;
+  try {
+    peerOpened = input.openSdk({
+      origin: input.origin,
+      databaseId: crypto.randomUUID(),
+      client: peerDb.client,
+      historyKey: crypto.getRandomValues(new Uint8Array(32)),
+    });
+    const { sdk } = peerOpened;
+    await sdk.identity.importKeyPackage(input.restored.keyPackage);
+    sdk.session.setContext(input.restored.session);
+    const { view } = sdk.deviceFirst.open();
+    view.updateRuntime(sdk.containerContents.workflowRuntime());
+    sdk.events.setConnected(true);
+    view.updateRuntime(sdk.containerContents.workflowRuntime());
+    await input.waitQuiet(peerOpened, input.quietMs).settled;
+    for (let i = 0; i < input.count; i += 1) {
+      await createNote(sdk, input.folderId, input.startPosition + i);
+    }
+    await input.waitIdle(sdk);
+    await input.waitQuiet(peerOpened, input.quietMs).settled;
+  } finally {
+    peerOpened?.sdk.dispose();
+    peerDb.close();
+  }
+}
+
 /**
  * One registered account whose local database outlives each SDK instance,
  * as a browser profile outlives a page. A reload disposes the SDK and builds
  * a new one over the same database, then restores the identity and session
  * the app would restore from its own storage.
  */
-export async function openReloadAccount(origin: string, quietMs: number) {
-  const local = await openLocalDatabase();
-  const profile: Profile = {
+export async function openReloadAccount(
+  origin: string,
+  quietMs: number,
+  services: ReloadAccountServices = {},
+) {
+  const openDb = services.openLocalDatabase ?? openLocalDatabase;
+  const openSdk = services.openSdk ?? defaultOpenSdk;
+  const waitIdle = services.waitIdle ?? idle;
+  const waitQuiet = services.waitQuiet ?? defaultQuiet;
+  const local = await openDb();
+  const profile: ReloadProfile = {
     origin,
     databaseId: crypto.randomUUID(),
     client: local.client,
     historyKey: crypto.getRandomValues(new Uint8Array(32)),
   };
-  const registered = await register(profile, local);
+  const registered = await register(profile, local, openSdk);
   const { restored } = registered;
   // The running SDK; null between disposing one and building the next.
-  let running: ReturnType<typeof openSdk> | null = registered.opened;
+  let running: OpenedReloadSdk | null = registered.opened;
   const folders: string[] = [];
   let documents = 0;
   const current = () => {
@@ -266,33 +368,57 @@ export async function openReloadAccount(origin: string, quietMs: number) {
         restored.rootId,
         folders,
         Math.ceil(count / perFolder),
+        waitIdle,
       );
-      while (documents < count) {
-        const first = documents;
-        const batch = Math.min(CREATE_BATCH, count - first);
-        await allSettled(
-          Array.from({ length: batch }, async (_, offset) => {
-            const position = first + offset;
-            const folder = folders[Math.floor(position / perFolder)];
-            if (!folder) throw new Error("The note's folder is missing.");
-            await createNote(sdk, folder, position);
-          }),
-        );
-        documents += batch;
-        await idle(sdk);
-      }
+      documents = await createNotesRange({
+        sdk,
+        folders,
+        start: documents,
+        target: count,
+        perFolder,
+        waitIdle,
+      });
       // Nothing the creates started may spill into the next reload's counts.
-      await quiet(current(), quietMs).settled;
+      await waitQuiet(current(), quietMs).settled;
+    },
+    /**
+     * Simulates another device creating `count` notes in existing folders so a
+     * following reload measures incremental catch-up after remote changes.
+     */
+    async peerEdit(count: number): Promise<void> {
+      if (count <= 0) return;
+      await runPeerEdits({
+        origin,
+        restored,
+        folderId: folders[0] ?? restored.rootId,
+        startPosition: documents,
+        count,
+        quietMs,
+        openDb,
+        openSdk,
+        waitIdle,
+        waitQuiet,
+      });
+      documents += count;
     },
     /** Disposes the running SDK and starts a new one, as a page load does. */
-    async reload(): Promise<ReloadOutcome> {
+    async reload(options?: {
+      readonly ackDelayMs?: number;
+    }): Promise<ReloadOutcome> {
       current().sdk.dispose();
       running = null;
       const started = performance.now();
       const opened = openSdk(profile);
       // Held before startup, so a failed reload's SDK is the one `close` disposes.
       running = opened;
-      return await start(opened, restored, quietMs, started);
+      return await start(
+        opened,
+        restored,
+        quietMs,
+        started,
+        waitQuiet,
+        options?.ackDelayMs ?? 0,
+      );
     },
     close(): void {
       running?.sdk.dispose();
