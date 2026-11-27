@@ -77,7 +77,8 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
   refused device recovers.
 - [Document link and sync protocol](document-link-and-sync-protocol.md).
 - [Document rotation baselines](document-rotation-baselines.md): the group of
-  segments a rotation writes, staging a large one, and how it is served.
+  segments a rotation writes, staging a large one, and how it is served; and
+  the [rotation baseline writer](rotation-baseline-writer.md), the SDK side.
 - [Document rekey and write history](document-rekey-and-audit-history.md),
   [raw history recovery](raw-document-history-recovery.md),
   [rotation deaths](rotation-deaths.md), and

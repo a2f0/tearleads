@@ -17,8 +17,8 @@ import {
   continuesWholeBaselineGroup,
 } from "./baselineGroupMachine";
 import {
+  carriedUnappliedOperations,
   type UnappliedOperations,
-  unappliedOperationSpans,
   unappliedOperationsOf,
   unappliedSegmentsDeclared,
   withUnappliedSegment,
@@ -237,7 +237,10 @@ export async function judgeServedBaselineGroups(input: {
  * What it declares is unapplied in turn. An unapplied segment excuses no
  * other operation: a server that leaves out a segment the reader lacks does
  * not turn the omission into a void by serving a void segment first.
- * `run.unapplied` carries the declared operations across pages.
+ * `run.unapplied` carries the declared operations across pages. A group
+ * whose unapplied segments name more peers than a run lists is taken as one
+ * whose every operation was declared (`EVERY_OPERATION_UNAPPLIED`): the
+ * pass goes on, and the segments of that group that cannot join are void.
  */
 export function settleBaselineGroupVerdicts(input: {
   /** The served updates the page applies. */
@@ -281,12 +284,13 @@ export function settleBaselineGroupVerdicts(input: {
     }
   }
   const { nextRun } = input;
-  return nextRun
-    ? {
-        ...nextRun,
-        unapplied: unappliedOperationSpans(
-          unapplied.get(nextRun.baselineId) ?? none,
-        ),
-      }
-    : null;
+  if (!nextRun) return null;
+  // The run is carried in memory and stored with the continuation, so what
+  // it lists is bounded: past the bound it carries every operation.
+  return {
+    ...nextRun,
+    unapplied: carriedUnappliedOperations(
+      unapplied.get(nextRun.baselineId) ?? none,
+    ),
+  };
 }

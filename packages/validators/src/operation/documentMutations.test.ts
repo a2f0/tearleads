@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  documentLinkSetBaselineSegmentBytesRefinement,
   documentLinkSetPathRefinement,
   documentSyncRequestRotationRefinement,
 } from "../documentSyncRefinements";
@@ -74,6 +75,7 @@ test("document mutation operations own their complete wire metadata", () => {
       method: "POST",
       runtimeRefinements: [
         documentLinkSetPathRefinement,
+        documentLinkSetBaselineSegmentBytesRefinement,
         documentSyncRequestRotationRefinement,
       ],
     });
@@ -159,6 +161,7 @@ test("OpenAPI declares the link-set runtime-only invariant", () => {
   ]) {
     expect(operation?.["x-tearleads-runtime-refinements"]).toEqual([
       documentLinkSetPathRefinement,
+      documentLinkSetBaselineSegmentBytesRefinement,
       documentSyncRequestRotationRefinement,
     ]);
   }

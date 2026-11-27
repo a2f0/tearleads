@@ -74,6 +74,7 @@ export async function buildRemoteDocumentSyncPlan(input: {
   }
   return buildMaterializedDocumentSyncPlan({
     author: input.sync.author,
+    baselineStageApi: input.sync.apiClient,
     buildRotationSnapshot: input.sync.buildRotationSnapshot,
     containerRekeys: rekeyPlans?.map(({ plan }) => plan.request),
     execSql: input.sync.execSql,

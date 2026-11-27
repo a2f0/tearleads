@@ -1,70 +1,15 @@
 import { expect, test } from "bun:test";
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
-import {
-  createContainerWriterProjectionFixture,
-  createMockApiClient,
-  createTestExecSql,
-} from "@tearleads/test-utils";
-import {
-  createLinkSetResponseFromRequest,
-  writerProjectionEvidence,
-} from "../../../../test/helpers/data/documentFixtures";
-import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createLinkSetResponseFromRequest } from "../../../../test/helpers/data/documentFixtures";
 import { createRemoteDocumentServiceFixture } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
-import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
-
-async function createLinkedFixture() {
-  const source = await createMaterializedSyncFixture();
-  const path = source.writerProjection.authorizingContainerPaths[0];
-  if (!path) throw new Error("Expected parent projection");
-  const parent = Object.assign(path, {
-    policyEvidence: source.writerProjection.policyEvidence,
-  });
-  const child = await createContainerWriterProjectionFixture({
-    containerId: crypto.randomUUID(),
-    encapsulationPublicKey: source.publicKey,
-    organizationId: source.author.organizationId,
-    parentProjection: parent,
-    signerKeyFingerprint: source.author.signerKeyFingerprint,
-    signerPrivateKey: source.author.signerPrivateKey,
-    userId: source.author.signerUserId,
-  });
-  const linked = await buildMaterializedDocumentLinkSetMutationPlan({
-    author: source.author,
-    operation: "link",
-    prepareBlobRewraps: async () => [],
-    targetContainerProjection: child,
-    targetSecretKey: source.secretKey,
-    trustedLocalProjection: true,
-    writerProjection: source.writerProjection,
-  });
-  const response = await createLinkSetResponseFromRequest(
-    source.writerProjection.documentId,
-    linked.plan.request,
-  );
-  return {
-    ...source,
-    parent,
-    child,
-    writerProjection: {
-      ...source.writerProjection,
-      authorizingContainerPaths: [parent, child],
-      ...writerProjectionEvidence(
-        [parent, child],
-        [source.writerProjection.documentManifest],
-      ),
-      contentKeyBundle: response.contentKeyBundle,
-      documentKekTargets: response.documentKekTargets,
-      documentManifest: response.accessManifest,
-    },
-  };
-}
+import { createLinkedDocumentFixture } from "../../../../test/helpers/workflows/stagedBaselineUnlink";
 
 for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
   const inside = scenario === "inside" || scenario === "late-refusal";
   const allowed = scenario === "inside";
   test(`subtree unlink checks the exact signed target path (${scenario})`, async () => {
-    const fixture = await createLinkedFixture();
+    const fixture = await createLinkedDocumentFixture();
     const { close, execSql } = await createTestExecSql("unlink-subtree-path");
     let submissions = 0;
     let submissionChecks = 0;

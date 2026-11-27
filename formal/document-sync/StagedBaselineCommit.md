@@ -28,10 +28,17 @@ The abstraction maps to production at these seams:
 | `CommitRefusedStale` / `CoverageFromSpans` | `assertStagedBaselineCoversCommittedFrontier`, which compares the stage's walked spans and the final segment's own with `committedFrontierAfterBaselineCursor` |
 | `Promote` / `PromoteAllOrNone` | `assertStagedBaselinePromotable` and `promoteStagedBaselineSegments` inside `appendDocumentUpdates`: the first makes every check that can refuse the stage and writes nothing, the second inserts the staged rows in index order ahead of the final segment and deletes the stage row |
 | `Write` / `CommitUnderHeadLock` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
-| `Abandon` | `abandonDocumentBaselineStage` |
+| `Abandon` | `abandonDocumentBaselineStage`, whoever asks: the stage's own writer, or another device of its user whose `abandonOrphanedStage` took the stage, idle for ten minutes or more, for one a restart left. The rotator that loses its stage plans again either way |
 | `Sweep` / `SweepLocksStageRow` | `cleanupExpiredDocumentBaselineStages`, which deletes each expired stage row and then its segments in one transaction, stage after stage until none is left or its budget ends |
 | `KeptAfterDelete` / `DeleteKeepsCommitted` | `deleteUncommittedBaselineSegments`, the one delete the sweep, abandon and replace-on-open share |
 | `ReaderPage` / `ServeOnlyCommittedRows` | `loadDocumentUpdatePageRows`, which reads committed update rows and joins a staged segment's payload to its row |
+| `RotatorStep` | the SDK writer: `writeRotationBaseline` decides whether a group travels whole, and `runStagedBaselineUpload` drives `transitionStagedBaseline` through one effect a state |
+| `OpenStage` (rotator) | `openStage`, the effect of the machine's `opening` state |
+| `StageSegment` (rotator) / `known` | `stageNext`, the effect of `staging`: it signs the segment, records it, and uploads it at the stage's next index. The records are the machine's own state (`records`), so only the current attempt's events change them |
+| `CommitGate` (rotator) | `submitLinkSetLeg` and `submitDocumentSyncAttempt`, which send the final segment with the stage's id and pass the answer to `settleStagedBaselineCommit` |
+| `Reprove` | `confirmStaged`, which holds every staged segment to the re-proven history with `stagedSegmentMatchesHistory`, and `continueRotationBaselineEncoder`, which cuts the tail after them |
+| `RotatorSeesRefusal` (rotator) | `stagedBaselineRefusalEvent`, which turns each stage code into the machine's event, and `dropStagedBaselineUpload`, after which the next run plans again |
+| `RotatorRestart` | `getOrCreateStagedBaselineUploads`, whose uploads live in memory: a restarted process has none, and its next run opens a stage that replaces the one left |
 | `RedirectStart` / `RedirectCandidates` / `GroupWhole` / `RedirectRequiresWholeGroup` | `findLatestWholeStoredBaselineGroup`, which finds the newest group whose rows are whole, and `readStoredBaselineGroupCoverage`, which reads what it covers from its spans; `resolveBaselineRedirectAfterSequence` and `loadLatestStoredDocumentBaselineGroup` call both |
 
 ## Properties
@@ -157,7 +164,12 @@ states.
 - Content keys are left out. Which updates a reader can decrypt, and which a
   baseline may stand for, is
   [BaselineDominance](./BaselineDominance.md)'s; here a reader applies every
-  row it is served.
+  row it is served. Which attempt may commit the key an upload holds is
+  production's rule too (`reusableStagedBaselinePlan`): the key goes on only
+  to an attempt that wraps it for every target it was ever wrapped for.
+- The model has one rotator and one run of it at a time. Production runs
+  can overlap, and a superseded run's answers are events of an attempt the
+  machine no longer takes.
 - Peer ownership of the staged spans is
   [PeerOwnership](./PeerOwnership.md)'s. Production checks it when a
   segment is staged and decides it at the commit, before the stage is

@@ -16,7 +16,7 @@
  * so the reader follows a group in part: indices only rise, and a final
  * segment's count must fit its index.
  */
-import type { DocumentOperationSpan } from "./documentUpdateVerdict";
+import type { CarriedUnappliedOperations } from "./baselineGroupUnapplied";
 
 /**
  * The group a page ended inside, carried to the pull's next page. Its
@@ -35,12 +35,13 @@ export interface BaselineGroupRun {
   /**
    * The operations that segments of the group, served so far in this pull,
    * declared and the reader did not take: at most one span a peer, in peer
-   * order. A later segment that cannot join the reader's history for want
-   * of these alone is its writer's doing, not a segment the server left
-   * out. The machine does not set it; the pass does, once it has the
-   * page's verdicts (`settleBaselineGroupVerdicts`).
+   * order, or every operation once they name more peers than a pull lists.
+   * A later segment that cannot join the reader's history for want of
+   * these alone is its writer's doing, not a segment the server left out.
+   * The machine does not set it; the pass does, once it has the page's
+   * verdicts (`settleBaselineGroupVerdicts`).
    */
-  readonly unapplied: readonly DocumentOperationSpan[];
+  readonly unapplied: CarriedUnappliedOperations;
 }
 
 export type BaselineGroupFault =

@@ -111,7 +111,9 @@ The protocol is fail-closed:
   whose stage is gone, expired, for another content key, signed for
   another manifest, or under an id a request has committed since returns
   `409 document_sync_baseline_group_invalid` with a `baselineStageCode`,
-  commits nothing, and leaves the stage as it was
+  commits nothing, and leaves the stage as it was. The SDK writer answers
+  each code
+  ([recovery by refusal](../rotation-baseline-writer.md#recovery-by-refusal))
 - a reader served a rotation baseline that breaks its group rules fails the
   sync pass instead of voiding an update
 - a sync or unlink whose update extends a Loro peer past its committed

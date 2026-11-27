@@ -128,7 +128,7 @@ A writer whose history fits one request sends the group inline, where the
 API judges it in one pass (`judgeDocumentBaselineGroup`):
 
 - An unlink's `rotationBaseline` is an array of 1 to 64 segments in index
-  order.
+  order, each at most 16 MiB as sent: an update's bound on every route.
 - A sync sends a group's segments first in `outgoingUpdates`, contiguous and
   in index order. Ordinary updates may follow the group, never precede it or
   sit between its segments, and a request carries at most one group.
@@ -144,19 +144,14 @@ API judges it in one pass (`judgeDocumentBaselineGroup`):
 | A new group reuses a `baselineId` its document committed. | `409`, an uncoded write conflict |
 | An unlink's group holds a segment whose update id is already committed. | `409`: an update id conflict, or an uncoded refusal when the committed row is identical |
 
-The SDK sends every baseline this way today. It cuts a proven history into
-segments of about 4 MiB of plaintext, never more than 16 MiB, unless its
-caller passes other sizes (`rotationBaselineSegmentSizes`). A history cannot
-rotate from the SDK when its group does not fit the request, when it needs
-more than 64 segments, or when one operation is larger than a segment may
-be. A sync that heals a stale content-key bundle then ends in the coded
-terminal failure `document_sync_request_too_large`. An unlink throws the
-segment-count and operation-size errors to its caller before anything is
-sent, and the API refuses a body past the route ceiling. This is the
-[unbounded-history defect](./limits.md#known-defect-unbounded-document-history),
-which the SDK's use of the stage below removes. The SDK builds a group for
-the request that sends it and queues nothing locally as a baseline: every
-queued row is an ordinary update.
+The SDK sends a baseline this way when the group fits: at most 64 segments
+whose payloads total no more than the sync request ceiling, 16 MiB, on
+either route. A small document's rotation is one request, as it was before
+staging existed. Any other history goes through a stage, by the
+[rotation baseline writer](./rotation-baseline-writer.md), which also
+answers each refusal below.
+The SDK builds a group for the request that sends it and queues nothing
+locally as a baseline: every queued row is an ordinary update.
 
 ## A Baseline Staged Ahead
 
@@ -434,6 +429,10 @@ breaks the group. Two cases are its writer's doing and void instead: a
 payload that leaves a gap inside its own range, and a segment lacking only
 operations that unapplied segments of its group, served earlier in the pull,
 declare. The run carries those spans, one a peer; a host must pass it on.
+A group whose void segments name more peers than a run lists (8,192) is
+carried as one whose every operation was declared: its later segments that
+cannot join are void, and the pass does not fail on it, since any writing
+member can commit such a group ([limits](./limits.md#document-sync)).
 
 A broken group fails the pass at stage `baseline_group`. It is never a void:
 the reader imports nothing from the page and records no void, which would

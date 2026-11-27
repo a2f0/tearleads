@@ -98,11 +98,18 @@ export type DocumentContentKeyBundleRequest = z.infer<
   typeof DocumentContentKeyBundleRequestSchema
 >;
 
-function createDocumentOutgoingUpdateSchema(
-  encryptedDataSchema: z.ZodType<string>,
-  versionVectorSchema: z.ZodType<string>,
-) {
-  return registerJsonSchemaRuntimeRefinements(
+// One update's contract wherever a request carries one: among a sync's
+// outgoing updates, as a staged baseline segment, and as a segment of the
+// rotation baseline an unlink sends inline. No string of it is longer than a
+// sync request, and each of those places holds the whole update to that
+// many serialized bytes, so no route accepts an update a response page
+// cannot serve.
+const outgoingUpdateStringSchema = boundedNonEmptyStringSchema(
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+);
+
+export const DocumentSyncOutgoingUpdateSchema =
+  registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       baselineId: uuidV4StringSchema.optional(),
       // A staged baseline's final segment is sent inline with an index and
@@ -120,14 +127,14 @@ function createDocumentOutgoingUpdateSchema(
         z.string().refine(isUuidV4String),
         { pattern: UUID_V4_PATTERN.source, type: "string" },
       ).optional(),
-      dependencyVersionVector: versionVectorSchema,
-      encryptedData: encryptedDataSchema,
+      dependencyVersionVector: outgoingUpdateStringSchema,
+      encryptedData: outgoingUpdateStringSchema,
       id: registerJsonSchemaFragment(z.string().refine(isUuidV4String), {
         pattern: UUID_V4_PATTERN.source,
         type: "string",
       }),
-      partialEndVersionVector: versionVectorSchema,
-      partialStartVersionVector: versionVectorSchema,
+      partialEndVersionVector: outgoingUpdateStringSchema,
+      partialStartVersionVector: outgoingUpdateStringSchema,
       plaintextHash: nonEmptyStringSchema,
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {
@@ -140,25 +147,9 @@ function createDocumentOutgoingUpdateSchema(
     }),
     [documentSyncRequestRotationRefinement],
   );
-}
-
-// An unlink carries its rotation baseline's segments on a route with its own,
-// larger ingress ceiling than a sync request has. So the shared update
-// contract stays unbounded, and the sync ceiling applies only where an update
-// is embedded in DocumentSyncRequest.
-export const DocumentOutgoingUpdateSchema = createDocumentOutgoingUpdateSchema(
-  nonEmptyStringSchema,
-  nonEmptyStringSchema,
-);
-
-export const DocumentSyncOutgoingUpdateSchema =
-  createDocumentOutgoingUpdateSchema(
-    boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
-    boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
-  );
 
 export type DocumentOutgoingUpdate = z.infer<
-  typeof DocumentOutgoingUpdateSchema
+  typeof DocumentSyncOutgoingUpdateSchema
 >;
 
 // Document sync published container keyrings as opaque records before the

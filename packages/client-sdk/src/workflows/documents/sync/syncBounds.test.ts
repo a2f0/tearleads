@@ -26,16 +26,17 @@ import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument 
 import { createLoroPendingUpdate } from "../../../../test/helpers/workflows/documentSyncFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import {
+  rotationBaselineDataCharacters,
+  segmentRotationSnapshot,
+} from "../../../../test/helpers/workflows/rotationBaselineGroup";
+import { createStagedHealHarness } from "../../../../test/helpers/workflows/stagedBaselineHeal";
+import {
   createInterleavedHistoryDocument,
   createStaleBundleSyncFixture,
 } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import {
-  rotationBaselineDataCharacters,
-  segmentRotationSnapshot,
-} from "../syncPlan/rotationBaselineGroup";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 
@@ -204,19 +205,19 @@ async function updateNearRequestLimit() {
   return { ...getUpdateVersionVectors(update), updateData };
 }
 
-/**
- * A full-history snapshot whose baseline, cut at the default sizes, is
- * several segments that together fit the preliminary plaintext-character
- * bound with little to spare.
- */
-async function snapshotNearRequestLimit() {
+// A baseline is not trimmed to fit as a queue is: every segment the request
+// carries has to lead it. A group is cut to travel whole by its plaintext,
+// and the request's exact byte check is made once it is encrypted and
+// signed. One that fits the first and not the second is staged instead, so
+// the request carries only its final segment. It used to end in
+// `document_sync_request_too_large`.
+test("a heal whose baseline group fits only before it is encrypted goes through a stage", async () => {
+  const harness = await createStagedHealHarness();
   // Each segment is framed apart, so the history leaves room for a few.
   const document = await documentNearRequestLimit("near-limit-history", 2048);
-  const snapshot = exportFullHistorySnapshot(document);
-  document.free();
   const history = segmentRotationSnapshot({
     purpose: "Near-limit history fixture",
-    snapshot,
+    snapshot: exportFullHistorySnapshot(document),
   });
   expect(history.segments.length).toBeGreaterThan(1);
   const dataCharacters = rotationBaselineDataCharacters(history);
@@ -224,63 +225,23 @@ async function snapshotNearRequestLimit() {
   expect(dataCharacters).toBeGreaterThan(
     MAX_DOCUMENT_SYNC_REQUEST_BYTES - 4096,
   );
-  return snapshot;
-}
 
-// A baseline is not trimmed to fit as a queue is: every segment has to lead
-// the request that rotates. One that cannot ends in the failure an oversized
-// queued update ends in, and nothing is sent.
-test("a heal whose baseline group cannot fit records a terminal queue failure", async () => {
-  const fixture = await createMaterializedSyncFixture();
-  // The server marks the bundle stale; the container path itself is current,
-  // so the pass verifies and records it as any sync does.
-  const staleProjection = {
-    ...fixture.writerProjection,
-    contentKeyBundleStale: true as const,
-  };
-  // The segments fit the preliminary plaintext-character bound, which
-  // reserves their characters and places ahead of the queue. Encrypting and
-  // signing each one makes the final JSON exceed 16 MiB.
-  const snapshot = await snapshotNearRequestLimit();
-  const terminalFailures: DocumentSyncSubmitFailure[] = [];
-  const abandonedReasons: string[] = [];
-  let submitCount = 0;
+  // The default segment sizes, as a host uses them.
+  const synced = await harness.heal(document, execSql, {});
 
-  const synced = await syncRemoteDocument({
-    apiClient: createMockApiClient({
-      getDocumentWriterProjection: async () => staleProjection,
-      syncDocument: async () => {
-        submitCount += 1;
-        throw new Error("An oversized plan must not reach the network");
-      },
-    }),
-    author: fixture.author,
-    buildRotationSnapshot: async () => snapshot,
-    documentId: staleProjection.documentId,
-    execSql,
-    localVersionVector: null,
-    onSyncAbandoned: (reason) => abandonedReasons.push(reason),
-    onTerminalSubmitFailure: (failure) => {
-      terminalFailures.push(failure);
-    },
-    pendingUpdates: [await createLoroPendingUpdate("queued behind the heal")],
-    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-    resolveWriterPublicKey: writerKeyResolver(fixture),
-    targetSecretKey: fixture.secretKey,
-    writerProjection: staleProjection,
-  });
-
-  expect(synced).toBeNull();
-  expect(submitCount).toBe(0);
-  expect(terminalFailures).toHaveLength(1);
-  expect(terminalFailures[0]?.code).toBe("document_sync_request_too_large");
-  expect(terminalFailures[0]?.message).toBe(
-    "Document sync required updates exceed the request limit",
-  );
-  expect(abandonedReasons).toEqual([
-    "a queued update or rotation baseline cannot fit within the document sync request limit",
-  ]);
-});
+  expect(synced?.acceptedRecoveryBaseline).toBe(true);
+  expect(harness.terminalFailures).toEqual([]);
+  expect(harness.abandonedReasons).toEqual([]);
+  expect(harness.server.calls[0]).toBe("open");
+  expect(harness.server.committed).toHaveLength(1);
+  // Nothing was sent until the group was staged: one request commits it.
+  expect(harness.requests).toHaveLength(1);
+  const [request] = harness.requests;
+  expect(request?.baselineStageId).toBeDefined();
+  expect(
+    request?.outgoingUpdates.filter((update) => update.baselineId),
+  ).toHaveLength(1);
+}, 120_000);
 
 test("an encrypted update that cannot fit records a terminal queue failure", async () => {
   const {
@@ -329,7 +290,7 @@ test("an encrypted update that cannot fit records a terminal queue failure", asy
     "cannot fit within the request limit",
   );
   expect(abandonedReasons).toEqual([
-    "a queued update or rotation baseline cannot fit within the document sync request limit",
+    "one queued update or operation cannot fit a document sync request, or the history needs more segments than a staged rotation baseline holds",
   ]);
 });
 

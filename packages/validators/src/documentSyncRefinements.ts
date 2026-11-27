@@ -1,4 +1,7 @@
-import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS } from "./util/documentSyncLimits";
+import {
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+} from "./util/documentSyncLimits";
 
 export const documentSyncRequestRotationRefinement = {
   description:
@@ -60,6 +63,11 @@ export const documentSyncRequestRuntimeRefinements = [
 export const documentLinkSetPathRefinement = {
   description: `authorizingContainerPathRefs and targetContainerPathRefs may contain at most ${MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS} references in total`,
   id: "request.post-link-authorization-path-total-references",
+} as const;
+
+export const documentLinkSetBaselineSegmentBytesRefinement = {
+  description: `each rotationBaseline segment may serialize to at most ${MAX_DOCUMENT_SYNC_REQUEST_BYTES} bytes, the most a sync request carries`,
+  id: "request.post-link-rotation-baseline-segment-bytes",
 } as const;
 
 export const documentSyncResponseRotationRefinement = {

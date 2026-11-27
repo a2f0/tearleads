@@ -13,13 +13,13 @@ import { authorizingContainerPathRefs } from "../../../src/data/documents/shared
 import { openDocumentContentKey } from "../../../src/data/documents/shared/sync/contentKeyCommitment";
 import type { DocumentSyncPlan } from "../../../src/data/documents/shared/sync/documentSyncTypes";
 import type { DocumentCreateAuthor } from "../../../src/data/documents/shared/types";
+import { signDocumentOutgoingUpdate } from "../../../src/workflows/documents/syncPlan/syncPlanIdentity";
+import { servedUpdateFromOutgoing } from "../data/rotationBaselineFixtures";
 import {
   emptyRotationBaselineSegment,
   encryptRotationBaselineGroup,
   segmentRotationSnapshot,
-} from "../../../src/workflows/documents/syncPlan/rotationBaselineGroup";
-import { signDocumentOutgoingUpdate } from "../../../src/workflows/documents/syncPlan/syncPlanIdentity";
-import { servedUpdateFromOutgoing } from "../data/rotationBaselineFixtures";
+} from "./rotationBaselineGroup";
 
 type FixtureDocument = Parameters<typeof exportFullHistorySnapshot>[0];
 type ServedUpdate = DocumentSyncResponse["updates"][number];
