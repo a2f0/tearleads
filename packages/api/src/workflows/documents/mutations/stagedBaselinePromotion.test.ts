@@ -26,14 +26,18 @@ import {
   DOCUMENT_BASELINE_STAGE_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
 } from "@tearleads/validators/response";
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, eq, type SQL, sql } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import {
   holdPostgresLock,
   waitForPostgresLockWait,
 } from "../../../../test/helpers/postgresConcurrency";
 import { writeHeaderAuthorizationHash } from "../../../documents/writeHeaderAuthorizationHash";
 import { DocumentMutationError } from "./errors";
-import { promoteStagedBaselineSegments } from "./stagedBaselinePromotion";
+import {
+  assertStagedBaselinePromotable,
+  promoteStagedBaselineSegments,
+} from "./stagedBaselinePromotion";
 
 const SEGMENTS = 200;
 const COMMITMENT = "c".repeat(64);
@@ -123,14 +127,27 @@ async function stagedGroup(
       updateId,
     })),
   );
+  // The raw statements a commit ran, as text: every aggregate over the
+  // stage's spans is one of them.
+  const statements: string[] = [];
+  const dialect = new PgDialect();
   const promote = () =>
-    db.transaction(async (executor) => {
+    db.transaction(async (transaction) => {
+      const executor = new Proxy(transaction, {
+        get(target, key) {
+          if (key !== "execute") return Reflect.get(target, key, target);
+          return (statement: SQL) => {
+            statements.push(dialect.sqlToQuery(statement).sql);
+            return target.execute(statement);
+          };
+        },
+      });
       // Read the staged rows as the table holds them, not through the index
       // on their place: with an index scan the rows arrive in segment order
       // whether or not the statement asks for it.
       await executor.execute(sql`set local enable_indexscan = off`);
       await executor.execute(sql`set local enable_bitmapscan = off`);
-      await promoteStagedBaselineSegments({
+      const promotion = {
         accessEpoch: 7,
         authorizationTargets: [],
         commit: {
@@ -144,9 +161,12 @@ async function stagedGroup(
         finalHeader,
         fingerprint: "writer-fingerprint",
         userId: ownerUserId,
-      });
+      };
+      // As a commit runs them: every check that can refuse, then the writes.
+      await assertStagedBaselinePromotable(promotion);
+      await promoteStagedBaselineSegments(promotion);
     });
-  return { baselineId, documentId, ids, ownerUserId, promote };
+  return { baselineId, documentId, ids, ownerUserId, promote, statements };
 }
 
 function committedRows(documentId: string) {
@@ -258,6 +278,44 @@ const UPDATE_ID_CONFLICT = {
   message: "Document update id conflict",
   status: 409,
 };
+
+// A refused commit keeps its stage, so its writer can send it again: what a
+// refusal reads is what a writer can make the server read again. A stage
+// that extends another user's peer is refused from that user's peers, by
+// index, and no statement aggregates the stage's spans or writes a row.
+test("a stage that extends another user's peer is refused without reading its spans whole", async () => {
+  const { documentId, promote, statements } = await stagedGroup();
+  const ownedBy = (ownerUserId: string, peerId: string) =>
+    db.insert(documentPeerOwners).values({ documentId, ownerUserId, peerId });
+  await ownedBy(crypto.randomUUID(), "1061");
+  // A peer another user owns that the stage does not carry refuses nothing.
+  await ownedBy(crypto.randomUUID(), "909090");
+  const refusal = await promote().then(
+    () => null,
+    (error: unknown) => error,
+  );
+  expect(refusal).toBeInstanceOf(DocumentMutationError);
+  expect(refusal).toMatchObject({
+    code: DOCUMENT_SYNC_ERROR_CODES.peerOwned,
+    details: { peerFrontiers: [{ committedEndCounter: 0, peerId: "1061" }] },
+    status: 409,
+  });
+  expect(statements.length).toBeGreaterThan(0);
+  expect(
+    statements.filter((text) => /group by|insert into/iu.test(text)),
+  ).toEqual([]);
+  expect(await committedRows(documentId)).toEqual([]);
+
+  // The peer's committed frontier reaches what the stage carries of it: the
+  // stage re-asserts it, which any writer may, and commits.
+  await db
+    .delete(documentPeerOwners)
+    .where(eq(documentPeerOwners.documentId, documentId));
+  statements.length = 0;
+  await promote();
+  expect(statements.some((text) => /group by/iu.test(text))).toBe(true);
+  expect(await committedRows(documentId)).toHaveLength(SEGMENTS);
+});
 
 // An update id names one update everywhere, and the document head lock a
 // commit holds keeps out only its own document's writers.

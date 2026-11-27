@@ -28,6 +28,7 @@ import {
   readStagedBaselineFrontier,
   readStagedSegmentAt,
 } from "../../../documents/documentBaselineStageStore";
+import { listPeersOwnedByOthers } from "../../../documents/documentPeerOwners";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { DocumentMutationError } from "../mutations/errors";
 import { verifyStagedSegmentWriteHeader } from "../mutations/outgoingUpdateVerification";
@@ -140,6 +141,29 @@ async function requireSegmentContinuesStage(
   return history;
 }
 
+/**
+ * A commit extends only peers its writer owns or that nobody does
+ * (`claimStagedPeers`), so a segment that extends another user's peer now
+ * belongs to a stage that could not commit as things stand, and is refused
+ * before it is stored. This read holds no document lock: the commit's own
+ * check, under the head lock, is the one that decides.
+ */
+async function assertSegmentExtendsNoForeignPeer(
+  executor: DatabaseTransaction,
+  stage: DocumentBaselineStageRow,
+  history: BaselineSegmentHistory,
+  userId: string,
+): Promise<void> {
+  const owned = await listPeersOwnedByOthers(executor, {
+    documentId: stage.documentId,
+    spans: history.spans,
+    userId,
+  });
+  if (owned.length > 0) {
+    throw stagedSegmentInvalid("it extends a peer another user owns");
+  }
+}
+
 /** An update id names one update everywhere: a committed one is taken. */
 async function assertUpdateIdUncommitted(
   executor: DatabaseTransaction,
@@ -181,6 +205,12 @@ async function appendStagedSegment(
     executor,
     stage,
     input.segment,
+  );
+  await assertSegmentExtendsNoForeignPeer(
+    executor,
+    stage,
+    history,
+    input.userId,
   );
   const stored = assertSegmentFitsStage(stage, {
     header: verified.header,
