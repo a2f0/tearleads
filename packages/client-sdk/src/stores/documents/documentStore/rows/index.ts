@@ -16,7 +16,10 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "../persistence";
-import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
+import {
+  reportDocumentStoreWriteFailure,
+  reportOrRetryBusyDocumentWrite,
+} from "../reportWriteFailure";
 import {
   canWriteDocument,
   type DocumentState,
@@ -116,7 +119,15 @@ function queueRowMutation(
       .catch(() => undefined)
       .then(() => persistRowMutation(state, writeGeneration, mutate, options))
       .catch((error: unknown) => {
-        reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
+        // The row change is already in the document; an empty mutation
+        // persists its unsaved delta with this write's own guard.
+        reportOrRetryBusyDocumentWrite(
+          state,
+          ROW_FAILURE_MESSAGE,
+          error,
+          writeGeneration,
+          () => queueRowMutation(state, () => true, options),
+        );
       }),
   );
 }

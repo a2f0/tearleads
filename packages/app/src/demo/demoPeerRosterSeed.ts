@@ -44,10 +44,13 @@ export async function attemptPeerRosterSeed(
   peerUserId: string,
   peerNickname: string,
   logError: (message: string, error: unknown) => void,
+  isCurrent?: () => boolean,
 ): Promise<PeerRosterSeedOutcome> {
   try {
-    const settled = await retryWhileDatabaseBusy(() =>
-      seedRosterEntry(actions, peerUserId, { nickname: peerNickname }),
+    // A pane whose peer changed stops before seeding a stale peer again.
+    const settled = await retryWhileDatabaseBusy(
+      () => seedRosterEntry(actions, peerUserId, { nickname: peerNickname }),
+      { isCurrent },
     );
     return settled ? "settled" : "unsettled";
   } catch (error) {

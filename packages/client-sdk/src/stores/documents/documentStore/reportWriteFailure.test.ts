@@ -316,3 +316,43 @@ test("a busy retry saves the newest text, never a value a later write replaced",
     database.close();
   }
 });
+
+test("a busy refusal at a write site that does not retry is still reported", () => {
+  const logged: string[] = [];
+  const reported: unknown[] = [];
+  const state = createReportingState({
+    log: (message) => logged.push(message),
+    logError: (_message, error) => reported.push(error),
+  });
+  const refusal = busyRefusal();
+
+  reportDocumentStoreWriteFailure(state, ROW_MESSAGE, refusal);
+
+  expect(reported).toEqual([refusal]);
+  expect(logged).toEqual([]);
+});
+
+test("a row write refused as busy is saved again without another edit", async () => {
+  const database = await createTestExecSql("document-busy-row-retry");
+  const reported: unknown[] = [];
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: (_m, e) => reported.push(e) },
+  });
+  try {
+    const state = await createWriteFailureStore(sdk, database.execSql);
+    failCommits(state, [busyRefusal()]);
+
+    await addRowToDocumentStore(state, () => undefined, { name: "row" });
+    expect(state.unsavedLocalEdits).toBe(true);
+
+    await waitFor(
+      () => !state.unsavedLocalEdits,
+      "The busy row write was not saved again.",
+      BUSY_WRITE_RETRY_MS * 3,
+    );
+    expect(reported).toEqual([]);
+  } finally {
+    sdk.dispose();
+    database.close();
+  }
+});

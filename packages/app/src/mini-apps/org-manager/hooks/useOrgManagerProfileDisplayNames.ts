@@ -106,6 +106,8 @@ interface RosterProfileHydrationInput {
  * hydrates what is still missing. Each pulled profile reaches the caller
  * through `documents.subscribe`. A profile that fails to pull is logged and
  * skipped, and later loads try it after the others (`rosterProfilePullLedger`).
+ * A profile still refused behind another tab's transaction ends the load and
+ * keeps its place.
  */
 async function hydrateMissingRosterProfiles(
   input: RosterProfileHydrationInput & {
@@ -125,6 +127,9 @@ async function hydrateMissingRosterProfiles(
     const outcome = await pullRosterProfile(input, container.id, binding);
     if (input.signal.aborted) break;
     recordRosterProfilePull(input.tearleads, binding, outcome);
+    // Another tab's transaction holds the whole database, so the profiles
+    // after this one would wait out the same refusals; a later load pulls them.
+    if (outcome === "busy") break;
   }
   return "finished";
 }

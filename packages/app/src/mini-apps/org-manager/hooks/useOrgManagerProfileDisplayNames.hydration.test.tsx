@@ -297,6 +297,8 @@ test("a profile refused as busy keeps its place on every load", async () => {
     await waitFor(() => expect(harness.logError).toHaveBeenCalledTimes(load));
     view.unmount();
   }
+  // The refusal holds the whole database, so the load stops at that profile.
+  expect(harness.requestRemoteSyncAndWait).not.toHaveBeenCalled();
 });
 
 test("a member who is not an admin pulls no roster profiles", async () => {

@@ -39,6 +39,15 @@ test("a busy container read is retried before the create gate decides", async ()
   expect(store.reads()).toBe(3);
 });
 
+test("a busy container read stops retrying once its sync pass is stale", async () => {
+  const store = storeInContainer(Number.POSITIVE_INFINITY);
+
+  await expect(
+    isContainerAwaitingRemoteCreate(store.state, () => store.reads() < 2),
+  ).rejects.toThrow(DATABASE_TRANSACTION_BUSY_MESSAGE);
+  expect(store.reads()).toBe(2);
+});
+
 test("a container read that stays busy asks for another pass instead of creating", async () => {
   const store = storeInContainer(Number.POSITIVE_INFINITY);
 

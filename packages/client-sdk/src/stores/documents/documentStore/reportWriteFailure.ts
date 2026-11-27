@@ -41,13 +41,10 @@ export function reportDocumentStoreWriteFailure(
   // released under in-flight callers on every identity switch, logout, and
   // Explorer retry, and neither persistDocument nor saveDocumentRecord filters
   // it. Unfiltered, SQLite-worker teardown would outrank every real failure.
-  // A busy refusal is another tab's transaction, not this write's failure:
-  // the text and field chains queue the write again (`retryBusyDocumentWrite`).
-  const kind = classifyDatabaseFailure(error);
-  if (kind !== "failed") {
-    const detail =
-      kind === "busy" ? " behind another tab's database transaction" : "";
-    dispatchToHost(() => state.runtime.util.log(`${message}${detail}`));
+  // A busy refusal still reports here: only `reportOrRetryBusyDocumentWrite`
+  // callers queue the write again, and a refusal nothing retries is lost work.
+  if (classifyDatabaseFailure(error) === "unavailable") {
+    dispatchToHost(() => state.runtime.util.log(message));
     return;
   }
 
@@ -111,26 +108,34 @@ function settleBusyWriteRetry(state: DocumentStoreState): void {
 }
 
 /**
- * Queues a local write again when the worker refused its persist behind
- * another tab's transaction (#3360). The refused persist ran nothing, so its
- * edits are in the live document but not in SQLite, and before this only the
- * next edit saved them. Later refusals replace the pending retry, so one timer
- * runs per store and the newest write is the one queued again; that write's
- * delta covers every unsaved edit before it. Returns whether `error` was a
- * busy refusal.
+ * Reports a failed local write, or, when the worker refused its persist behind
+ * another tab's transaction (#3360), logs it locally and queues the write
+ * again. The refused persist ran nothing, so its edits are in the live
+ * document but not in SQLite, and before this only the next edit saved them.
+ * Later refusals replace the pending retry, so one timer runs per store and
+ * the newest write is the one queued again; that write's delta covers every
+ * unsaved edit before it.
  */
-export function retryBusyDocumentWrite(
+export function reportOrRetryBusyDocumentWrite(
   state: DocumentStoreState,
+  message: string,
   error: unknown,
   writeGeneration: number,
   requeue: () => unknown,
-): boolean {
-  if (classifyDatabaseFailure(error) !== "busy") return false;
+): void {
+  if (classifyDatabaseFailure(error) !== "busy") {
+    reportDocumentStoreWriteFailure(state, message, error);
+    return;
+  }
+  dispatchToHost(() =>
+    state.runtime.util.log(
+      `${message} behind another tab's database transaction`,
+    ),
+  );
   const pending = retriesByState.get(state);
   const retry: BusyWriteRetry = { doc: state.doc, requeue, writeGeneration };
   retriesByState.set(state, retry);
   if (!pending) {
     setTimeout(() => settleBusyWriteRetry(state), BUSY_WRITE_RETRY_MS);
   }
-  return true;
 }

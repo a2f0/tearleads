@@ -31,7 +31,7 @@ import {
 import {
   noteDocumentStoreWrite,
   reportDocumentStoreWriteFailure,
-  retryBusyDocumentWrite,
+  reportOrRetryBusyDocumentWrite,
 } from "./reportWriteFailure";
 import {
   canWriteDocument,
@@ -214,13 +214,17 @@ function queueDocumentTextWrite(
       // The user is already looking at this text: publishDocumentTextSnapshot ran
       // before the chain, and nothing downstream surfaces a failed persist.
       .catch((error: unknown) => {
-        reportDocumentStoreWriteFailure(state, TEXT_FAILURE_MESSAGE, error);
         // Queued again with the document's own text, not this write's value,
         // so a retry can never put back text a later write replaced.
-        retryBusyDocumentWrite(state, error, writeGeneration, () =>
-          state.doc
-            ? queueDocumentTextWrite(state, getTextValue(state.doc))
-            : undefined,
+        reportOrRetryBusyDocumentWrite(
+          state,
+          TEXT_FAILURE_MESSAGE,
+          error,
+          writeGeneration,
+          () =>
+            state.doc
+              ? queueDocumentTextWrite(state, getTextValue(state.doc))
+              : undefined,
         );
       })
       // Always settle, even on supersession, the value-equality short-circuit,
@@ -411,11 +415,14 @@ function queueDocumentStructuredFieldWrite(
       .catch(() => undefined)
       .then(() => writeDocumentStructuredFields(state, write))
       .catch((error: unknown) => {
-        reportDocumentStoreWriteFailure(state, FIELD_FAILURE_MESSAGE, error);
         // The patch is already in the document; an empty one persists its
         // unsaved delta with this write's own durability and guard.
-        retryBusyDocumentWrite(state, error, write.writeGeneration, () =>
-          queueDocumentStructuredFieldWrite(state, kind, {}, options),
+        reportOrRetryBusyDocumentWrite(
+          state,
+          FIELD_FAILURE_MESSAGE,
+          error,
+          write.writeGeneration,
+          () => queueDocumentStructuredFieldWrite(state, kind, {}, options),
         );
       })
       // See queueDocumentTextWrite: the final current-generation write also

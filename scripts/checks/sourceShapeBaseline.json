@@ -61,7 +61,7 @@
     },
     "docs/developer/client-sdk/public-api.md": {
       "lines": 547,
-      "bytes": 37916
+      "bytes": 37973
     },
     "docs/limits.md": {
       "lines": 370,
@@ -96,8 +96,8 @@
       "bytes": 20749
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 522,
-      "bytes": 39568
+      "lines": 525,
+      "bytes": 39772
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 603,

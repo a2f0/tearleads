@@ -43,7 +43,9 @@ export async function remoteCreateGate(
   if (nextRecord.documentId) return "proceed";
   let containerAwaitsCreate: boolean;
   try {
-    containerAwaitsCreate = await isContainerAwaitingRemoteCreate(state);
+    containerAwaitsCreate = await isContainerAwaitingRemoteCreate(state, () =>
+      isDocumentStoreSyncGenerationCurrent(state, generation),
+    );
   } catch (error) {
     if (classifyDatabaseFailure(error) === "busy") return "busy";
     throw error;

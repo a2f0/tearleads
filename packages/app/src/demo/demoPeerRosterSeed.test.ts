@@ -113,3 +113,24 @@ test("a busy refusal spends none of a demo loop's attempts", () => {
   ).toBe(3);
   expect(demoAttemptsAfterFailure(3, new Error("offline"))).toBe(4);
 });
+
+test("a roster seed stops retrying a busy refusal once its pane moves on", async () => {
+  const fixture = fakeRosterSeedActions({ directoryAndGroups: null });
+  let loads = 0;
+  await expect(
+    attemptPeerRosterSeed(
+      {
+        ...fixture.actions,
+        loadDirectoryAndGroups: async () => {
+          loads += 1;
+          throw new Error(DATABASE_TRANSACTION_BUSY_MESSAGE);
+        },
+      },
+      "peer",
+      "Peer 2",
+      () => undefined,
+      () => loads < 2,
+    ),
+  ).resolves.toBe("busy");
+  expect(loads).toBe(2);
+});

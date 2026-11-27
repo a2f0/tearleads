@@ -2,7 +2,7 @@ import {
   classifyDatabaseFailure,
   retryWhileDatabaseBusy,
 } from "@tearleads/client-sdk/sqlite";
-import { type MutableRefObject, useEffect } from "react";
+import { type MutableRefObject, useEffect, useRef } from "react";
 import type { useDatabase } from "../db/DatabaseProvider";
 import type { useIdentity } from "../identity/IdentityProvider";
 import type { useTearleads } from "../sdk/TearleadsProvider";
@@ -13,7 +13,23 @@ import type { useTearleads } from "../sdk/TearleadsProvider";
  * on changes when that transaction ends, so without the timer the bootstrap
  * waited for an unrelated status, client, or fingerprint change (#3360).
  */
-export const BUSY_ROOT_BOOTSTRAP_RETRY_MS = 1_000;
+const BUSY_ROOT_BOOTSTRAP_RETRY_MS = 1_000;
+
+type BusyRetryTimer = MutableRefObject<ReturnType<typeof setTimeout> | null>;
+
+/**
+ * Drops a bootstrap waiting out a busy refusal: its timer and its recorded
+ * attempt, so the next qualifying render starts a fresh one.
+ */
+function cancelBusyRetry(
+  timer: BusyRetryTimer,
+  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
+): void {
+  if (timer.current === null) return;
+  clearTimeout(timer.current);
+  timer.current = null;
+  containerBootstrapped.current = null;
+}
 
 export interface RootBootstrapAttempt {
   readonly signIn: () => boolean;
@@ -48,7 +64,18 @@ export function useBootstrapCryptoSessionContainer(
 ) {
   const scope = tearleads.domainScope;
   const signIn = tearleads.session.captureSignIn();
+  const busyRetry: BusyRetryTimer = useRef(null);
+  useEffect(
+    () => () => {
+      // Unmounting ends the attempt: its timer and any busy retries stop.
+      cancelBusyRetry(busyRetry, containerBootstrapped);
+      containerBootstrapped.current = null;
+    },
+    [containerBootstrapped],
+  );
   useEffect(() => {
+    // A root container from elsewhere leaves a busy bootstrap nothing to do.
+    if (containerId !== null) cancelBusyRetry(busyRetry, containerBootstrapped);
     const previous = containerBootstrapped.current;
     if (
       containerId !== null ||
@@ -78,7 +105,8 @@ export function useBootstrapCryptoSessionContainer(
         const failure = classifyDatabaseFailure(error);
         // The attempt stays recorded, so a re-render does not start a second.
         if (failure === "busy") {
-          setTimeout(() => {
+          busyRetry.current = setTimeout(() => {
+            busyRetry.current = null;
             if (current()) void run();
           }, BUSY_ROOT_BOOTSTRAP_RETRY_MS);
           return;

@@ -18,7 +18,11 @@ import * as LogProvider from "../logging/LogProvider";
 import * as TearleadsProvider from "../sdk/TearleadsProvider";
 import { CryptoSessionProvider } from "./CryptoSessionProvider";
 
-async function createBootstrapFixture(authenticated = false, busyRefusals = 0) {
+async function createBootstrapFixture(
+  authenticated = false,
+  busyRefusals = 0,
+  awaitQuery = true,
+) {
   const database = await createTestExecSql("root-bootstrap-cancellation");
   const queryStarted = createDeferred();
   const queryReleased = createDeferred();
@@ -112,9 +116,11 @@ async function createBootstrapFixture(authenticated = false, busyRefusals = 0) {
     </CryptoSessionProvider>
   );
   const view = render(renderProvider());
-  await act(async () => {
-    await queryStarted.promise;
-  });
+  if (awaitQuery) {
+    await act(async () => {
+      await queryStarted.promise;
+    });
+  }
   return {
     client,
     database,
@@ -127,6 +133,10 @@ async function createBootstrapFixture(authenticated = false, busyRefusals = 0) {
     },
     rerender() {
       view.rerender(renderProvider());
+    },
+    bootstrapCalls: () => spies[0]?.mock.calls.length ?? 0,
+    unmount() {
+      view.unmount();
     },
     close() {
       cleanup();
@@ -228,6 +238,25 @@ test("a root bootstrap refused as busy runs again without a status change", asyn
       expect(fixture.tearleads.session.containerId).not.toBeNull(),
     );
     expect(fixture.logError).not.toHaveBeenCalled();
+  } finally {
+    fixture.releaseQuery();
+    fixture.close();
+  }
+});
+
+test("an unmounted provider stops retrying a busy root bootstrap", async () => {
+  const fixture = await createBootstrapFixture(
+    false,
+    Number.POSITIVE_INFINITY,
+    false,
+  );
+  try {
+    await waitFor(() =>
+      expect(fixture.bootstrapCalls()).toBe(DATABASE_BUSY_RUN_LIMIT),
+    );
+    fixture.unmount();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 1_500)));
+    expect(fixture.bootstrapCalls()).toBe(DATABASE_BUSY_RUN_LIMIT);
   } finally {
     fixture.releaseQuery();
     fixture.close();

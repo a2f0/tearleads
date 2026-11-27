@@ -179,6 +179,7 @@ export function shouldSkipCleanScheduledDocumentSync(input: {
  */
 export async function isContainerAwaitingRemoteCreate(
   state: DocumentStoreState,
+  isCurrent?: () => boolean,
 ): Promise<boolean> {
   const containerId = state.runtime.state.containerId;
   if (!containerId) {
@@ -186,11 +187,13 @@ export async function isContainerAwaitingRemoteCreate(
   }
 
   try {
-    const rows = await retryWhileDatabaseBusy(() =>
-      state.runtime.infra.execSql(
-        "SELECT server_created_at FROM containers WHERE id = :containerId",
-        { ":containerId": containerId },
-      ),
+    const rows = await retryWhileDatabaseBusy(
+      () =>
+        state.runtime.infra.execSql(
+          "SELECT server_created_at FROM containers WHERE id = :containerId",
+          { ":containerId": containerId },
+        ),
+      { isCurrent },
     );
     const row = rows[0];
     return row !== undefined && Reflect.get(row, "server_created_at") == null;

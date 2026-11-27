@@ -201,6 +201,7 @@ function DemoPeerRosterSeeder({
         targetPeerUserId,
         peerNickname,
         logError,
+        () => active,
       );
       if (!active) {
         return;
