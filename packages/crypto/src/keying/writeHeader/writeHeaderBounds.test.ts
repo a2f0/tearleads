@@ -110,6 +110,29 @@ test("a header's device name holds no control character", async () => {
   }
 });
 
+// A lone surrogate is no character: a store either refuses it or keeps
+// another string than the one that was signed.
+test("a header's device name is well-formed Unicode", async () => {
+  const { signature: _, ...unsigned } = await header({ citations: 1 });
+  const plain = await signWriteHeader(unsigned, signing.signingPrivateKey);
+  for (const lone of ["\ud800", "\udfff", "\udc00\ud800"]) {
+    const writerDeviceId = `dev${lone}ice`;
+    await expect(
+      signWriteHeader(
+        { ...unsigned, writerDeviceId },
+        signing.signingPrivateKey,
+      ),
+    ).rejects.toThrow(
+      "write header.writerDeviceId must be well-formed Unicode",
+    );
+    const refused = await verify({ ...plain, writerDeviceId });
+    expectVerificationError(refused, "invalid_shape");
+    expect(refused.ok ? "" : refused.error.message).toBe(
+      "write header.writerDeviceId must be well-formed Unicode",
+    );
+  }
+});
+
 // The base64 decoder forgives whitespace. A signature that verifies only
 // after it is stripped would let a verified header carry any amount of it.
 test("a header's signature is canonical base64", async () => {

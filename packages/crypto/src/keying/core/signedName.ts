@@ -6,12 +6,14 @@ import { readString, throwVerification } from "./shared";
 
 /**
  * A name its signer chooses freely, such as the device it signed on: a
- * non-empty string of at most `maxLength` characters, none of them a
- * control character. A signed record is stored as it was signed, and a
- * store refuses a string it cannot hold: Postgres takes no U+0000 in `text`
- * or `jsonb`. So a name that verifies is one every store keeps, and a
- * record that could not be stored is refused for its shape, where it is
- * parsed, and not by the store.
+ * non-empty, well-formed string of at most `maxLength` characters, none of
+ * them a control character. A signed record is stored as it was signed,
+ * and a store refuses a string it cannot hold: Postgres takes no U+0000 in
+ * `text` or `jsonb`, and no lone surrogate. So a name that verifies is one
+ * every store keeps, and a record that could not be stored is refused for
+ * its shape, where it is parsed, and not by the store. The canonical
+ * encoding a signature is made over refuses a lone surrogate too; the name
+ * is held to it here so the parser alone decides what a name may be.
  */
 function readSignedName(
   record: Record<string, unknown>,
@@ -24,6 +26,12 @@ function readSignedName(
     throwVerification(
       "invalid_shape",
       `${label}.${key} may be at most ${maxLength} characters`,
+    );
+  }
+  if (!name.isWellFormed()) {
+    throwVerification(
+      "invalid_shape",
+      `${label}.${key} must be well-formed Unicode`,
     );
   }
   if (/\p{Cc}/u.test(name)) {

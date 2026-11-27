@@ -154,6 +154,7 @@ test("POST document purge refuses an event whose names no store holds", async ()
   for (const [key, name, reason] of [
     ["signerDeviceId", "dev\u0000ice", "may not hold a control character"],
     ["eventId", "ev\u0000ent", "may not hold a control character"],
+    ["signerDeviceId", "dev\ud800ice", "must be well-formed Unicode"],
     ["signerDeviceId", "d".repeat(129), "may be at most 128 characters"],
     ["eventId", "e".repeat(129), "may be at most 128 characters"],
   ] as const) {
