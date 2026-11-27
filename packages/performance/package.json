@@ -18,7 +18,8 @@
     "scenarios": "bun src/scenarios/index.ts",
     "statements": "bun src/statements/index.ts",
     "plans": "bun src/plans/index.ts",
-    "inventory": "bun src/inventory/index.ts"
+    "inventory": "bun src/inventory/index.ts",
+    "epoch": "bun src/epoch/index.ts"
   },
   "dependencies": {
     "@tearleads/api": "workspace:*",

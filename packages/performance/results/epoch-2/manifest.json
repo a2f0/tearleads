@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "epoch": 2,
+  "title": "Greenfield Protocol, Database & Realtime Optimization Pass",
+  "startedAt": "2026-11-27T22:34:02.103Z",
+  "description": "Structured longitudinal performance snapshots capturing schema, wire, API DB, client SQLite, query plan, multi-party scenario, and scaling probe metrics across greenfield optimization PRs.",
+  "entries": [
+    {
+      "id": "000-baseline",
+      "seq": 0,
+      "label": "Main baseline (53819b364)",
+      "kind": "baseline",
+      "recordedAt": "2026-11-27T23:21:53.056Z",
+      "revision": "53819b364768ac87e42c4fe48c5d41e7b8ad1ec9",
+      "dirty": true,
+      "issues": [3263, 3289, 3291, 3342, 3353, 3396],
+      "snapshotFile": "snapshots/000-baseline.json",
+      "notes": "Epoch 2 baseline at 53819b364 before greenfield optimization PRs. All runtime probes ran on clean 53819b364; static perf:inventory ran with the Epoch 2 false-positive filter applied (dirty: true reflects only that performance harness edit)."
+    }
+  ]
+}

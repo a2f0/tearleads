@@ -105,7 +105,7 @@ export function formatInventoryMarkdown(report: InventoryReport): string {
     `| API Postgres tables | ${postgres.tableCount} | ${postgres.columnCount} columns, ${postgres.indexCount} indexes (${postgres.migrationCount} migrations) |`,
     `| Client SQLite tables | ${sqlite.totalTableCount} | ${sqlite.sdkTableCount} SDK + ${sqlite.appProjectionTableCount} app projections, ${sqlite.columnCount} columns, ${sqlite.indexCount} indexes |`,
     `| OpenAPI operations | ${openapi.operationCount} | ${openapi.pathCount} paths (${formatMethodSummary(openapi.byMethod)}) |`,
-    `| OpenAPI 2xx response fields | ${openapi.distinctResponseFields} | ${openapi.unreadResponseFields.length} unreferenced lead(s) in client/app/cli source |`,
+    `| OpenAPI 2xx response fields | ${openapi.distinctResponseFields} | ${openapi.unreadResponseFields.length} unreferenced lead(s) in consumer/wire/crypto source |`,
     `| Canary budget assertions | ${canaries.budgetAssertionCount} | ${canaries.ceilingDrift.length} drifted phase ceiling(s) |`,
     "",
     "## Index Hygiene Leads",

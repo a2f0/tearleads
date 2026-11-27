@@ -1,5 +1,5 @@
 import type { Dirent } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 const ignoredDirectoryNames = new Set([
@@ -21,6 +21,12 @@ export async function walkFiles(
   predicate: (absolutePath: string) => boolean,
 ): Promise<string[]> {
   const collected: string[] = [];
+  const info = await stat(rootDirectory).catch(() => null);
+  if (!info) return collected;
+  if (info.isFile()) {
+    if (predicate(rootDirectory)) collected.push(rootDirectory);
+    return collected;
+  }
   await visitDirectory(rootDirectory, predicate, collected);
   collected.sort();
   return collected;

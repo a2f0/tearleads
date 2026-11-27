@@ -135,6 +135,7 @@
     "perf:statements": "bun run --cwd packages/performance statements",
     "perf:plans": "bun run --cwd packages/performance plans",
     "perf:inventory": "bun run --cwd packages/performance inventory",
+    "perf:epoch": "bun run --cwd packages/performance epoch",
     "tearleads": "bun run --cwd packages/cli start"
   },
   "workspaces": [

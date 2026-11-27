@@ -1,74 +1,68 @@
 # Performance results
 
-Historical performance reports and compactness baselines for Tearleads. Each
-report records when it ran, the exact revision, the host or deployed tier, and
-what the measurements mean. See the [package README](../README.md) and
-[plans-and-inventory.md](../plans-and-inventory.md) to repeat any experiment.
-Raw JSON and JSONL captures stay private under `.test_files/performance/`.
+Structured longitudinal performance ledger for Tearleads (**Epoch 2**).
+Previous ad-hoc Epoch 1 markdown reports were pruned when Epoch 2 began so every
+checkpoint is machine-readable JSON with automated improvement, regression, and
+cross-dimension tradeoff analysis.
 
-## Latest compactness scorecard
+- Manifest: [epoch-2/manifest.json](epoch-2/manifest.json)
+- Full trend & tradeoff report: [epoch-2/TRENDS.md](epoch-2/TRENDS.md)
+- Raw captures remain private under `.test_files/performance/`.
 
-From [2026-11-27 combined baseline](baselines/2026-11-27-combined-baseline.md)
-(`dd507ff3b`, Apple M2 Pro, Bun 1.4.3):
+## Commands
 
-| Dimension | Measured |
-| --- | ---: |
-| API Postgres tables / columns / indexes | 57 / 572 / 183 (0 duplicate indexes) |
-| Client SQLite tables / columns / indexes | 62 / 468 / 97 (0 duplicate indexes) |
-| OpenAPI operations / 2xx fields / unreferenced leads | 99 / 405 / 6 |
-| Canary requests / wire bytes (req / res) | 340 / 1.61 MB / 1.49 MB |
-| Redundant response bytes (echo + redelivery + re-download) | 198,160 B (13.3%) |
-| API statements (total / in-tx / lock-hold / pure repeats) | 36,917 / 30,818 / 22,243 / 4,264 |
-| Client SQLite statements / max mutation-lock hold | 131,503 / 61.8 ms |
-| Postgres generic-plan warnings (top 25 `SELECT`s) | 0 Seq Scan, 3 Sort/Materialize |
+```sh
+bun run perf:epoch record --id <seq-slug> --label '<description>' \
+  --canaries .test_files/performance/canaries-<id>.json \
+  --inventory .test_files/performance/inventory-<ts>.json \
+  --plans .test_files/performance/plans-<id>.json \
+  --scenarios .test_files/performance/scenarios-<id>.json
+bun run perf:epoch analyze --from 000-baseline --to <latest-id>
+bun run perf:epoch render
+```
 
-## Report layout
+## Epoch 2 Scorecard (`000-baseline` -> `000-baseline`)
 
-Reports are organized by experiment family so historical runs remain easy to
-browse and compare over time:
+Baseline `53819b364` -> Latest `53819b364` (1 checkpoint recorded).
 
-- [`baselines/`](baselines/2026-11-27-combined-baseline.md) — Combined
-  protocol + database compactness baselines and request-volume / statement
-  canary snapshots.
-- [`reload/`](reload/2026-11-26-document-reload.md) — Returning-client document
-  reload scaling runs (`perf:reload`).
-- [`realtime/`](realtime/2026-11-25-realtime-hub-interest.md) — Realtime hub
-  interest authorization (`perf:realtime`) and contention
-  (`perf:realtime-contention`) runs.
-- [`deployed/`](deployed/2026-11-20-continuity-seed-round-trip.md) — Staging
-  and production runs (`perf:seed`, `perf:database`, `perf:provision`).
+| Dimension | Metric | Baseline | Latest | Delta | Verdict |
+| --- | --- | ---: | ---: | ---: | --- |
+| Schema | API Postgres tables | 57 tables | 57 tables | — | baseline |
+| Schema | API Postgres indexes | 183 indexes | 183 indexes | — | baseline |
+| Schema | API duplicate indexes | 0 indexes | 0 indexes | — | baseline |
+| Schema | Client SQLite tables | 63 tables | 63 tables | — | baseline |
+| Schema | Unread 2xx OpenAPI fields | 3 fields | 3 fields | — | baseline |
+| Schema | Drifted canary ceilings | 14 phases | 14 phases | — | baseline |
+| Wire | Canary requests | 340 reqs | 340 reqs | — | baseline |
+| Wire | Canary request bytes | 1,609,389 B | 1,609,389 B | — | baseline |
+| Wire | Canary response bytes | 1,492,860 B | 1,492,860 B | — | baseline |
+| Wire | Canary redundant response bytes | 198,160 B | 198,160 B | — | baseline |
+| Wire | Exact-head policy re-reads | 42 reads | 42 reads | — | baseline |
+| API DB | Canary API SQL statements | 36,878 stmts | 36,878 stmts | — | baseline |
+| API DB | Canary API in-tx statements | 30,788 stmts | 30,788 stmts | — | baseline |
+| API DB | Canary API lock-hold statements | 22,227 stmts | 22,227 stmts | — | baseline |
+| API DB | Canary API pure read repeats | 4,744 repeats | 4,744 repeats | — | baseline |
+| Client SQLite | Canary client SQLite statements | 131,525 stmts | 131,525 stmts | — | baseline |
+| Client SQLite | Canary SQLite tx controls | 32,446 stmts | 32,446 stmts | — | baseline |
+| Client SQLite | Canary SQLite total duration | 13,058.2 ms | 13,058.2 ms | — | baseline |
+| Client SQLite | Canary SQLite max lock hold | 49.4 ms | 49.4 ms | — | baseline |
+| Plans | Postgres generic Seq Scans | 0 queries | 0 queries | — | baseline |
+| Plans | Postgres generic Sort plans | 3 queries | 3 queries | — | baseline |
+| Plans | Postgres generic Materialize plans | 1 queries | 1 queries | — | baseline |
+| Scenarios | Bob-and-Alice HTTP requests | 4,975 reqs | 4,975 reqs | — | baseline |
+| Scenarios | Bob-and-Alice API statements | 122,420 stmts | 122,420 stmts | — | baseline |
+| Scenarios | Bob-and-Alice pure read repeats | 14,321 repeats | 14,321 repeats | — | baseline |
+| Scenarios | Bob-and-Alice client SQLite | 486,496 stmts | 486,496 stmts | — | baseline |
+| Reload | Settled reload requests (shared max tier) | 4 reqs | 4 reqs | — | baseline |
+| Reload | Settled reload API statements | 62 stmts | 62 stmts | — | baseline |
+| Reload | Settled reload client SQLite | 481 stmts | 481 stmts | — | baseline |
+| Realtime | Realtime hub auth statements | 9 stmts | 9 stmts | — | baseline |
+| Realtime | Realtime hub auth PG bytes | 1,383,651 B | 1,383,651 B | — | baseline |
+| Rotations | Rotation group-shrink PG statements | 623 stmts | 623 stmts | — | baseline |
+| Baselines | Baseline first-unlink PG statements | 102 stmts | 102 stmts | — | baseline |
 
-When recording a new run, add `<category>/<YYYY-MM-DD>-<experiment>.md`, insert
-it at the top of its category table below, and refresh the scorecard above for
-new combined baselines.
+## Checkpoints
 
-## Archive
-
-### Baselines
-
-| Date | Revision | Report | Target |
-| --- | --- | --- | --- |
-| 2026-11-27 | `dd507ff3b` | [Combined protocol and database baseline](baselines/2026-11-27-combined-baseline.md) | Local, M2 Pro |
-| 2026-11-26 | `c78d5c40d` | [Canary statement capture](baselines/2026-11-26-canary-statements.md) | Local, M2 Pro |
-| 2026-11-26 | `1844df270` | [Request-volume canaries](baselines/2026-11-26-request-volume-canaries.md) | Local, M2 Pro |
-
-### Reload at scale
-
-| Date | Revision | Report | Target |
-| --- | --- | --- | --- |
-| 2026-11-26 | `cc3de1404` | [Document reload](reload/2026-11-26-document-reload.md) | Local, M2 Pro |
-
-### Realtime hub
-
-| Date | Revision | Report | Target |
-| --- | --- | --- | --- |
-| 2026-11-25 | — | [Realtime hub contention](realtime/2026-11-25-realtime-hub-contention.md) | Local, M2 Pro |
-| 2026-11-25 | — | [Realtime hub interest authorization](realtime/2026-11-25-realtime-hub-interest.md) | Local, M2 Pro |
-
-### Deployed tiers
-
-| Date | Revision | Report | Target |
-| --- | --- | --- | --- |
-| 2026-11-20 | — | [Continuity seed round trip](deployed/2026-11-20-continuity-seed-round-trip.md) | Production |
-| 2026-10-26 | — | [Database round trip](deployed/2026-10-26-database-round-trip.md) | Staging and production |
-| 2026-10-24 | — | [Account provisioning](deployed/2026-10-24-provisioning.md) | Staging and production |
+| Checkpoint | Kind | Revision | PR | Issues | Label | Step Summary |
+| --- | --- | --- | --- | --- | --- | --- |
+| `000-baseline` | baseline | `53819b364` | — | #3263, #3289, #3291, #3342, #3353, #3396 | Main baseline (53819b364) | Epoch baseline |
