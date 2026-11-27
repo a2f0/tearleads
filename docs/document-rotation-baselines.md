@@ -193,20 +193,20 @@ stage takes nothing more and ends at the expiry it had. Reading a stage
 needs the same access and an open sync endpoint, as a read-only sync does;
 abandoning one needs neither.
 
-**Opening.** The epoch is the document's current one, with that epoch's
-stored commitment, or a later one that the committing request opens. A user
-holds at most one open stage per document: opening another deletes the
-earlier one and what it staged, and repeating an open returns the stage as
-it stands. A user holds at most four open stages across documents
+**Opening.** The epoch is the document's current one, with that epoch's stored
+commitment, or a later one that the committing request opens. A user holds at
+most one open stage per document: opening another deletes the earlier one and
+what it staged, and repeating an open returns the stage as it stands. A user
+holds at most four open stages across documents
 (`MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER`); a fifth is refused with
-`document_baseline_stage_limit_reached`, which names the four
-(`openStages`) so a writer that lost one's id can abandon it. A `baselineId`
-the document committed, or that another user's stage there holds, is
-refused. An open checks access before any lock, then takes the document's
-lifecycle lock, which a purge holds until it commits: no stage is stored for
-a purged document. It waits for no stage row and for no lock under that one:
-a stage of the caller's here that another request holds answers `503`, to be
-sent again ([limits](./limits.md#document-sync) gives the order).
+`document_baseline_stage_limit_reached`, which names the four (`openStages`) so
+a writer that lost one's id can abandon it. A `baselineId` the document
+committed, or that another user's stage there holds, is refused. An open checks
+access before any lock and again under the document's lifecycle lock, which a
+purge holds until it commits: no stage is stored for a purged document. Under
+that lock it waits for nothing: while another of the caller's requests holds its
+stage here it answers `503` with `Retry-After`, so a writer ends its requests to
+that stage first ([limits](./limits.md#document-sync)).
 
 **Staging.** Segments are staged strictly in order: a segment's index is the
 stage's next. The API verifies each one as it verifies any update: the write
@@ -337,13 +337,13 @@ route, with the stage's own code beside it as `baselineStageCode`; the route's
 `code` values do not change. A group that is sound and stops short of the
 committed frontier draws the route's coverage refusal, and the writer stages a
 tail segment for what was committed since and commits again. Every refusal
-leaves the stage as it was, so it can be sent again while the stage lives: steps
-1 to 6 write nothing and read the stage's spans only for peers the request or
-another user's ownership names, whatever the stage holds. A retry of a sync that
-committed finds its final segment committed and no stage, and inserts nothing.
-The realtime hint a commit publishes names the request's own updates, the final
-segment among them, and not the staged segments: a hint only prompts a pull, and
-the pull pages the whole group.
+leaves the stage as it was, so it can be sent again while the stage lives. Steps
+1 to 6 therefore write none of the stage's rows, only the request's own write
+headers (step 4), and [limits](./limits.md#document-sync) gives what they read.
+A retry of a sync that committed finds its final segment committed and no stage,
+and inserts nothing. The realtime hint a commit publishes names the request's
+own updates, the final segment among them, and not the staged segments: a hint
+only prompts a pull, and the pull pages the whole group.
 
 The sweep and a commit both take the stage's row lock first, so of the two
 exactly one proceeds: a commit that wins deletes the row and the sweep finds
