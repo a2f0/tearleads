@@ -7,12 +7,12 @@
 211 formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecovery.cfg
 201 formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringReachability.cfg
 191 formal/blob-attachments/StagePromotion.tla|formal/blob-attachments/StagePromotion.cfg
-128 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergence.cfg
+136 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergence.cfg
 81 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg
 74 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDevice.cfg
 49 formal/document-sync/DocumentLanePolling.tla|formal/document-sync/DocumentLanePolling.cfg
 45 formal/document-sync/VoidUpdateProgress.tla|formal/document-sync/VoidUpdateProgressKills.cfg
-42 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergenceProbe.cfg
+41 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergenceProbe.cfg
 31 formal/document-sync/ContentKeyCommitment.tla|formal/document-sync/ContentKeyCommitment.cfg
 30 formal/document-sync/MetadataListingConvergence.tla|formal/document-sync/MetadataListingConvergenceVoids.cfg
 30 formal/document-sync/OutgoingQueueMerge.tla|formal/document-sync/OutgoingQueueMerge.cfg
@@ -38,7 +38,6 @@
 1 formal/document-sync/DiscoveryLaneResumption.tla|formal/document-sync/DiscoveryLaneResumption.cfg
 1 formal/local-trust/DocumentMovePlacement.tla|formal/local-trust/DocumentMovePlacement.cfg
 1 formal/realtime/ContainerInterest.tla|formal/realtime/ContainerInterest.cfg
-0 formal/document-sync/CatchUpCoordination.tla|formal/document-sync/CatchUpCoordination.cfg
 0 formal/blob-attachments/AttachmentRemovedSlotDetach.tla|formal/blob-attachments/AttachmentRemovedSlotDetach.cfg
 0 formal/blob-attachments/BlobSourceAuthority.tla|formal/blob-attachments/BlobSourceAuthority.cfg
 0 formal/blob-attachments/PendingAttachmentDetach.tla|formal/blob-attachments/PendingAttachmentDetach.cfg
@@ -58,6 +57,7 @@
 0 formal/document-sync/AttachmentKeyReachability.tla|formal/document-sync/AttachmentKeyReachability.cfg
 0 formal/document-sync/BaselineCursorCoverage.tla|formal/document-sync/BaselineCursorCoverage.cfg
 0 formal/document-sync/BlobEnvelopeAuthority.tla|formal/document-sync/BlobEnvelopeAuthority.cfg
+0 formal/document-sync/CatchUpCoordination.tla|formal/document-sync/CatchUpCoordination.cfg
 0 formal/document-sync/DiscoveryPublication.tla|formal/document-sync/DiscoveryPublication.cfg
 0 formal/document-sync/EmptyFrontierUnlink.tla|formal/document-sync/EmptyFrontierUnlink.cfg
 0 formal/document-sync/SharedCopyReclaim.tla|formal/document-sync/SharedCopyReclaim.cfg

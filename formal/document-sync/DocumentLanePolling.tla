@@ -236,9 +236,9 @@ HintListing ==
   /\ UNCHANGED <<serverVars, boundVars, durableVars, up, connected, crawlDue,
                  crawlVars, ownDebt, sweepDue>>
 
-\* The listing fails, is refused, or leaves a candidate pending: the lane's
-\* watermark does not advance, the lane retries while up, and production
-\* leaves the durable debt open (`SettleOnFailedListing = FALSE`).
+\* A failed or incomplete listing does not advance the lane's watermark,
+\* retries on the lane while up, and leaves the durable debt open
+\* (`SettleOnFailedListing = FALSE`).
 FailListing ==
   /\ up /\ listing /\ failures < MaxFailures
   /\ failures' = failures + 1

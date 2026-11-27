@@ -39,7 +39,7 @@ socket and in-flight work; both watermarks and the request survive.
 | `OtherTouch` | `touchContainerStructure` for a grant or a rekey, or a metadata edit's `touchAcceptedSyncTargets` |
 | `Crash` | a reload or process exit; `stopReconciliationService` drops in-memory state and in-flight work |
 | `Start` | process restart reloading durable watermarks and owed requests from `findOwedDocumentLaneListings` |
-| `Disconnect` | `setConnected` with false on the reconciliation service |
+| `Disconnect` | `setConnected` with false on the runtime event source |
 | `Acknowledge` | `consumePendingContainerContentsReconnectRefresh` after the interest acknowledgement advances the connection generation |
 | `BeginCrawl` | `fetchContainerParentLaneBatch` listing the lane that serves the container from its saved watermark |
 | `CrawlOwe` | `oweServedDocumentLanes` in `applyContainerParentLanePage`, through the store host's `requestDocumentLaneListings` |
@@ -48,7 +48,7 @@ socket and in-flight work; both watermarks and the request survive.
 | `OutsideTreeListing` | `applyContainerParentLanePage` outside a reconnect crawl (a hint's tree listing, a start's, or a retried crawl) calling `oweServedDocumentLanes` and `checkpointPage` with no catch-up sweep behind it |
 | `SweepListing` | `requestAcknowledgedConnectionSweep` planning with `listOwedDocumentLaneContainerIds`; the listing reads the request with `findOwedDocumentLaneListings` before `listContainerDocumentLanesFromApi` |
 | `HintListing` | `enqueueContainer` with a force, listed by `reconcileMarkedContainers` |
-| `FailListing` | a failed, refused, or incomplete listing in `reconcileMarkedContainers` that leaves `settleOwedDocumentLaneListing` uncalled and retries on the lane |
+| `FailListing` | a failed or incomplete listing in `reconcileMarkedContainers` that leaves `settleOwedDocumentLaneListing` uncalled and retries on the lane (a refused or superseded lane likewise leaves the request open for the next catch-up or start) |
 | `FinishListing` | `applyListedContainerDocuments` saving the lane's watermark, then `settleOwedDocumentLaneListing` for the request read before the listing |
 
 `LaneEvidenceRetained` requires that while the document lane holds a change

@@ -20,8 +20,9 @@ record, or the saved record holds content the store's copy lacks. The pull
 cites the version of the store's own copy. The shared cursor was recorded with
 a version that copy does not cover, so it is not sent, and the server returns
 every update the copy lacks. If a runtime's catch-up listing fails, neither
-the shared watermark nor the debt moves; production reports the lane unlisted
-so that runtime's store probes on its own and still runs the catch-up's
+the shared watermark nor the debt moves; production probes open stores in
+unlisted lanes (`probeUnlistedLanes` via `requestDocumentContentPull`),
+reports the lane unlisted (`reportLaneListed`), and still runs the catch-up's
 owed-read ask.
 
 | Model action | Production seam |
@@ -29,7 +30,7 @@ owed-read ask.
 | `PeerEdit` | a peer's accepted write; `enqueueReconciliationForEvents` forces a listing of the hinted lane and names the document for a pull in each runtime whose socket received the hint |
 | `Disconnect` / `Acknowledge` | the runtime's own server-events connection; `flushPendingReconcileSignals` raises the acknowledged-connection signal after the interest acknowledgement |
 | `HintListing` / `CatchUpListing` | `applyListedContainerDocuments`: `oweListedDocumentReadsBehindListing` against the saved cursor, then `recordAppliedContainerDocumentListing`, both on the shared database |
-| `FailCatchUpListing` | a failed catch-up listing reporting `reportLaneListed` with false so `coversContainer` leaves the store uncovered while `requestOwedDocumentReads` still runs |
+| `FailCatchUpListing` | a failed catch-up listing probing open stores via `probeUnlistedLanes` (`requestDocumentContentPull`) and reporting `reportLaneListed` with false while `requestOwedDocumentReads` still runs |
 | `CatchUpAsk` | `requestOwedDocumentReads` at the end of `reconcileAcknowledgedConnection`: `listOwedDocumentListingReads` and `requestRemoteSyncsOfOwedRecords` for each owed record's loaded store, then `requestRemoteSyncsOfRecordsSavedElsewhere`, which compares each registered store's document in memory (`describeLoadedDocumentRecord`) with the frontier its record has on disk |
 | `BeginRead` | `findOwedListingReadBeforePull`, then `requestRemoteDocumentSync`; `readProcessedCursorForSync` withholds a cursor recorded with a version the store's record does not cover |
 | `FinishRead` | `finalizeDocumentSync` saving the record, then `settleCoveredDocumentListingRead` |

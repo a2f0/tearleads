@@ -138,8 +138,9 @@ CatchUpListing(t) ==
                  disconnects, failures>>
 
 \* The catch-up's listing fails: neither the shared watermark nor the debt
-\* moves. Production reports the lane unlisted so the runtime's store probes
-\* and still runs the catch-up ask (`AskWhenListingFails = TRUE`).
+\* moves. Production probes open stores in unlisted lanes (`probeUnlistedLanes`),
+\* reports the lane unlisted (`reportLaneListed`), and still runs the catch-up
+\* ask (`AskWhenListingFails = TRUE`).
 FailCatchUpListing(t) ==
   /\ catchUp[t] = "list" /\ failures < MaxFailures
   /\ failures' = failures + 1

@@ -53,10 +53,10 @@ durable debt, the cursor, the local copy and the record's key bundle survive.
 | `WithholdCursor` | `isDocumentProcessedCursorWithheld` finding a saved cursor that the current judge or restored frontier withholds |
 | `Acknowledge` | `flushPendingReconcileSignals` after the interest acknowledgement advances the connection generation, or on a projection opened after it |
 | `Disconnect` | `setConnected` with false on the runtime event source |
-| `BeginListing` | `reconcileAcknowledgedConnection` listing each owed lane from its watermark and verifying listed heads through `KeyingCheckpointRepository` |
+| `BeginListing` | `reconcileAcknowledgedConnection` listing each owed lane from its watermark |
 | `OweListedRead` | `oweListedDocumentReadsBehindListing` in `applyListedContainerDocuments`, which `listBehindListing` answers from the cursor and from the head of the record's stored key bundle, then `requestRegisteredDocumentRemoteSyncs` asks each loaded store whose own record owes a read |
 | `ApplyListedRow` | `upsertDiscoveredDocuments` after the debt is durable; `resolvePersistedDocumentRuntimeState` drops the key bundle of a record whose access epoch the row moved |
-| `AdvanceWatermark` | `recordAppliedContainerDocumentListing` after the lane's rows are applied and owed |
+| `AdvanceWatermark` | `recordAppliedContainerDocumentListing` after the lane's rows are verified (`KeyingCheckpointRepository`), applied, and owed |
 | `FailListing` | a failed or paused listing stopped by `guardDocumentDiscoveryWrites`, leaving the watermark unadvanced and retrying through `reconcileMarkedContainers` |
 | `FinishListing` | `applyListedContainerDocuments` completing after rows are owed, applied, and the lane watermark saved |
 | `OpenStore` | `loadDocumentListingCoverage` when a store's record loads: it reads the debt (`findOwedDocumentListingRead`), checks `isDocumentProcessedCursorWithheld`, and asks `takeHint`; a record neither names is covered only while `hasPersistedRemoteDocumentSyncState` holds |
@@ -141,14 +141,14 @@ Fourteen guards are parameters with registered negative controls:
 
 [`DocumentListingConvergence.cfg`](./DocumentListingConvergence.cfg) allows two
 peer edits, one other touch, one head move, one crash, one disconnect and one
-lagging read, with `HintListsLane = TRUE`. TLC explores 6,836,094 generated
-states, 1,486,759 distinct states, and depth 38. It leaves the launch probe off
+lagging read, with `HintListsLane = TRUE`. TLC explores 7,495,736 generated
+states, 1,629,400 distinct states, and depth 38. It leaves the launch probe off
 (`LaunchProbe = FALSE`), which no property may rely on.
 [`DocumentListingConvergenceProbe.cfg`](./DocumentListingConvergenceProbe.cfg)
 turns on the launch probe (`LaunchProbe = TRUE`), unpulled starts
 (`StartWithoutBundle = TRUE`), one failed listing (`MaxListFailures = 1`), and
 one withheld cursor (`MaxWithholds = 1`), with one peer edit, one head move,
-one crash, and one lagging read: 2,820,800 generated states, 551,869 distinct
+one crash, and one lagging read: 2,988,361 generated states, 583,355 distinct
 states, and depth 34.
 
 The model has one document in one lane, held by one record, starting either
@@ -167,10 +167,14 @@ owed reads. Production owes a read when the listed head's hash is not the
 bundle's, and settles it once the manifest its pull saved reaches the listed
 epoch; each head of a document has its own epoch, and a move raises it. A pull
 keeps the newer head when a lagging replica answers with an older one, and an
-unpulled record refuses a pull below the epoch discovery already verified,
-because the keying checkpoints (`KeyingCheckpointRepository`) refuse a manifest
-older than one this device verified. It leaves the row's apply and the
-watermark save unordered, where production applies first. It takes the launch
+unpulled record refuses a pull below the epoch discovery already verified when
+advancing the watermark, because the keying checkpoints
+(`KeyingCheckpointRepository`) refuse a manifest older than one this device
+verified. That assumes `verifyDiscoveredDocuments` verified the listed head
+before `AdvanceWatermark`; deferred pending-discovery head verification behind
+an advanced watermark for an unpulled record is outside this model. It leaves
+the row's apply and the watermark save unordered, where production applies
+first. It takes the launch
 probe's snapshot and its check in one step (allowing a lagging replica
 snapshot), where production checks the record when its listing returns, and
 runs it at most once a launch, where production lists a lane again after a

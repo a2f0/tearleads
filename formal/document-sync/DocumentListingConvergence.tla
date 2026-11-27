@@ -149,7 +149,7 @@ Disconnect ==
                  laggingReads, listFailures, withholds, up, storeVars,
                  relistDue, listingVars, debtVars, cursorVars, headVars, readVars>>
 
-\* Delta listing from watermark; verifying an unpulled record pins its checkpoint floor.
+\* Delta listing from watermark.
 BeginListing ==
   /\ up /\ relistDue /\ ~listing /\ relistDue' = FALSE
   /\ IF Order > watermark
@@ -157,10 +157,9 @@ BeginListing ==
             /\ listedVer' = remoteVer /\ listedHead' = headMoves
             /\ listBehind' = (remoteVer > SendableCursor)
             /\ listOwed' = FALSE /\ listApplied' = FALSE /\ listPassed' = FALSE
-            /\ heldHead' = IF ~bundleHeld THEN Max(heldHead, headMoves) ELSE heldHead
-       ELSE UNCHANGED <<listingVars, heldHead>>
-  /\ UNCHANGED <<probed, remoteVer, headMoves, watermark, boundVars, connVars,
-                 storeVars, debtVars, cursorVars, bundleHeld, readVars>>
+       ELSE UNCHANGED listingVars
+  /\ UNCHANGED <<probed, remoteVer, watermark, boundVars, connVars, storeVars,
+                 debtVars, cursorVars, headVars, readVars>>
 
 OweListedRead ==
   /\ up /\ listing /\ ListedBehind /\ ~listOwed
@@ -185,13 +184,17 @@ ApplyListedRow ==
                  listedHead, listBehind, listOwed, listPassed, debtVars,
                  cursorVars, heldHead, readVars>>
 
+\* Advancing the watermark assumes discovery verified the listed head; for an
+\* unpulled record (`~bundleHeld`), that pins the checkpoint floor in `heldHead`.
 AdvanceWatermark ==
   /\ up /\ listing /\ ~listPassed
   /\ ~OweBeforeWatermark \/ listOwed \/ ~ListedBehind
   /\ watermark' = listedOrder /\ listPassed' = TRUE
-  /\ UNCHANGED <<probed, remoteVer, boundVars, connVars, storeVars, relistDue,
-                 listing, listedOrder, listedVer, listedHead, listBehind,
-                 listOwed, listApplied, debtVars, cursorVars, headVars, readVars>>
+  /\ heldHead' = IF ~bundleHeld THEN Max(heldHead, listedHead) ELSE heldHead
+  /\ UNCHANGED <<probed, remoteVer, headMoves, boundVars, connVars, storeVars,
+                 relistDue, listing, listedOrder, listedVer, listedHead,
+                 listBehind, listOwed, listApplied, debtVars, cursorVars,
+                 bundleHeld, readVars>>
 
 \* Listing fails or is stopped by a pause/supersession before saving its watermark.
 FailListing ==
