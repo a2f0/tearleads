@@ -83,7 +83,7 @@ function unlinkKeyTargets(
  * key, which the stage's segments are encrypted under, and the same signed
  * event, so the manifest it writes is the one the staged headers name.
  *
- * It does so only where the key goes nowhere it has not been
+ * It does so only where it leaves out no container the key has gone to
  * (`reusableStagedBaselinePlan`). An upload a heal began carries a key
  * wrapped for every linked container, the one this unlink removes among
  * them; an unlink of another container carries one wrapped for this one.

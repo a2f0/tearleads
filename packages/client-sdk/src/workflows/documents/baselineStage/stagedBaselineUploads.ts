@@ -100,8 +100,8 @@ export class StagedBaselineUpload {
   }
 
   /**
-   * Whether an attempt that wraps the key for `targets` gives it to nobody
-   * new to lose: every target the key was ever wrapped for is among them.
+   * Whether an attempt that wraps the key for `targets` leaves out nobody
+   * the key has gone to: every target it was ever wrapped for is among them.
    * A rotation exists to keep a key from someone, so a key any request
    * carried to a target the new attempt leaves out is not a fresh key for
    * that attempt, whatever became of the request.

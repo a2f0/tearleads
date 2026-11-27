@@ -128,8 +128,8 @@ async function resolveStaleHealMaterial(
   let contentKeyBundle = await wrap(contentKey);
   // A baseline part way through a stage was encrypted under a key: the heal
   // that goes on with it wraps that key, not a new one. It may only where
-  // the key goes nowhere it has not been (`reusableStagedBaselinePlan`),
-  // which the bundle just built says.
+  // it leaves out no target the key has gone to
+  // (`reusableStagedBaselinePlan`), which the bundle just built says.
   const held = reusableStagedBaselinePlan(
     input.execSql,
     input.writerProjection.documentId,
