@@ -11,7 +11,7 @@ import { startDocumentBaselineSegmentsDigest } from "@tearleads/crypto";
 import type { DocumentBaselineStageOpenRequest } from "@tearleads/validators/request";
 import type { DocumentBaselineStageStatusResponse } from "@tearleads/validators/response";
 import { MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER } from "@tearleads/validators/util";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, lte, ne, sql } from "drizzle-orm";
 import {
   getDocumentContentKeyBundle,
   getLatestDocumentContentKeyEpoch,
@@ -27,6 +27,7 @@ import {
   deleteUncommittedBaselineSegments,
   readDocumentBaselineStageRow,
 } from "../../../documents/documentBaselineStageStore";
+import { isLockNotAvailable } from "../../../utils/databaseErrors";
 import {
   acquireTransactionLock,
   advisoryLockKey,
@@ -34,6 +35,7 @@ import {
 import { lockDocumentLifecycleInTransaction } from "../mutations/documentLifecycleLock";
 import {
   DocumentBaselineStageError,
+  documentBaselineStageBusy,
   documentBaselineStageEpochStale,
   documentBaselineStageIdConflict,
   documentBaselineStageLimitReached,
@@ -51,26 +53,31 @@ export interface OpenDocumentBaselineStageInput {
 }
 
 /**
- * The document's id as its row stores it. Everything a stage keeps or
- * derives is rooted in this spelling, never in the request's: the digest a
- * final segment signs starts from the document id, and a reader starts its
- * own from the id it holds, so a stage rooted in another spelling would
- * commit a group no reader can reproduce. The row also proves the document
- * exists, under the lifecycle lock the caller holds.
+ * The document as its row stores it, for a caller who can write it now and
+ * whose organization may sync (`requireStageWriter`). Everything a stage
+ * keeps or derives is rooted in the stored spelling of the id, never in the
+ * request's: the digest a final segment signs starts from the document id,
+ * and a reader starts its own from the id it holds, so a stage rooted in
+ * another spelling would commit a group no reader can reproduce.
  */
-async function readStoredDocumentId(
+async function requireWritableDocument(
   executor: DatabaseTransaction,
-  documentId: string,
-): Promise<string> {
+  input: OpenDocumentBaselineStageInput,
+): Promise<{ readonly documentId: string; readonly organizationId: string }> {
   const [document] = await executor
     .select({ id: documents.id })
     .from(documents)
-    .where(eq(documents.id, documentId))
+    .where(eq(documents.id, input.documentId))
     .limit(1);
   if (!document) {
     throw new DocumentBaselineStageError("Document not found", 409);
   }
-  return document.id;
+  const { organizationId } = await requireStageWriter({
+    documentId: document.id,
+    executor,
+    userId: input.userId,
+  });
+  return { documentId: document.id, organizationId };
 }
 
 /**
@@ -134,7 +141,8 @@ async function assertBaselineIdFree(
 
 /**
  * One user's opens run one at a time, so two of them cannot both count the
- * user's stages before either inserts its own.
+ * user's stages before either inserts its own. Nothing else takes this
+ * lock.
  */
 async function lockStageOwner(
   executor: DatabaseTransaction,
@@ -162,53 +170,16 @@ async function lockStageOwner(
 }
 
 /**
- * The caller's stages on other documents, locked: the live ones, which
- * count against what one user may hold open. Its expired stages there are
- * dead, and are deleted with what they staged.
- *
- * This runs before the document's lifecycle lock is taken. A stage row here
- * may be held by a long request of the caller's on another document, and an
- * open that waited for it under the lifecycle lock would keep other users'
- * opens and a purge of this document waiting too.
- */
-async function lockCallersStagesElsewhere(
-  executor: DatabaseTransaction,
-  input: OpenDocumentBaselineStageInput,
-  now: Date,
-): Promise<DocumentBaselineStageRow[]> {
-  await lockStageOwner(executor, input.userId);
-  const held = await executor
-    .select()
-    .from(documentBaselineStages)
-    .where(
-      and(
-        eq(documentBaselineStages.ownerUserId, input.userId),
-        ne(documentBaselineStages.documentId, input.documentId),
-      ),
-    )
-    .for("update");
-  const live: DocumentBaselineStageRow[] = [];
-  for (const stage of held) {
-    if (
-      judgeDocumentBaselineStage(stage, { now, userId: input.userId })
-        .status === "open"
-    ) {
-      live.push(stage);
-      continue;
-    }
-    await deleteDocumentBaselineStage(executor, {
-      baselineId: stage.id,
-      documentId: stage.documentId,
-    });
-  }
-  return live;
-}
-
-/**
  * The caller's stage on this document, if it is the one being opened again:
  * it is returned as it stands and keeps what it staged. Any other stage of
  * the caller's here, an earlier baseline's or an expired one, is replaced,
  * so it is deleted with what it staged.
+ *
+ * The caller holds the document's lifecycle lock, so the row is locked
+ * without waiting: a request of the caller's own that holds it, a segment
+ * being staged or a commit, may run long, and an open that waited for it
+ * here would keep a purge of the document and other users' opens waiting
+ * too. The open is refused instead, to be sent again.
  */
 async function takeCallersStageHere(
   executor: DatabaseTransaction,
@@ -224,7 +195,10 @@ async function takeCallersStageHere(
         eq(documentBaselineStages.documentId, input.documentId),
       ),
     )
-    .for("update");
+    .for("update", { noWait: true })
+    .catch((error: unknown) => {
+      throw isLockNotAvailable(error) ? documentBaselineStageBusy() : error;
+    });
   if (!stage) return null;
   const { request } = input;
   if (
@@ -244,30 +218,70 @@ async function takeCallersStageHere(
 }
 
 /**
- * Locks are taken in one order, so no two requests wait on each other: the
- * caller's own lock, its stage rows on other documents, this document's
- * lifecycle lock, then its stage row here. A purge takes the lifecycle lock
- * and then the document's stage rows, none of which an open holds before
- * the lifecycle lock; a commit and a stage write take one stage row and
- * nothing an open waits for.
+ * The caller's stages on other documents, which count against what one user
+ * may hold open. No row is waited for. An expired stage is dead and is
+ * deleted with what it staged, unless another request holds its row, which
+ * is skipped. Every row left counts, whatever holds it: a stage a commit,
+ * an abandon or the sweep is deleting at this moment still counts, so an
+ * open at the cap may be refused a moment early and never admitted late.
+ * The count is exact because only an open adds a stage and the caller's
+ * opens run one at a time (`lockStageOwner`).
+ */
+async function countCallersStagesElsewhere(
+  executor: DatabaseTransaction,
+  input: OpenDocumentBaselineStageInput,
+  now: Date,
+): Promise<DocumentBaselineStageRow[]> {
+  const elsewhere = and(
+    eq(documentBaselineStages.ownerUserId, input.userId),
+    ne(documentBaselineStages.documentId, input.documentId),
+  );
+  const expired = await executor
+    .select({
+      baselineId: documentBaselineStages.id,
+      documentId: documentBaselineStages.documentId,
+    })
+    .from(documentBaselineStages)
+    .where(and(elsewhere, lte(documentBaselineStages.expiresAt, now)))
+    .for("update", { skipLocked: true });
+  for (const stage of expired) {
+    await deleteDocumentBaselineStage(executor, stage);
+  }
+  return executor.select().from(documentBaselineStages).where(elsewhere);
+}
+
+/**
+ * An open waits in two places and holds no row lock in either. It waits for
+ * the caller's own lock while it holds nothing, and for the document's
+ * lifecycle lock while it holds only the caller's own, which nothing but
+ * the caller's other opens asks for. Under the lifecycle lock it waits for
+ * no lock at all: the caller's stage here is taken without waiting, and the
+ * rows of its expired stages elsewhere are skipped when held. So an open
+ * closes no cycle of waits, and nothing waits behind an open for longer
+ * than its own statements take, apart from the caller's other opens.
+ *
+ * A purge of the document holds the lifecycle lock from before it deletes
+ * the document's stages until it commits, so an open runs wholly before a
+ * purge, which then deletes its stage, or wholly after, and finds no
+ * document.
  */
 async function openDocumentBaselineStageInTransaction(
   executor: DatabaseTransaction,
   input: OpenDocumentBaselineStageInput,
 ): Promise<DocumentBaselineStageStatusResponse> {
   const now = input.now ?? new Date();
-  const elsewhere = await lockCallersStagesElsewhere(executor, input, now);
-  // A purge of the document holds this lock from before it deletes the
-  // document's stages until it commits, so an open runs wholly before a
-  // purge, which then deletes its stage, or wholly after, and finds no
-  // document.
+  // Refused before any lock is asked for: a caller who cannot write the
+  // document never holds its lifecycle lock, which a create and a purge of
+  // it wait for.
+  await requireWritableDocument(executor, input);
+  await lockStageOwner(executor, input.userId);
   await lockDocumentLifecycleInTransaction(executor, input.documentId);
-  const documentId = await readStoredDocumentId(executor, input.documentId);
-  const { organizationId } = await requireStageWriter({
-    documentId,
+  // Asked again under the lifecycle lock, where the answer holds until the
+  // stage is stored: no purge can run between this and the insert.
+  const { documentId, organizationId } = await requireWritableDocument(
     executor,
-    userId: input.userId,
-  });
+    input,
+  );
   await assertStageEpochCanCommit(executor, documentId, input.request);
   const held = await takeCallersStageHere(
     executor,
@@ -275,6 +289,7 @@ async function openDocumentBaselineStageInTransaction(
     now,
   );
   if (held) return documentBaselineStageStatus(held);
+  const elsewhere = await countCallersStagesElsewhere(executor, input, now);
   if (elsewhere.length >= MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER) {
     throw documentBaselineStageLimitReached(
       elsewhere.map((stage) => ({

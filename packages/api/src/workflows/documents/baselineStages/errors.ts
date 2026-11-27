@@ -91,6 +91,18 @@ export function documentBaselineStageLimitReached(
   );
 }
 
+/**
+ * A request of the caller's own holds the stage this one would replace. It
+ * is not a conflict the writer resolves: the same request sent again finds
+ * the stage free.
+ */
+export function documentBaselineStageBusy(): DocumentBaselineStageError {
+  return new DocumentBaselineStageError(
+    "Document baseline stage is in use by another request; retry",
+    503,
+  );
+}
+
 /** The segment would take the stage past what one stage may store. */
 export function documentBaselineStageTooLarge(
   bound: string,
