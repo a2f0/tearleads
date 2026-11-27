@@ -372,3 +372,76 @@ test("purgeContainerTree reports zero completions after a later unlink fails", a
     database.close();
   }
 });
+
+test("purgeContainerTree unlinks a secondary-linked document whose primary folder is outside the subtree", async () => {
+  const database = await createTestExecSql(
+    "purge-tree-secondary-linked-document",
+  );
+  const documentId = "secondary-linked-document";
+  const operations: string[] = [];
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(database.execSql);
+    await sqlDocumentsPersistence.saveDocument(
+      database.execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: "document-access-state",
+        containerId: "outside-primary",
+        documentId,
+        documentKind: "note",
+        id: "local-secondary-linked-document",
+        snapshotEndVersion: "",
+        text: "",
+        title: "Secondary linked document",
+      },
+      { updatedAt: "2026-09-01T00:00:00.000Z" },
+    );
+    await new Links(database.execSql).replaceDocumentLinks(documentId, [
+      "outside-primary",
+      "trashed",
+    ]);
+
+    const result = await purgeContainerTree({
+      containersById: containersById([containerState("trashed", null)]),
+      documentOperations: {
+        purgeLocal: async () => {
+          throw new Error("Unexpected local purge");
+        },
+        purgeRemote: async () => {
+          throw new Error("Unexpected remote purge");
+        },
+        unlink: async (document, containerIds) => {
+          operations.push(
+            `unlink:${document.documentId}:${containerIds.join(",")}`,
+          );
+          return true;
+        },
+      },
+      persistence: {
+        ...defaultContainerContentsPersistence,
+        deleteContainers: async () => ["trashed"],
+        listUnsyncedMoveIntents: async () => [],
+        loadContainerMetadataState: async (_execSql, id) =>
+          containerState(id, null),
+      },
+      prepareDocumentRotationSnapshot: async () => {
+        throw new Error("Unexpected rotation snapshot preparation");
+      },
+      resolveProjectionUserKey: async () => null,
+      rootContainerId: "trashed",
+      runtime: { infra: { execSql: database.execSql } } as never,
+    });
+
+    expect(operations).toEqual([`unlink:${documentId}:trashed`]);
+    expect(result).toMatchObject({
+      aborted: false,
+      completedCount: 2,
+      failedCount: 0,
+      purgedContainerIds: ["trashed"],
+      totalCount: 2,
+    });
+  } finally {
+    database.close();
+  }
+});

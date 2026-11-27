@@ -205,40 +205,54 @@ test("a lost purge response completes local teardown from the signed purge proof
 
 // Recursively purging one folder of a multi-link document unlinks only the
 // purged subtree while keeping the document alive and readable through its
-// surviving link.
-test("purging one folder of a multi-link document preserves the surviving link", async () => {
-  world = await World.create();
-  const alice = await world.register("alice");
-  const bob = await world.register("bob");
-  const carol = await world.register("carol");
-  await world.addToOrganization(alice, bob);
-  await world.addToOrganization(alice, carol);
-  const team = await world.createFolder(alice, world.root(alice), "Team");
-  const handoff = await world.createFolder(alice, world.root(alice), "Handoff");
-  const document = await world.createDocument(alice, handoff, "linked v1");
-  await world.shareWithUser(alice, team, bob);
-  await world.shareWithUser(alice, handoff, carol);
-  await world.linkDocument(alice, document, team);
-  await expectAccess(world, document);
+// surviving link — whether the document was created in the purged folder
+// (primary link) or linked into it from the surviving folder (secondary link).
+for (const origin of ["purged-folder", "surviving-folder"] as const) {
+  test(`purging one folder of a multi-link document preserves the surviving link (${origin})`, async () => {
+    world = await World.create();
+    const alice = await world.register("alice");
+    const bob = await world.register("bob");
+    const carol = await world.register("carol");
+    await world.addToOrganization(alice, bob);
+    await world.addToOrganization(alice, carol);
+    const team = await world.createFolder(alice, world.root(alice), "Team");
+    const handoff = await world.createFolder(
+      alice,
+      world.root(alice),
+      "Handoff",
+    );
+    const document =
+      origin === "purged-folder"
+        ? await world.createDocument(alice, handoff, "linked v1")
+        : await world.createDocument(alice, team, "linked v1");
+    await world.shareWithUser(alice, team, bob);
+    await world.shareWithUser(alice, handoff, carol);
+    await world.linkDocument(
+      alice,
+      document,
+      origin === "purged-folder" ? team : handoff,
+    );
+    await expectAccess(world, document);
 
-  const aliceDevice = alice.devices[0];
-  if (!aliceDevice) throw new Error("Expected Alice's device");
-  const tree = await aliceDevice.tree();
-  expect(await tree.purgeContainer(handoff.id)).toBe(true);
-  await aliceDevice.idle();
-  world.model.unlinkDocument(document.documentId, handoff.id);
+    const aliceDevice = alice.devices[0];
+    if (!aliceDevice) throw new Error("Expected Alice's device");
+    const tree = await aliceDevice.tree();
+    expect(await tree.purgeContainer(handoff.id)).toBe(true);
+    await aliceDevice.idle();
+    world.model.unlinkDocument(document.documentId, handoff.id);
 
-  await world.editDocument(alice, document, "linked v2 after handoff purged");
-  await world.newDevice(bob);
-  await world.newDevice(carol);
-  await expectAccess(world, document);
+    await world.editDocument(alice, document, "linked v2 after handoff purged");
+    await world.newDevice(bob);
+    await world.newDevice(carol);
+    await expectAccess(world, document);
 
-  // Carol's original device lost access through the purged folder and cannot
-  // read the post-purge edit, while Bob can still write through Team.
-  await world.editDocument(bob, document, "linked v3 bob through team");
-  expect(await readText(aliceDevice, world.documentRef(document))).toBe(
-    "linked v3 bob through team",
-  );
-  await expectAccess(world, document);
-  expectNoSecurityIncidents(world);
-}, 240_000);
+    // Carol's original device lost access through the purged folder and cannot
+    // read the post-purge edit, while Bob can still write through Team.
+    await world.editDocument(bob, document, "linked v3 bob through team");
+    expect(await readText(aliceDevice, world.documentRef(document))).toBe(
+      "linked v3 bob through team",
+    );
+    await expectAccess(world, document);
+    expectNoSecurityIncidents(world);
+  }, 240_000);
+}

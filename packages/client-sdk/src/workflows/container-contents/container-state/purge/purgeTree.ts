@@ -127,20 +127,22 @@ async function planSubtreeDocuments(input: {
   readonly execSql: PurgeContainerTreeRuntime["infra"]["execSql"];
   readonly subtreeContainerIds: ReadonlySet<string>;
 }): Promise<SubtreeDocumentPlan> {
+  const links = new DocumentContainerProjectionRepository(input.execSql);
+  const subtreeContainerList = [...input.subtreeContainerIds];
+  const linkedDocumentIds =
+    await links.listDocumentIdsByContainerIds(subtreeContainerList);
   const documents = await listDocumentsByContainerIdsOrDocumentIds(
     input.execSql,
     {
-      containerIds: [...input.subtreeContainerIds],
-      documentIds: [],
+      containerIds: subtreeContainerList,
+      documentIds: linkedDocumentIds,
     },
   );
   const remoteDocumentIds = documents.flatMap((document) =>
     document.documentId ? [document.documentId] : [],
   );
   const linkedContainerIdsByDocumentId =
-    await new DocumentContainerProjectionRepository(
-      input.execSql,
-    ).listLinkedContainerIdsByDocumentIds(remoteDocumentIds);
+    await links.listLinkedContainerIdsByDocumentIds(remoteDocumentIds);
 
   const purge: Array<{
     document: DocumentSummary;
@@ -267,9 +269,8 @@ function resolveSubtreeDocumentOperations(
     unlink: (document, containerIds) =>
       unlinkSubtreeDocument({
         // Target preparation and signing can outlast the upfront checks.
-        beforeSubmit: async (containerId) =>
-          (await scope.allowsDocument(document)) &&
-          (await scope.allowsContainer(containerId)),
+        beforeSubmit: (containerId) =>
+          scope.allowsDocumentUnlink(document, containerId),
         containerIds,
         document,
         expectedSubtreeRoot,
@@ -287,9 +288,10 @@ function resolveSubtreeDocumentOperations(
       (await scope.allowsDocument(document)) &&
       (await operations.purgeRemote(document)),
     unlink: async (document, containerIds) => {
-      if (!(await scope.allowsDocument(document))) return false;
       for (const containerId of containerIds) {
-        if (!(await scope.allowsContainer(containerId))) return false;
+        if (!(await scope.allowsDocumentUnlink(document, containerId))) {
+          return false;
+        }
       }
       return operations.unlink(document, containerIds);
     },

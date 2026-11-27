@@ -208,6 +208,68 @@ async function documentPlacementIsCurrent(
   );
 }
 
+async function allowsDocumentScope(
+  input: SubtreePurgeScopeInput,
+  verifiedAncestorsById: Map<string, readonly string[]>,
+  document: DocumentSummary,
+): Promise<boolean> {
+  if (
+    !document.containerId ||
+    !(await documentPlacementIsCurrent(input, document))
+  )
+    return false;
+  if (
+    !(await allowsContainer(
+      input,
+      document.containerId,
+      verifiedAncestorsById,
+      !document.documentId,
+    ))
+  )
+    return false;
+  // Freeze local placement checks together after all remote verification.
+  return readLocalPurgeScope(
+    {
+      ...input,
+      containerId: document.containerId,
+      execSql: input.runtime.infra.execSql,
+      localId: document.id,
+      verifiedAncestorsById,
+    },
+    document,
+  );
+}
+
+async function allowsDocumentUnlinkScope(
+  input: SubtreePurgeScopeInput,
+  verifiedAncestorsById: Map<string, readonly string[]>,
+  document: DocumentSummary,
+  containerId: string,
+): Promise<boolean> {
+  if (
+    !document.documentId ||
+    !(await documentPlacementIsCurrent(input, document))
+  )
+    return false;
+  if (
+    !(await allowsContainer(input, containerId, verifiedAncestorsById, false))
+  )
+    return false;
+  // Freeze local placement, link membership, and subtree scope together
+  // after remote verification of the unlinked container.
+  return readLocalPurgeScope(
+    {
+      ...input,
+      containerId,
+      execSql: input.runtime.infra.execSql,
+      localId: document.id,
+      verifiedAncestorsById,
+    },
+    document,
+    containerId,
+  );
+}
+
 /** Listing edges only select candidates; each destructive unit proves its scope. */
 export function createSubtreePurgeScope(request: SubtreePurgeScopeInput) {
   const input = {
@@ -248,33 +310,18 @@ export function createSubtreePurgeScope(request: SubtreePurgeScopeInput) {
         ),
       ),
     allowsDocument: (document: DocumentSummary) =>
-      checkAvailableScope(input, async () => {
-        if (
-          !document.containerId ||
-          !(await documentPlacementIsCurrent(input, document))
-        )
-          return false;
-        if (
-          !(await allowsContainer(
-            input,
-            document.containerId,
-            verifiedAncestorsById,
-            !document.documentId,
-          ))
-        )
-          return false;
-        // Freeze local placement checks together after all remote verification.
-        return readLocalPurgeScope(
-          {
-            ...input,
-            containerId: document.containerId,
-            execSql: input.runtime.infra.execSql,
-            localId: document.id,
-            verifiedAncestorsById,
-          },
+      checkAvailableScope(input, () =>
+        allowsDocumentScope(input, verifiedAncestorsById, document),
+      ),
+    allowsDocumentUnlink: (document: DocumentSummary, containerId: string) =>
+      checkAvailableScope(input, () =>
+        allowsDocumentUnlinkScope(
+          input,
+          verifiedAncestorsById,
           document,
-        );
-      }),
+          containerId,
+        ),
+      ),
   };
 }
 
