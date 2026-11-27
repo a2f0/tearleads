@@ -20,8 +20,9 @@ SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 | HKDF-SHA-256 | RFC 5869 | Per-record and per-purpose key derivation |
 | PBKDF2-SHA-256 | Password KDF | PIN, passphrase, and backup key derivation |
 | SHA-256 | Hash | Fingerprints, canonical hashes, integrity |
-| SHA-1 | Legacy hash | Deterministic v5-style ids only (non-security) |
-| HMAC-SHA-256 | MAC | Deterministic slot ids, Stripe webhook verification |
+| SHA-1 | Legacy hash | Bare SHA-1 for deterministic v5-style ids only (non-security) |
+| HMAC-SHA-1 | MAC | RFC 6238 TOTP codes for two-factor authentication |
+| HMAC-SHA-256 | MAC | Deterministic slot ids, cursors, verification markers, 2FA recovery codes, and Stripe webhook verification |
 | BIP39 (24-word) | 256-bit mnemonic | Identity seed phrase |
 | ChaCha20 | SQLite3MultipleCiphers | At-rest database file encryption (active codec) |
 
@@ -71,6 +72,8 @@ commit their public keys.
 | Local keyring root-key wrapping (`account-root` envelope) | [`packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts`](../packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts) |
 | Local identity package at rest | [`packages/app/src/providers/identity/localIdentityPackageCrypto.ts`](../packages/app/src/providers/identity/localIdentityPackageCrypto.ts) |
 | Local OPFS blob store at rest (authenticated 5 MiB chunks) | [`packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobStore.ts), [`encryptedBlobByteSource.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobByteSource.ts) |
+| Password-protected local DB backup | [`packages/app/src/providers/db/localBackupFormat.ts`](../packages/app/src/providers/db/localBackupFormat.ts) |
+| Server-stored TOTP secret sealing (`userId` AAD) | [`packages/api/src/workflows/auth/twoFactor/secretSeal.ts`](../packages/api/src/workflows/auth/twoFactor/secretSeal.ts) |
 
 Core helpers:
 [`packages/crypto/src/primitives/symmetric.ts`](../packages/crypto/src/primitives/symmetric.ts)
@@ -93,6 +96,7 @@ derived from the organization metadata container KEK
 | HKDF-SHA-256 | Per-purpose local keys (sqlite, blob-store, identity-persistence) from the random root | [`packages/client-sdk/src/client/localKeyring/rootKey.ts`](../packages/client-sdk/src/client/localKeyring/rootKey.ts) |
 | HKDF-SHA-256 | Per-content-record AES-GCM keys | [`packages/client-sdk/src/data/documents/shared/crypto.ts`](../packages/client-sdk/src/data/documents/shared/crypto.ts), [`packages/client-sdk/src/data/blobs/attachments/blobRecordCrypto.ts`](../packages/client-sdk/src/data/blobs/attachments/blobRecordCrypto.ts) |
 | HKDF-SHA-256 | Document [content-key commitments](./glossary/keys.md#content-key-commitment) | [`packages/client-sdk/src/data/documents/shared/sync/contentKeyCommitment.ts`](../packages/client-sdk/src/data/documents/shared/sync/contentKeyCommitment.ts) |
+| HKDF-SHA-256 | Server-secret domain keys (TOTP secret sealing, 2FA recovery-code hashing, stored principal history protection) | [`packages/api/src/workflows/auth/twoFactor/secretSeal.ts`](../packages/api/src/workflows/auth/twoFactor/secretSeal.ts), [`recoveryCodes.ts`](../packages/api/src/workflows/auth/twoFactor/recoveryCodes.ts), [`principalHistoryProtection.ts`](../packages/api/src/workflows/principals/principalHistoryProtection.ts) |
 | PBKDF2-SHA-256 | PIN-code wrapping key (310k iters) | [`packages/client-sdk/src/client/localKeyring/localKeyringPinCodeSupport.ts`](../packages/client-sdk/src/client/localKeyring/localKeyringPinCodeSupport.ts) |
 | PBKDF2-SHA-256 | Local blob-store key from passphrase (310k iters) | [`packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`](../packages/client-sdk/src/data/blobs/encryptedBlobStore.ts) |
 | PBKDF2-SHA-256 | Password-protected local DB backup key (250k iters) | [`packages/app/src/providers/db/localBackupFormat.ts`](../packages/app/src/providers/db/localBackupFormat.ts) |
@@ -106,9 +110,10 @@ PIN-code wrap suite: `pin-code-pbkdf2-sha256-aes-256-gcm`.
 | SHA-256 | Public-key fingerprints, canonical keying hashes | [`packages/crypto/src/primitives/fingerprint.ts`](../packages/crypto/src/primitives/fingerprint.ts), [`packages/crypto/src/keying/core/canonical.ts`](../packages/crypto/src/keying/core/canonical.ts) |
 | SHA-256 | Streamed blob ciphertext integrity | [`packages/crypto/src/primitives/incrementalSha256.ts`](../packages/crypto/src/primitives/incrementalSha256.ts), [`packages/api/src/utils/sha256.ts`](../packages/api/src/utils/sha256.ts) |
 | SHA-256 + `timingSafeEqual` | RevenueCat webhook shared-secret compare (constant-time, not HMAC) | [`packages/api/src/routes/billing/revenuecatWebhook.ts`](../packages/api/src/routes/billing/revenuecatWebhook.ts) |
-| SHA-1 | Deterministic v5-style document / child-container ids (non-security) | [`packages/client-sdk/src/data/keying/stableUuid.ts`](../packages/client-sdk/src/data/keying/stableUuid.ts) |
-| HMAC-SHA-256 | Deterministic container system-slot ids | [`packages/client-sdk/src/workflows/container-contents/systemSlot.ts`](../packages/client-sdk/src/workflows/container-contents/systemSlot.ts) |
-| HMAC-SHA-256 | Stripe webhook signature verification | [`packages/api/src/billing/stripeWebhook.ts`](../packages/api/src/billing/stripeWebhook.ts) |
+| SHA-1 | Bare SHA-1 for deterministic v5-style document / child-container ids (non-security) | [`packages/client-sdk/src/data/keying/stableUuid.ts`](../packages/client-sdk/src/data/keying/stableUuid.ts) |
+| HMAC-SHA-1 | RFC 6238 6-digit TOTP codes for two-factor authentication | [`packages/api/src/workflows/auth/twoFactor/totp.ts`](../packages/api/src/workflows/auth/twoFactor/totp.ts) |
+| HMAC-SHA-256 | Deterministic container system-slot ids, document plaintext HMAC, and container KEK cache tokens | [`packages/client-sdk/src/workflows/container-contents/systemSlot.ts`](../packages/client-sdk/src/workflows/container-contents/systemSlot.ts), [`packages/crypto/src/keying/core/canonical.ts`](../packages/crypto/src/keying/core/canonical.ts), [`containerKekCacheToken.ts`](../packages/crypto/src/keying/containerKek/containerKekCacheToken.ts) |
+| HMAC-SHA-256 | Signed server pagination cursors, stored manifest verification markers, projection policy history grants, 2FA recovery-code hashes, and Stripe webhook verification | [`packages/api/src/workflows/documents/mutations/syncPullPagination.ts`](../packages/api/src/workflows/documents/mutations/syncPullPagination.ts), [`discoveryCursor.ts`](../packages/api/src/services/containers/discoveryCursor.ts), [`verificationMarkers.ts`](../packages/api/src/workflows/containers/writerProjection/verificationMarkers.ts), [`projectionPolicyHistoryGrant.ts`](../packages/api/src/workflows/principals/projectionPolicyHistoryGrant.ts), [`recoveryCodes.ts`](../packages/api/src/workflows/auth/twoFactor/recoveryCodes.ts), [`stripeWebhook.ts`](../packages/api/src/billing/stripeWebhook.ts) |
 
 ### At-rest database
 
@@ -154,6 +159,6 @@ writing unencrypted files elsewhere.
 | `@noble/post-quantum` | ML-KEM-1024, ML-DSA-87 |
 | `@noble/hashes` | SHA-256, HKDF |
 | `@scure/bip39` | 24-word mnemonic seed phrases |
-| WebCrypto (`crypto.subtle`) | AES-GCM, HKDF, PBKDF2, HMAC, SHA-256, SHA-1 (client runtime) |
-| `node:crypto` | SHA-256, HMAC, `timingSafeEqual` (server / billing only) |
+| WebCrypto (`crypto.subtle`) | AES-GCM, HKDF, PBKDF2, HMAC, SHA-256, SHA-1 (client and server runtimes) |
+| `node:crypto` | SHA-256, HKDF (`hkdfSync`), HMAC, `randomBytes`, `timingSafeEqual` (server) |
 | SQLite3MultipleCiphers | At-rest database encryption codec |

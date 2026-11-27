@@ -8,6 +8,8 @@ Registration is a
 [bootstrap protocol](../container-dek-onboarding.md#registration-flow), not only
 an account create call. `POST /auth/register` submits:
 
+- `acceptedLegalTermsVersion`, the current Privacy Policy and Terms of Service
+  revision agreed to at registration
 - `userId`, `organizationId`, and `rootContainerId`
 - signing and encapsulation public keys, each as canonical padded base64 of
   its fixed-length bytes
@@ -198,6 +200,13 @@ and `ifStateHash`; when that is the live head, the reply is
 `{unchanged: true, head}` and carries no artifacts, otherwise it is the first
 page. The reply proves only freshness: the client authenticates the held head
 from its own verified history and re-reads unconditionally on any other reply.
+
+`GET /principals/:principalType/:principalId/policy/member-envelopes` takes
+`stateHash` and returns the full `envelopes` set for any named current or
+historical state of a live principal to callers authorized on its live policy
+(answering `202` while history preparation runs and `404` if the state does not
+exist for that principal), so clients can verify a historical state's
+`memberEnvelopesRoot`.
 
 `GET /principals/history` pages the public signed history of the head an opaque
 projection grant names. A request may name a signed head state the client holds

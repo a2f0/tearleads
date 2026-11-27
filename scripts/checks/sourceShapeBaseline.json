@@ -61,11 +61,11 @@
     },
     "docs/developer/client-sdk/public-api.md": {
       "lines": 547,
-      "bytes": 37828
+      "bytes": 37932
     },
     "docs/limits.md": {
-      "lines": 370,
-      "bytes": 51619
+      "lines": 371,
+      "bytes": 52240
     },
     "formal/blob-attachments/StagePromotion.tla": {
       "lines": 503,
@@ -100,8 +100,8 @@
       "bytes": 39568
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 603,
-      "bytes": 23274
+      "lines": 602,
+      "bytes": 23242
     }
   },
   "suppressions": {

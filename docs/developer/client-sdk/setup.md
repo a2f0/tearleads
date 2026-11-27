@@ -43,8 +43,11 @@ accepted create or move saves its state and settles its exact intent revision in
 one transaction, and an acknowledgment without that settlement is refused. Error
 recording also checks the intent revision; settlement is never unconditional.
 
-Startup creates missing tables and indexes but never alters existing ones, so a
-local database whose tables do not match the current schema must be reset.
+Local SQLite databases advance in place through the ordered migration ledger in
+[`packages/client-sdk/src/data/sqlite/migrations/README.md`](../../../packages/client-sdk/src/data/sqlite/migrations/README.md)
+before table ensures (and at boot via `ensureLocalSchemaMigrated` for multi-tab
+hosts). Only a database older than the version-1 baseline, with an ahead or
+diverged ledger, or holding obsolete data a step refuses requires a reset.
 
 Verified [writer projections](../../glossary/sync.md#writer-projection) leave their
 [access-manifest](../../glossary/access.md#access-manifest) bundles and

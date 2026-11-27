@@ -34,9 +34,9 @@ const largestCapacity = getLargestSyncBillingTier().seatLimit;
       <h2 id="plans-title" class="visually-hidden">Plans</h2>
       <PricingTiers tiers={pricingTiers} />
       <p class="pricing-note">
-        Monthly prices in US dollars. Each paid plan covers one organization at
-        the capacity shown, one flat price for the whole roster. Checkout shows
-        the final price, including any taxes.
+        Monthly prices are in US dollars. Each paid plan covers one organization
+        at the capacity shown for a single flat price, not per member. Checkout
+        shows the final total, including any applicable taxes.
       </p>
       <div class="site-cta">
         <p>
@@ -77,9 +77,9 @@ const largestCapacity = getLargestSyncBillingTier().seatLimit;
         <div>
           <dt>Which plan you get</dt>
           <dd>
-            Web checkout offers every plan that covers your roster, for
-            rosters of up to {largestCapacity} members, and you choose one. You
-            can switch plans in the checkout form before you pay.
+            Web checkout offers every plan large enough for your roster (up to{" "}
+            {largestCapacity} members), and you can switch plans in the checkout
+            form before you pay.
           </dd>
         </div>
         <div>
