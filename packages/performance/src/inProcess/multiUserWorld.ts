@@ -1,4 +1,8 @@
-import { type ExportedKeyPackage, MultiUserDevice } from "./multiUserDevice";
+import {
+  type ExportedKeyPackage,
+  MultiUserDevice,
+  type MultiUserDeviceServices,
+} from "./multiUserDevice";
 
 export interface ProbeActor {
   readonly name: string;
@@ -49,6 +53,7 @@ export class MultiUserWorld {
   constructor(
     private readonly apiBaseUrl: string,
     private readonly identityTrustDomain: string,
+    private readonly deviceServices: MultiUserDeviceServices = {},
   ) {}
 
   async register(name: string): Promise<ProbeActor> {
@@ -56,6 +61,7 @@ export class MultiUserWorld {
       this.apiBaseUrl,
       this.identityTrustDomain,
       name,
+      this.deviceServices,
     );
     const actor: ProbeActor = {
       name,
@@ -74,6 +80,7 @@ export class MultiUserWorld {
       this.identityTrustDomain,
       label,
       actor.keyPackage,
+      this.deviceServices,
     );
     const organizationId = this.workingOrganizations.get(actor.userId);
     if (organizationId) device.enterOrganization(organizationId);

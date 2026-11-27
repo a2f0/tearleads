@@ -69,6 +69,8 @@ export interface HttpCounterProxy {
  * requests, 409 conflicts, and request/response body bytes per normalized
  * route without modifying global `fetch`.
  */
+const nullBodyStatuses = new Set([101, 204, 205, 304]);
+
 export function startHttpCounterProxy(upstream: string): HttpCounterProxy {
   let requests = 0;
   let conflicts = 0;
@@ -118,14 +120,19 @@ export function startHttpCounterProxy(upstream: string): HttpCounterProxy {
         signal: request.signal,
       });
       const response = await fetch(forwarded, { decompress: false });
-      const resBuffer = await response.arrayBuffer();
+      const resBuffer = nullBodyStatuses.has(response.status)
+        ? new ArrayBuffer(0)
+        : await response.arrayBuffer();
       const route = normalizeScenarioRoute(request.method, pathname);
       record(route, response.status, reqBytes, resBuffer.byteLength);
-      return new Response(resBuffer, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      });
+      return new Response(
+        nullBodyStatuses.has(response.status) ? null : resBuffer,
+        {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        },
+      );
     },
   });
 

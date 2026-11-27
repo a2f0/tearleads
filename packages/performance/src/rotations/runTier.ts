@@ -2,6 +2,7 @@ import type { HttpWireTraffic } from "../inProcess/httpCounterProxy";
 import {
   type MeasuredPhaseStats,
   measureProtocolPhase,
+  type PhaseDeviceObserver,
 } from "../inProcess/measurePhase";
 import type { MultiUserDevice } from "../inProcess/multiUserDevice";
 import {
@@ -31,8 +32,89 @@ export interface RotationPhaseMeasurement extends MeasuredPhaseStats {
   readonly folderKeyEpoch?: number;
 }
 
-interface TierFixture {
-  readonly world: MultiUserWorld;
+/** Structural world interface so `runRotationTier` can be unit-tested cleanly. */
+export interface RotationTierDevice extends PhaseDeviceObserver {
+  readonly holdFolder: (folderId: string) => Promise<void>;
+  readonly readDocument: (
+    documentId: string,
+    containerIds: readonly string[],
+  ) => Promise<{
+    readonly getSnapshot: () => { readonly text: string };
+  } | null>;
+}
+
+export interface RotationTierWorld<
+  TDevice extends RotationTierDevice = MultiUserDevice,
+> {
+  register(name: string): Promise<ProbeActor>;
+  newDevice(actor: ProbeActor): Promise<TDevice>;
+  rootId(actor: ProbeActor): string;
+  primaryDevice(actor: ProbeActor): TDevice;
+  addToOrganization(
+    owner: ProbeActor,
+    member: ProbeActor,
+    device?: TDevice,
+  ): Promise<void>;
+  adminsGroup(owner: ProbeActor): Promise<ProbeGroup>;
+  createFolder(
+    actor: ProbeActor,
+    parentId: string,
+    name: string,
+  ): Promise<string>;
+  moveFolder(
+    actor: ProbeActor,
+    folderId: string,
+    newParentId: string,
+  ): Promise<void>;
+  createDocument(
+    actor: ProbeActor,
+    folderId: string,
+    text: string,
+  ): Promise<ProbeDocument>;
+  editDocument(
+    actor: ProbeActor,
+    document: ProbeDocument,
+    text: string,
+    device?: TDevice,
+  ): Promise<void>;
+  createGroup(actor: ProbeActor, name: string): Promise<ProbeGroup>;
+  addToGroup(
+    actor: ProbeActor,
+    group: ProbeGroup,
+    member: ProbeActor,
+  ): Promise<void>;
+  removeFromGroup(
+    actor: ProbeActor,
+    group: ProbeGroup,
+    member: ProbeActor,
+  ): Promise<void>;
+  shareWithGroup(
+    actor: ProbeActor,
+    folderId: string,
+    group: ProbeGroup,
+    level: "read" | "write" | "admin",
+  ): Promise<void>;
+  shareWithUser(
+    actor: ProbeActor,
+    folderId: string,
+    recipient: ProbeActor,
+    level?: "read" | "write" | "admin",
+    options?: {
+      readonly device?: TDevice;
+      readonly skipLinkAdmit?: boolean;
+    },
+  ): Promise<void>;
+  revokeGrant(
+    actor: ProbeActor,
+    folderId: string,
+    subject: { readonly kind: "user" | "group"; readonly id: string },
+  ): Promise<void>;
+  keyEpoch(actor: ProbeActor, folderId: string): Promise<number>;
+  dispose(): void;
+}
+
+interface TierFixture<TDevice extends RotationTierDevice> {
+  readonly world: RotationTierWorld<TDevice>;
   readonly alice: ProbeActor;
   readonly bob: ProbeActor;
   readonly carol: ProbeActor;
@@ -46,12 +128,10 @@ interface TierFixture {
   readonly team: ProbeGroup;
 }
 
-async function setupTierFixture(
-  apiBaseUrl: string,
-  trustOrigin: string,
+async function setupTierFixture<TDevice extends RotationTierDevice>(
+  world: RotationTierWorld<TDevice>,
   depth: number,
-): Promise<TierFixture> {
-  const world = new MultiUserWorld(apiBaseUrl, trustOrigin);
+): Promise<TierFixture<TDevice>> {
   try {
     const alice = await world.register("alice");
     const bob = await world.register("bob");
@@ -79,7 +159,9 @@ async function setupTierFixture(
       world.rootId(alice),
       "archive",
     );
-    const upperFolder = chain[Math.min(1, chain.length - 1)];
+    // Keep `upperFolder` strictly above `bottomFolder` whenever depth >= 2 so
+    // moving `bottomFolder` out from under the group does not cut off `upperDoc`.
+    const upperFolder = chain.length >= 3 ? chain[1] : chain[0];
     const lowerFolder = chain.at(-1);
     if (!upperFolder || !lowerFolder) {
       throw new Error("Folder chain is empty.");
@@ -108,8 +190,8 @@ async function setupTierFixture(
   }
 }
 
-async function primeReadersAndChurn(
-  fixture: TierFixture,
+async function primeReadersAndChurn<TDevice extends RotationTierDevice>(
+  fixture: TierFixture<TDevice>,
   rotations: number,
 ): Promise<void> {
   const {
@@ -158,14 +240,14 @@ async function primeReadersAndChurn(
 interface PhaseRecorder {
   record<T>(
     phase: RotationPhaseName,
-    device: () => MultiUserDevice | null,
+    device: () => RotationTierDevice | null,
     run: () => Promise<T>,
     epochFolder?: string,
   ): Promise<T>;
 }
 
-async function runPostShrinkPhases(
-  fixture: TierFixture,
+async function runPostShrinkPhases<TDevice extends RotationTierDevice>(
+  fixture: TierFixture<TDevice>,
   rotations: number,
   depth: number,
   recorder: PhaseRecorder,
@@ -217,12 +299,13 @@ async function runPostShrinkPhases(
     bottomFolder,
   );
 
-  let freshReader: MultiUserDevice | null = null;
+  // Log in the fresh empty-DB device first so `measureProtocolPhase` opens its
+  // SQLite attribution window across cold discovery, keyring walk, and decrypt.
+  const freshReader = await world.newDevice(bob);
   await recorder.record(
     "fresh-reader-hydration",
     () => freshReader,
     async () => {
-      freshReader = await world.newDevice(bob);
       const store = await freshReader.readDocument(
         upperDoc.documentId,
         upperDoc.containerIds,
@@ -252,25 +335,24 @@ async function runPostShrinkPhases(
 
 /**
  * Runs all key-rotation, shrink-carry, revocation, stale-writer repair,
- * fresh-device keyring hydration, and roster-vouched share phases for one
- * `(rotations, depth, sample)` tier.
+ * fresh-device keyring hydration, and roster-vouched share phases against the
+ * supplied world coordinator.
  */
-export async function runRotationTier(input: {
-  readonly apiBaseUrl: string;
-  readonly trustOrigin: string;
-  readonly rotations: number;
-  readonly depth: number;
-  readonly sample: number;
-  readonly http: () => HttpWireTraffic;
-  readonly traffic: () => PostgresTraffic;
-  readonly measured: (measurement: RotationPhaseMeasurement) => Promise<void>;
-}): Promise<void> {
-  const fixture = await setupTierFixture(
-    input.apiBaseUrl,
-    input.trustOrigin,
-    input.depth,
-  );
-  const { world, alice, carol, chain, team } = fixture;
+export async function runRotationTierWithWorld<
+  TDevice extends RotationTierDevice,
+>(
+  world: RotationTierWorld<TDevice>,
+  input: {
+    readonly rotations: number;
+    readonly depth: number;
+    readonly sample: number;
+    readonly http: () => HttpWireTraffic;
+    readonly traffic: () => PostgresTraffic;
+    readonly measured: (measurement: RotationPhaseMeasurement) => Promise<void>;
+  },
+): Promise<void> {
+  const fixture = await setupTierFixture(world, input.depth);
+  const { alice, carol, chain, team } = fixture;
   const topFolder = chain[0];
   if (!topFolder) {
     world.dispose();
@@ -325,4 +407,22 @@ export async function runRotationTier(input: {
   } finally {
     world.dispose();
   }
+}
+
+/**
+ * Runs all rotation phases for one `(rotations, depth, sample)` tier using a
+ * fresh `MultiUserWorld`.
+ */
+export async function runRotationTier(input: {
+  readonly apiBaseUrl: string;
+  readonly trustOrigin: string;
+  readonly rotations: number;
+  readonly depth: number;
+  readonly sample: number;
+  readonly http: () => HttpWireTraffic;
+  readonly traffic: () => PostgresTraffic;
+  readonly measured: (measurement: RotationPhaseMeasurement) => Promise<void>;
+}): Promise<void> {
+  const world = new MultiUserWorld(input.apiBaseUrl, input.trustOrigin);
+  await runRotationTierWithWorld(world, input);
 }

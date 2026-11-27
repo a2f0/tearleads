@@ -68,7 +68,7 @@ then measures eight phases:
 | `direct-revoke` | `revokeGrant` on `level-1` carrying intermediate levels above the deeper direct grant |
 | `grantee-subtree-repair` | Deeper direct grantee holding a pre-revoke path edits and repairs its own subtree inline (when `--depth >= 2`) |
 | `subtree-move` | `moveContainer` removing inherited group access and rotating the moved folder key |
-| `fresh-reader-hydration` | Brand-new install (empty SQLite DB) discovers and decrypts the document across the accumulated folder keyring |
+| `fresh-reader-hydration` | Freshly logged-in install (empty SQLite DB) discovers and decrypts the document across the accumulated folder keyring |
 | `roster-vouched-share` | Fresh self-anchor admin shares a folder with a transitively enrolled member (`Alice -> Bob -> Frank`) without importing their link |
 
 Each phase records wall time, HTTP requests, `409` conflicts, request/response

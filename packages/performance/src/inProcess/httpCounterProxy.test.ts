@@ -21,6 +21,9 @@ test("counts requests, 409 conflicts, wire bytes, and route deltas", async () =>
       if (pathname.endsWith("/conflict")) {
         return Response.json({ code: "stale" }, { status: 409 });
       }
+      if (pathname.endsWith("/empty")) {
+        return new Response(null, { status: 204 });
+      }
       const text = await request.text();
       return new Response(`echo:${text}`, { status: 200 });
     },
@@ -46,8 +49,13 @@ test("counts requests, 409 conflicts, wire bytes, and route deltas", async () =>
   });
   expect(conflict.status).toBe(409);
 
+  const empty = await fetch(`${proxy.origin}/documents/d-1/empty`, {
+    method: "DELETE",
+  });
+  expect(empty.status).toBe(204);
+
   const delta = httpTrafficSince(proxy.snapshot(), before);
-  expect(delta.requests).toBe(2);
+  expect(delta.requests).toBe(3);
   expect(delta.conflicts).toBe(1);
   expect(delta.requestBytes).toBe(
     Buffer.byteLength("payload") + Buffer.byteLength("retry"),

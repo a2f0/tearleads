@@ -1,5 +1,4 @@
 import {
-  ApiRequestMetrics,
   type ContainerContentsStore,
   type DocumentStore,
   getOrCreateDomainSyncCoordinator,
@@ -17,6 +16,16 @@ export type ExportedKeyPackage = Awaited<
 >;
 
 type OpenedLocalDb = Awaited<ReturnType<typeof openLocalDatabase>>;
+
+/** Injected seams for unit testing device setup and failure cleanup. */
+export interface MultiUserDeviceServices {
+  readonly openLocalDatabase?: typeof openLocalDatabase;
+  readonly createSdkHost?: typeof createSdkHost;
+  readonly waitForIdle?: (
+    sdk: Tearleads,
+    timeoutMs: number,
+  ) => Promise<boolean>;
+}
 
 async function waitUntil(
   check: () => Promise<boolean> | boolean,
@@ -43,19 +52,24 @@ export class MultiUserDevice {
   private constructor(
     readonly label: string,
     readonly sdk: Tearleads,
-    readonly metrics: ApiRequestMetrics,
     private readonly localDb: OpenedLocalDb,
+    private readonly waitForIdle?: (
+      sdk: Tearleads,
+      timeoutMs: number,
+    ) => Promise<boolean>,
   ) {}
 
   static async register(
     apiBaseUrl: string,
     identityTrustDomain: string,
     label: string,
+    services: MultiUserDeviceServices = {},
   ): Promise<{ device: MultiUserDevice; keyPackage: ExportedKeyPackage }> {
     const device = await MultiUserDevice.open(
       apiBaseUrl,
       identityTrustDomain,
       label,
+      services,
     );
     try {
       await device.sdk.identity.generate();
@@ -82,11 +96,13 @@ export class MultiUserDevice {
     identityTrustDomain: string,
     label: string,
     keyPackage: ExportedKeyPackage,
+    services: MultiUserDeviceServices = {},
   ): Promise<MultiUserDevice> {
     const device = await MultiUserDevice.open(
       apiBaseUrl,
       identityTrustDomain,
       label,
+      services,
     );
     try {
       await device.sdk.identity.importKeyPackage(keyPackage);
@@ -104,21 +120,27 @@ export class MultiUserDevice {
     apiBaseUrl: string,
     identityTrustDomain: string,
     label: string,
+    services: MultiUserDeviceServices = {},
   ): Promise<MultiUserDevice> {
-    const localDb = await openLocalDatabase();
-    const metrics = new ApiRequestMetrics();
+    const openDb = services.openLocalDatabase ?? openLocalDatabase;
+    const buildSdk = services.createSdkHost ?? createSdkHost;
+    const localDb = await openDb();
     const historyKey = crypto.getRandomValues(new Uint8Array(32));
-    const sdk = createSdkHost(
-      apiBaseUrl,
-      `${label}-${crypto.randomUUID()}`,
-      localDb.client,
-      {
-        apiRequestMetrics: metrics,
-        identityTrustDomain,
-        principalHistoryKeyProvider: async () => historyKey.slice(),
-      },
-    );
-    return new MultiUserDevice(label, sdk, metrics, localDb);
+    try {
+      const sdk = buildSdk(
+        apiBaseUrl,
+        `${label}-${crypto.randomUUID()}`,
+        localDb.client,
+        {
+          identityTrustDomain,
+          principalHistoryKeyProvider: async () => historyKey.slice(),
+        },
+      );
+      return new MultiUserDevice(label, sdk, localDb, services.waitForIdle);
+    } catch (error) {
+      localDb.close();
+      throw error;
+    }
   }
 
   get userId(): string {
@@ -173,8 +195,12 @@ export class MultiUserDevice {
   }
 
   async idle(): Promise<void> {
-    const coordinator = getOrCreateDomainSyncCoordinator(this.sdk.domainScope);
-    if (!(await coordinator.waitForIdle({ timeoutMs: SETTLE_TIMEOUT_MS }))) {
+    const settled = this.waitForIdle
+      ? await this.waitForIdle(this.sdk, SETTLE_TIMEOUT_MS)
+      : await getOrCreateDomainSyncCoordinator(
+          this.sdk.domainScope,
+        ).waitForIdle({ timeoutMs: SETTLE_TIMEOUT_MS });
+    if (!settled) {
       throw new Error(`${this.label} did not settle.`);
     }
   }
