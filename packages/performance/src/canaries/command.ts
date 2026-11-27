@@ -103,6 +103,9 @@ async function measure(
       samples: options.samples,
       statements: options.statements,
       paramHash: options.paramHash,
+      clientStatements: options.clientStatements,
+      payloadAudit: options.payloadAudit,
+      stacks: options.stacks,
     },
     boundary: canaryBoundary,
   } as const;
@@ -128,6 +131,17 @@ async function measure(
           capture: {
             out: resolve(logs, `${name}.statements.jsonl`),
             paramHash: options.paramHash,
+          },
+        }),
+        ...(options.clientStatements && {
+          clientSql: {
+            out: resolve(logs, `${name}.client-sql.jsonl`),
+          },
+        }),
+        ...(options.payloadAudit && {
+          payloadAudit: {
+            out: resolve(logs, `${name}.payloads.jsonl`),
+            stacks: options.stacks,
           },
         }),
       });

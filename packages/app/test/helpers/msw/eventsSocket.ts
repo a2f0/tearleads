@@ -25,6 +25,52 @@ export const eventRouter = createMswEventRouter({
   },
 });
 
+export interface DeliveredMswSocketEvent {
+  readonly bytes: number;
+  readonly type: string;
+}
+
+const deliveredSocketEvents: DeliveredMswSocketEvent[] = [];
+
+export function listDeliveredSocketEvents(): readonly DeliveredMswSocketEvent[] {
+  return [...deliveredSocketEvents];
+}
+
+export function clearDeliveredSocketEvents(): void {
+  deliveredSocketEvents.length = 0;
+}
+
+function recordDeliveredSocketFrame(data: string): void {
+  let type = "unknown";
+  try {
+    const parsed: unknown = JSON.parse(data);
+    if (typeof parsed === "object" && parsed !== null) {
+      const rawType: unknown = Reflect.get(parsed, "type");
+      if (typeof rawType === "string" && rawType.length > 0) type = rawType;
+    }
+  } catch {
+    // Keep "unknown" for non-JSON frames.
+  }
+  deliveredSocketEvents.push({
+    type,
+    bytes: Buffer.byteLength(data, "utf8"),
+  });
+}
+
+function recordingDeliveredEvents(client: MswSocketClient): MswSocketClient {
+  const recorded: MswSocketClient = {
+    send: (data: string) => {
+      client.send(data);
+      recordDeliveredSocketFrame(data);
+    },
+  };
+  if (client.addEventListener) {
+    recorded.addEventListener = client.addEventListener.bind(client);
+  }
+  if (client.url) recorded.url = client.url;
+  return recorded;
+}
+
 // The in-process router acknowledges an interest declaration at once, while
 // a remote hub answers a round trip later. A canary that orders work against
 // the acknowledgement delays it to the latency it models.
@@ -107,7 +153,9 @@ export const eventsSocketHandler = eventsSocket.addEventListener(
   "connection",
   ({ client }) => {
     eventRouter.handleConnection(
-      delayingAcknowledgements(client as MswSocketClient),
+      recordingDeliveredEvents(
+        delayingAcknowledgements(client as MswSocketClient),
+      ),
     );
   },
 );

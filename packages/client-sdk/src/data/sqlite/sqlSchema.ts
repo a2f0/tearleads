@@ -1,10 +1,22 @@
 export {
   assertRestorableLocalSchemaLedger,
   ensureLocalSchemaMigrated,
+  isLocalSchemaMigrationLockTimeoutError,
+  LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MESSAGE,
+  LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MS,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
+  LocalSchemaMigrationLockTimeoutError,
   migrateLocalSchema,
   withLocalSchemaMigrationLock,
 } from "./migrations/migrateLocalSchema";
+export {
+  type ClientSqlMutationObserver,
+  type ClientSqlStatementObserver,
+  type ObservedClientSqlMutation,
+  type ObservedClientSqlStatement,
+  observeClientSqlMutations,
+  observeClientSqlStatements,
+} from "./observer/sqlObserver";
 export type {
   ExecSql,
   ExecSqlClientLike,

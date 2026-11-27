@@ -5,7 +5,10 @@
  * `packages/performance` and tests, since observers see raw bind values.
  */
 export {
+  type DatabaseRequestScopeObserver,
   type DatabaseStatementObserver,
+  type ObservedDatabaseRequestScope,
   type ObservedDatabaseStatement,
+  observeDatabaseRequestScopes,
   observeDatabaseStatements,
 } from "./databaseStatementObserverRegistry";

@@ -109,8 +109,10 @@ export class DocumentLaneRevalidationRepository {
    * never verified, leaves a request nothing lists. Dropping it loses
    * nothing as long as a container stored later has no settled lane, which
    * owes it a listing by itself. The delete cascade clears a deleted
-   * container's lane row, but a listing that was in flight across the delete
-   * writes one afterwards, so those rows go in the same mutation.
+   * container's lane row, and this SDK writes a lane's row only while its
+   * container is stored, but a tab sharing the database that runs an SDK
+   * from before that guard can write one after the cascade, so those rows go
+   * in the same mutation.
    */
   async forgetUnheld(): Promise<void> {
     await ensureSqlTables(this.execSql, [

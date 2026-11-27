@@ -1,6 +1,9 @@
 import { expect } from "bun:test";
 import { requestPath } from "./dualPaneRequestSummary";
-import { listProxiedApiRequests } from "./msw/server";
+import {
+  listDeliveredSocketEvents,
+  listProxiedApiRequests,
+} from "./msw/server";
 import { waitForPaneRuntimeToSettle } from "./paneTestUtils";
 import {
   completedWorkflowRequests,
@@ -8,8 +11,10 @@ import {
 } from "./principalPreparationRequests";
 import {
   expectProxiedApiRequestBudget,
+  markProxiedApiPhaseStart,
   type ProxiedApiRequestBudget,
   profileProxiedApiRequests,
+  profileProxiedApiSocketEvents,
 } from "./proxiedApiRequestBudget";
 import { waitForCondition } from "./waitForCondition";
 
@@ -21,7 +26,9 @@ export async function measureWorkflowRequests(input: {
   mutations: readonly ExpectedWorkflowMutation[];
 }) {
   await waitForPaneRuntimeToSettle(20_000);
+  markProxiedApiPhaseStart(input.label);
   const start = listProxiedApiRequests().length;
+  const wsStart = listDeliveredSocketEvents().length;
   await input.operation();
   // Some local-first actions return before their structural queue is registered
   // with the sync coordinator. Require the remote commits before testing idle.
@@ -44,6 +51,10 @@ export async function measureWorkflowRequests(input: {
   await waitForPaneRuntimeToSettle(20_000);
   const requests = listProxiedApiRequests().slice(start);
   profileProxiedApiRequests(input.label, start);
+  profileProxiedApiSocketEvents(
+    input.label,
+    listDeliveredSocketEvents().slice(wsStart),
+  );
   const completed = completedWorkflowRequests(requests, input.mutations);
   expectProxiedApiRequestBudget(input.label, completed, input.budget);
   for (const mutation of input.mutations) {

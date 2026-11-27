@@ -1,6 +1,7 @@
 import type {
   PendingWriteQueueItem,
   PendingWriteQueueOperation,
+  PendingWriteQueueOperationBlockedReason,
 } from "@tearleads/client-sdk";
 import {
   EXPLORER_LABELS,
@@ -91,13 +92,39 @@ export function getWriteQueueItemName(item: PendingWriteQueueItem): string {
   return displayName.length > 0 ? displayName : item.localId;
 }
 
+/** Human-readable reason for a typed hold on a blocked operation. */
+export function getBlockedReasonLabel(
+  reason: PendingWriteQueueOperationBlockedReason,
+): string {
+  switch (reason) {
+    case "awaiting-parent-listing":
+      return EXPLORER_LABELS.writeQueueEntryReasonAwaitingParentListing;
+    case "slot-taken":
+      return EXPLORER_LABELS.writeQueueEntryReasonSlotTaken;
+    case "path-too-deep":
+      return EXPLORER_LABELS.writeQueueEntryReasonPathTooDeep;
+    default:
+      return reason satisfies never;
+  }
+}
+
 /** The first error any of the entry's operations recorded, if one did. */
-export function getWriteQueueItemError(
-  item: PendingWriteQueueItem,
-): string | null {
+function getWriteQueueItemError(item: PendingWriteQueueItem): string | null {
   return (
     item.operations.find((operation) => operation.lastError)?.lastError ?? null
   );
+}
+
+/** The first error or typed hold reason explaining why an entry is waiting. */
+export function getWriteQueueItemDetail(
+  item: PendingWriteQueueItem,
+): string | null {
+  const error = getWriteQueueItemError(item);
+  if (error !== null) return error;
+  const reason = item.operations.find(
+    (operation) => operation.blockedReason !== undefined,
+  )?.blockedReason;
+  return reason !== undefined ? getBlockedReasonLabel(reason) : null;
 }
 
 /** Every queued write the entries hold, across their operations. */

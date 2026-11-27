@@ -2,11 +2,9 @@ import { expect, test } from "bun:test";
 import type { ListContainerDocumentLanesRequest } from "@tearleads/validators/request";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import {
-  listAllContainerDocumentIdsFromApi,
   listAllContainerDocumentLanes,
   listContainerDocumentLanesFromApi,
 } from "./containerDocumentListing";
-import { laneApi } from "./documentDiscovery.testUtils";
 import type { ListContainerDocumentsResponse } from "./documentDiscoveryTypes";
 
 function page(
@@ -31,50 +29,6 @@ function page(
 }
 
 const watermarkA = { id: "document-a", updatedAt: "2026-07-30T12:00:00.000Z" };
-
-test("authoritative document listing starts without a persisted watermark", async () => {
-  const requestedWatermarks: Array<SyncWatermark | null> = [];
-  const documentIds = await listAllContainerDocumentIdsFromApi({
-    apiClient: laneApi(async (_containerId, options) => {
-      requestedWatermarks.push(options.watermark);
-      return requestedWatermarks.length === 1
-        ? page(["document-a"], watermarkA)
-        : page(["document-b"]);
-    }),
-    containerIds: ["container-a"],
-  });
-
-  expect(requestedWatermarks).toEqual([null, watermarkA]);
-  expect(documentIds).toEqual(
-    new Map([["container-a", ["document-a", "document-b"]]]),
-  );
-});
-
-test("authoritative document listing requires every page", async () => {
-  const documentIds = await listAllContainerDocumentIdsFromApi({
-    apiClient: laneApi(async () => null),
-    containerIds: ["container-a"],
-  });
-
-  expect(documentIds).toEqual(new Map([["container-a", null]]));
-});
-
-test("initial probe listings can suppress failure reports", async () => {
-  const reportOptions: unknown[] = [];
-  const documentIds = await listAllContainerDocumentIdsFromApi({
-    apiClient: {
-      listContainerDocumentLanes: async (_input, options) => {
-        reportOptions.push(options);
-        return null;
-      },
-    },
-    containerIds: ["container-a"],
-    reportErrors: false,
-  });
-
-  expect(documentIds).toEqual(new Map([["container-a", null]]));
-  expect(reportOptions).toEqual([{ reportErrors: false }]);
-});
 
 test("batched listing continues only unfinished lanes and isolates failures", async () => {
   const requests: Array<ReadonlyArray<string>> = [];
@@ -325,43 +279,3 @@ test.each([
     expect([...listed.values()]).toEqual(["unavailable", "unavailable"]);
   },
 );
-
-test("authoritative listings of many containers share one request", async () => {
-  const requests: string[][] = [];
-  const documentIds = await listAllContainerDocumentIdsFromApi({
-    apiClient: {
-      listContainerDocumentLanes: async ({ lanes }) => {
-        requests.push(lanes.map((lane) => lane.containerId));
-        return {
-          results: lanes.map(({ containerId, laneId, watermark }) =>
-            containerId === "container-refused"
-              ? { failure: {}, laneId }
-              : {
-                  laneId,
-                  // The second lane needs a continuation page.
-                  page:
-                    containerId === "container-b" && watermark === null
-                      ? page(["document-b1"], watermarkA)
-                      : page([`document-${containerId}`]),
-                },
-          ),
-        };
-      },
-    },
-    containerIds: ["container-a", "container-b", "container-refused"],
-  });
-
-  // One request lists every lane from no watermark; only the lane with more
-  // rows asks again.
-  expect(requests).toEqual([
-    ["container-a", "container-b", "container-refused"],
-    ["container-b"],
-  ]);
-  expect(documentIds).toEqual(
-    new Map<string, ReadonlyArray<string> | null>([
-      ["container-a", ["document-container-a"]],
-      ["container-b", ["document-b1", "document-container-b"]],
-      ["container-refused", null],
-    ]),
-  );
-});

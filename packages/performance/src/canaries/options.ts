@@ -13,6 +13,12 @@ export type CanaryOptions =
       readonly statements: boolean;
       /** Hash each statement's bind values, to tell keys apart. */
       readonly paramHash: boolean;
+      /** Record local client SQLite statements and mutation-lock holds. */
+      readonly clientStatements: boolean;
+      /** Record sanitized per-pane field bytes, echoes, redeliveries, and head re-reads. */
+      readonly payloadAudit: boolean;
+      /** Capture filtered issuer call stacks beside `--payload-audit`. */
+      readonly stacks: boolean;
     }
   | {
       readonly mode: "compare";
@@ -23,7 +29,8 @@ export type CanaryOptions =
 export const canaryUsage = `Run the app's request-volume canaries and record their request profiles.
 
 bun run perf:canaries [--canary <name>]... [--samples 1..5] [--baseline <report.json>]
-                      [--statements [--param-hash]]
+                      [--statements [--param-hash]] [--client-statements]
+                      [--payload-audit [--stacks]]
 bun run perf:canaries --compare <before.json> <after.json>
 
 Finds every packages/app test that profiles its proxied API requests, runs
@@ -36,7 +43,10 @@ an earlier report; --compare only compares two saved reports. Relative
 report paths resolve from the repository root. --statements also records
 every statement the in-process API sends, counts them per phase, and keeps
 each file's capture for bun run perf:statements --summarize; --param-hash
-adds a hash of each statement's bind values.`;
+adds a hash of each statement's bind values. --payload-audit records per-pane
+field byte totals, echoes, redeliveries, uploaded-then-redownloaded bytes,
+manifest citations, and exact-head re-reads without storing raw bodies or
+tokens; --stacks adds filtered issuer stacks.`;
 
 export function parseCanaryOptions(args: string[]): CanaryOptions | null {
   const { values, positionals } = parseArgs({
@@ -48,6 +58,9 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
       compare: { type: "boolean", default: false },
       statements: { type: "boolean", default: false },
       "param-hash": { type: "boolean", default: false },
+      "client-statements": { type: "boolean", default: false },
+      "payload-audit": { type: "boolean", default: false },
+      stacks: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
     strict: true,
@@ -63,7 +76,10 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
       values.samples !== undefined ||
       values.baseline !== undefined ||
       values.statements ||
-      values["param-hash"]
+      values["param-hash"] ||
+      values["client-statements"] ||
+      values["payload-audit"] ||
+      values.stacks
     )
       throw new Error("--compare reads saved reports; it runs no canaries.");
     return { mode: "compare", before, after };
@@ -72,6 +88,8 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
     throw new Error(`Unexpected argument ${positionals[0]}; see --help.`);
   if (values["param-hash"] && !values.statements)
     throw new Error("--param-hash needs --statements.");
+  if (values.stacks && !values["payload-audit"])
+    throw new Error("--stacks needs --payload-audit.");
   return {
     mode: "run",
     canaries: values.canary,
@@ -82,5 +100,8 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
     baseline: values.baseline ?? null,
     statements: values.statements,
     paramHash: values["param-hash"],
+    clientStatements: values["client-statements"],
+    payloadAudit: values["payload-audit"],
+    stacks: values.stacks,
   };
 }

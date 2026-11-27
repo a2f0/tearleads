@@ -196,6 +196,41 @@ function summarizeRepeatedProxiedApiRequestPaths(
     .join("\n");
 }
 
+const perfPayloadSinkKey = "__tearleadsPerfPayloadSink";
+
+export function markProxiedApiPhaseStart(label: string) {
+  if (requestProfileEnv.DUAL_PANE_REQUEST_PROFILE !== "1") {
+    return;
+  }
+  console.info(`[dual-pane-request-phase-start] ${JSON.stringify({ label })}`);
+}
+
+export function profileProxiedApiSocketEvents(
+  label: string,
+  events: readonly { readonly type: string; readonly bytes: number }[],
+) {
+  if (requestProfileEnv.DUAL_PANE_REQUEST_PROFILE !== "1") {
+    return;
+  }
+  const byType: Record<string, { count: number; bytes: number }> = {};
+  let bytes = 0;
+  for (const event of events) {
+    bytes += event.bytes;
+    const entry = byType[event.type] ?? { count: 0, bytes: 0 };
+    entry.count += 1;
+    entry.bytes += event.bytes;
+    byType[event.type] = entry;
+  }
+  console.info(
+    `[dual-pane-ws-metrics] ${JSON.stringify({
+      label,
+      total: events.length,
+      bytes,
+      byType,
+    })}`,
+  );
+}
+
 export function profileProxiedApiRequests(
   label: string,
   requestStartIndex: number,
@@ -209,6 +244,18 @@ export function profileProxiedApiRequests(
     requestStartIndex,
     requestEndIndex,
   );
+  const sink: unknown = Reflect.get(globalThis, perfPayloadSinkKey);
+  if (typeof sink === "function") {
+    sink({
+      label,
+      startIndex: requestStartIndex,
+      endIndex: requestEndIndex,
+      requests: requests.map((request) => ({
+        ...request,
+        routeKey: proxiedApiRequestVolumeKey(request),
+      })),
+    });
+  }
   const bodyBytes = proxiedApiBodyBytes(requests);
   const syncIntents = documentSyncIntentCounts(requests);
   const metrics = {
@@ -246,6 +293,21 @@ export function expectProxiedApiRequestBudget(
   requests: readonly ProxiedApiRequest[],
   budget: ProxiedApiRequestBudget,
 ) {
+  if (requestProfileEnv.DUAL_PANE_REQUEST_PROFILE === "1") {
+    console.info(
+      `[dual-pane-request-budget] ${JSON.stringify({
+        label,
+        measured: {
+          total: requests.length,
+          bodyBytes: proxiedApiBodyBytes(requests),
+        },
+        ceiling: {
+          total: budget.total,
+          ...(budget.bodyBytes ? { bodyBytes: budget.bodyBytes } : {}),
+        },
+      })}`,
+    );
+  }
   const requestVolumeSummary = summarizeProxiedApiRequestVolume(requests);
   const repeatedPathSummary = summarizeRepeatedProxiedApiRequestPaths(requests);
   const failureSummary = `request volume=\n${requestVolumeSummary}\nrepeated paths=\n${repeatedPathSummary}`;

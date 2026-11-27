@@ -3,6 +3,10 @@ import type { ApiClient } from "@tearleads/api-client";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import { createMemoryBlobStore } from "../../../src/data/blobs/memoryBlobStore";
+import {
+  type ContainerCreateIntentHold,
+  NO_CREATE_INTENT_HOLD,
+} from "../../../src/data/containers/shared/createIntentHoldMachine";
 import { defaultDocumentProjectorRegistry } from "../../../src/data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../../src/data/documents/documentSync";
 import type { PendingUpdateRecord } from "../../../src/data/persistence/documents/records";
@@ -180,6 +184,7 @@ async function siblingCreate(parentContainerId: string) {
   const intent: ContainerCreateIntentRecord = {
     containerId: id,
     createdAt: "2026-10-19T00:00:01.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: "create-sibling",
     intentType: "container.create",
     lastAttemptedAt: null,
@@ -238,6 +243,7 @@ export async function runReplayedSeededCreate(
   const intent: ContainerCreateIntentRecord = {
     containerId: childContainerId,
     createdAt: "2026-10-19T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: "create-seeded-child",
     intentType: "container.create",
     lastAttemptedAt: null,
@@ -252,6 +258,7 @@ export async function runReplayedSeededCreate(
   const persisted: unknown[] = [];
   const reconciliationRequests: Array<string | null> = [];
   const recordedErrors: string[] = [];
+  const recordedHolds: ContainerCreateIntentHold[] = [];
   let current = true;
   // The seed's payload is first read inside its encryption.
   const queuedSeed = tearDownOnSeedEncrypt
@@ -279,6 +286,9 @@ export async function runReplayedSeededCreate(
         containerId === childContainerId ? [queuedSeed] : [],
       recordCreateIntentRevisionError: async (_execSql, error) => {
         recordedErrors.push(error.message);
+      },
+      recordCreateIntentRevisionHold: async (_execSql, input) => {
+        recordedHolds.push(input.hold);
       },
     },
     locallyAcceptedMetadataUpdateIds,
@@ -345,6 +355,7 @@ export async function runReplayedSeededCreate(
       plannedMetadataDocumentIds,
       reconciliationRequests,
       recordedErrors,
+      recordedHolds,
       requests,
       /** The child's own requests, without its sibling's. */
       childRequests: requests.filter(

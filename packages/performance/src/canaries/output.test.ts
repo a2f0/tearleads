@@ -83,6 +83,35 @@ test("finds metrics after a prefix and refuses malformed counts", () => {
   ).toThrow(/label/);
 });
 
+test("attaches budget ceiling and websocket frame metrics to matching phases", () => {
+  const output = [
+    metrics("create group", 4),
+    `[dual-pane-request-budget] ${JSON.stringify({
+      label: "create group",
+      measured: { total: 4, bodyBytes: { request: 40, response: 80 } },
+      ceiling: { total: 9, bodyBytes: { request: 100, response: 200 } },
+    })}`,
+    `[dual-pane-ws-metrics] ${JSON.stringify({
+      label: "create group",
+      total: 2,
+      bytes: 180,
+      byType: { organization_read_model_changed: { count: 2, bytes: 180 } },
+    })}`,
+  ].join("\n");
+  const parsed = parseCanaryOutput(output);
+  expect(parsed.phases[0]?.budget).toEqual({
+    measuredTotal: 4,
+    ceilingTotal: 9,
+    measuredBodyBytes: { request: 40, response: 80 },
+    ceilingBodyBytes: { request: 100, response: 200 },
+  });
+  expect(parsed.phases[0]?.ws).toEqual({
+    total: 2,
+    bytes: 180,
+    byType: { organization_read_model_changed: { count: 2, bytes: 180 } },
+  });
+});
+
 test("uses the last tally when a file prints more than one", () => {
   expect(parseCanaryOutput(" 1 pass\n 0 fail\n 3 pass\n 1 fail").tests).toEqual(
     { pass: 3, fail: 1 },

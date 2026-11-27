@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/data/waitFor";
+import { type CatchUpState, IDLE_CATCH_UP } from "./catchUpMachine";
 import { markContainerForced } from "./idleBackfill";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import { sweepKnownContainers } from "./knownContainerSweep";
@@ -60,6 +61,7 @@ test("a force recorded after a batched listing started survives the batch", asyn
     active: true,
     activeContainerId: null,
     automaticRetryGenerations: new Map<string, number>(),
+    catchUp: IDLE_CATCH_UP as CatchUpState,
     discoveredContainerIds: new Set<string>(),
     forcedDocumentIds: new Map(),
     forcedContainerGenerations: new Map<string, number>(),

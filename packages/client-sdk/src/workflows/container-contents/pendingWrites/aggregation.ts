@@ -3,6 +3,7 @@ import type {
   PendingWriteQueueItemStatus,
   PendingWriteQueueObjectKind,
   PendingWriteQueueOperation,
+  PendingWriteQueueOperationBlockedReason,
   PendingWriteQueueOperationKind,
   PendingWriteQueueOperationStatus,
 } from "./pendingWritesTypes";
@@ -13,6 +14,7 @@ export type PendingWriteCandidateInclusion =
   | "unless-operation-covered";
 
 export interface PendingWriteCandidate {
+  readonly blockedReason?: PendingWriteQueueOperationBlockedReason | undefined;
   readonly byteLength: number;
   readonly containerId: string | null;
   readonly count: number;
@@ -117,6 +119,9 @@ function operationFromCandidate(
   candidate: PendingWriteCandidate,
 ): PendingWriteQueueOperation {
   return {
+    ...(candidate.blockedReason
+      ? { blockedReason: candidate.blockedReason }
+      : {}),
     byteLength: candidate.byteLength,
     count: candidate.count,
     createdAt: candidate.createdAt,

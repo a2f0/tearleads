@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   ContainerSyncWatermarkRepository,
@@ -15,6 +16,7 @@ test("container sync watermarks are persisted independently per lane", async () 
 
   const watermarks = new ContainerSyncWatermarkRepository(execSql);
   try {
+    await storeContainerRows(execSql, ["parent-container"]);
     await expect(
       watermarks.loadWatermark(containerParentSyncLane(null)),
     ).resolves.toBeNull();
@@ -163,6 +165,7 @@ test("lane reads chunk under SQLite's bind-variable limit", async () => {
       containerContentsSyncLane(`container-${index}`),
     );
     const saved = containerContentsSyncLane("container-16999");
+    await storeContainerRows(execSql, ["container-16999"]);
     await watermarks.saveWatermark(saved, {
       id: "tail-lane",
       updatedAt: "2026-05-05T00:00:00.000Z",
@@ -255,6 +258,84 @@ test("a lane's cursor and freshness marker share one row without clobbering", as
       deleteContainerWatermarksInTransaction(tx, ["both"]),
     );
     await expect(watermarks.loadCheckRecords([both])).resolves.toEqual([null]);
+  } finally {
+    close();
+  }
+});
+
+test("a document lane's fetch writes no row for a container not stored", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-sync-watermark-stored-container-test",
+  );
+  const watermarks = new ContainerSyncWatermarkRepository(execSql);
+  // A publication cursor, which reads back only under the current format.
+  const watermark = { id: "d1/next", updatedAt: "2026-05-05T00:00:00.000Z" };
+  try {
+    // A listing in flight across the container's delete records afterwards,
+    // with and without a guard on the commit.
+    const gone = containerContentsSyncLane("deleted");
+    await expect(
+      watermarks.recordLaneFetch(gone, { checked: true, watermark }),
+    ).resolves.toBe(true);
+    await expect(
+      watermarks.recordLaneFetch(
+        gone,
+        { checked: true, watermark },
+        { stillCurrent: () => true },
+      ),
+    ).resolves.toBe(true);
+    await expect(watermarks.loadWatermarkRecords([gone])).resolves.toEqual([
+      null,
+    ]);
+    await expect(watermarks.loadCheckRecords([gone])).resolves.toEqual([null]);
+
+    // A stored container's lane, and a parent lane, are recorded as before.
+    await storeContainerRows(execSql, [
+      "stored",
+      "cursor-only",
+      "checked-only",
+    ]);
+    const stored = containerContentsSyncLane("stored");
+    await expect(
+      watermarks.recordLaneFetch(
+        stored,
+        { checked: true, watermark },
+        { stillCurrent: () => true },
+      ),
+    ).resolves.toBe(true);
+    // A subsequent partial update on a stored document lane preserves the
+    // untouched freshness marker via onConflictDoUpdate.
+    const nextWatermark = {
+      id: "d1/later",
+      updatedAt: "2026-05-05T00:05:00.000Z",
+    };
+    await watermarks.saveWatermark(stored, nextWatermark);
+    // Recording only one half writes its own timestamp column, not the other.
+    const cursorOnly = containerContentsSyncLane("cursor-only");
+    const checkedOnly = containerContentsSyncLane("checked-only");
+    await watermarks.saveWatermark(cursorOnly, watermark);
+    await watermarks.markChecked(checkedOnly);
+    await watermarks.markChecked(containerParentSyncLane("deleted"));
+    await expect(watermarks.loadWatermark(stored)).resolves.toEqual(
+      nextWatermark,
+    );
+    await expect(watermarks.loadWatermark(cursorOnly)).resolves.toEqual(
+      watermark,
+    );
+    await expect(watermarks.loadWatermark(checkedOnly)).resolves.toBeNull();
+    await expect(
+      watermarks.loadCheckRecords([
+        stored,
+        cursorOnly,
+        checkedOnly,
+        containerParentSyncLane("deleted"),
+      ]),
+    ).resolves.toEqual([
+      expect.objectContaining({ laneId: "stored" }),
+      null,
+      expect.objectContaining({ laneId: "checked-only" }),
+      expect.objectContaining({ laneId: "parent:deleted" }),
+    ]);
   } finally {
     close();
   }

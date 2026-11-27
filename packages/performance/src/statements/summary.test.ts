@@ -93,6 +93,97 @@ test("counts extra sends of one statement with the same bind values", () => {
   ]);
 });
 
+test("scopes phases by phaseStart, aggregates routes, and separates pure read repeats from post-write reads", () => {
+  const summary = summarizeCapture([
+    // Setup before phaseStart is excluded from the phase window.
+    { label: "t", sql: 'select id from "setup"', params: 0, request: 1 },
+    { phaseStart: "write" },
+    {
+      label: "t",
+      sql: 'select id from "users" where id = $1',
+      params: 1,
+      paramHash: "u1",
+      request: 2,
+      tx: 1,
+    },
+    // Pure read repeat: no write to "users" in between.
+    {
+      label: "t",
+      sql: 'select id from "users" where id = $1',
+      params: 1,
+      paramHash: "u1",
+      request: 2,
+      tx: 1,
+    },
+    {
+      label: "t",
+      sql: 'select id from "docs" where id = $1 for update',
+      params: 1,
+      paramHash: "d1",
+      request: 2,
+      tx: 1,
+    },
+    // Runs under lock and mutates "docs".
+    {
+      label: "t",
+      sql: 'update "docs" set version = $1 where id = $2',
+      params: 2,
+      paramHash: "d1u",
+      request: 2,
+      tx: 1,
+    },
+    // Same-key repeat on "docs", but after an UPDATE to "docs": NOT a pure read repeat.
+    {
+      label: "t",
+      sql: 'select id from "docs" where id = $1 for update',
+      params: 1,
+      paramHash: "d1",
+      request: 2,
+      tx: 1,
+    },
+    {
+      requestScope: 2,
+      method: "POST",
+      route: "/documents/{documentId}/sync",
+      status: 200,
+    },
+    { phaseEnd: "write", requests: 1 },
+  ]);
+
+  expect(summary.txStatements).toBe(5);
+  expect(summary.transactions).toBe(1);
+  expect(summary.lockHoldStatements).toBe(2);
+  expect(summary.phases).toHaveLength(1);
+  expect(summary.phases[0]).toMatchObject({
+    label: "write",
+    requests: 1,
+    statements: 5,
+    txStatements: 5,
+    lockHoldStatements: 2,
+    exactWindow: true,
+    sameKeyRepeats: [
+      { sql: 'select id from "docs" where id = $1 for update', count: 1 },
+      { sql: 'select id from "users" where id = $1', count: 1 },
+    ],
+    pureReadRepeats: [
+      { sql: 'select id from "users" where id = $1', count: 1 },
+    ],
+  });
+  expect(summary.routes).toEqual([
+    {
+      route: "POST /documents/{documentId}/sync",
+      requests: 1,
+      statements: 5,
+      txStatements: 5,
+      lockHoldStatements: 2,
+      maxPerRequest: 5,
+      sameKeyRepeats: 2,
+      pureReadRepeats: 1,
+      topRepeat: { sql: 'select id from "users" where id = $1', count: 1 },
+    },
+  ]);
+});
+
 test("parses capture lines and rejects foreign ones", () => {
   expect(
     parseCapture(

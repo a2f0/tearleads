@@ -205,13 +205,20 @@ test.each(["admin", "write"] as const)(
         const nodes = trees.get("right")?.getSnapshot().nodes ?? [];
         return (
           nodes.some(
-            (node) => node.systemSlot === slot && node.parentId === root.id,
+            (node) =>
+              node.systemSlot === slot &&
+              node.parentId === root.id &&
+              node.organizationId === root.organizationId &&
+              node.effectiveAccessLevel === accessLevel &&
+              node.metadataReady !== false,
           ) &&
           nodes.some(
             (node) =>
               node.id === folder.id &&
               node.name === OWNER_SHARED_FOLDER &&
-              node.effectiveAccessLevel === accessLevel,
+              node.organizationId === root.organizationId &&
+              node.effectiveAccessLevel === accessLevel &&
+              node.metadataReady !== false,
           )
         );
       },

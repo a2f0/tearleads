@@ -17,6 +17,7 @@ export {
   didRegainSyncPrerequisites,
   isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
+export { getOrCreateCreateIntentHoldListings } from "./container-state/create/createIntentHoldListings";
 
 export type ContainerContentsSyncLane = SyncLane;
 export const CONTAINER_CONTENTS_SYNC_LANE_KEY = "container-contents";

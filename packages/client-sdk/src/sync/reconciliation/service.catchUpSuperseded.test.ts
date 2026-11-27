@@ -3,6 +3,7 @@ import {
   awaitingCrawl,
   createGate,
   OWED_LANE_HOST_CONTAINER_IDS,
+  recordingLane,
 } from "./service.testFixtures";
 
 const KNOWN = OWED_LANE_HOST_CONTAINER_IDS;
@@ -143,6 +144,50 @@ test("a catch-up superseded while it reads the owed record lists nothing", async
   await second;
   expect(listings).toEqual([["b"]]);
   service.stop();
+});
+
+test("a catch-up superseded while it reads the owed record wakes no lane", async () => {
+  const read = createGate();
+  const wakes: string[] = [];
+  let crawls = 0;
+  const { host, listings, service } = awaitingCrawl({
+    overrides: {
+      ...recordingLane(wakes),
+      // The second acknowledgement's crawl never settles in this test.
+      whenTreeCrawlSettles: () => {
+        crawls += 1;
+        return crawls === 1
+          ? Promise.resolve(true)
+          : new Promise<boolean>(() => undefined);
+      },
+    },
+  });
+  let reads = 0;
+  host.listOwedDocumentDiscoveryContainerIds = async () => {
+    reads += 1;
+    if (reads === 2) await read.wait;
+    return [];
+  };
+  const first = service.reconcileAcknowledgedConnection().catch(() => {});
+  await settle();
+  expect(reads).toBe(2);
+  const second = service.reconcileAcknowledgedConnection().catch(() => {});
+  // Lane c is queued while the first sweep reads its plan; the second
+  // catch-up holds it back.
+  service.enqueueContainer("c", "idle");
+  await settle();
+  wakes.length = 0;
+
+  read.open();
+  await first;
+  await settle();
+
+  // The superseded turn released nothing, so it asks the lane for nothing:
+  // a request now could only cut a failed lane's retry backoff short.
+  expect(wakes).toEqual([]);
+  expect(listings).toEqual([]);
+  service.stop();
+  await second;
 });
 
 test("a superseded catch-up takes no hint out of the queue", async () => {

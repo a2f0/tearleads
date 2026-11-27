@@ -27,7 +27,7 @@ only ever measures waiting.
 | `NoForeignStatementInTransaction` | `mayRunUnderTransactionLease` admits only the holder while the lease is held |
 | `RetiredHolderKeepsNoLease` | `closeConnection` and `revokeConnection` end the connection's transaction through `release` |
 | `RefusedStatementNeverRuns` | `refuse` removes the refused statements from `pending` before it rejects them |
-| `WaiterRuns` | `retryWhileTransactionBusy` at boot sends a refused statement again |
+| `WaiterRuns` | `retryWhileAnotherTabHoldsDatabase` at boot sends a refused statement again |
 
 Bounds are two transactions for H with one statement inside each, an idle
 bound of one tick and a wait bound of two. The idle bound is below the wait

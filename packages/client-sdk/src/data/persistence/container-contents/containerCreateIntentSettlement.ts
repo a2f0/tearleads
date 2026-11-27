@@ -25,6 +25,8 @@ async function markContainerCreateIntentRevisionSynced(input: {
     .update(localIntents)
     .set({
       syncStatus: "synced",
+      holdKind: null,
+      holdSince: null,
       remoteContainerId: input.remoteContainerId,
       remoteMetadataDocumentId: input.remoteMetadataDocumentId,
       remoteMetadataAccessStateHash: input.remoteMetadataAccessStateHash,

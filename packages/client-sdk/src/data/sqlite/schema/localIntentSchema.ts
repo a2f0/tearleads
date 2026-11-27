@@ -61,6 +61,9 @@ export const CONTAINER_CREATE_INTENT_TYPE = "container.create";
  * - `syncStatus`: Lane-specific state (`pending`/`synced` for creates,
  *   `pending`/`blocked` for container moves, `pending`/`blocked`/`denied`/
  *   `unavailable` for placements).
+ * - `holdKind`, `holdSince`: Typed hold on a pending container create
+ *   (`awaiting_parent_listing` with `holdSince`, `slot_taken`, or
+ *   `path_too_deep`), keeping `lastError` strictly for real replay failures.
  * - `lastError`, `lastAttemptedAt`: Replay diagnostics.
  * - `createdAt`: FIFO replay order; `updatedAt`: last target/status change.
  *
@@ -87,6 +90,8 @@ export const localIntents = sqliteTable(
     remoteMetadataDocumentId: text("remote_metadata_document_id"),
     remoteMetadataAccessStateHash: text("remote_metadata_access_state_hash"),
     syncStatus: text("sync_status").notNull(),
+    holdKind: text("hold_kind"),
+    holdSince: text("hold_since"),
     lastError: text("last_error"),
     lastAttemptedAt: text("last_attempted_at"),
     createdAt: text("created_at").notNull(),

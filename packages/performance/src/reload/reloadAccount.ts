@@ -253,6 +253,8 @@ export async function openReloadAccount(origin: string, quietMs: number) {
     folders: () => folders.length,
     /** Local SQLite statements so far, across every SDK instance. */
     localSql: () => ({ ...local.measurements }),
+    /** Captures normalized local SQLite queries, EXPLAIN flags, and mutation holds. */
+    captureSqlWindow: () => local.captureSqlWindow(),
     /**
      * Creates notes as the app does, `perFolder` to a folder under the root,
      * until the account holds `count`.

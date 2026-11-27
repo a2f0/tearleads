@@ -9,12 +9,17 @@ export type PendingWriteQueueOperationKind =
   | "update";
 
 export type PendingWriteQueueOperationStatus = "pending" | "blocked";
+export type PendingWriteQueueOperationBlockedReason =
+  | "awaiting-parent-listing"
+  | "path-too-deep"
+  | "slot-taken";
 export type PendingWriteQueueItemStatus =
   | PendingWriteQueueOperationStatus
   | "error";
 
 /** Safe, payload-free description of one kind of durable outbound work. */
 export interface PendingWriteQueueOperation {
+  readonly blockedReason?: PendingWriteQueueOperationBlockedReason | undefined;
   readonly byteLength: number;
   readonly count: number;
   readonly createdAt: string | null;

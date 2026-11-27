@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import {
   ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
@@ -45,6 +46,13 @@ test("owed lanes come from durable lane rows and staged candidates", async () =>
   try {
     const lanes = new ContainerSyncWatermarkRepository(execSql);
     const evidence = new DocumentDiscoveryEvidenceRepository(execSql);
+    await storeContainerRows(execSql, [
+      "empty",
+      "settled",
+      "cursor-only",
+      "restaged",
+      "moved",
+    ]);
     // Settled by a complete, empty listing: no cursor, only the mark.
     await lanes.recordLaneFetch(containerContentsSyncLane("empty"), {
       checked: true,

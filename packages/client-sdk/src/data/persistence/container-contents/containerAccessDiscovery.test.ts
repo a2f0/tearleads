@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import { DocumentDiscoveryEvidenceRepository } from "../documents/documentDiscoveryEvidencePersistence";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 import {
@@ -54,6 +55,7 @@ for (const [from, to, commit] of [
       const parent = containerParentSyncLane(container.id);
       const cursor = { id: "document", updatedAt: "2026-01-01T00:00:00.000Z" };
       const watermarks = new ContainerSyncWatermarkRepository(execSql);
+      await storeContainerRows(execSql, ["unrelated"]);
       for (const selected of [lane, unrelated, parent]) {
         await watermarks.recordLaneFetch(selected, {
           checked: true,
