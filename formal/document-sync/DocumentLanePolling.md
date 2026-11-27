@@ -94,7 +94,13 @@ production gives each listing lane ids of its own, so the API client never
 answers it from an identical request already in flight.
 
 The only tree listing in the model is the crawl an acknowledgement owes,
-which the catch-up's sweep follows. A hint's tree listing, a start's, or a
-retried crawl's owes lanes the same way with no sweep behind it; those
-requests wait for the next acknowledged connection or the next start's
-resume, so `DebtsSettle` describes requests a catch-up's crawl recorded.
+which the catch-up's sweep follows. A hint's tree listing, a start's, a
+retried crawl's, or the regained crawl that yielded to an acknowledgement and
+is restored because that acknowledgement was lost before its crawl listed
+(`connectAttemptGate.ts`) owes lanes the same way with no sweep behind it;
+those requests wait for the next acknowledged connection or the next start's
+resume, so `DebtsSettle` describes requests a catch-up's crawl recorded. The
+idle backfill a regain queues waits for the connect attempt in flight and is
+raised behind the catch-up an acknowledgement owes, which takes its lanes
+over; after an attempt that ends without one it lists them. It only adds
+listings and is not modelled.

@@ -6,7 +6,7 @@ import {
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import { ContainerStateMap } from "./containerState/containerStateMap";
 import { observeContainerBackgroundHydration } from "./hydration/backgroundHydration";
-import { releaseSettledConnectAttemptWaits } from "./hydration/connectAttemptGate";
+import { ConnectAttemptGate } from "./hydration/connectAttemptGate";
 import { ReconnectRefresh } from "./hydration/reconnectRefresh";
 import { trackContainerHydration } from "./hydration/trackContainerHydration";
 import { getOrCreateTreeCatchUp } from "./hydration/treeCatchUp";
@@ -92,7 +92,19 @@ export function createContainerContentsStoreState(
   persistence: ContainerContentsPersistence,
   logLabel?: string | undefined,
 ): ContainerContentsStoreState {
+  const treeCatchUp = getOrCreateTreeCatchUp(initialRuntime.state.domainScope);
   const state: ContainerContentsStoreState = {
+    connectAttemptGate: new ConnectAttemptGate(
+      {
+        get reconnectRefresh() {
+          return state.reconnectRefresh;
+        },
+        get runtime() {
+          return state.runtime;
+        },
+      },
+      (crawl) => observeContainerBackgroundHydration(state, crawl),
+    ),
     parentLaneRequestPrefix: `s${++storeSequence}`,
     containerListingFailures: 0,
     containersById: new ContainerStateMap(),
@@ -122,9 +134,16 @@ export function createContainerContentsStoreState(
     // acknowledgement's re-list, which is how hints lost earlier are recovered.
     reconnectRefresh: new ReconnectRefresh(
       (initialRuntime.state.serverEventsConnectionGeneration ?? 0) > 0,
-      // Whoever lists document lanes asks whether this crawl vouches for
-      // the lanes whose rows it was not served.
-      getOrCreateTreeCatchUp(initialRuntime.state.domainScope),
+      {
+        crawlOwed: () => treeCatchUp.crawlOwed(),
+        // Whoever lists document lanes asks whether this crawl vouches for
+        // the lanes whose rows it was not served. A crawl that yielded to it
+        // learns whether it is covered or must list after all.
+        crawlSettled: (complete) => {
+          treeCatchUp.crawlSettled(complete);
+          state.connectAttemptGate.observe();
+        },
+      },
     ),
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
@@ -177,7 +196,7 @@ export function updateContainerContentsSnapshot(
 
 function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.lifecycleGeneration += 1;
-  releaseSettledConnectAttemptWaits(state, { all: true });
+  state.connectAttemptGate.reset();
   state.containersById = new ContainerStateMap();
   state.containerParentIdsNeedingHydration = new Set();
   state.documentStoresNeedPriming = true;
@@ -257,7 +276,9 @@ export function updateContainerContentsStoreRuntime(
   if (serverEventsConnectionChanged) {
     state.reconnectRefresh.reset("acknowledged");
   }
-  releaseSettledConnectAttemptWaits(state);
+  // A held crawl's attempt may have settled, and an acknowledgement a crawl
+  // yielded to may have been lost.
+  state.connectAttemptGate.observe();
 
   if (nextRuntime.infra.dbStatus !== "ready") {
     if (hasContainerContentsLoadState(state)) {
@@ -320,7 +341,7 @@ export function retireContainerStore(
 ): void {
   state.lifecycleGeneration++;
   state.reconnectRefresh.reset("disposed");
-  releaseSettledConnectAttemptWaits(state, { all: true });
+  state.connectAttemptGate.reset();
 }
 
 export function consumePendingContainerContentsReconnectRefresh(

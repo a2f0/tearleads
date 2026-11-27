@@ -75,7 +75,14 @@ test.each<
   [
     "reconnect covers the deferred probe",
     DEFERRED,
-    runtimeInstalled(true, 3),
+    runtimeInstalled(true),
+    WANTED,
+    false,
+  ],
+  [
+    "reconnect covers the deferred probe while a later attempt starts",
+    DEFERRED,
+    runtimeInstalled(true, 4),
     WANTED,
     false,
   ],
