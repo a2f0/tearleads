@@ -134,15 +134,22 @@ test("stale headers are signed again, one request a segment, and the commit retr
   expect(harness.terminalFailures).toEqual([]);
 });
 
-test.each([STAGE.notFound, STAGE.expired, STAGE.epochStale])(
+// `id_conflict` at a commit: a request committed a baseline under the
+// stage's id since it opened, so the stage can never commit.
+const STAGE_STANDS: readonly (typeof STAGE)[keyof typeof STAGE][] = [
+  STAGE.epochStale,
+  STAGE.idConflict,
+];
+
+test.each([STAGE.notFound, STAGE.expired, ...STAGE_STANDS])(
   "a commit refused with %s starts the upload over",
   async (code) => {
     const harness = await createStagedHealHarness();
     const document = await createLongHistoryDocument(`start-over-${code}`);
     harness.script.refuse = (_request, ordinal) => {
       if (ordinal !== 1) return null;
-      // The stage is gone for the first two; for the third it still stands.
-      if (code !== STAGE.epochStale) harness.server.drop(harness.documentId);
+      // The stage is gone for the first two; for the others it still stands.
+      if (!STAGE_STANDS.includes(code)) harness.server.drop(harness.documentId);
       return groupRefusal(code);
     };
 
@@ -160,7 +167,7 @@ test.each([STAGE.notFound, STAGE.expired, STAGE.epochStale])(
     expect(staged(harness.server.calls)).toHaveLength(2 * (group.length - 1));
     // A stage that still stood was given up before the new one opened.
     expect(harness.server.calls.includes("abandon")).toBe(
-      code === STAGE.epochStale,
+      STAGE_STANDS.includes(code),
     );
   },
 );

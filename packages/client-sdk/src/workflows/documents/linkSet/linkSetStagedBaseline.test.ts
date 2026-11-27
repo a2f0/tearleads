@@ -270,3 +270,40 @@ test("a stage request refused for access is the unlink's refusal", () =>
     expect(harness.server.calls.slice(-2)).toEqual(["stage:2", "abandon"]);
     expect(harness.server.stage(harness.documentId)).toBeNull();
   }));
+
+// A request committed a baseline under the stage's id after the stage
+// opened, so the stage can never commit. The unlink reports the refusal and
+// deletes the stage; its next attempt chooses another id.
+test("an unlink whose baseline id was committed since gives its stage up", () =>
+  withDatabase("id-conflict-unlink", async (execSql) => {
+    const harness = await createStagedUnlinkHarness();
+    const document = await createLongHistoryDocument("id-conflict-unlink");
+    harness.script.refuse = (_request, ordinal) =>
+      ordinal === 1
+        ? {
+            baselineStageCode: STAGE.idConflict,
+            code: DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
+            message: "its baseline id was committed by another request",
+            status: 409,
+          }
+        : null;
+
+    expect(await harness.unlink(document, execSql)).toBeNull();
+    expect(harness.failures.map((failure) => failure.code)).toEqual([
+      DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
+    ]);
+    expect(harness.server.calls.at(-1)).toBe("abandon");
+    expect(harness.server.stage(harness.documentId)).toBeNull();
+    const callsBefore = harness.server.calls.length;
+
+    const unlinked = await harness.unlink(document, execSql);
+
+    expect(unlinked?.contentKeyRotated).toBe(true);
+    committedGroup(harness, document);
+    expect(harness.server.calls.slice(callsBefore, callsBefore + 2)).toEqual([
+      "open",
+      "stage:0",
+    ]);
+    const [first, second] = harness.requests;
+    expect(second?.baselineStageId).not.toBe(first?.baselineStageId);
+  }));

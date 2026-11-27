@@ -85,6 +85,8 @@ export class FakeBaselineStageServer {
   readonly committed: DocumentOutgoingUpdate[][] = [];
   /** How many bytes of ciphertext were staged, across every stage. */
   stagedCharacters = 0;
+  /** Every write header a stage request carried, staged or signed again. */
+  readonly headers: Record<string, unknown>[] = [];
   /**
    * The user's open stages on other documents, as a test places them: with
    * four of them an open is refused for the limit and names them, and an
@@ -316,6 +318,7 @@ export class FakeBaselineStageServer {
       segmentIndex,
       input,
     ) => {
+      this.headers.push(input.writeHeader);
       const injected = await this.enter(`resign:${segmentIndex}`);
       return (
         injected ??
@@ -330,6 +333,7 @@ export class FakeBaselineStageServer {
       segment,
     ) => {
       const call = `stage:${segmentIndex}`;
+      this.headers.push(segment.writeHeader);
       const injected = await this.enter(call);
       if (injected) return injected;
       const answer = await this.stageSegment(

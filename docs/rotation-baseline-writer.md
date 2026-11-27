@@ -80,13 +80,25 @@ Each refusal is an event of the machine:
 | `headers_stale` | signs every staged header again and commits again: within the unlink leg, and by planning again within the sync pass. The writer also knows what its headers were signed for, and signs them again before it commits when its plan names another manifest, key-target set, or signing key. |
 | `not_found`, `expired` | plans again: a new baseline id, a new stage, every segment uploaded again. While uploading, once within the same run. |
 | `epoch_stale` | deletes the stage. The plan it was built for is stale, so the next attempt plans against a fresh projection. |
-| `id_conflict` at the open | chooses another id |
+| `id_conflict` | at the open, chooses another id. At a commit, a request committed a baseline under the stage's id since it opened: the writer deletes the stage, which can never commit, and builds the baseline anew under another id. A sync does so within the pass, and an unlink on its next attempt. |
 | `segment_out_of_order` | reads the stage and goes on from the index it expects |
 | `segment_conflict`, `segment_invalid`, a group refusal with no stage code | deletes the stage and builds the baseline anew |
 | `limit_reached` at the open | abandons the [orphaned stages](#orphaned-stages) the refusal names and opens once more. If none is an orphan, or the open is refused again, it fails with `DocumentRotationBaselineStageLimitError` and does not retry: the user holds four open stages already. A sync records a failure row with that code, and an unlink reports it. |
-| `too_large` | deletes the stage and fails with `DocumentRotationBaselineLimitError`: the history needs more bytes or span rows than a stage stores. |
-| A stage request, or the rotating request, refused for the writer itself (`402`, `403`, or any other refusal with no stage code) | gives the upload up and deletes the stage, so it does not hold one of the user's four open stages until it expires. Nothing is retried. A sync records the failure with the refusal's own status as it records a refused submit; an unlink reports it to its caller with that status. |
+| `too_large` | deletes the stage and fails with `DocumentRotationBaselineLimitError`: the history needs more bytes or span rows than a stage stores. A header signed again counts by its difference from the one it replaces, so signing again can draw this too. |
+| A stage request, or the rotating request, refused for the writer itself (`402`, `403`, a `413` for a re-signed header over 512 KiB, or any other refusal with no stage code) | gives the upload up and deletes the stage, so it does not hold one of the user's four open stages until it expires. Nothing is retried. A sync records the failure with the refusal's own status as it records a refused submit; an unlink reports it to its caller with that status. |
 | A stage request that got no answer, or a `5xx` | stops, and leaves the stage as it is: the failure says nothing about it. The next run reads the stage and goes on. |
+
+## Header Bounds
+
+The API bounds every write header where it parses one: a device id of at
+most 128 characters, a signature in canonical base64, and at most 6,400
+cited container manifests, with a re-signed header's request at most
+512 KiB. The writer signs each header, staged, signed again, or final,
+with `signWriteHeader`, which refuses the first and the third before it
+signs and encodes the signature canonically. The device id is
+`signing-key:` and the signing key's fingerprint, 76 characters. A request
+cites at most the 6,400 manifests its 64 authorization paths of depth 100
+name, and a header that cites them all is about 430 KiB.
 
 ## Confirming A Stage
 

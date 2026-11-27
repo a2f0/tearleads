@@ -175,6 +175,13 @@ const refusals: readonly [
   ],
   [STAGE.idConflict, opening, { status: "planning" }],
   [STAGE.idConflict, stagingThird, { reason: "id_conflict" }],
+  // At a commit: the id was committed since the stage opened. The stage
+  // stands and can never commit, so it is deleted and the id chosen again.
+  [
+    STAGE.idConflict,
+    committing,
+    { reason: "id_conflict", stageStands: true, status: "abandoned" },
+  ],
   [STAGE.segmentOutOfOrder, stagingThird, { status: "resuming" }],
   [STAGE.segmentOutOfOrder, committing, { status: "resuming" }],
   [STAGE.segmentConflict, stagingThird, { reason: "segment_conflict" }],
