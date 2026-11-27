@@ -1,35 +1,111 @@
 ---
+import { WindowsLogoIcon } from "@phosphor-icons/react/dist/ssr/WindowsLogo";
 import PageHeader from "../../components/PageHeader.astro";
+import StatusNotice from "../../components/StatusNotice.astro";
 import { isStaging } from "../../config";
 import Layout from "../../layouts/Layout.astro";
 import { resolveWindowsDownloads } from "../../windowsDownloads";
 import "../../styles/install.css";
 
 const downloads = await resolveWindowsDownloads(isStaging);
+const fileName = (url: string) => new URL(url).pathname.split("/").pop();
+const archiveFileName = downloads
+  ? fileName(downloads.installerUrl)
+  : "YOUR-DOWNLOAD.zip";
 ---
 
-<Layout title="Install on Windows | Tearleads" description="Download, verify, and install Tearleads on Windows x64.">
+<Layout
+  title="Install on Windows | Tearleads"
+  description="Download, verify, and install Tearleads on x64 Windows."
+>
   <div class="site-page site-page--narrow install-page">
-    <PageHeader title="Install Tearleads on Windows" lede="For x64 computers with Intel or AMD processors." />
-    {downloads ? <div class="site-actions">
-      <a class="site-button site-button--primary" href={downloads.installerUrl}>Download for Windows</a>
-      <a class="site-button site-button--secondary" href={downloads.checksumUrl}>SHA-256 checksum</a>
-    </div> : <p>The Windows download is temporarily unavailable. Try again later.</p>}
+    <PageHeader
+      title="Install Tearleads on Windows"
+      lede="For x64 computers with Intel or AMD processors."
+    >
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/#download">Download</a></li>
+          <li aria-current="page">Windows</li>
+        </ol>
+      </nav>
+      <dl class="site-spec install-requirements">
+        <div><dt>Processor</dt><dd>x64 (Intel or AMD)</dd></div>
+        <div><dt>Package</dt><dd>.zip archive</dd></div>
+        <div><dt>Signing</dt><dd>Unsigned installer</dd></div>
+      </dl>
+      {
+        downloads ? (
+          <div class="site-actions">
+            <a class="site-button site-button--primary" href={downloads.installerUrl}>
+              <WindowsLogoIcon size={18} aria-hidden="true" focusable="false" />
+              {isStaging ? "Download Windows preview" : "Download for Windows"}
+            </a>
+            <a class="site-button site-button--secondary" href={downloads.checksumUrl}>
+              SHA-256 checksum
+            </a>
+          </div>
+        ) : (
+          <p class="site-note" role="status">
+            <strong class="site-note-label">Temporarily unavailable.</strong>{" "}
+            The Windows download isn't available for this build. Try again
+            later.
+          </p>
+        )
+      }
+      <StatusNotice />
+    </PageHeader>
+
     <ol class="site-steps install-steps" role="list">
       <li>
+        <h2 class="site-step-title">Download the archive and its checksum</h2>
+        <p>
+          {
+            downloads ? (
+              <Fragment>
+                Save the <a href={downloads.installerUrl}>Windows ZIP archive</a>{" "}
+                and its <a href={downloads.checksumUrl}>SHA-256 checksum file</a>{" "}
+                in the same folder.
+              </Fragment>
+            ) : (
+              "Save the Windows ZIP archive and its SHA-256 checksum file in the same folder."
+            )
+          }{" "}
+          If your browser opens the checksum file as text, right-click the link
+          and save it instead.
+        </p>
+      </li>
+      <li>
         <h2 class="site-step-title">Verify the ZIP</h2>
-        <p>Save the ZIP and its SHA-256 checksum. In PowerShell, run this with the ZIP's filename and compare the output with the checksum file:</p>
-        <pre class="site-code"><code>Get-FileHash .\YOUR-DOWNLOAD.zip -Algorithm SHA256</code></pre>
+        <p>
+          Open PowerShell in that folder, compute the archive's SHA-256 hash,
+          and compare it with the checksum file:
+        </p>
+        <pre class="site-code"><code>Get-FileHash .\{archiveFileName} -Algorithm SHA256</code></pre>
       </li>
       <li>
         <h2 class="site-step-title">Extract all files</h2>
-        <p>Right-click the ZIP and choose Extract All. Keep all extracted files together, including the hidden installer payload. Run the Tearleads Setup executable from the extracted folder.</p>
+        <p>
+          Right-click the ZIP archive and choose Extract All. Keep every
+          extracted file together, including the hidden installer payload, then
+          run the Tearleads Setup executable from the extracted folder.
+        </p>
       </li>
       <li>
-        <h2 class="site-step-title">Check the publisher warning</h2>
-        <p>This installer is unsigned, so Windows may show an unknown-publisher or SmartScreen warning. Verify the download's source and checksum before you continue.</p>
+        <h2 class="site-step-title">Review the publisher warning</h2>
+        <p>
+          Because this installer is unsigned, Windows may show an
+          unknown-publisher or SmartScreen warning. Confirm the download's
+          source and SHA-256 checksum before continuing.
+        </p>
       </li>
     </ol>
-    <p><a href="/#download">All downloads</a></p>
+
+    <div class="install-after">
+      <p>When setup finishes and you close the installer, Tearleads opens automatically.</p>
+      <a class="site-link" href="/#download">
+        Other downloads<span aria-hidden="true"> →</span>
+      </a>
+    </div>
   </div>
 </Layout>

@@ -15,16 +15,19 @@ history behave when [access epochs](./glossary/access.md#access-epoch) change.
 
 ### Document Updates Are Epoch-Bound
 
-- each encrypted [Loro update](./glossary/content.md#loro-update) carries one
-  `accessEpoch`
-- each encrypted Loro update is encrypted with the document
-  [DEK](./glossary/keys.md#dek) for that epoch
-- a client only decrypts updates that match the epoch + DEK it currently
- resolved
+- each encrypted [Loro update](./glossary/content.md#loro-update) records the
+  link-set `accessEpoch` under which it was accepted, while its signed
+  `writeHeader` names the `contentKeyEpoch` of the document
+  [DEK](./glossary/keys.md#dek) that encrypted it
+- each encrypted Loro update is encrypted with the document DEK for its
+  `writeHeader.contentKeyEpoch`
+- a client decrypts each update only with the verified DEK for its
+  `writeHeader.contentKeyEpoch` (from the current bundle or historical
+  `contentKeyBundles[]` served alongside older updates)
 
 So a client does not replay arbitrary mixed-epoch document history with a
 single key. Once a document DEK [rotates](./glossary/keys.md#rotate), subsequent
-updates are expected to use the new epoch's DEK.
+updates are expected to use the new content-key epoch's DEK.
 
 ### Rewrap Reuses The Active DEK
 
@@ -179,11 +182,12 @@ Rule:
 
 - if no current-epoch bundle exists yet, one client may seed it
 - if a current-epoch bundle already exists and another client proposes a
- different bundle for that same epoch, do not accept updates encrypted under
- the proposed bundle; sync should return the canonical bundle, while
- non-sync commit paths may reject with `409`
-- the losing client retries sync, adopts the canonical current-epoch bundle,
- and re-emits from local state if needed
+  different bundle for that same epoch, do not accept updates encrypted under
+  the proposed bundle; sync rejects with `409 document_sync_state_stale` (or
+  `400` if a carry submission changes the epoch's `contentKeyCommitment`)
+  without echoing the active bundle, and non-sync commit paths reject with `409`
+- the losing client refetches the writer projection to adopt the canonical
+  current-epoch bundle, replans, and re-emits from local state if needed
 
 Without this rule, multiple clients can seed different DEKs for the same epoch
 and strand accepted updates behind the losing DEK.
@@ -336,7 +340,7 @@ The persistence seams are:
 - the blob registry in `blob_audit_objects`
 - [access-plane](./access-plane.md) material in signed access manifest
   [heads](./glossary/sync.md#head) and key-target tables
-- live blob bytes in `blobs`
+- live blob metadata and object-store keys in `blobs`
 
 The server retains every original encrypted document update in
 `document_updates`. A rotation baseline carries the full operation history
@@ -387,10 +391,11 @@ authorized under.
 
 The server does **not** promise:
 
-- fresh-client replay of all historical document updates from scratch
 - historical blob download after a blob has been pruned from the live `blobs`
   table
-- historical wrapped-DEK or key-target retention for old epochs
+- wrapped-DEK or key-target retention for pruned blobs (by contrast, document
+  `document_content_key_epochs` and `document_content_key_targets` remain
+  retained until document purge for fresh-client and raw-history replay)
 - a history of attachment bind, replace, and detach events; detached bindings
   are transient replacement metadata, and the registry records which blob
   generations existed, not when they were bound

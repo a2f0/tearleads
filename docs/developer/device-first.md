@@ -452,10 +452,10 @@ listing ([row 26](../sync-edge-cases.md)).
 - The instant document list relies on summaries being persisted on discovery
   (`upsertDiscoveredDocuments` writes `document_projection`); local-only
   documents land there via the documents store, so the cache is authoritative.
-- Ordinary per-document Loro content stays lazy in the `documents` sync lane.
-  Layer B only primes content that cannot rely on a document window opening it
-  (remote system-container projections), while it reconciles the container tree
-  plus document summaries/links for every known lane.
+- Layer B's reconciler primes only remote system-container projections while
+  reconciling trees and document summaries/links; the scope's
+  [`discoveredDocumentPrimer.ts`](../../packages/client-sdk/src/client/deviceFirst/discoveredDocumentPrimer.ts)
+  opens discovered remote documents in the background when sync-ready and unpaused.
 
 ## Offline contract and coverage
 

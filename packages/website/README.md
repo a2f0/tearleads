@@ -103,9 +103,9 @@ scripting, or on a platform without a row, the built order stays.
 
 `/docs/` publishes the repository documents listed in
 [`src/technicalDocs.ts`](src/technicalDocs.ts)
-(security guarantees, keying design, protocol specification, cipher suites,
-protocol models, limits, and glossary). The Markdown under
-[`docs/`](../../docs/) and [`formal/`](../../formal/)
+(backup and restore, re-keying, security guarantees, keying design, protocol
+specification, cipher suites, protocol models, limits, and glossary). The
+Markdown under [`docs/`](../../docs/) and [`formal/`](../../formal/)
 stays the source of truth: the `docs` content collection
 ([`src/content.config.ts`](src/content.config.ts)) reads it from the repository
 root at build time, and

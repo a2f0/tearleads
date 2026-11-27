@@ -55,7 +55,7 @@ Write surfaces:
 | Turn two-factor on with an authenticator code | `POST /auth/two-factor/enable` | `TwoFactorEnableRequest` |
 | Turn two-factor off | `POST /auth/two-factor/disable` | `TwoFactorConfirmationRequest` |
 | Replace two-factor recovery codes | `POST /auth/two-factor/recovery-codes` | `TwoFactorConfirmationRequest` |
-| Store signed organization policy and member envelopes atomically (group updates use `policy-commit`) | `PUT /principals/organization/:principalId/policy` | `OrganizationPrincipalPolicyRequest` |
+| Store signed organization policy and member envelopes atomically (rejects `group`; group updates use `policy-commit`) | `PUT /principals/:principalType/:principalId/policy` | `OrganizationPrincipalPolicyRequest` |
 | Create an organization | `POST /organizations` | `CreateOrganizationRequest` |
 | Update the organization profile | `PUT /organizations/:organizationId/profile` | `UpdateOrganizationProfileRequest` |
 | Atomically advance a group policy and its signed organization-directory head | `PUT /organizations/:organizationId/groups/:groupId/policy-commit` | `CommitOrganizationGroupPolicyRequest` |
@@ -76,6 +76,10 @@ Write surfaces:
 | Unlink document from container | `POST /documents/:documentId/unlink` | `DocumentLinkSetMutationRequest` |
 | Purge a document | `POST /documents/:documentId/purge` | `DocumentPurgeRequest` |
 | Sync encrypted Loro updates | `POST /documents/:documentId/sync` | `DocumentSyncRequest` |
+| Open a staged rotation baseline | `POST /documents/:documentId/baseline-stages` | `DocumentBaselineStageOpenRequest` |
+| Upload a staged rotation-baseline segment | `PUT /documents/:documentId/baseline-stages/:baselineId/segments/:segmentIndex` | `DocumentSyncOutgoingUpdate` |
+| Attach a write header to a staged baseline segment | `PUT /documents/:documentId/baseline-stages/:baselineId/segments/:segmentIndex/write-header` | `DocumentBaselineStageWriteHeaderRequest` |
+| Discard a staged rotation baseline | `DELETE /documents/:documentId/baseline-stages/:baselineId` | n/a |
 | Initiate multipart blob stage (returns the first parts' upload sources) | `POST /blobs/stages/multipart` | `InitiateMultipartBlobStageRequest` |
 | Authorize a later or renewed direct multipart blob part | `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload` | `MultipartBlobPartUploadRequest` |
 | Upload multipart blob part for non-signing stores | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` | headers plus octet stream |
@@ -88,6 +92,7 @@ Read surfaces:
 | --- | --- |
 | Health check | `GET /` |
 | List auth sessions | `GET /auth/sessions` |
+| Read two-factor authentication status | `GET /auth/two-factor` |
 | Get complete user identity | `GET /auth/user-identity/:userId` |
 | List containers by parent lane | `POST /containers/parent-lanes/query` |
 | List container documents by lane | `POST /containers/documents/query` |
@@ -95,6 +100,7 @@ Read surfaces:
 | Page a container's KEK rotation log | `GET /containers/:containerId/kek-log` |
 | Get a re-shared container's replacement lineage | `GET /containers/:containerId/replacement-authorizations/:replacesOrganizationId` |
 | Get document writer projection | `GET /documents/:documentId/writer-projection` |
+| Get staged rotation-baseline status | `GET /documents/:documentId/baseline-stages/:baselineId` |
 | Get a document purge proof | `GET /documents/:documentId/purge` |
 | Get document edit attribution | `GET /documents/:documentId/attribution` |
 | List document attribution ranges | `GET /documents/:documentId/attribution/ranges` |
@@ -103,9 +109,11 @@ Read surfaces:
 | Get committed blob bytes | `GET /blobs/:blobId/bytes` |
 | Get multipart blob stage status | `GET /blobs/stages/multipart/:stageId` |
 | Get principal policy bundle | `GET /principals/:principalType/:principalId/policy` |
+| Get principal policy member envelopes | `GET /principals/:principalType/:principalId/policy/member-envelopes` |
 | Page projection policy history | `GET /principals/history` |
 | Page organization policy history | `GET /organizations/:organizationId/policy-history` |
 | Get organization data usage | `GET /organizations/:organizationId/data-usage` |
+| Page organization pending blob deletions | `GET /organizations/:organizationId/blobs/pending-deletion` |
 | List organization group members | `GET /organizations/:organizationId/groups/:groupId/members` |
 | Reconcile the organization read model | `GET /organizations/:organizationId/read-model` |
 
@@ -119,7 +127,8 @@ optional `contentKeyBundle`, optional `containerRekeys`, `inlineRekeyCommitId`
 exactly when that rekey array is non-empty, optional
 `authorizingContainerPathRefs`, `localVersionVector`, optional `minLsn`,
 required `supportsPullPagination: true`, optional `pullCursor`, optional
-`maxPageUpdates`, optional `historyMode: "raw"`, and `outgoingUpdates[]`
+`maxPageUpdates`, optional `historyMode: "raw"`, optional
+`processedThroughUpdateId`, optional `baselineStageId`, and `outgoingUpdates[]`
 with a per-update `writeHeader`.
 Cursor continuations and raw-history pulls are read-only. The path references
 identify signed [container manifests](./glossary/access.md#access-manifest) already
@@ -129,7 +138,8 @@ return `documentId`, `acceptedOutgoingUpdateIds`, `commitLsn`, `commitLsnMode`,
 the `contentKeyBundles` array of older
 [epochs](./glossary/keys.md#epoch) that served updates cite (empty for an empty
 probe or a page at the current epoch; never the epoch the request synced
-against), `pullPage: {hasMore, nextCursor}`, and encrypted `updates[]`. The
+against), `pullPage: {hasMore, nextCursor, throughUpdateCount, throughUpdateId}`,
+and encrypted `updates[]`. The
 current bundle and KEK targets are the ones the request named, so the response
 does not echo them.
 
@@ -269,6 +279,7 @@ It injects the infrastructure that application services need:
 - event publishing
 - session token issuance
 - the document sync cursor HMAC key
+- `identityTrustDomain`, the configured identity trust domain
 
 This boundary exists so that:
 
@@ -288,13 +299,15 @@ service module, not only in a route body.
 
 The service layer covers these route-backed capabilities:
 
-- auth challenge, verify, register, and user-identity lookup
+- auth challenge, verify, register, two-factor setup/management, and
+  user-identity lookup
 - multipart [blob staging](./glossary/content.md#blob-stage), blob downloads,
-  raw blob byte reads, attachment binding, and detach mutations
+  raw blob byte reads, pending blob deletion listings, attachment binding, and
+  detach mutations
 - container creation, metadata-document creation, listing, sharing,
   [rekey](./glossary/keys.md#rekey), movement, re-citation, deletion, KEK-log reads,
   replacement lineage, and document listing
-- document creation, sync storage, purge,
+- document creation, sync storage, rotation-baseline stages, purge,
   [writer projection](./glossary/sync.md#writer-projection), and edit attribution
 - document attachment listing
 - document link and unlink mutations
@@ -355,8 +368,8 @@ to HTTP responses, while the services own blob-read authorization, committed
 blob lookup, object-store reads, and digest recalculation through the injected
 runtime database. The download route returns either an API byte source or a
 signed object-store URL. Blob reads return only committed encrypted bytes and
-digest metadata; blob key bundles come from attachment listing and bind
-responses.
+digest metadata; blob key bundles come from attachment listing responses (bind
+responses acknowledge by hash).
 
 Document creation and sync writes are signed mutation services. The document
 route validates request shape and maps service errors to HTTP responses. The

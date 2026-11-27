@@ -69,6 +69,6 @@ only the recorded provider amount is authoritative.
 
 The billing history tables (`organization_billing_lifecycle_events`,
 `organization_billing_seat_events`, and `organization_billing_invoice_events`)
-are part of each [dialect's](api-persistence.md#database)
+are part of the [PostgreSQL schema's](api-persistence.md#database)
 `0000_greenfield_baseline`. Billing events write their audit evidence when the
 provider event is processed; initialization does not synthesize historical rows.

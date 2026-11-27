@@ -195,8 +195,9 @@ no read
 [`PaneRestartRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx)
 caps the first persisted-database pane restart after local creates at 19
 requests, including two organization-policy reads and one public history
-read, a settled restart at 11 (one organization-policy read, no history
-read), and the first restart after a local edit at 13.
+read, a settled restart at 10 (one organization-policy read, no history
+read; 11 when a root refresh arrives before the tree crawl answers), and the
+first restart after a local edit at 12.
 [`PaneReconnectRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx)
 caps an unchanged reconnect at 12 requests (two organization-policy reads)
 and discovery of one peer-created folder at 18 (three organization-policy
@@ -211,14 +212,14 @@ cost comparison. See the
 [per-route budgets and persistence boundary](../request-budgets.md#restart-and-reconnect).
 
 [`GroupMutationRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/GroupMutationRequestVolume.test.tsx)
-measures 7 requests for creating the first group and 5 for a later one (one
-read-model read each; the hint naming the post-mutation cursor costs none),
-with ceilings of 10 and 8; the first create reads the roster profile
-container's projection and its Admins history, which bootstrap no longer reads.
-First enrollment of a peer measures 37 requests, its group create included (30
-for the add itself), with a ceiling of 43 for the add; a later addition measures
-6 and is capped at 9. The creation/addition pairs are capped at 49 and 14
-requests, with at most
+measures 6 requests for creating the first group and 4 for a later one (zero
+read-model reads — the create response carries the read-model delta, and the
+hint naming the post-mutation cursor costs none), with ceilings of 9 and 7; the
+first create reads the roster profile container's projection and its Admins
+history, which bootstrap no longer reads. First enrollment of a peer measures
+34 requests, its group create included (28 for the add itself), with a ceiling
+of 41 for the add; a later addition measures 5 and is capped at 8. The
+creation/addition pairs are capped at 46 and 12 requests, with at most
 11 and 3 public history reads. First addition permits 10 organization-policy and
 3 group-policy reads. Creation receives no rollback preparation response:
 registration and each Admins successor publish the stored Admins head's strict
@@ -231,15 +232,15 @@ first creation/addition pair receives 372 KB (452 KB before) and a later pair
 
 The Admins enrollment fixture in
 [`DualPaneProvider.groupsRequestVolume.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx)
-measures 48 completed requests; its ceiling is 51, plus explicitly counted
+measures 46 completed requests; its ceiling is 49, plus explicitly counted
 validated preparation continuations. It caps organization-policy reads at 10,
 group-policy reads at 3 and public history reads at 7, with body ceilings of
-160,000 request bytes and 595,000 response bytes (0.54 MB measured, including
-the roster profile projection read that bootstrap no longer makes). The root
-attachment-sharing fixture in
+132,000 request bytes and 490,000 response bytes (about 0.49 MB measured,
+including the roster profile projection read that bootstrap no longer makes).
+The root attachment-sharing fixture in
 [`DualPaneProvider.sharing.test.tsx`](../../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx)
-measures 48 requests and permits 56, with body ceilings of 128,000 request
-bytes and 440,000 response bytes (0.40 MB measured). Container mutation
+measures 47 requests and permits 55, with body ceilings of 104,700 request
+bytes and 350,000 response bytes (about 0.34 MB measured). Container mutation
 acknowledgements carry hashes and policy acknowledgements carry heads rather
 than echoes, which keeps the Admins policy commit at about 3.5 KB (73 KB with
 echoed policies). Container mutations cite stored
@@ -262,9 +263,9 @@ sets these ceilings, which include private current-policy reads:
 | Operation | Request ceiling |
 | --- | ---: |
 | Create folder | 3 |
-| Link document | 3 |
-| Unlink document | 6 |
-| Trash document | 5 |
+| Link document | 2 |
+| Unlink document | 5 |
+| Trash document | 4 |
 | Trash folder | 10 |
 | Restore folder | 11 |
 

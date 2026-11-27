@@ -61,9 +61,11 @@ result still passes the frame allowlist.
 Cron maintenance runs in the same admitted bundle.
 This preserves diagnostic locations without enabling automatic integrations.
 The transport validates the vocabulary again. None of these API fields apply
-to client and desktop collection (`privacy=allowlist-v2`), whose only
+to client and desktop error collection (`privacy=allowlist-v2`), whose only
 server-derived field is the API build number the client last heard from
-(`api_version`).
+(`api_version`); client-side API network failure events use a separate
+`privacy=network-allowlist-v1` allowlist
+([API network failures](api-network-failures.md#reporting-to-sentry)).
 
 The hourly deduplication includes these safe fields and locations, so unrelated
 operations or recognized error codes do not collapse into one frameless error.
@@ -88,15 +90,17 @@ signal. They are fire-and-forget: reporting cannot change the response, and the
 committed write stays committed. Process and native crashes remain outside this
 integration.
 
-The [blob-GC](../attachment-retention.md#operations) and
-[billing maintenance](revenuecat-billing.md#billing-maintenance-worker) runs,
+The hourly [blob-GC](../attachment-retention.md#operations) (`blob.maintenance`)
+and expired [rotation-baseline stage](../document-rotation-baselines.md) cleanup
+(`document.maintenance`) phases, together with the per-minute
+[billing maintenance](revenuecat-billing.md#billing-maintenance-worker) runs
 scheduled by the Worker's Cron Triggers, use the same diagnostics configuration
-and report their own swallowed maintenance failures: blob reclamation reports
-the aggregate carrying every per-object failure, and each billing phase reports
-independently so one failure does not hide the others. Per-item failures, which
-the sweeps count and drop rather than raise, report too; free-trial expiry
-reports at the attention threshold its backoff already defines rather than on
-every retryable attempt. An aggregate reports a bounded number of its
+and report their own swallowed maintenance failures independently so one phase
+does not hide the others: blob reclamation reports the aggregate carrying every
+per-object failure, and each billing phase reports on its own. Per-item
+failures, which the sweeps count and drop rather than raise, report too;
+free-trial expiry reports at the attention threshold its backoff already defines
+rather than on every retryable attempt. An aggregate reports a bounded number of
 constituents rather than itself, because its own stack is its construction site
 and each constituent needs its own cause chain. Maintenance drains pending
 reports before its scheduled event completes. HTTP requests use `waitUntil` to
