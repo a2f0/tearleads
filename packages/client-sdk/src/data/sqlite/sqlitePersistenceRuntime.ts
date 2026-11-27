@@ -137,7 +137,8 @@ function closeCommitCallbackScope(
 /**
  * Run `callback` once the SQLite scope's enclosing transaction commits (or
  * immediately when `tx` runs outside an open transaction). Rolled-back
- * transactions and savepoints discard their registered callbacks.
+ * transactions and savepoints discard their registered callbacks. Callbacks
+ * must be synchronous and non-throwing.
  */
 export function afterClientSQLiteScopeCommit(
   tx: object,
