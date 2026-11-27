@@ -245,6 +245,18 @@ async function sweepContainerBatch(input: {
   });
 }
 
+function pickSweepError(
+  host: ReconciliationHost,
+  current: unknown,
+  candidate: unknown,
+  candidateIsBusy: boolean,
+): unknown {
+  if (current === undefined) return candidate;
+  return host.isBusyError?.(current) === true && !candidateIsBusy
+    ? candidate
+    : current;
+}
+
 /**
  * Acknowledges the force of each container a batch reconciled, and keeps one
  * for each it failed, to be retried.
@@ -266,17 +278,27 @@ function settleBatchForces(input: {
     const forceGeneration = input.forceGenerations.get(result.containerId);
     if (result.status === "reconciled") {
       acknowledgeContainerForce(state, result.containerId, forceGeneration);
-    } else if (result.status === "failed") {
-      const failedForce = failedContainerForce(
-        state,
-        result.containerId,
-        forceGeneration,
-        input.listsEveryContainer,
-      );
-      if (failedForce) failedForces.push(failedForce);
-      if (!host.isIgnorableError(result.error) && firstError === undefined) {
-        firstError = result.error;
-      }
+      continue;
+    }
+    if (result.status !== "failed") continue;
+    const busy = host.isBusyError?.(result.error) === true;
+    const failedForce = failedContainerForce(
+      state,
+      result.containerId,
+      forceGeneration,
+      input.listsEveryContainer,
+    );
+    if (busy) {
+      failedForces.push({
+        busy: true,
+        containerId: result.containerId,
+        forceGeneration: failedForce?.forceGeneration,
+      });
+    } else if (failedForce) {
+      failedForces.push(failedForce);
+    }
+    if (!host.isIgnorableError(result.error)) {
+      firstError = pickSweepError(host, firstError, result.error, busy);
     }
   }
   return { failedForces, firstError };
@@ -393,7 +415,14 @@ export async function sweepKnownContainers(input: {
     });
     if (!batch) return;
     failedForces.push(...batch.failedForces);
-    if (firstError === undefined) firstError = batch.firstError;
+    if (batch.firstError !== undefined) {
+      firstError = pickSweepError(
+        host,
+        firstError,
+        batch.firstError,
+        host.isBusyError?.(batch.firstError) === true,
+      );
+    }
   }
   rearmFailedSweepContainers(state, failedForces, lifecycleGeneration);
   if (firstError !== undefined && !input.stop?.aborted) {

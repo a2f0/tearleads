@@ -26,6 +26,7 @@ import { beginUploadLane } from "./uploadLane";
 // Re-exported here because lanes reach it as a shouldIgnoreError alongside the
 // rest of the coordinator surface; it lives beside this coordinator with the
 // error type it discriminates on.
+export { classifyDatabaseFailure } from "../sqlite/availability/databaseBusyRetry";
 export { isDatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
 export type { SyncIdleOptions } from "./coordinatorPump";
 export type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";

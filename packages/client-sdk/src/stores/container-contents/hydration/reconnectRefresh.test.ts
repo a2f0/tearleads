@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { ReconnectRefresh } from "./reconnectRefresh";
 
 test("a shared manual refusal rejects while the reconnect schedules a retry", async () => {
@@ -129,4 +130,36 @@ test("the crawl's observer is told when it is owed and how each attempt settles"
   expect(reports.at(-1)).toBe("owed");
   owing.reset("disposed");
   expect(reports.slice(4)).toEqual(["owed", "incomplete"]);
+});
+
+test("a crawl rejected as busy schedules a retry instead of deferring", async () => {
+  const recovery = new ReconnectRefresh(true);
+  const completed = Promise.withResolvers<void>();
+  let attempts = 0;
+  try {
+    recovery.runWhenReady(
+      () => true,
+      async ({ reconnect }) => {
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Error("Failed query", {
+            cause: new Error(DATABASE_TRANSACTION_BUSY_MESSAGE),
+          });
+        }
+        reconnect.record("complete");
+        completed.resolve();
+        return true;
+      },
+    );
+    await Promise.race([
+      completed.promise,
+      Bun.sleep(1_800).then(() => {
+        throw new Error("Reconnect deferred instead of retrying busy refusal");
+      }),
+    ]);
+    expect(attempts).toBe(2);
+    expect(recovery.owesCrawl).toBe(false);
+  } finally {
+    recovery.reset("disposed");
+  }
 });

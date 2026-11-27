@@ -25,6 +25,13 @@ interface BootstrapFixtureOptions {
   readonly busyRefusals?: number;
   /** Whether setup waits for the bootstrap's container query. */
   readonly awaitQuery?: boolean;
+  readonly onBootstrap?: (
+    attempt: number,
+    isCurrent: (() => boolean) | undefined,
+    runDefault: () => ReturnType<
+      Tearleads["session"]["bootstrapLocalRootContainer"]
+    >,
+  ) => ReturnType<Tearleads["session"]["bootstrapLocalRootContainer"]>;
   readonly strictMode?: boolean;
 }
 
@@ -32,6 +39,7 @@ async function createBootstrapFixture({
   authenticated = false,
   busyRefusals: refusals = 0,
   awaitQuery = true,
+  onBootstrap,
   strictMode = false,
 }: BootstrapFixtureOptions = {}) {
   let busyRefusals = refusals;
@@ -80,15 +88,22 @@ async function createBootstrapFixture({
   const bootstrap = tearleads.session.bootstrapLocalRootContainer.bind(
     tearleads.session,
   );
+  let bootstrapAttempt = 0;
   const spies = [
     spyOn(tearleads.session, "bootstrapLocalRootContainer").mockImplementation(
-      async () => {
+      async (isCurrent) => {
+        bootstrapAttempt += 1;
+        if (onBootstrap) {
+          return await onBootstrap(bootstrapAttempt, isCurrent, () =>
+            bootstrap(isCurrent),
+          );
+        }
         if (busyRefusals > 0) {
           busyRefusals -= 1;
           throw new Error(DATABASE_TRANSACTION_BUSY_MESSAGE);
         }
         try {
-          return await bootstrap();
+          return await bootstrap(isCurrent);
         } finally {
           settled.resolve();
         }
@@ -308,6 +323,48 @@ test("a busy root bootstrap stops once a root container exists", async () => {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 1_500)));
     expect(fixture.bootstrapCalls()).toBe(callsWhenKnown);
     expect(fixture.tearleads.session.containerId).toBe("root-from-elsewhere");
+  } finally {
+    fixture.releaseQuery();
+    fixture.close();
+  }
+});
+
+test("a run stopped by a brief lapse restarts when wanted again instead of failing idle", async () => {
+  const firstStarted = createDeferred();
+  const checkDuringLapse = createDeferred();
+  const rejectAfterWanted = createDeferred();
+  const fixture = await createBootstrapFixture({
+    awaitQuery: false,
+    onBootstrap: async (attempt, isCurrent, runDefault) => {
+      if (attempt === 1) {
+        firstStarted.resolve();
+        await checkDuringLapse.promise;
+        const stillCurrent = isCurrent?.();
+        await rejectAfterWanted.promise;
+        if (!stillCurrent) {
+          throw new Error("superseded during lapse");
+        }
+      }
+      return runDefault();
+    },
+  });
+  try {
+    await firstStarted.promise;
+    // Brief lapse: root container appears, run observes !isCurrent(), then
+    // root container clears again before the first run rejects.
+    act(() => fixture.tearleads.session.setContainerId("temporary"));
+    checkDuringLapse.resolve();
+    await Promise.resolve();
+    act(() => fixture.tearleads.session.setContainerId(null));
+    fixture.releaseQuery();
+    await act(async () => {
+      rejectAfterWanted.resolve();
+    });
+    await waitFor(() =>
+      expect(fixture.tearleads.session.containerId).not.toBeNull(),
+    );
+    expect(fixture.bootstrapCalls()).toBe(2);
+    expect(fixture.logError).not.toHaveBeenCalled();
   } finally {
     fixture.releaseQuery();
     fixture.close();

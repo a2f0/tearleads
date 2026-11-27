@@ -17,6 +17,7 @@ export type SystemBootstrapStatus =
 export type SystemBootstrapRunTag = object;
 
 interface SystemBootstrapAttempt {
+  readonly busyRetryPending?: boolean | undefined;
   readonly run: SystemBootstrapRunTag;
   readonly wakePending: boolean;
 }
@@ -58,6 +59,9 @@ export type SystemBootstrapEvent =
   | { readonly type: "run-succeeded"; readonly run: SystemBootstrapRunTag }
   /** The run finished without provisioning everything (e.g. no self contact). */
   | { readonly type: "run-incomplete"; readonly run: SystemBootstrapRunTag }
+  /** SQLite stayed busy behind another tab's transaction: pause, then retry. */
+  | { readonly type: "run-busy"; readonly run: SystemBootstrapRunTag }
+  | { readonly type: "busy-pause-ended"; readonly run: SystemBootstrapRunTag }
   | { readonly type: "contacts-persisted"; readonly run: SystemBootstrapRunTag }
   | { readonly type: "wake-consumed"; readonly run: SystemBootstrapRunTag }
   | {
@@ -150,7 +154,7 @@ function persistContacts(
   if (!attempt || attempt.run !== run || attempt.wakePending) return state;
   return state.status === "running"
     ? { ...state, wakePending: true }
-    : { ...state, attempt: { run, wakePending: true } };
+    : { ...state, attempt: { ...attempt, wakePending: true } };
 }
 
 function consumeWake(
@@ -160,7 +164,41 @@ function consumeWake(
   return state.status === "waiting" &&
     state.attempt?.run === run &&
     state.attempt.wakePending
-    ? { ...state, attempt: { run, wakePending: false } }
+    ? {
+        ...state,
+        attempt: { run, wakePending: false },
+      }
+    : state;
+}
+
+function busyRun(
+  state: SystemBootstrapState,
+  run: SystemBootstrapRunTag,
+): SystemBootstrapState {
+  return isCurrentRun(state, run)
+    ? {
+        attempt: {
+          busyRetryPending: true,
+          run,
+          wakePending: state.wakePending,
+        },
+        hasCompleted: state.hasCompleted,
+        status: "waiting",
+      }
+    : state;
+}
+
+function endBusyPause(
+  state: SystemBootstrapState,
+  run: SystemBootstrapRunTag,
+): SystemBootstrapState {
+  return state.status === "waiting" &&
+    state.attempt?.run === run &&
+    state.attempt.busyRetryPending
+    ? {
+        ...state,
+        attempt: { ...state.attempt, busyRetryPending: false },
+      }
     : state;
 }
 
@@ -201,6 +239,10 @@ export function transitionSystemBootstrap(
       return isCurrentRun(state, event.run) ? { status: "ready" } : state;
     case "run-incomplete":
       return incompleteRun(state, event.run);
+    case "run-busy":
+      return busyRun(state, event.run);
+    case "busy-pause-ended":
+      return endBusyPause(state, event.run);
     case "contacts-persisted":
       return persistContacts(state, event.run);
     case "wake-consumed":
