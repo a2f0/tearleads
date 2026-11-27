@@ -12,7 +12,7 @@ export function createSdkHost(
   client: ExecSqlClientLike,
   options: Pick<
     TearleadsOptions,
-    "apiRequestMetrics" | "principalHistoryKeyProvider"
+    "apiRequestMetrics" | "identityTrustDomain" | "principalHistoryKeyProvider"
   > = {},
 ) {
   return new Tearleads({

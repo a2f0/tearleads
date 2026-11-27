@@ -12,6 +12,7 @@ export interface InProcessProbeContext {
   readonly api: InProcessApi;
   /** The local database's name, from `DATABASE_URL`. */
   readonly database: string;
+  readonly runId: string;
   readonly traffic: () => PostgresTraffic;
   /** Rewrites the report with the results so far. */
   readonly progress: () => Promise<void>;
@@ -145,6 +146,7 @@ export async function runInProcessProbe(
     await input.run({
       api,
       database,
+      runId,
       traffic: proxy.snapshot,
       progress: async () => {
         await save("running");
