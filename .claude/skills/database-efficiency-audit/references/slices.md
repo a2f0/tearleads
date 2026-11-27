@@ -17,7 +17,7 @@ it.
 | `api-write-transactions` | `services/documents`, `workflows/documents`, `workflows/containers/mutations`, `services/blobs`, `workflows/blobs` (not `gc`), `access/write`, principal policy commits in `workflows/principals` |
 | `api-listings-and-sync-reads` | `services/containers` listing and paging, document sync pull and pagination in `services/documents`, `workflows/organizations/readModel*`, principal history pages, data usage |
 | `api-background` | `workflows/blobs/gc`, `packages/api/scripts/blobGc.ts`, stage and session cleanup, retention and purge sweeps |
-| `api-indexes` | every API index on both dialects, collating the other API slices |
+| `api-indexes` | every API PostgreSQL index, collating the other API slices |
 | `client-sync-persistence` | `data/sync`, `data/documents`, `data/containers`, `data/blobs`, `workflows/container-contents`, `sync/`, the `local_intents` outbox |
 | `client-principal-and-keying` | `data/principals`, `data/persistence`, `data/keyingProjectionVerification`, principal history stages, nodes, evidence, and retention |
 | `client-indexes` | every client index and the schema ensure path, collating the other client slices |
@@ -85,19 +85,20 @@ it.
   data usage: statements per page and how they scale with page size.
 - Per-row access checks inside a listing (`resolveReadableContainerAccessBatch`
   exists; find callers that still check one container at a time).
-- `ORDER BY` and cursor predicates that no index serves on one dialect.
+- `ORDER BY` and cursor predicates that no PostgreSQL index serves.
 
 ## `api-background`
 
 - Blob GC, stage cleanup, session expiry, and retention sweeps: scans of
   growing tables, batch sizes, and per-row statements inside a sweep.
-- Whether each sweep's predicate has an index on both dialects.
+- Whether each sweep's predicate has a supporting PostgreSQL index.
 
 ## `api-indexes`
 
-- Inventory every API index on both dialects. For each: the queries that
-  use it, uniqueness and constraint role, write paths that maintain it, and
-  dialect parity.
+- Inventory every API PostgreSQL index across `packages/api-shared/drizzle/`
+  (start from `bun run perf:inventory` for left-prefix duplicates and
+  `bun run perf:plans` for generic-plan warnings). For each: the queries that
+  use it, uniqueness and constraint role, and write paths that maintain it.
 - Evaluate every live PlanetScale recommendation under the rules in
   `planetscale.md`. The 23 live `duplicate_index` left-prefix cases of
   2026-10-15 were dropped by #2546.

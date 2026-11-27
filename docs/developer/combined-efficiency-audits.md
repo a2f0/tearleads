@@ -19,16 +19,42 @@ gates, rules, batching limits, and
    Electrobun devkit prepare step, and the client SDK build. Neither audit
    installs, rebuilds, edits, or removes that checkout.
 2. Run the request-volume canaries once for both audits, from the shared
-   checkout, with `bun run perf:canaries --statements --param-hash`. Each
-   canary's log holds the request profile the protocol audit reads and its
-   capture the statements the database audit reads. The parameter hashes
-   let either audit tell a repeated key from a different one; they stay in
+   checkout, with
+   `bun run perf:canaries --statements --param-hash --client-statements --payload-audit`.
+   Each canary's log holds the request profile, WebSocket hint metrics, and
+   ceiling-drift markers; its captures hold the API statements (with route,
+   transaction, and lock-hold attribution), client SQLite statements and
+   mutation-lock holds, and per-pane payload/echo/redelivery breakdown. The
+   parameter hashes let either audit split repeated statements into pure read
+   repeats, read-after-write repeats, and different-key reads; they stay in
    the checkout's private `.test_files/performance/` and the audits'
    measurement directories.
-3. Give each audit its own audit directory, run ID, usage ledger, scratch
+3. Run `bun run perf:inventory --canaries <canary-report.json>` once for both
+   audits to capture the static Postgres/SQLite/OpenAPI/canary-ceiling
+   compactness census alongside the runtime baseline.
+4. Give each audit its own audit directory, run ID, usage ledger, scratch
    directories, and scratch databases. Share only the checkout, the canary
-   output, and a lock for heavy runs (canaries, multi-file test runs), so the
-   two audits do not skew each other's timings.
+   and inventory outputs, and a lock for heavy runs (canaries, multi-file
+   test runs), so the two audits do not skew each other's timings.
+
+## Compactness scorecard
+
+Include this single-table scorecard at the top of combined baselines and
+before/after summaries so schema, wire, API statement, and client SQLite
+compactness move together:
+
+| Dimension | Source | Baseline | Target / After |
+| --- | --- | ---: | ---: |
+| API Postgres tables / columns / indexes | `perf:inventory` | | |
+| Client SQLite tables / columns / indexes | `perf:inventory` | | |
+| OpenAPI operations / unread 2xx fields | `perf:inventory` | | |
+| Canary requests (sum across scenarios) | `perf:canaries` | | |
+| Canary wire bytes (req / res) | `perf:canaries` | | |
+| Echoed + redelivered + re-downloaded response % | `perf:canaries --payload-audit` | | |
+| API statements (total / in-tx / pure repeats) | `perf:canaries --statements --param-hash` | | |
+| Client SQLite statements / max mutation-lock hold ms | `perf:canaries --client-statements` | | |
+| Reload requests / API stmts / SQLite stmts (N docs) | `perf:reload` | | |
+| Postgres generic-plan warnings (`Seq Scan`/`Sort`) | `perf:plans` | | |
 
 ## Hand-off rule
 

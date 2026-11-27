@@ -19,11 +19,12 @@ makes a proposal Measured.
 | Task | Measures | Use in this audit |
 | --- | --- | --- |
 | `bun run perf:provision` | Requests, phase times, and server timing for one fresh account's registration and login on a deployed tier; with `--cloudflare`, statements per request | `bootstrap-and-session`: deployed request count and server cost of registration |
-| `bun run perf:seed` | One account seeded through the CLI, then recovered by a second process with empty stores, on a deployed tier | `bootstrap-and-session` and `discovery-and-hints`: how long a full recovery takes. It reports phase times, not request counts |
-| `bun run perf:canaries` | Requests and body bytes per phase and endpoint for every app request-volume canary | Every slice: the [request and byte baseline](#request-and-byte-baselines) |
+| `bun run perf:seed` | One account seeded through the CLI, then recovered by a second process with empty stores, on a deployed tier; saves a structured JSON report and accepts `--cloudflare` for correlated `api.request.cost` logs | `bootstrap-and-session` and `discovery-and-hints`: how long a full recovery takes and, with `--cloudflare`, per-route statements and payload sizes |
+| `bun run perf:canaries` | Requests, body bytes, WebSocket hint frames, and ceiling headroom per phase and endpoint for every app request-volume canary; `--payload-audit` adds pane/field/echo/redelivery/head-reread attribution and `--stacks` adds issuer stacks | Every slice: the [request and byte baseline](#request-and-byte-baselines) |
 | `bun run perf:realtime` | Statements, rows, bytes, CPU, and memory per `known_containers` declaration and revalidation pass, by tree size, against a local database | `discovery-and-hints` and `bootstrap-and-session`: what interest declaration costs the hub per declared container |
 | `bun run perf:realtime-contention` | How long other sockets' hints wait while those passes run | `discovery-and-hints` and `bootstrap-and-session`: whether a declaration or revalidation change shortens the hub's stalls |
-| `bun run perf:reload` | Requests by route, settle time, PostgreSQL traffic, and local SQLite statements for a returning client's reload, by account size, against a local database | `bootstrap-and-session` and `discovery-and-hints`: which of a reload's requests still grow with the account, at sizes the restart canary does not reach |
+| `bun run perf:reload` | Requests by route, settle time, PostgreSQL traffic, and local SQLite statements/plans for a returning client's reload, by account size, against a local database; supports `--ack-delay-ms` and `--peer-edits` | `bootstrap-and-session` and `discovery-and-hints`: which of a reload's requests still grow with the account, under delayed acks or peer edits, at sizes the restart canary does not reach |
+| `bun run perf:inventory` | Static census of API Postgres tables/columns/indexes, client SQLite tables/columns/indexes, OpenAPI operations and unreferenced 2xx response fields, and canary budget ceilings/drift | `api-schema`, `local-schema`, and every slice: one-command baseline inventory and zero-reader leads |
 | `bun run perf:database` | One warm driver exchange through Hyperdrive, against the same statements batched | Turning statements per request into production latency |
 
 `perf:canaries`, `perf:reload`, and the realtime probes are local. They
@@ -69,9 +70,11 @@ Run them once per audited revision, in the background, from the measured
 checkout:
 
 ```sh
-bun run perf:canaries                               # every canary, once
-bun run perf:canaries --canary Sharing --samples 3  # ranges for bytes
-bun run perf:canaries --baseline <report.json>      # and the changes
+bun run perf:canaries                                     # every canary, once
+bun run perf:canaries --payload-audit                     # + pane/field/echo/redelivery/head-reread audit
+bun run perf:canaries --canary Sharing --payload-audit --stacks
+bun run perf:canaries --canary Sharing --samples 3        # ranges for bytes
+bun run perf:canaries --baseline <report.json>            # and the changes
 bun run perf:canaries --compare <before.json> <after.json>
 ```
 
@@ -81,11 +84,14 @@ report paths resolve from the repository root. All nine took 236 seconds on
 [results index](../../../../packages/performance/results/README.md), so a
 baseline compared with it shows what changed since. The command exits
 non-zero unless every run passed and printed a profile, and the report names
-each canary that failed, timed out, or printed none. Copy the report's JSON,
+each canary that failed, timed out, or printed none. Every run now also
+records delivered WebSocket hint frames per phase (`ws`) and asserted
+budget ceilings beside measured totals (`budget`), flagging ceiling drift
+automatically in the Markdown report. Copy the report's JSON,
 Markdown, and log directory into `measurements/`, and the per-endpoint
 tables into `measurements/baseline.md`; the issue reproduces them. When the
 database audit runs at the same revision, run the canaries once for both with
-`--statements --param-hash`, as the
+`--statements --param-hash --client-statements --payload-audit`, as the
 [combined audits guide](../../../../docs/developer/combined-efficiency-audits.md)
 describes.
 
@@ -112,64 +118,44 @@ were signatures (about 6.2 KB each), not repeated fields.
 
 ## Pane and field attribution
 
-The recorder already keeps every proxied request with its URL, method,
-status, authorization header, and full request and response bodies:
-`listProxiedApiRequests()` in `packages/app/test/helpers/msw/server.ts`. A
-preload outside the checkout can read them without changing repository code.
-Wrap `console.info` as `packages/performance/src/statements/capturePreload.ts`
-does; at each
-`[dual-pane-request-metrics]` line, take the last `total` requests from
-`listProxiedApiRequests()` (import it by absolute path) and append one JSON
-line per request to a file named by an environment variable, with:
-
-- the phase label, the pane as a short hash of the authorization header
-  (never the header itself), method, path, query, status, and body bytes;
-- the byte size of each top-level field of the request and response body;
-- for policy reads, the version and state hash the response carries, so a
-  re-read of a head the same pane already holds is visible;
-- per response field, the bytes of strings of 64 or more characters that the
-  same request sent (an echo) or that the same pane already received earlier
-  (a redelivery).
-
-Track requests by their index in the recorder list and process each once:
-some canaries print an overall window (the sharing canary's `test total`)
-that overlaps earlier phases, and counting it again would report every
-response in it as a redelivery. Reset that index and the per-pane history in
-a `beforeEach`: `resetMockServer()` clears the recorder between tests, so
-indexes restart in each test.
-
-Run it like the profile, from `packages/app`:
+Use the built-in payload audit instead of writing an external dump preload:
 
 ```sh
-DUAL_PANE_REQUEST_PROFILE=1 REQUEST_DUMP_OUT=<file> bun test \
-  --preload ./happydom.ts --preload <dump.ts> <canary file>
+bun run perf:canaries --payload-audit
+bun run perf:canaries --canary Sharing --payload-audit --stacks
 ```
 
-On 2026-10-30 this made three proposals Measured, settled which repeats were
-per pane, and refuted a candidate cheaply. Keep the dumps in the audit
-directory: they hold request bodies, so the issue carries only sizes and
-counts.
+`packages/performance/src/canaries/payloadAuditPreload.ts` reads every
+proxied request from `listProxiedApiRequests()` once per phase (deduplicating
+overlapping windows such as `test total` and resetting per test) and saves a
+private JSONL trace beside the canary log plus an aggregated summary in the
+canary report, with:
 
-The redelivery measure sees strings a pane received, not strings it sent.
-Bytes a pane uploads in one request and downloads again later (its own
-bundles and KEK levels) need the dump to record request bodies per pane as
-well, and the `x-known-manifests` header, which the recorder does not keep.
+- the phase label, the pane as a per-run HMAC of the authorization header
+  (never the header itself), method, path, query, status, body bytes, and the
+  `x-known-manifests` citation header count;
+- the byte size of each top-level field of the request and response body;
+- for policy reads, the version and state hash the response carries, so an
+  exact-head re-read by the same pane is counted explicitly;
+- per response field, bytes of strings of 64 or more characters that the same
+  request sent (echo), that the same pane already received earlier
+  (redelivery), or that the same pane uploaded in an earlier request and
+  downloaded again later (re-downloaded upload);
+- with `--stacks`, filtered `fetch` issuer call stacks for every request so
+  attribution is pinned by caller rather than log ordering.
 
-## Issuer stacks and suppression
+Keep the raw JSONL traces in the private audit directory: they carry per-run
+hashes and field sizes, while the published issue carries only aggregated
+sizes, counts, and caller summaries.
 
-Pin the issuer of a request with a stack, not by its position in the log. A
-preload that wraps `globalThis.fetch` and appends the filtered call stack of
-each matching request to a file corrected three attributions that had been
-inferred from ordering on 2026-11-10. Install the wrapper again in a
-`beforeEach`, because test setup replaces `fetch`, and raise
-`Error.stackTraceLimit`.
+## Suppression probes
 
 Measure a removal by suppression where an existing option cannot disable
-the request class: a preload that drops one class of realtime frame, or
-answers one request class from what the pane already holds, and re-runs the
-canary gives a before and after (folder to Trash 10 to 5) where a trace
-gives an estimate. The canary's own assertions must still pass: a
-suppression that breaks convergence measured nothing.
+the request class: a preload outside the checkout that drops one class of
+realtime frame, or answers one request class from what the pane already holds,
+and re-runs the canary gives a before and after (folder to Trash 10 to 5)
+where a trace gives an estimate. The canary's own assertions must still pass:
+a suppression that breaks convergence measured nothing.
 
 ## Statements per request
 
@@ -185,17 +171,26 @@ it was taken at.
 
 ## Inventories
 
-Take these once per revision and save the outputs:
+Run `bun run perf:inventory [--canaries <canary-report.json>]` once per
+revision and copy its saved JSON and Markdown reports from
+`.test_files/performance/` into `measurements/`. It automates:
 
-- Routes: operations in `docs/openapi.json` by method and path.
-- API tables: `CREATE TABLE` statements in
-  `packages/api-shared/drizzle/0000_greenfield_baseline.sql`.
-- SDK tables: the string argument following each `sqliteTable(` call under
-  `packages/client-sdk/src/data/sqlite`, excluding test files.
-- Mechanisms: position markers (cursor, watermark, commit LSN, version
-  vector, lane check, discovery sequence), idempotency receipts, tombstone
-  tables, intent tables, checkpoint tables, and audit ledgers, each with the
-  tables and routes that implement it. Count distinct mechanisms per job.
+- Routes: operations in `docs/openapi.json` by method and path, plus
+  unreferenced 2xx JSON response field leads in client/app/cli production
+  source.
+- API tables, columns, and indexes: replayed in migration order across all
+  SQL files in `packages/api-shared/drizzle/` (mapped to Drizzle schema
+  symbols in `packages/api-shared/src/schema` and `packages/loro/src/server`).
+- Client SQLite tables, columns, and indexes: `sqliteTable(` definitions
+  under `packages/client-sdk/src/data/sqlite/schema` and
+  `packages/app/src/document-projectors`.
+- Canary budget ceilings and, with `--canaries`, measured-vs-ceiling drift.
+
+Supplement the automated census with a manual **Mechanisms** tally: position
+markers (cursor, watermark, commit LSN, version vector, lane check, discovery
+sequence), idempotency receipts, tombstone tables, intent tables, checkpoint
+tables, and audit ledgers, each with the tables and routes that implement it.
+Count distinct mechanisms per job.
 
 ## Reader and writer census
 
