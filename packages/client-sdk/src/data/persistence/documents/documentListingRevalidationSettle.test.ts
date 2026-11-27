@@ -135,6 +135,23 @@ test("a pull settles nothing for another record", async () => {
   ]);
 });
 
+test("a record pointed at another document pays nothing of the one it owed", async () => {
+  const localId = await holdListedRecord(execSql, {
+    cursor: { count: 3 },
+    documentId: DOCUMENT_ID,
+  });
+  const owed = await owe(listed(4), localId);
+  // A relink pointed the record at another server document, whose pull then
+  // counted as many updates as the listing showed for this one.
+  await execSql("UPDATE documents SET document_id = 'another-document'");
+  await saveHeldCursor(execSql, localId, {
+    cursor: { count: 4 },
+    documentId: "another-document",
+  });
+
+  expect(await repository.settle(owed, JUDGE)).toBe(false);
+});
+
 test("a pull that counted fewer updates than the listing settles nothing", async () => {
   const localId = await holdListedRecord(execSql, {
     cursor: { count: 2 },

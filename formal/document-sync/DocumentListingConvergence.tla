@@ -14,7 +14,7 @@
 (* count and head, before the row is applied (which drops a bundle of an  *)
 (* older head) and before the watermark passes it. A read clears the      *)
 (* signal only if no newer one arrived, and settles the debt only if its  *)
-(* cursor covers the owed count and the bundle it saves the owed head; a  *)
+(* cursor covers the owed count and the head it saves the owed head; a   *)
 (* lagging replica can serve an older count and an older head. A crash    *)
 (* keeps only the watermark, the debt, the cursor, the copy and the       *)
 (* bundle. DocumentListingConvergence.md maps it to production.            *)

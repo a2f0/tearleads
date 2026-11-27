@@ -10,8 +10,8 @@
  * (`oweListedDocumentReads`). A debt belongs to the record, so two records of
  * one document each owe and pay their own. A store reads its record's debt
  * when it loads and before each remote pull, and settles it only once the
- * cursor its completed pull saved covers the advertised count and the key
- * bundle it saved carries the advertised head or a later one: a replica that
+ * cursor its completed pull saved covers the advertised count and the
+ * manifest it saved is the advertised head or a later one: a replica that
  * lags the listing can answer without the edit or the head, and that debt
  * then waits for a later pull.
  */
@@ -143,9 +143,9 @@ export function isDocumentProcessedCursorWithheld(
 /**
  * Settles the debt a completed pull observed before its request, if the
  * record that owes it now pays it, as its record and cursor stand on disk:
- * its processed cursor covers the count the listing advertised, and its key
- * bundle carries the head the listing showed or a later one. Returns whether
- * the debt is settled.
+ * its processed cursor covers the count the listing advertised, and the
+ * manifest its last pull saved is the head the listing showed or a later
+ * one. Returns whether the debt is settled.
  */
 export function settleCoveredDocumentListingRead(
   execSql: ExecSql,

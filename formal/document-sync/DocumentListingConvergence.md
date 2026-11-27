@@ -30,9 +30,9 @@ its bound. A listing whose count that cursor does not cover owes the document
 one read, in `document_listing_revalidations` at the listed count, before the
 watermark advances past the row. A registered store is then asked to read; a
 store that opens later reads the debt when its record loads. A read settles the
-debt only once the cursor its pull left covers the owed count and the bundle it
-saved carries the owed head or a later one, so a read served by a replica that
-lags the listing, in either, leaves the debt in place. A hint that names
+debt only once the cursor its pull left covers the owed count and the head it
+saved is the owed head or a later one, so a read served by a replica that lags
+the listing, in either, leaves the debt in place. A hint that names
 the document while no loaded store can take it is remembered until the store
 loads. A crash loses memory, the socket, the open store and in-flight work.
 The watermark, the durable debt, the cursor, the local copy and the record's

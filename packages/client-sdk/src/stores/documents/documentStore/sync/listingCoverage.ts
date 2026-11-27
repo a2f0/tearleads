@@ -202,8 +202,9 @@ async function settleWithheldCursorAfterPull(
 /**
  * Settles the debt a completed pull observed, once the record pays it: the
  * processed cursor the pull saved covers the count the listing advertised,
- * and the manifest it saved is the head the listing showed or a later one. A replica that lags the listing can answer without the edit or the
- * head: the debt then stays, the store asks for one later pull, and until it
+ * and the manifest it saved is the head the listing showed or a later one.
+ * A replica that lags the listing can answer without the edit or the head:
+ * the debt then stays, the store asks for one later pull, and until it
  * settles no listing covers the store.
  */
 async function settleOwedListingReadAfterPull(
