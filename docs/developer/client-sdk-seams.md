@@ -61,7 +61,7 @@ reference.
 | Document records | `DocumentRecordRepository(execSql, now)` | Built from the caller's executor (the locked handle inside a mutation) at each call | None |
 | Organization sync pauses | `OrganizationSyncPauseRepository(execSql)` and `getOrCreateOrganizationSyncPauses(domainScope)` | Repository built per call; one pause cache per domain scope | None |
 | Document lane revalidations | `DocumentLaneRevalidationRepository(execSql, now)` | Built from the caller's executor at each call | None |
-| Recorded attachment slots | `RecordedAttachmentSlotRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Recorded attachment slots | `RecordedAttachmentSlotRepository(execSql)` | Built from the caller's executor at each call | None |
 | Container tree catch-up | `getOrCreateTreeCatchUp(domainScope)` | One catch-up state per domain scope | None |
 
 ## Where code goes

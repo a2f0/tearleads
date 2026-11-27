@@ -54,8 +54,8 @@ Document write routes:
   - request shape: `DocumentLinkSetMutationRequest`
   - key fields: signed `event`, event `body`, `expectedManifestHash`,
     `targetContainerPathRefs`, `authorizingContainerPathRefs`, optional
-    `containerRekeys[]`, required `contentKeyBundle`, and optional
-    `rotationBaseline` or `baselineStageId`; the server resolves the predecessor
+    `containerRekeys[]`, `contentKeyBundle`, and on unlink `rotationBaseline`
+    (with optional `baselineStageId`); the server resolves the predecessor
   - response shape: `DocumentLinkSetMutationResponse`
 - `POST /documents/:documentId/sync`
   - syncs encrypted Loro updates against the current signed link-set manifest
