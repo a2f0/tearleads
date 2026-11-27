@@ -135,8 +135,8 @@ twin and the real proxied test API.
 The restart and unchanged reconnect use one pane with the `app` host profile
 and shared runtime policy. The peer-create case uses two panes with the `demo`
 profile, isolated runtimes and peer-sharing features enabled, but no demo
-identity seeding. These are distinct fixtures: the difference between 12 and
-18 is not a measured incremental cost of creating one folder.
+identity seeding. These are distinct fixtures: the difference between 9 and
+15 is not a measured incremental cost of creating one folder.
 
 The restart closes the SQLite connection, terminates its worker and disposes
 the SDK before mounting another instance with the persisted identity/session
@@ -170,9 +170,9 @@ be remeasured and documented when an optimization changes the baseline.
 | `GET /principals/group/:groupId/policy` | 0 | 0 | 0 | 0 |
 | `GET /principals/history` | 1 | 0 | 0 | 0 |
 | `GET /containers/:containerId/writer-projection` | 3 | 2 | 1 | 2 |
-| `GET /documents/:documentId/writer-projection` | 3 | 0 | 3 | 4 |
+| `GET /documents/:documentId/writer-projection` | 0 | 0 | 0 | 1 |
 | `POST /documents/:documentId/sync` (all read-only) | 3 | 2 | 2 | 3 |
-| **Total** | **19** | **11** | **12** | **18** |
+| **Total** | **16** | **11** | **9** | **15** |
 
 No note is synced in any column. A listing
 [covers each note](./document-listing-coverage.md): its row carries the
@@ -181,8 +181,12 @@ owes no read. The syncs that remain are system-container documents, which are
 pulled once per launch, and one probe for a document no listing names.
 
 The first restart is the first launch after the notes were created. Their
-lanes list the rows those creates published, and each listed row's head is
-verified with one document writer-projection read. The settled restart is
+lanes list the rows those creates published, and no listed row's head is read
+back: each is the head its create authored, which the create saved to the
+discovery head cache once the server's acknowledgement matched it, as
+provisioning does for the documents it seeds. The reconnects list those rows
+too and read none of their heads; the peer case reads one head, of a document
+the peer created. The settled restart is
 every launch after that: the tree crawl is served no folder's row, so the
 catch-up after the acknowledgement lists no document lane at all, and the cost
 is the same with two notes and with eight, which the canary runs at both

@@ -17,7 +17,8 @@
 (* cursor covers the owed count and the head it saves the owed head; a   *)
 (* lagging replica can serve an older count and an older head. A crash    *)
 (* keeps only the watermark, the debt, the cursor, the copy and the       *)
-(* bundle. DocumentListingConvergence.md maps it to production.            *)
+(* bundle. A probe listing from no watermark owes reads once a launch.     *)
+(* DocumentListingConvergence.md maps it to production.                   *)
 (***************************************************************************)
 EXTENDS Naturals
 
@@ -43,7 +44,11 @@ CONSTANTS MaxEdits,
   \* Production reads the durable debt when the document's store opens.
   RestoreOnOpen,
   \* Production re-lists after every acknowledged connection.
-  RelistOnAcknowledge
+  RelistOnAcknowledge,
+  \* The launch probe runs; its own configuration checks it at lower bounds.
+  LaunchProbe,
+  \* Production asks an open store to read a debt its launch probe owed.
+  ProbeAsksOpenStore
 
 ASSUME /\ MaxEdits \in Nat /\ MaxTouches \in Nat /\ MaxRestarts \in Nat
        /\ MaxHeadMoves \in Nat
@@ -56,6 +61,7 @@ ASSUME /\ MaxEdits \in Nat /\ MaxTouches \in Nat /\ MaxRestarts \in Nat
        /\ RememberClosedStoreHint \in BOOLEAN
        /\ RestoreOnOpen \in BOOLEAN
        /\ RelistOnAcknowledge \in BOOLEAN
+       /\ LaunchProbe \in BOOLEAN /\ ProbeAsksOpenStore \in BOOLEAN
 
 VARIABLES
   remoteVer,     \* how many updates the server holds for the document
@@ -84,14 +90,15 @@ VARIABLES
   localVer,      \* durable: the count the processed cursor covers
   heldHead,      \* durable: the head the device's access context was read at
   bundleHeld,    \* durable: the record still holds that context's key bundle
-  reading, readVer, readSeq, readHead
+  reading, readVer, readSeq, readHead,
+  probed         \* this launch's initial document probe has listed the lane
 
 vars == <<remoteVer, headMoves, watermark, listedOrder, edits, touches,
           restarts, disconnects, laggingReads, up, connected, open,
           missedHint, hintedVer, relistDue, listing, listedVer, listedHead,
           listBehind, listOwed, listApplied, listPassed, probeDue,
           owedDurable, owedVer, owedHead, seq, localVer, heldHead,
-          bundleHeld, reading, readVer, readSeq, readHead>>
+          bundleHeld, reading, readVer, readSeq, readHead, probed>>
 
 listingVars == <<listing, listedOrder, listedVer, listedHead, listBehind,
                  listOwed, listApplied, listPassed>>
@@ -102,8 +109,8 @@ headVars == <<headMoves, heldHead, bundleHeld>>
 debtVars == <<owedDurable, owedVer, owedHead>>
 
 MaxOrder == MaxEdits + MaxTouches + MaxHeadMoves
-MaxSeq == MaxEdits * 2 + MaxTouches + MaxHeadMoves * 2 + MaxRestarts * 2
-            + MaxDisconnects + 2
+MaxSeq == MaxEdits * 2 + MaxTouches + MaxHeadMoves * 2 + MaxRestarts * 3
+            + MaxDisconnects + 3
 
 \* The row's publication position: every write that touches it advances it.
 Order == remoteVer + touches + headMoves
@@ -124,7 +131,7 @@ TypeOK ==
   /\ listedHead \in 0..MaxHeadMoves /\ readHead \in 0..MaxHeadMoves
   /\ {up, connected, open, missedHint, relistDue, listing, listBehind,
       listOwed, listApplied, listPassed, probeDue, owedDurable, bundleHeld,
-      reading} \subseteq BOOLEAN
+      reading, probed} \subseteq BOOLEAN
 
 Init ==
   \* A create or a completed pull: the client holds every update.
@@ -140,6 +147,7 @@ Init ==
   /\ seq = 0
   /\ headMoves = 0 /\ heldHead = 0 /\ bundleHeld = TRUE
   /\ reading = FALSE /\ readVer = 0 /\ readSeq = 0 /\ readHead = 0
+  /\ probed = FALSE
 
 \* A peer's accepted write stores one update and hints connected clients. A
 \* registered store takes the hint; otherwise the client remembers it.
@@ -152,7 +160,7 @@ PeerEdit ==
        ELSE /\ UNCHANGED <<probeDue, seq>>
             /\ missedHint' =
                  (missedHint \/ (up /\ connected /\ RememberClosedStoreHint))
-  /\ UNCHANGED <<watermark, touches, restarts, disconnects, laggingReads, up,
+  /\ UNCHANGED <<probed, watermark, touches, restarts, disconnects, laggingReads, up,
                  connected, open, relistDue, listingVars, debtVars,
                  localVer, headVars, readVars>>
 
@@ -161,7 +169,7 @@ PeerEdit ==
 OtherTouch ==
   /\ touches < MaxTouches
   /\ touches' = touches + 1
-  /\ UNCHANGED <<remoteVer, watermark, edits, restarts, disconnects,
+  /\ UNCHANGED <<probed, remoteVer, watermark, edits, restarts, disconnects,
                  laggingReads, up, connected, storeVars, relistDue,
                  listingVars, debtVars, localVer, headVars,
                  readVars>>
@@ -171,20 +179,20 @@ OtherTouch ==
 HeadMove ==
   /\ headMoves < MaxHeadMoves
   /\ headMoves' = headMoves + 1
-  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, storeVars,
+  /\ UNCHANGED <<probed, remoteVer, watermark, boundVars, up, connected, storeVars,
                  relistDue, listingVars, debtVars, localVer,
                  heldHead, bundleHeld, readVars>>
 
 Acknowledge ==
   /\ up /\ ~connected
   /\ connected' = TRUE /\ relistDue' = RelistOnAcknowledge
-  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, storeVars, listingVars,
+  /\ UNCHANGED <<probed, remoteVer, watermark, boundVars, up, storeVars, listingVars,
                  debtVars, localVer, headVars, readVars>>
 
 Disconnect ==
   /\ connected /\ disconnects < MaxDisconnects
   /\ connected' = FALSE /\ disconnects' = disconnects + 1
-  /\ UNCHANGED <<remoteVer, watermark, edits, touches, restarts,
+  /\ UNCHANGED <<probed, remoteVer, watermark, edits, touches, restarts,
                  laggingReads, up, storeVars, relistDue, listingVars,
                  debtVars, localVer, headVars, readVars>>
 
@@ -199,7 +207,7 @@ BeginListing ==
             /\ listOwed' = FALSE /\ listApplied' = FALSE
             /\ listPassed' = FALSE
        ELSE UNCHANGED listingVars
-  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, storeVars,
+  /\ UNCHANGED <<probed, remoteVer, watermark, boundVars, up, connected, storeVars,
                  debtVars, localVer, headVars, readVars>>
 
 \* The debt is written first; a registered store is then asked to read.
@@ -213,7 +221,7 @@ OweListedRead ==
   /\ IF open
        THEN probeDue' = TRUE /\ seq' = seq + 1
        ELSE UNCHANGED <<probeDue, seq>>
-  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, open,
+  /\ UNCHANGED <<probed, remoteVer, watermark, boundVars, up, connected, open,
                  missedHint, hintedVer, relistDue, listing, listedOrder,
                  listedVer, listedHead, listBehind, listApplied, listPassed,
                  localVer, headVars, readVars>>
@@ -225,7 +233,7 @@ ApplyListedRow ==
   /\ ~OweBeforeApply \/ listOwed \/ ~ListedBehind
   /\ listApplied' = TRUE
   /\ bundleHeld' = (bundleHeld /\ ~(heldHead < listedHead))
-  /\ UNCHANGED <<remoteVer, headMoves, watermark, boundVars, up, connected,
+  /\ UNCHANGED <<probed, remoteVer, headMoves, watermark, boundVars, up, connected,
                  storeVars, relistDue, listing, listedOrder, listedVer,
                  listedHead, listBehind, listOwed, listPassed, debtVars,
                  localVer, heldHead, readVars>>
@@ -237,7 +245,7 @@ AdvanceWatermark ==
   /\ ~OweBeforeWatermark \/ listOwed \/ ~ListedBehind
   /\ watermark' = listedOrder
   /\ listPassed' = TRUE
-  /\ UNCHANGED <<remoteVer, boundVars, up, connected, storeVars, relistDue,
+  /\ UNCHANGED <<probed, remoteVer, boundVars, up, connected, storeVars, relistDue,
                  listing, listedOrder, listedVer, listedHead, listBehind,
                  listOwed, listApplied, debtVars, localVer,
                  headVars, readVars>>
@@ -246,7 +254,7 @@ FinishListing ==
   /\ listing /\ listApplied /\ listPassed /\ (listOwed \/ ~ListedBehind)
   /\ listing' = FALSE /\ listOwed' = FALSE /\ listApplied' = FALSE
   /\ listPassed' = FALSE
-  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, storeVars,
+  /\ UNCHANGED <<probed, remoteVer, watermark, boundVars, up, connected, storeVars,
                  relistDue, listedOrder, listedVer, listedHead, listBehind,
                  debtVars, localVer, headVars, readVars>>
 
@@ -259,7 +267,7 @@ OpenStore ==
   /\ IF missedHint \/ (RestoreOnOpen /\ owedDurable) \/ ~bundleHeld
        THEN probeDue' = TRUE /\ seq' = seq + 1
        ELSE UNCHANGED <<probeDue, seq>>
-  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, relistDue,
+  /\ UNCHANGED <<probed, remoteVer, watermark, boundVars, up, connected, relistDue,
                  listingVars, debtVars, localVer, headVars,
                  readVars>>
 
@@ -268,7 +276,7 @@ BeginRead ==
   /\ up /\ open /\ probeDue /\ ~reading
   /\ reading' = TRUE /\ readVer' = remoteVer /\ readSeq' = seq
   /\ readHead' = headMoves
-  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, storeVars,
+  /\ UNCHANGED <<probed, remoteVer, watermark, boundVars, up, connected, storeVars,
                  relistDue, listingVars, debtVars, localVer,
                  headVars>>
 
@@ -285,7 +293,7 @@ BeginLaggingRead ==
   /\ readHead' \in 0..headMoves
   /\ readVer' \in (IF hintedVer > localVer THEN hintedVer ELSE localVer)
                     ..remoteVer
-  /\ UNCHANGED <<remoteVer, watermark, edits, touches, restarts,
+  /\ UNCHANGED <<probed, remoteVer, watermark, edits, touches, restarts,
                  disconnects, up, connected, storeVars, relistDue,
                  listingVars, debtVars, localVer, headVars>>
 
@@ -311,9 +319,27 @@ FinishRead ==
           THEN /\ probeDue' = FALSE
                /\ owedDurable' = FALSE /\ owedVer' = 0 /\ owedHead' = 0
           ELSE UNCHANGED <<probeDue, debtVars>>
-  /\ UNCHANGED <<remoteVer, headMoves, watermark, boundVars, up, connected,
+  /\ UNCHANGED <<probed, remoteVer, headMoves, watermark, boundVars, up, connected,
                  open, missedHint, hintedVer, seq, relistDue, listingVars,
                  readVer, readSeq, readHead>>
+
+\* Once a launch the probe lists from no watermark and owes a read as a
+\* re-list does, in one step; it applies nothing and is not fair.
+ProbeListing ==
+  /\ LaunchProbe /\ up /\ ~probed
+  /\ probed' = TRUE
+  /\ IF remoteVer > localVer \/ (bundleHeld /\ heldHead # headMoves)
+       THEN /\ owedDurable' = TRUE
+            /\ owedVer' = IF remoteVer > owedVer THEN remoteVer ELSE owedVer
+            /\ owedHead' = IF headMoves > owedHead THEN headMoves
+                            ELSE owedHead
+            /\ IF open /\ ProbeAsksOpenStore
+                 THEN probeDue' = TRUE /\ seq' = seq + 1
+                 ELSE UNCHANGED <<probeDue, seq>>
+       ELSE UNCHANGED <<debtVars, probeDue, seq>>
+  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, open,
+                 missedHint, hintedVer, relistDue, listingVars, localVer,
+                 headVars, readVars>>
 
 Crash ==
   /\ up /\ restarts < MaxRestarts
@@ -322,7 +348,7 @@ Crash ==
   /\ restarts' = restarts + 1
   /\ listing' = FALSE /\ listOwed' = FALSE /\ listApplied' = FALSE
   /\ listPassed' = FALSE
-  /\ probeDue' = FALSE /\ reading' = FALSE
+  /\ probeDue' = FALSE /\ reading' = FALSE /\ probed' = FALSE
   /\ UNCHANGED <<remoteVer, watermark, edits, touches, disconnects,
                  laggingReads, listedOrder, listedVer, listedHead, listBehind,
                  debtVars, seq, localVer, headVars, readVer, readSeq,
@@ -331,7 +357,7 @@ Crash ==
 Start ==
   /\ ~up
   /\ up' = TRUE
-  /\ UNCHANGED <<remoteVer, watermark, boundVars, connected, storeVars,
+  /\ UNCHANGED <<probed, remoteVer, watermark, boundVars, connected, storeVars,
                  relistDue, listingVars, debtVars, localVer,
                  headVars, readVars>>
 
@@ -340,7 +366,7 @@ Next ==
   \/ BeginListing \/ OweListedRead \/ ApplyListedRow \/ AdvanceWatermark
   \/ FinishListing
   \/ OpenStore \/ BeginRead \/ BeginLaggingRead \/ FinishRead
-  \/ Crash \/ Start
+  \/ ProbeListing \/ Crash \/ Start
   \* Bounded peer, crash and disconnect budgets leave a quiescent end state.
   \/ UNCHANGED vars
 
@@ -355,13 +381,7 @@ Fairness ==
 
 Spec == Init /\ [][Next]_vars /\ Fairness
 
-(***************************************************************************)
-(* While the client is behind, something still obliges a read: a durable  *)
-(* debt, a row the next delta listing will return, or, while the process  *)
-(* is up, a pending signal, a remembered hint, a fresh read that covers    *)
-(* the latest count, or a re-list that saw the row behind and has not yet *)
-(* owed its read.                                                          *)
-(***************************************************************************)
+\* While the client is behind, something still obliges a read.
 EvidenceRetained ==
   localVer < remoteVer =>
     \/ owedDurable
@@ -371,14 +391,8 @@ EvidenceRetained ==
     \/ up /\ reading /\ readVer = remoteVer
     \/ up /\ listing /\ listBehind /\ ~listOwed
 
-(***************************************************************************)
-(* While the device's access context is not the server's head, something  *)
-(* still obliges a read: a durable debt, a row the next delta listing     *)
-(* will return to a record that still holds a bundle to compare, a store  *)
-(* that will find no bundle when it loads, or, while the process is up, a *)
-(* pending signal, a read that fetches the current head, or a re-list     *)
-(* that saw the head moved and has not yet owed its read.                 *)
-(***************************************************************************)
+\* While the access context is not the server's head, something still
+\* obliges a read.
 AccessHeadEvidenceRetained ==
   (~bundleHeld \/ heldHead # headMoves) =>
     \/ owedDurable

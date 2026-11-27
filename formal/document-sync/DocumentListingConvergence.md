@@ -50,6 +50,7 @@ key bundle survive.
 | `ApplyListedRow` | `upsertDiscoveredDocuments` after the debt is durable; `resolvePersistedDocumentRuntimeState` drops the key bundle of a record whose access epoch the row moved |
 | `AdvanceWatermark` | `recordAppliedContainerDocumentListing` after the lane's rows are applied and owed |
 | `OpenStore` | `loadDocumentListingCoverage` when a store's record loads: it reads the debt (`findOwedDocumentListingRead`) and asks `takeHint`, and a record neither names is covered and arms no probe; a record with no key bundle fails `hasPersistedRemoteDocumentSyncState`, so nothing covers it |
+| `ProbeListing` | the initial document probe's listing, `createProbeLaneListing` in `listingCoverageHost.ts`: every lane from no watermark once a launch, whose rows `oweListedRecordReads` checks, then `requestRemoteSyncsOfOwedRecords` asks each owed record's loaded store; it applies no row and saves no watermark |
 | `BeginRead` | `findOwedListingReadBeforePull` reading the debt before the pull's request |
 | `BeginLaggingRead` | the same pull (`requestRemoteDocumentSync`) answered by a replica that lags the listing, in its count and its access head |
 | `FinishRead` | `clearConsumedRemoteUpdateSignal`, then `settleOwedListingReadAfterCompletedPull` and `settleCoveredDocumentListingRead`, whose `DocumentListingRevalidationRepository.settle` compares the cursor with the owed count and the saved manifest's epoch with the owed one; the pull's save stores the key bundle of the head it read |
@@ -69,9 +70,11 @@ that once edits stop, the client has processed every update the server holds.
 that settles one saves the head it fetched. Weak fairness covers only the
 client's own steps (startup, opening the store, the listing steps and the read)
 and the server's delivery of the interest acknowledgement; no step of another
-device is needed for the client to settle.
+device is needed for the client to settle. The launch probe is not fair, so no
+property relies on it: it adds evidence, such as a head that moved while the
+client stayed connected, and its debts must settle like any other.
 
-Eight guards are parameters with registered negative controls:
+Nine guards are parameters with registered negative controls:
 
 - `OweBeforeWatermark = FALSE` advances the watermark past the row before owing
   the read. A crash in between leaves no evidence, violating
@@ -100,11 +103,20 @@ Eight guards are parameters with registered negative controls:
 - `RelistOnAcknowledge = FALSE` drops the re-list after an acknowledged
   connection, so an edit whose hint was lost is never found, violating
   `Converges`.
+- `ProbeAsksOpenStore = FALSE`, checked with the probe configuration, has the
+  launch probe owe a read without asking the open store to make it. A pull a
+  lagging replica answered with the head from before a move leaves the record
+  behind while the client stays connected; no re-list or load follows the
+  probe's debt to ask for it, violating `DebtsSettle`.
 
 [`DocumentListingConvergence.cfg`](./DocumentListingConvergence.cfg) allows two
 peer edits, one other touch, one head move, one crash, one disconnect and one
 lagging read. TLC explores 5,214,487 generated states, 1,160,206 distinct
-states, and depth 31.
+states, and depth 31. It leaves the launch probe off (`LaunchProbe = FALSE`),
+which no property may rely on.
+[`DocumentListingConvergenceProbe.cfg`](./DocumentListingConvergenceProbe.cfg)
+turns it on, with one peer edit and no other touch: 1,064,126 generated
+states, 239,100 distinct states, and depth 30.
 
 The model has one document in one lane, held by one record, with the client
 holding every update and the current access head at the start. Production
@@ -125,10 +137,14 @@ because the keying checkpoints (`KeyingCheckpointRepository`) refuse a
 manifest older than one this device verified, so a lagging pull never saves
 an older head than the record holds.
 It leaves the row's apply and the watermark save unordered, where production
-applies first. A read that a hint forced is assumed to see the hinted write,
-as it was before listings owed reads: the pull's floor is this device's last
-applied commit position, not the hint's, and that gap is not part of this
-change. Void updates, a withheld cursor and resumed pulls behave as in
+applies first. It takes the launch probe's snapshot and its check in one
+step, where production checks the record when its listing returns. A snapshot
+older than the record owes either a read the record still lacks or one at a
+head it already passed, which its next pull settles. A read that a hint
+forced is assumed to see the hinted write, as it was before listings owed
+reads: the pull's floor is this device's last applied commit position, not the
+hint's, and that gap is not part of this change. Void updates, a withheld
+cursor and resumed pulls behave as in
 [MetadataListingConvergence](./MetadataListingConvergence.md), which models the
 same cursor. Outside the model: a lane the client cannot list, whose registered
 documents are probed directly; a lane whose listing never shows its documents

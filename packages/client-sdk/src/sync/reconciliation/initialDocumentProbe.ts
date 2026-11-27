@@ -18,7 +18,8 @@ export interface InitialDocumentProbeHost {
   /**
    * Each container's authoritative current document ids, read from no
    * watermark in one batched listing. A lane that could not be listed maps
-   * to `null` or is absent.
+   * to `null` or is absent. The device-first host's listing also owes reads
+   * to the records its rows show behind (`createProbeLaneListing`).
    */
   readonly listContainerDocumentIds: (
     containerIds: ReadonlyArray<string>,
