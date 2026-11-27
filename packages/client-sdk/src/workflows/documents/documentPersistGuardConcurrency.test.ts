@@ -145,8 +145,9 @@ test("a create refused busy behind absent-row cleanup is not treated as an exist
       kind: "contact",
     },
   ]);
+  let cleanup: Promise<unknown> = Promise.resolve();
   try {
-    const cleanup = refuseDeletedDocumentPersist({
+    cleanup = refuseDeletedDocumentPersist({
       currentRecord: {
         accessEpoch: 1,
         containerId: "stale-container",
@@ -210,6 +211,7 @@ test("a create refused busy behind absent-row cleanup is not treated as an exist
     ).toMatchObject({ documentId: "fresh-document", text: "fresh" });
   } finally {
     race.releaseAbsentRead();
+    await cleanup.catch(() => undefined);
     await race.close();
   }
 });

@@ -236,9 +236,10 @@ test("a busy refusal behind an in-flight purge is not a rollback verdict and ret
   const purgeLocked = new Promise<void>((resolve) => {
     signalPurgeLocked = resolve;
   });
+  let purge: Promise<unknown> = Promise.resolve();
 
   try {
-    const purge = sqlDocumentsPersistence.deleteDocumentSideRowsIfAbsent(
+    purge = sqlDocumentsPersistence.deleteDocumentSideRowsIfAbsent(
       race.first.execSql,
       "busy-local-document",
       documentId,
@@ -281,6 +282,7 @@ test("a busy refusal behind an in-flight purge is not a rollback verdict and ret
     expect(retried.documentId).toBe(documentId);
   } finally {
     releasePurge();
+    await purge.catch(() => undefined);
     await race.close();
   }
 });

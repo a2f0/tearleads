@@ -61,6 +61,9 @@ export interface DatabaseConnectionRegistryOptions {
   readonly log?: (message: string) => void;
 }
 
+const CLOSED_BEFORE_INIT_MESSAGE =
+  "Database connection closed before initialization completed.";
+
 function initOptionsKey(options: DatabaseWorkerInitOptions): string {
   return [
     options.dbName,
@@ -220,32 +223,34 @@ class DatabaseConnectionRegistry {
     const optionsKey = initOptionsKey(options);
 
     await this.storageWipe;
-    await this.waitForLifecycle(dbName);
 
-    const existing = this.databasesByName.get(dbName);
-    if (existing) {
-      // Attach, mark open, and register in one synchronous turn so another
-      // port's delete cannot land between attaching and registration.
-      this.attachConnection(record, attempt, existing, optionsKey);
-      return;
+    // Only one opener enters runLifecycle at a time so concurrent openers wait
+    // outside the lifecycle queue instead of running ahead of a delete or close.
+    for (;;) {
+      await this.waitForLifecycle(dbName);
+
+      const existing = this.databasesByName.get(dbName);
+      if (existing) {
+        // Attach, mark open, and register in one synchronous turn so another
+        // port's delete cannot land between attaching and registration.
+        this.attachConnection(record, attempt, existing, optionsKey);
+        return;
+      }
+
+      if (!this.lifecycleByName.has(dbName)) {
+        break;
+      }
     }
 
     await this.runLifecycle(dbName, async () => {
-      const openedByEarlierWaiter = this.databasesByName.get(dbName);
-      if (openedByEarlierWaiter) {
-        this.attachConnection(
-          record,
-          attempt,
-          openedByEarlierWaiter,
-          optionsKey,
-        );
+      const opened = this.databasesByName.get(dbName);
+      if (opened) {
+        this.attachConnection(record, attempt, opened, optionsKey);
         return;
       }
 
       if (this.isOpenOvertaken(record, attempt)) {
-        throw new Error(
-          "Database connection closed before initialization completed.",
-        );
+        throw new Error(CLOSED_BEFORE_INIT_MESSAGE);
       }
 
       const db = await initDatabase(options);
@@ -253,9 +258,7 @@ class DatabaseConnectionRegistry {
       const { capi } = await loadSqlite3();
       if (this.isOpenOvertaken(record, attempt)) {
         await closeDatabase(db);
-        throw new Error(
-          "Database connection closed before initialization completed.",
-        );
+        throw new Error(CLOSED_BEFORE_INIT_MESSAGE);
       }
 
       const created = this.createEntry(dbName, db, optionsKey, capi);
@@ -301,9 +304,7 @@ class DatabaseConnectionRegistry {
     optionsKey: string,
   ): void {
     if (this.isOpenOvertaken(record, attempt)) {
-      throw new Error(
-        "Database connection closed before initialization completed.",
-      );
+      throw new Error(CLOSED_BEFORE_INIT_MESSAGE);
     }
     if (entry.optionsKey !== optionsKey) {
       throw new Error(

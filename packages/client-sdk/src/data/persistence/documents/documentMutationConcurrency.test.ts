@@ -442,6 +442,7 @@ test("a busy refusal leaves the holder intact so the waiting mutation retries cl
   const firstLocked = new Promise<void>((resolve) => {
     signalFirstLocked = resolve;
   });
+  let firstMutation: Promise<unknown> = Promise.resolve();
   try {
     await sqlDocumentsPersistence.saveDocument(first.runtime.execSql, base);
     const expectedRecord = await sqlDocumentsPersistence.loadDocument(
@@ -469,7 +470,7 @@ test("a busy refusal leaves the holder intact so the waiting mutation retries cl
         onLock,
       );
 
-    const firstMutation = commit(first.runtime.execSql, "first", async () => {
+    firstMutation = commit(first.runtime.execSql, "first", async () => {
       signalFirstLocked();
       await firstReleased;
     });
@@ -491,6 +492,7 @@ test("a busy refusal leaves the holder intact so the waiting mutation retries cl
     });
   } finally {
     releaseFirst();
+    await firstMutation.catch(() => undefined);
     await close();
   }
 });
