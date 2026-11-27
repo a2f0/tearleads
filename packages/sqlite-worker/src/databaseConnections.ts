@@ -380,8 +380,18 @@ class DatabaseConnectionRegistry {
     if (
       this.detachConnection(holder, { type: "transactionRevoked", refusal })
     ) {
-      void this.releaseDatabase(entry.dbName);
+      this.closeInBackground(entry.dbName, this.releaseDatabase(entry.dbName));
     }
+  }
+
+  // A close no request waits on still reports its failure, rather than
+  // leaving it as an unhandled rejection in the worker.
+  private closeInBackground(dbName: string, closing: Promise<void>): void {
+    closing.catch((error: unknown) => {
+      this.log(
+        `SQLite could not close database ${dbName}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
   }
 
   // The forced rollback left the handle inside a transaction: close the
@@ -402,8 +412,11 @@ class DatabaseConnectionRegistry {
     entry.refCount = 0;
     this.databasesByName.delete(entry.dbName);
     entry.lease.dispose(() => DATABASE_NOT_INITIALIZED_MESSAGE);
-    void this.runLifecycle(entry.dbName, () =>
-      runQueued(entry, () => closeDatabase(entry.db)),
+    this.closeInBackground(
+      entry.dbName,
+      this.runLifecycle(entry.dbName, () =>
+        runQueued(entry, () => closeDatabase(entry.db)),
+      ),
     );
   }
 

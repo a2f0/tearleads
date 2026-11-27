@@ -1,3 +1,7 @@
+import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "@tearleads/client-sdk/sqlite";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   type RosterSeedActions,
@@ -28,21 +32,37 @@ export function shouldAttemptRosterSeed(gate: DemoPeerRosterSeedGate): boolean {
   );
 }
 
+/**
+ * How one roster seed attempt ended. `busy` is an attempt the SQLite worker
+ * kept refusing behind another tab's transaction, which spends none of the
+ * demo's attempts (#3360).
+ */
+export type PeerRosterSeedOutcome = "settled" | "unsettled" | "busy";
+
 export async function attemptPeerRosterSeed(
   actions: RosterSeedActions,
   peerUserId: string,
   peerNickname: string,
   logError: (message: string, error: unknown) => void,
-): Promise<boolean> {
+): Promise<PeerRosterSeedOutcome> {
   try {
-    return await seedRosterEntry(actions, peerUserId, {
-      nickname: peerNickname,
-    });
+    const settled = await retryWhileDatabaseBusy(() =>
+      seedRosterEntry(actions, peerUserId, { nickname: peerNickname }),
+    );
+    return settled ? "settled" : "unsettled";
   } catch (error) {
     if (error instanceof KeyingVerificationError) {
       throw error;
     }
     logError("Demo peer bootstrap: failed to seed peer roster entry.", error);
-    return false;
+    return classifyDatabaseFailure(error) === "busy" ? "busy" : "unsettled";
   }
+}
+
+/** Attempts a demo retry loop has spent after one more failure. */
+export function demoAttemptsAfterFailure(
+  attempts: number,
+  error: unknown,
+): number {
+  return classifyDatabaseFailure(error) === "busy" ? attempts : attempts + 1;
 }

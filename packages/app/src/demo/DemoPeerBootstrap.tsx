@@ -181,8 +181,8 @@ function DemoPeerRosterSeeder({
     const startAttempt = (): void => {
       void attempt().catch(stopAfterIdentityIntegrityFailure);
     };
-    const retryOrGiveUp = (): void => {
-      attempts += 1;
+    const retryOrGiveUp = (spendsAttempt: boolean): void => {
+      if (spendsAttempt) attempts += 1;
       if (attempts < ROSTER_SEED_MAX_ATTEMPTS) {
         retryTimer = setTimeout(startAttempt, ROSTER_SEED_RETRY_MS);
       } else {
@@ -196,7 +196,7 @@ function DemoPeerRosterSeeder({
         return;
       }
 
-      const settled = await attemptPeerRosterSeed(
+      const outcome = await attemptPeerRosterSeed(
         orgManagerActions,
         targetPeerUserId,
         peerNickname,
@@ -205,11 +205,12 @@ function DemoPeerRosterSeeder({
       if (!active) {
         return;
       }
-      if (settled) {
+      if (outcome === "settled") {
         settledPeerRef.current = targetPeerUserId;
         return;
       }
-      retryOrGiveUp();
+      // Another tab's transaction is not this seed's failure (#3360).
+      retryOrGiveUp(outcome !== "busy");
     }
 
     startAttempt();

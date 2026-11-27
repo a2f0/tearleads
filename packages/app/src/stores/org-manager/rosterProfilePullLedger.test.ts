@@ -20,7 +20,7 @@ test("profiles that failed yield their places to the rest, then wait", () => {
     "user-1",
   ]);
 
-  recordRosterProfilePull(sdk, pull(0), false);
+  recordRosterProfilePull(sdk, pull(0), "failed");
   expect(ids(selectRosterProfilePulls(sdk, pulls, 2))).toEqual([
     "user-1",
     "user-2",
@@ -32,7 +32,7 @@ test("profiles that failed yield their places to the rest, then wait", () => {
   ]);
 
   for (let failure = 1; failure < MAX_ROSTER_PROFILE_PULL_FAILURES; failure++) {
-    recordRosterProfilePull(sdk, pull(0), false);
+    recordRosterProfilePull(sdk, pull(0), "failed");
   }
   expect(ids(selectRosterProfilePulls(sdk, pulls, 3))).toEqual([
     "user-1",
@@ -49,15 +49,15 @@ test("profiles that failed yield their places to the rest, then wait", () => {
 test("a completed pull clears earlier failures", () => {
   const sdk = {};
   const pulls = [pull(0), pull(1)];
-  recordRosterProfilePull(sdk, pull(0), false);
-  recordRosterProfilePull(sdk, pull(0), true);
+  recordRosterProfilePull(sdk, pull(0), "failed");
+  recordRosterProfilePull(sdk, pull(0), "completed");
   expect(ids(selectRosterProfilePulls(sdk, pulls, 1))).toEqual(["user-0"]);
 });
 
 test("a replaced profile pointer starts without the old profile's failures", () => {
   const sdk = {};
   for (let failure = 0; failure < MAX_ROSTER_PROFILE_PULL_FAILURES; failure++) {
-    recordRosterProfilePull(sdk, pull(0), false);
+    recordRosterProfilePull(sdk, pull(0), "failed");
   }
   const replaced = { ...pull(0), profileDocumentId: "profile-document-new" };
   expect(ids(selectRosterProfilePulls(sdk, [replaced], 1))).toEqual(["user-0"]);

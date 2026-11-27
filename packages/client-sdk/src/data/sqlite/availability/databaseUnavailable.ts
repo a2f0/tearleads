@@ -65,10 +65,10 @@ const BUSY_CAUSE_DEPTH_LIMIT = 8;
 // (another tab) held a transaction on the database for the lease's wait bound.
 // The statement did not run, and the same work succeeds once that transaction
 // ends, so it is never evidence about the work: keying verification, writer-key
-// resolution, and boot keep it out of verdicts and retry budgets (other retry
-// paths are #3360). Unlike an unavailable database nothing announces when it
-// clears, so it is not one of those: the work re-runs on its caller's own
-// retry schedule.
+// resolution, boot, and the retry paths keep it out of verdicts and retry
+// budgets (`classifyDatabaseFailure`, `retryWhileDatabaseBusy`). Unlike an
+// unavailable database nothing announces when it clears, so it is not one of
+// those: the work re-runs on its caller's own retry schedule.
 export function isDatabaseTransactionBusyError(error: unknown): boolean {
   let current = error;
   for (

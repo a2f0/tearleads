@@ -1,7 +1,11 @@
 import { expect, mock, spyOn, test } from "bun:test";
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import { DATABASE_BUSY_RUN_LIMIT } from "@tearleads/client-sdk/sqlite";
 import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
-import type { DatabaseWorkerExecOptions } from "@tearleads/sqlite-worker/types";
+import {
+  DATABASE_TRANSACTION_BUSY_MESSAGE,
+  type DatabaseWorkerExecOptions,
+} from "@tearleads/sqlite-worker/types";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
@@ -14,7 +18,7 @@ import * as LogProvider from "../logging/LogProvider";
 import * as TearleadsProvider from "../sdk/TearleadsProvider";
 import { CryptoSessionProvider } from "./CryptoSessionProvider";
 
-async function createBootstrapFixture(authenticated = false) {
+async function createBootstrapFixture(authenticated = false, busyRefusals = 0) {
   const database = await createTestExecSql("root-bootstrap-cancellation");
   const queryStarted = createDeferred();
   const queryReleased = createDeferred();
@@ -63,6 +67,10 @@ async function createBootstrapFixture(authenticated = false) {
   const spies = [
     spyOn(tearleads.session, "bootstrapLocalRootContainer").mockImplementation(
       async () => {
+        if (busyRefusals > 0) {
+          busyRefusals -= 1;
+          throw new Error(DATABASE_TRANSACTION_BUSY_MESSAGE);
+        }
         try {
           return await bootstrap();
         } finally {
@@ -200,6 +208,26 @@ test("a replacement sign-in can bootstrap its local root while the previous look
       () => expect(fixture.tearleads.session.containerId).not.toBeNull(),
       { timeout: 1000 },
     );
+  } finally {
+    fixture.releaseQuery();
+    fixture.close();
+  }
+});
+
+// #3360: nothing the bootstrap effect depends on changes when another tab's
+// transaction ends, so a refusal that outlasted the retry bound used to leave
+// the root container unbootstrapped until an unrelated change.
+test("a root bootstrap refused as busy runs again without a status change", async () => {
+  const fixture = await createBootstrapFixture(false, DATABASE_BUSY_RUN_LIMIT);
+  try {
+    await act(async () => {
+      fixture.releaseQuery();
+      await fixture.settled.promise;
+    });
+    await waitFor(() =>
+      expect(fixture.tearleads.session.containerId).not.toBeNull(),
+    );
+    expect(fixture.logError).not.toHaveBeenCalled();
   } finally {
     fixture.releaseQuery();
     fixture.close();

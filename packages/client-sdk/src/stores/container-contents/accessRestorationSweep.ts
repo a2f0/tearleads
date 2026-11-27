@@ -1,3 +1,4 @@
+import { retryWhileDatabaseBusy } from "../../workflows/container-contents/syncLane";
 import {
   type RemoteHydrationRequester,
   refreshAllRemoteHydration,
@@ -28,6 +29,20 @@ function createRestorationSweepSession(
     runtime: state.runtime,
     state,
   };
+}
+
+/**
+ * Runs one of the sweep's own persistence steps, again while another tab's
+ * transaction holds it off (#3360). Each is idempotent table setup and then
+ * one statement or transaction, which a refusal reaches before it runs. A
+ * refusal at the claim then spends no attempt, and one at the completion
+ * completes the attempt that crawled.
+ */
+function runSweepStatement<T>(
+  session: RestorationSweepSession,
+  statement: () => Promise<T>,
+): Promise<T> {
+  return retryWhileDatabaseBusy(statement, { isCurrent: session.isCurrent });
 }
 
 function captureRestorationGeneration(
@@ -72,10 +87,12 @@ async function completeRestorationSweeps(
     if (!session.isCurrent()) return;
     // An unsigned 404 cannot prove that encrypted local edits are disposable.
     // Leave unavailable metadata dormant until verified rediscovery or explicit deletion.
-    await session.persistence.completeDormantMetadataSweepRequest(
-      session.runtime.infra.execSql,
-      sweep,
-      session.isCurrent,
+    await runSweepStatement(session, () =>
+      session.persistence.completeDormantMetadataSweepRequest(
+        session.runtime.infra.execSql,
+        sweep,
+        session.isCurrent,
+      ),
     );
   }
 }
@@ -113,10 +130,12 @@ async function claimDueRestorationSweeps(
         claimed.push(sweep);
         continue;
       case "retire":
-        await session.persistence.completeDormantMetadataSweepRequest(
-          session.runtime.infra.execSql,
-          sweep,
-          session.isCurrent,
+        await runSweepStatement(session, () =>
+          session.persistence.completeDormantMetadataSweepRequest(
+            session.runtime.infra.execSql,
+            sweep,
+            session.isCurrent,
+          ),
         );
         if (!session.isCurrent()) {
           return claimed;
@@ -130,11 +149,13 @@ async function claimDueRestorationSweeps(
       case "claim":
         break;
     }
-    const didClaim = await session.persistence.claimDormantMetadataSweepAttempt(
-      session.runtime.infra.execSql,
-      sweep,
-      attemptedAt,
-      session.isCurrent,
+    const didClaim = await runSweepStatement(session, () =>
+      session.persistence.claimDormantMetadataSweepAttempt(
+        session.runtime.infra.execSql,
+        sweep,
+        attemptedAt,
+        session.isCurrent,
+      ),
     );
     if (!session.isCurrent()) {
       return claimed;
@@ -158,11 +179,12 @@ async function loadAndClaimRestorationSweeps(
   if (!requesterUserId) {
     return [];
   }
-  const pendingSweeps =
-    await session.persistence.listDormantMetadataSweepRequests(
+  const pendingSweeps = await runSweepStatement(session, () =>
+    session.persistence.listDormantMetadataSweepRequests(
       session.runtime.infra.execSql,
       requesterUserId,
-    );
+    ),
+  );
   if (!session.isCurrent()) {
     return [];
   }

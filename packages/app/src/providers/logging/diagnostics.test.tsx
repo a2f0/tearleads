@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { DiagnosticBreadcrumb } from "../../host/AppDiagnostics";
 import { PaneLog } from "../../shell/pane/log/PaneLog";
@@ -88,4 +89,42 @@ test("System Monitor retains raw logs while remote breadcrumbs use only the expl
   ]);
   // The adapter receives Error objects for stack extraction, never formatted logs.
   expect(errors).toEqual([error]);
+});
+
+// #3360: a refusal behind another tab's transaction is retried by its caller,
+// so it is not an error report.
+test("a busy database refusal is logged locally and never reaches diagnostics", () => {
+  const breadcrumbs: DiagnosticBreadcrumb[] = [];
+  const errors: unknown[] = [];
+  const diagnostics = {
+    addBreadcrumb: (value: DiagnosticBreadcrumb) => breadcrumbs.push(value),
+    captureError: (error: unknown) => errors.push(error),
+  };
+  const busy = new Error("Failed query", {
+    cause: new Error(DATABASE_TRANSACTION_BUSY_MESSAGE),
+  });
+  function Harness() {
+    const { logError } = useLog();
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => logError("Failed to hydrate a profile", busy)}
+        >
+          Act
+        </button>
+        <PaneLog />
+      </>
+    );
+  }
+  const view = render(
+    <LogProvider diagnostics={diagnostics}>
+      <Harness />
+    </LogProvider>,
+  );
+  fireEvent.click(view.getByText("Act"));
+  expect(view.getByText(/Failed to hydrate a profile: Error/)).toBeTruthy();
+  expect(view.queryByText(/ERROR:/)).toBeNull();
+  expect(breadcrumbs).toEqual([]);
+  expect(errors).toEqual([]);
 });

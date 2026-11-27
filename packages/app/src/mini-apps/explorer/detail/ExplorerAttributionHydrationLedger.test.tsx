@@ -4,6 +4,8 @@ import type {
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/client-sdk";
+import { DATABASE_BUSY_RUN_LIMIT } from "@tearleads/client-sdk/sqlite";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
@@ -82,11 +84,12 @@ function runtimeSnapshot(): RuntimeSnapshot {
   } as unknown as RuntimeSnapshot;
 }
 
-test("the contributor cap survives disablement and projection changes", async () => {
-  const users = Array.from({ length: 33 }, (_, index) => rosterUser(index));
+function installAttributionHarness(
+  remoteSync: (documentId: string) => Promise<boolean>,
+) {
   const findLocalIdByDocumentId = mock(async () => null);
   const open = mock((input: { documentId?: string | null }) => ({
-    requestRemoteSyncAndWait: async () => Boolean(input.documentId),
+    requestRemoteSyncAndWait: () => remoteSync(input.documentId ?? ""),
   }));
   const useTearleadsSpy = spyOn(
     TearleadsProvider,
@@ -124,6 +127,22 @@ test("the contributor cap survives disablement and projection changes", async ()
         typeof DeviceFirstProvider.useDeviceFirstContainerContents
       >,
   );
+  return {
+    open,
+    restore() {
+      cleanup();
+      useDeviceFirstSpy.mockRestore();
+      useTearleadsSpy.mockRestore();
+    },
+  };
+}
+
+test("the contributor cap survives disablement and projection changes", async () => {
+  const users = Array.from({ length: 33 }, (_, index) => rosterUser(index));
+  const harness = installAttributionHarness(async (documentId) =>
+    Boolean(documentId),
+  );
+  const { open } = harness;
   try {
     const appData = runtimeSnapshot();
     const view = renderHook(
@@ -195,8 +214,55 @@ test("the contributor cap survives disablement and projection changes", async ()
       expect.objectContaining({ documentId: "profile-32" }),
     );
   } finally {
-    cleanup();
-    useDeviceFirstSpy.mockRestore();
-    useTearleadsSpy.mockRestore();
+    harness.restore();
+  }
+});
+
+// #3360: a pull the worker refuses behind another tab's transaction used to
+// spend all three attempts at once and keep the profile reserved for the
+// rest of the scope, so its attribution never resolved.
+test("a profile refused as busy spends no attempt and is requested again", async () => {
+  const pulls = new Map<string, number>();
+  const harness = installAttributionHarness(async (documentId) => {
+    pulls.set(documentId, (pulls.get(documentId) ?? 0) + 1);
+    if (documentId === "profile-1") {
+      throw new Error(DATABASE_TRANSACTION_BUSY_MESSAGE);
+    }
+    return true;
+  });
+  try {
+    const view = renderHook(() =>
+      useExplorerAttributionProfileHydration({
+        appData: runtimeSnapshot(),
+        enabled: true,
+        readModelProjection: projection(
+          [rosterUser(0), rosterUser(1)],
+          "cursor-1",
+        ),
+        readModelRevision: 1,
+      }),
+    );
+    const request = () =>
+      act(() =>
+        view.result.current({
+          contributorUserIds: ["profile-user-0", "profile-user-1"],
+          documentId: "document-a",
+        }),
+      );
+
+    request();
+    await waitFor(
+      () => expect(pulls.get("profile-1")).toBe(DATABASE_BUSY_RUN_LIMIT),
+      { timeout: 3_000 },
+    );
+    await act(async () => Promise.resolve());
+    request();
+    await waitFor(
+      () => expect(pulls.get("profile-1")).toBe(2 * DATABASE_BUSY_RUN_LIMIT),
+      { timeout: 3_000 },
+    );
+    expect(pulls.get("profile-0")).toBe(1);
+  } finally {
+    harness.restore();
   }
 });

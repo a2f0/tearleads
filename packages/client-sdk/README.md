@@ -9,7 +9,7 @@ behavior into the SDK rather than duplicate its setup.
 | Entry point | Use for |
 | --- | --- |
 | `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, and public workflow symbols |
-| `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, the lost-connection error (`DatabaseConnectionLostError`, `isDatabaseConnectionLostError`, also raised when the worker revokes an idle transaction), `isDatabaseTransactionBusyError` for a statement refused behind another tab's transaction, and adapter helpers |
+| `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, the lost-connection error (`DatabaseConnectionLostError`, `isDatabaseConnectionLostError`, also raised when the worker revokes an idle transaction), `isDatabaseTransactionBusyError` for a statement refused behind another tab's transaction, `classifyDatabaseFailure` and `retryWhileDatabaseBusy` to keep such refusals out of retry budgets, and adapter helpers |
 | `@tearleads/client-sdk/sqlite/worker.js` | The SQLite worker module to serve |
 | `@tearleads/client-sdk/sqlite/sqlite3.wasm` | The SQLite WebAssembly to serve beside `worker.js` |
 | `@tearleads/client-sdk/sqlite/sqlite3-licenses.md` | The licenses that ship with the two SQLite files |

@@ -4,6 +4,8 @@ import {
   getRosterProfileDocumentLocalId,
   type OrganizationDirectory,
 } from "@tearleads/client-sdk";
+import { DATABASE_BUSY_RUN_LIMIT } from "@tearleads/client-sdk/sqlite";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { getRosterProfileHydrationLocalId } from "../../../stores/org-manager/rosterProfileHydration";
 import { MAX_ROSTER_PROFILE_PULL_FAILURES } from "../../../stores/org-manager/rosterProfilePullLedger";
@@ -266,6 +268,35 @@ test("a profile that keeps failing goes last, then waits for a new session", asy
     "profile-document-0",
     "profile-document-1",
   ]);
+});
+
+// #3360: a pull the worker refuses behind another tab's transaction is not the
+// profile's failure, so it must not use up the profile's session budget.
+test("a profile refused as busy keeps its place on every load", async () => {
+  const harness = createTearleadsHarness();
+  const busyPull = mock((_signal?: AbortSignal) =>
+    Promise.reject(new Error(DATABASE_TRANSACTION_BUSY_MESSAGE)),
+  );
+  harness.open.mockImplementation((input: object) => ({
+    requestRemoteSyncAndWait:
+      Reflect.get(input, "documentId") === "profile-document-0"
+        ? busyPull
+        : harness.requestRemoteSyncAndWait,
+    requestSync: harness.requestSync,
+  }));
+  for (let load = 1; load <= MAX_ROSTER_PROFILE_PULL_FAILURES + 1; load++) {
+    const { view } = renderDisplayNames({
+      activeDirectory: directory(rosterUsers(2)),
+      harness,
+    });
+    await waitFor(
+      () =>
+        expect(busyPull).toHaveBeenCalledTimes(load * DATABASE_BUSY_RUN_LIMIT),
+      { timeout: 5_000 },
+    );
+    await waitFor(() => expect(harness.logError).toHaveBeenCalledTimes(load));
+    view.unmount();
+  }
 });
 
 test("a member who is not an admin pulls no roster profiles", async () => {

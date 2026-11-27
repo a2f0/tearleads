@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { waitFor } from "../../../../test/helpers/data/waitFor";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { Tearleads } from "../../../Tearleads";
 import type {
@@ -10,7 +12,10 @@ import type { DocumentsRuntime } from "../types";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
 import { setDocumentText } from "./mutations";
-import { reportDocumentStoreWriteFailure } from "./reportWriteFailure";
+import {
+  BUSY_WRITE_RETRY_MS,
+  reportDocumentStoreWriteFailure,
+} from "./reportWriteFailure";
 import { addRowToDocumentStore } from "./rows";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
 
@@ -225,4 +230,89 @@ test("each failing write site reports, even on one shared error", () => {
   reportDocumentStoreWriteFailure(state, ROW_MESSAGE, failure);
 
   expect(reported).toEqual([MESSAGE, ROW_MESSAGE]);
+});
+
+/** Fails each commit with the next queued error, then commits for real. */
+function failCommits(state: DocumentStoreState, failures: Error[]): void {
+  const durable = state.persistence;
+  state.persistence = {
+    ...durable,
+    async commitDocumentMutation(...args) {
+      const failure = failures.shift();
+      if (failure) throw failure;
+      return durable.commitDocumentMutation(...args);
+    },
+  } satisfies DocumentsPersistence;
+}
+
+const busyRefusal = () =>
+  new Error("Failed query", {
+    cause: new Error(DATABASE_TRANSACTION_BUSY_MESSAGE),
+  });
+
+async function durableText(execSql: ExecSql): Promise<string | undefined> {
+  return (
+    await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      "write-failure-document",
+    )
+  )?.text;
+}
+
+// #3360: a persist refused behind another tab's transaction used to wait for
+// the next edit, so text typed last stayed out of SQLite until then.
+test("a text write refused as busy is saved again without another edit", async () => {
+  const database = await createTestExecSql("document-busy-write-retry");
+  const reported: unknown[] = [];
+  const logged: string[] = [];
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: (_m, e) => reported.push(e) },
+  });
+  try {
+    const state = await createWriteFailureStore(sdk, database.execSql, {
+      log: (message) => logged.push(message),
+    });
+    failCommits(state, [busyRefusal()]);
+
+    await setDocumentText(state, () => undefined, "typed text");
+    expect(await durableText(database.execSql)).not.toBe("typed text");
+
+    await waitFor(
+      async () => (await durableText(database.execSql)) === "typed text",
+      "The busy text write was not saved again.",
+      BUSY_WRITE_RETRY_MS * 3,
+    );
+    expect(state.unsavedLocalEdits).toBe(false);
+    expect(reported).toEqual([]);
+    expect(logged).toContain(
+      `${MESSAGE} behind another tab's database transaction`,
+    );
+  } finally {
+    sdk.dispose();
+    database.close();
+  }
+});
+
+test("a busy retry saves the newest text, never a value a later write replaced", async () => {
+  const database = await createTestExecSql("document-busy-write-newest");
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: () => undefined },
+  });
+  try {
+    const state = await createWriteFailureStore(sdk, database.execSql);
+    failCommits(state, [busyRefusal(), new Error("Local write rejected")]);
+
+    await setDocumentText(state, () => undefined, "first");
+    await setDocumentText(state, () => undefined, "second");
+
+    await waitFor(
+      async () => (await durableText(database.execSql)) === "second",
+      "The busy retry did not save the newest text.",
+      BUSY_WRITE_RETRY_MS * 3,
+    );
+    expect(state.snapshot.text).toBe("second");
+  } finally {
+    sdk.dispose();
+    database.close();
+  }
 });

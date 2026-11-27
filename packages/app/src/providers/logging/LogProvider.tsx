@@ -1,3 +1,4 @@
+import { isDatabaseTransactionBusyError } from "@tearleads/client-sdk/sqlite";
 import {
   createContext,
   type PropsWithChildren,
@@ -36,6 +37,12 @@ function formatLogCause(cause: unknown): string {
   return String(cause);
 }
 
+// Only actual Error objects reach diagnostics.
+function loggedError(message: string | Error, cause: unknown): Error | null {
+  if (cause instanceof Error) return cause;
+  return message instanceof Error ? message : null;
+}
+
 export function LogProvider({
   children,
   diagnostics,
@@ -70,17 +77,19 @@ export function LogProvider({
     (message: string | Error, cause?: unknown) => {
       const formattedMessage = String(message);
       const detail = cause === undefined ? "" : `: ${formatLogCause(cause)}`;
+      const error = loggedError(message, cause);
+      // A statement the SQLite worker refused behind another tab's transaction
+      // is that tab's work, not a failure here, and every caller retries it
+      // (#3360): it stays in the local log and out of diagnostics.
+      if (isDatabaseTransactionBusyError(error)) {
+        appendEntry("info", `${formattedMessage}${detail}`);
+        return;
+      }
       appendEntry("error", `${formattedMessage}${detail}`);
       try {
         // String logs can contain decrypted content. Only actual Error objects
         // reach the adapter, which discards messages and keeps code locations.
         diagnostics?.addBreadcrumb({ area: "app", action: "error" });
-        const error =
-          cause instanceof Error
-            ? cause
-            : message instanceof Error
-              ? message
-              : null;
         if (error)
           diagnostics?.captureError(error, { area: "app", source: "log" });
       } catch {

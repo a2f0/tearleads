@@ -31,6 +31,7 @@ import {
 import {
   noteDocumentStoreWrite,
   reportDocumentStoreWriteFailure,
+  retryBusyDocumentWrite,
 } from "./reportWriteFailure";
 import {
   canWriteDocument,
@@ -214,6 +215,13 @@ function queueDocumentTextWrite(
       // before the chain, and nothing downstream surfaces a failed persist.
       .catch((error: unknown) => {
         reportDocumentStoreWriteFailure(state, TEXT_FAILURE_MESSAGE, error);
+        // Queued again with the document's own text, not this write's value,
+        // so a retry can never put back text a later write replaced.
+        retryBusyDocumentWrite(state, error, writeGeneration, () =>
+          state.doc
+            ? queueDocumentTextWrite(state, getTextValue(state.doc))
+            : undefined,
+        );
       })
       // Always settle, even on supersession, the value-equality short-circuit,
       // or a throw, so the current document's counter cannot stick non-zero.
@@ -404,6 +412,11 @@ function queueDocumentStructuredFieldWrite(
       .then(() => writeDocumentStructuredFields(state, write))
       .catch((error: unknown) => {
         reportDocumentStoreWriteFailure(state, FIELD_FAILURE_MESSAGE, error);
+        // The patch is already in the document; an empty one persists its
+        // unsaved delta with this write's own durability and guard.
+        retryBusyDocumentWrite(state, error, write.writeGeneration, () =>
+          queueDocumentStructuredFieldWrite(state, kind, {}, options),
+        );
       })
       // See queueDocumentTextWrite: the final current-generation write also
       // republishes any remote content that was held during the optimistic burst.

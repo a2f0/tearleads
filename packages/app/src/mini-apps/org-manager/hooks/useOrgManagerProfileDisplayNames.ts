@@ -3,6 +3,10 @@ import type {
   OrganizationDirectory,
 } from "@tearleads/client-sdk";
 import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "@tearleads/client-sdk/sqlite";
+import {
   type Dispatch,
   type SetStateAction,
   useCallback,
@@ -29,6 +33,7 @@ import {
   transitionRosterProfileHydration,
 } from "../../../stores/org-manager/rosterProfileHydrationMachine";
 import {
+  type RosterProfilePullOutcome,
   recordRosterProfilePull,
   selectRosterProfilePulls,
 } from "../../../stores/org-manager/rosterProfilePullLedger";
@@ -117,28 +122,45 @@ async function hydrateMissingRosterProfiles(
   );
   for (const binding of bindings) {
     if (input.signal.aborted) break;
-    let completed = false;
-    try {
-      completed = await hydrateRosterProfileDocument({
-        containerId: container.id,
-        documents: input.tearleads.documents,
-        organizationId: input.organizationId,
-        profileDocumentId: binding.profileDocumentId,
-        signal: input.signal,
-        userId: binding.userId,
-      });
-    } catch (error) {
-      if (!input.signal.aborted) {
-        input.tearleads.logError(
-          "Failed to hydrate an organization roster profile",
-          error,
-        );
-      }
-    }
+    const outcome = await pullRosterProfile(input, container.id, binding);
     if (input.signal.aborted) break;
-    recordRosterProfilePull(input.tearleads, binding, completed);
+    recordRosterProfilePull(input.tearleads, binding, outcome);
   }
   return "finished";
+}
+
+/**
+ * Pulls one roster profile, again while the SQLite worker refuses it behind
+ * another tab's transaction; a pull still refused ends `busy` (#3360).
+ */
+async function pullRosterProfile(
+  input: RosterProfileHydrationInput & { readonly signal: AbortSignal },
+  containerId: string,
+  binding: RosterProfileBinding,
+): Promise<RosterProfilePullOutcome> {
+  try {
+    const completed = await retryWhileDatabaseBusy(
+      () =>
+        hydrateRosterProfileDocument({
+          containerId,
+          documents: input.tearleads.documents,
+          organizationId: input.organizationId,
+          profileDocumentId: binding.profileDocumentId,
+          signal: input.signal,
+          userId: binding.userId,
+        }),
+      { isCurrent: () => !input.signal.aborted },
+    );
+    return completed ? "completed" : "failed";
+  } catch (error) {
+    if (!input.signal.aborted) {
+      input.tearleads.logError(
+        "Failed to hydrate an organization roster profile",
+        error,
+      );
+    }
+    return classifyDatabaseFailure(error) === "busy" ? "busy" : "failed";
+  }
 }
 
 /** Runs one load's `RosterProfileHydration` machine and its pulls. */
