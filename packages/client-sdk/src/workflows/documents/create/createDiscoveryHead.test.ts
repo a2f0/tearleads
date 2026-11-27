@@ -22,6 +22,10 @@ import { documentContainerProjectionTables } from "../../../data/sqlite/schema/d
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import { createDiscoveredDocumentVerifier } from "../../container-contents/documentDiscovery/documentDiscoveryEvidence";
+import {
+  primeCreatedDocumentDiscoveryHead,
+  readCreatedDocumentHeadFence,
+} from "./createDiscoveryHead";
 import { documentWriterProjectionFromCreateResponse } from "./createProjection";
 
 const DOCUMENT_ID = "document-created-here";
@@ -270,6 +274,38 @@ test("a create recovered through the adoption path seeds nothing", async () => {
     });
 
     expect(created?.documentId).toBe(DOCUMENT_ID);
+    await expectCachedHeadCount(execSql, 0);
+  } finally {
+    close();
+  }
+});
+
+test("a head seed whose runtime turns stale before commit rolls back without caching", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "created-discovery-head-stale-commit",
+  );
+  try {
+    const fence = await readCreatedDocumentHeadFence(execSql, undefined);
+    expect(fence).not.toBeNull();
+    // First check passes entry; second check fails guardedTransaction's commit guard.
+    let checks = 0;
+    await primeCreatedDocumentDiscoveryHead({
+      execSql,
+      fence,
+      head: {
+        accessEpoch: 1,
+        accessStateHash: "a".repeat(64),
+        documentId: DOCUMENT_ID,
+        linkedContainerIds: ["created-here-folder"],
+        organizationId: "org-1",
+      },
+      stillCurrent: () => {
+        checks += 1;
+        return checks === 1;
+      },
+    });
+
+    expect(checks).toBe(2);
     await expectCachedHeadCount(execSql, 0);
   } finally {
     close();

@@ -80,6 +80,7 @@ export async function primeCreatedDocumentDiscoveryHead(input: {
         await writeAuthoredDocumentDiscoveryHeads(tx, [input.head]);
       },
       () => stillCurrent?.() !== false,
+      { behavior: "immediate" },
     );
   } catch (error) {
     reportQuietly(input.logError, NOT_CACHED, error);

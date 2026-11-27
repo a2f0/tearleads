@@ -83,7 +83,6 @@ function probeListing(
     readonly isContainerPaused?: (containerId: string) => boolean;
     readonly loadSyncPauses?: (execSql: ExecSql) => Promise<void>;
     readonly logError?: (message: string | Error, cause?: unknown) => void;
-    readonly onListRequest?: () => void;
     readonly scope?: DomainScope;
   } = {},
 ) {
@@ -97,7 +96,6 @@ function probeListing(
     apiClient: createMockApiClient({
       listContainerDocumentLanes: async (input, requestOptions) => {
         requests.push({ input, options: requestOptions });
-        options.onListRequest?.();
         return {
           results: input.lanes.map(({ containerId, laneId }) => {
             const containerRows = rowsByContainer.get(containerId);
@@ -300,6 +298,26 @@ test("a probe listing superseded while in flight owes nothing and asks nobody", 
   finishListing();
   await run;
 
+  expect(
+    await new DocumentListingRevalidationRepository(execSql).listOwed(),
+  ).toEqual([]);
+  expect(restored.remoteSyncs()).toBe(0);
+});
+
+test("a probe listing whose sync pauses cannot be read logs and owes nothing", async () => {
+  const restored = await openRecord("document-restored", "head:older");
+  const errors: Array<string | Error> = [];
+  const { list } = probeListing([row("document-restored")], {
+    loadSyncPauses: async () => {
+      throw new Error("pauses unreadable");
+    },
+    logError: (message) => errors.push(message),
+  });
+
+  expect(await list(["folder"])).toEqual(
+    new Map([["folder", ["document-restored"]]]),
+  );
+  expect(errors).toEqual(["Initial document probe could not owe reads"]);
   expect(
     await new DocumentListingRevalidationRepository(execSql).listOwed(),
   ).toEqual([]);

@@ -110,6 +110,7 @@ export async function acknowledgeRemoteDocumentCreate(
     logError: input.logError,
     stillCurrent: input.stillCurrent,
   });
+  if (input.stillCurrent?.() === false) return null;
   input.apiClient.primeDocumentWriterProjection(response.id, writerProjection);
   return {
     contentKey: materializedPlan.contentKey,
