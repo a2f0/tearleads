@@ -43,8 +43,11 @@ beforeEach(async () => {
 afterEach(() => close());
 
 /** An open store whose record this runtime loaded at `LOADED`. */
-async function openStore(localId: string, persistedFrontier: string) {
-  const documentId = `document-${localId}`;
+async function openStore(
+  localId: string,
+  persistedFrontier: string,
+  documentId = `document-${localId}`,
+) {
   await execSql(
     `INSERT INTO documents (app_kind, local_id, document_id,
        snapshot_end_version, updated_at)
@@ -101,6 +104,37 @@ test("a catch-up asks the stores a listing owes and the stores another tab saved
   expect(owed.remoteSyncs()).toBe(1);
   expect(savedElsewhere.remoteSyncs()).toBe(1);
   expect(current.remoteSyncs()).toBe(0);
+});
+
+test("a catch-up asks no store for a debt another record of its document owes", async () => {
+  // After a relink this store holds the document; the record it displaced
+  // still owes a read, and its store never opened.
+  const owner = await openStore("owner", LOADED, "document-shared");
+  await execSql(
+    `INSERT INTO documents (app_kind, local_id, document_id,
+       snapshot_end_version, updated_at)
+     VALUES ('documents', 'displaced', 'document-shared', ?, '2026-11-25T00:00:00.000Z')`,
+    [LOADED],
+  );
+  const repository = new DocumentListingRevalidationRepository(execSql);
+  await repository.request([
+    {
+      accessEpoch: 1,
+      documentId: "document-shared",
+      localId: "displaced",
+      updateCount: 3,
+    },
+  ]);
+
+  await hostFor({}).requestOwedDocumentReads?.();
+
+  // The owner's pull would find no debt of its own to settle.
+  expect(owner.remoteSyncs()).toBe(0);
+  // The displaced record still holds its document, so its debt stays for
+  // its store to pay when it opens.
+  expect(await repository.listOwed()).toEqual([
+    { documentId: "document-shared", localId: "displaced" },
+  ]);
 });
 
 test("a catch-up forgets the lane listings owed to containers it does not store", async () => {

@@ -118,8 +118,12 @@ No hint is assumed for a head move, so only a listing finds one: the head
 invariant is a safety property, and a move made while the client stays
 connected waits for the next acknowledged connection, as it did before
 listings owed reads. Production owes a read when the listed head's hash is not
-the bundle's, and settles it once the bundle's manifest epoch reaches the
-listed one; each head of a document has its own epoch, and a move raises it.
+the bundle's, and settles it once the manifest its pull saved reaches the
+listed epoch; each head of a document has its own epoch, and a move raises it.
+A pull keeps the newer head when a lagging replica answers with an older one,
+because the keying checkpoints (`KeyingCheckpointRepository`) refuse a
+manifest older than one this device verified, so a lagging pull never saves
+an older head than the record holds.
 It leaves the row's apply and the watermark save unordered, where production
 applies first. A read that a hint forced is assumed to see the hinted write,
 as it was before listings owed reads: the pull's floor is this device's last

@@ -44,10 +44,13 @@ adding an update. The mechanism is the one
   can name one server document, each with its own cursor and key bundle. Each
   record the listing shows behind owes its own read, and a store reads and
   settles only its own record's. A record whose store is displaced and never
-  opens keeps its debt, which costs no request and holds no other store
-  uncovered: no listing can show that record caught up without a read. Its
-  store pays the debt when it opens, and the debt is forgotten once the record
-  is gone or names another document.
+  opens keeps its debt, and no other store waits on it: no listing can show
+  that record caught up without a read. The catch-up asks only a loaded store
+  whose own record owes, so the debt costs nothing there; the listing that
+  writes it still asks the document's registered store, which pulls once and
+  finds nothing of its own owed. The displaced record's store pays the debt
+  when it opens, and the debt is forgotten once the record is gone or names
+  another document.
 - Who reads. Once the debt is durable and the listing's rows have applied,
   the document's registered store is asked to probe. A listing superseded
   before it applied asks nobody: the debt stays, and the catch-up that ends
@@ -56,10 +59,12 @@ adding an update. The mechanism is the one
   not covered until it settles.
 - Settling. A completed pull settles the debt it saw before its request, and
   only once the cursor that pull saved counts as many updates as the listing
-  advertised and the record's key bundle carries the listed head or a later
-  one. Each head of a document has its own manifest epoch, and a head move
-  raises it, so the record's manifest at the listed epoch or past it read that
-  move, and a debt is not owed forever when the head moves again. A replica
+  advertised and the manifest it saved beside the record's key bundle is the
+  listed head or a later one. Each head of a document has its own manifest
+  epoch, and a head move raises it, so a manifest at the listed epoch or past
+  it read that move, and a debt is not owed forever when the head moves
+  again. The key bundle itself can name an earlier manifest that the server
+  still admits and no read would reissue, so it is not what settles. A replica
   lagging the listing can answer without the edit, or with the head from
   before the move; the store then asks for one more pull two seconds later,
   and the debt otherwise waits for the next pull, reconnect or restart. A

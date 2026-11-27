@@ -177,24 +177,25 @@ test("a bundle of a later head pays a debt for an earlier one", async () => {
   expect(await repository.settle(owed, JUDGE)).toBe(true);
 });
 
-test("a record with no bundle, or a manifest of another head, pays nothing", async () => {
+test("a record pays at the head its pull read, and with no key bundle pays nothing", async () => {
   const localId = await holdListedRecord(execSql, {
     cursor: { count: 3 },
     documentId: DOCUMENT_ID,
   });
   const owed = await owe(listed(3, { epoch: 2, hash: "head:moved" }), localId);
 
-  // The apply that moved the record's access epoch dropped its bundle.
-  await execSql(
-    "UPDATE documents SET content_key_bundle = NULL, document_manifest_bundle = NULL",
-  );
+  // The apply that moved the record's access epoch dropped its key bundle;
+  // whatever manifest it kept, it has no access context to present.
+  await saveHeldHead(execSql, localId, "head:moved", 2);
+  await execSql("UPDATE documents SET content_key_bundle = NULL");
   expect(await repository.settle(owed, JUDGE)).toBe(false);
 
-  await saveHeldHead(execSql, localId, "head:moved", 2);
-  await execSql(`UPDATE documents SET document_manifest_bundle = ?`, [
-    JSON.stringify({ manifest: { epoch: 2 }, manifestHash: "head:other" }),
+  // The pull read the moved head, and the server's key bundle still names
+  // the manifest before it: no later read would reissue it.
+  await execSql(`UPDATE documents SET content_key_bundle = ?`, [
+    JSON.stringify({ linkSetManifestHash: heldHead(DOCUMENT_ID) }),
   ]);
-  expect(await repository.settle(owed, JUDGE)).toBe(false);
+  expect(await repository.settle(owed, JUDGE)).toBe(true);
 });
 
 test("a read settles only the request it saw", async () => {

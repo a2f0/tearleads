@@ -28,8 +28,8 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  *   them.
  * - `advertisedAccessEpoch`: The epoch of the newest access head a listing
  *   showed. Each head of a document has its own epoch, and a head move
- *   raises it, so a read settles the request only once the record's key
- *   bundle carries that head or a later one.
+ *   raises it, so a read settles the request only once the manifest the
+ *   record's last pull saved is at that epoch or a later one.
  * - `revision`: Replaced on every request, so a read settles only the
  *   request it saw before it began.
  * - `requestedAt`: When this device last recorded the request.

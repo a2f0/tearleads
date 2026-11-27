@@ -108,12 +108,16 @@ const heldAccessHead = sql<
 >`json_extract(CASE WHEN json_valid(${documents.contentKeyBundle}) THEN ${documents.contentKeyBundle} END, '$.linkSetManifestHash')`;
 
 /**
- * The epoch of that head, from the manifest the record keeps beside its key
- * bundle; null when the record holds no bundle or keeps another manifest.
+ * The epoch of the access head the record's last pull read: the manifest it
+ * keeps beside its key bundle. The key bundle can name an earlier manifest of
+ * the document's history, which the server still admits and no later read
+ * reissues, so the manifest, not the bundle, says whether a read reached the
+ * head. Null when the record holds no key bundle, as after an apply that
+ * moved its access epoch.
  */
 const heldAccessEpoch = sql<number | null>`CASE
-  WHEN json_valid(${documents.documentManifestBundle})
-   AND json_extract(${documents.documentManifestBundle}, '$.manifestHash') = ${heldAccessHead}
+  WHEN ${heldAccessHead} IS NOT NULL
+   AND json_valid(${documents.documentManifestBundle})
   THEN json_extract(${documents.documentManifestBundle}, '$.manifest.epoch')
 END`;
 
@@ -132,8 +136,8 @@ function recordIsBehind(
 
 /**
  * Whether a record has read what a debt asks for: its cursor covers the
- * advertised count, and its key bundle carries the advertised head or a
- * later one. A document's heads are ordered by epoch, so a pull a replica
+ * advertised count, and its last pull read the advertised head or a later
+ * one. A document's heads are ordered by epoch, so a pull a replica
  * answered from before the head moved does not pay the debt.
  */
 function recordPaysDebt(
