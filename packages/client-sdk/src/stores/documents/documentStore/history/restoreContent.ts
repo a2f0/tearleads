@@ -4,6 +4,7 @@ import {
   restoreDocumentContent,
 } from "../../../../data/documents/documentRestore";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
+import type { DocumentRecord } from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import type { DocumentMutationGuard } from "../../types";
 import { ensureDocumentStoreReady } from "../initialization";
@@ -14,7 +15,10 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "../persistence";
-import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
+import {
+  reportDocumentStoreWriteFailure,
+  retryDocumentStoreWorkWhileBusy,
+} from "../reportWriteFailure";
 import { resolveRowAttribution } from "../rows/rowAttribution";
 import {
   canWriteDocument,
@@ -89,23 +93,38 @@ async function persistRestoredContent(
     preserveSnapshotStructuredFields: true,
     preserveSnapshotText: true,
   };
+  const persistWithBusyRetry = (
+    patch: Partial<DocumentRecord>,
+    persistOptions: SaveDocumentRecordOptions,
+  ) =>
+    // The restore commit ran once in `currentDoc` above; repeating only the
+    // atomic SQLite persist keeps a single history stop while retrying behind
+    // another tab's transaction.
+    retryDocumentStoreWorkWhileBusy(
+      state,
+      () =>
+        persistDocument(state, currentDoc, patch, persistOptions, generation),
+      {
+        busyMessage: RESTORE_FAILURE_MESSAGE,
+        isCurrent: () =>
+          state.localWriteGeneration === expectedLocalWriteGeneration &&
+          isDocumentStoreSyncGenerationCurrent(state, generation),
+      },
+    );
   if (!pendingUpdate) {
     // Already this content: nothing to save, only the identity to revalidate.
     return isPersistedAndCurrent(
       state,
       generation,
-      await persistDocument(state, currentDoc, {}, saveOptions, generation),
+      await persistWithBusyRetry({}, saveOptions),
     );
   }
   const coveredVersion = encodeVersionVector(currentDoc);
   // From here until a persist covers it, the doc holds edits SQLite lacks.
   state.unsavedLocalEdits = true;
-  const persisted = await persistDocument(
-    state,
-    currentDoc,
+  const persisted = await persistWithBusyRetry(
     { snapshotEndVersion: coveredVersion },
     { ...saveOptions, pendingUpdate },
-    generation,
   );
   if (!isPersistedAndCurrent(state, generation, persisted)) {
     return false;

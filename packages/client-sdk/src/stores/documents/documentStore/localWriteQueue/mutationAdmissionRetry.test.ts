@@ -9,6 +9,7 @@ for (const operation of ["row retry", "empty structured flush"] as const) {
     try {
       expect(await f.store.ensureInitialized()).toBe(true);
       const id = await f.store.addRow({ value: "original" });
+      if (!id) throw new Error("Expected added row id");
       const originalRows = [...f.store.getSnapshot().rows];
       const queue = await f.queued();
       const hold = f.holdCommit(true);

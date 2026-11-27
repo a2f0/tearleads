@@ -135,30 +135,35 @@ export async function addRowToDocumentStore(
   scheduleSync: () => void,
   fields: Readonly<Record<string, string>>,
   options: DocumentMutationGuard = {},
-): Promise<string> {
-  const id = createDocumentRowId();
+): Promise<string | null> {
   let ready: boolean;
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
     if (options.stillCurrent?.() === false) ready = false;
   } catch (error) {
     reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
-    return id;
+    return null;
   }
 
   if (!ready || !state.doc || !canWriteDocument(state)) {
-    return id;
+    return null;
   }
 
+  const id = createDocumentRowId();
+  let applied = false;
   await queueRowMutation(
     state,
     (doc) => {
       addDocumentRow(doc, id, fields, resolveRowAttribution(state));
+      applied = true;
       return true;
     },
     options,
   );
-  return id;
+  // Once `addDocumentRow` mutated the document, return `id` even if the save
+  // later failed or raced a runtime swap, so idempotent callers can reconcile
+  // the row instead of creating a duplicate.
+  return applied ? id : null;
 }
 
 export async function updateRowInDocumentStore(

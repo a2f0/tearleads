@@ -21,11 +21,13 @@ for (const operation of ["add", "update", "remove"] as const) {
       recordType: "postalAddress",
       street: "Main",
     });
+    if (!address) throw new Error("Expected added row id");
     const distinct = base.openDocumentStore({ localId: "recovered-self" });
     const otherAddress = await distinct.addRow({
       recordType: "postalAddress",
       street: "Untouched",
     });
+    if (!otherAddress) throw new Error("Expected added row id");
     const started = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
     const errors: unknown[] = [];

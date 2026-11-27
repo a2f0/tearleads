@@ -124,6 +124,7 @@ test("a structured document replays its fields and rows cell by cell", async () 
       recordType: "postalAddress",
       street: "1 Analytical Way",
     });
+    if (!rowId) throw new Error("Expected added row id");
     tick();
     await updateRowInDocumentStore(state, noop, rowId, {
       street: "2 Engine Road",

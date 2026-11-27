@@ -221,7 +221,7 @@ export interface DocumentStoreState {
    */
   writerProjectionGeneration: number;
 }
-const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
+export const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
   attachments: [],
   attachmentStatusBySlotId: {},
   attachmentStorageKeyBySlotId: {},

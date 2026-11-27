@@ -12,6 +12,7 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "../persistence";
+import { retryDocumentStoreWorkWhileBusy } from "../reportWriteFailure";
 import { type DocumentStoreState, resetDocumentStore } from "../state";
 import {
   captureDocumentStoreSyncGeneration,
@@ -124,16 +125,26 @@ async function enqueueDeferredTail(
     pendingDeltaSinceBase(state, currentDoc),
   );
   if (!pendingUpdate) return;
-  const persisted = await persistDocument(
+  const persisted = await retryDocumentStoreWorkWhileBusy(
     state,
-    currentDoc,
-    { snapshotEndVersion: documentVersion },
+    () =>
+      persistDocument(
+        state,
+        currentDoc,
+        { snapshotEndVersion: documentVersion },
+        {
+          pendingUpdate,
+          preserveSnapshotStructuredFields: true,
+          preserveSnapshotText: true,
+        },
+        syncGeneration,
+      ),
     {
-      pendingUpdate,
-      preserveSnapshotStructuredFields: true,
-      preserveSnapshotText: true,
+      busyMessage: "Documents: deferred birth persist delayed",
+      isCurrent: () =>
+        isAttachmentWriteGenerationCurrent(state, generation) &&
+        isDocumentStoreSyncGenerationCurrent(state, syncGeneration),
     },
-    syncGeneration,
   );
   if (
     !persisted ||

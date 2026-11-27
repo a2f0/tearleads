@@ -5,6 +5,63 @@ import {
   retryFields,
 } from "../../../test/helpers/contacts/contactAddressRetryHarness";
 
+test("a null addRow refusal keeps the intent bound to its store, author, and lifetime", async () => {
+  let author: string | null = "author-a";
+  let active = true;
+  let additions = 0;
+  const original = await createAddressRetryHarness("contacts", (store) => ({
+    ...store,
+    getSnapshot: () => ({ ...store.getSnapshot(), currentAuthorId: author }),
+    async addRow(...args) {
+      additions += 1;
+      if (additions === 1) return null;
+      return store.addRow(...args);
+    },
+  }));
+  const other = await createAddressRetryHarness("explorer");
+  try {
+    const intent = {};
+    await expect(
+      original.actions.onAddAddress(retryFields, intent, () => active),
+    ).rejects.toThrow();
+    // Refused intent cannot move to another store or a different author.
+    await expect(
+      other.actions.onAddAddress(retryFields, intent),
+    ).rejects.toThrow();
+    author = "author-b";
+    await expect(
+      original.actions.onAddAddress(retryFields, intent, () => active),
+    ).rejects.toThrow();
+    author = "author-a";
+    // Same store, same author, live guard retries cleanly.
+    const id = await original.actions.onAddAddress(
+      retryFields,
+      intent,
+      () => active,
+    );
+    expect(id).toBeString();
+    expect(additions).toBe(2);
+    expect((await original.reopen()).rows.map((row) => row.id)).toEqual([
+      id ?? "",
+    ]);
+
+    // A separate refused intent whose original lifetime expires cannot retry.
+    additions = 0;
+    const expiringIntent = {};
+    await expect(
+      original.actions.onAddAddress(retryFields, expiringIntent, () => active),
+    ).rejects.toThrow();
+    active = false;
+    await expect(
+      original.actions.onAddAddress(retryFields, expiringIntent, () => true),
+    ).rejects.toThrow();
+    expect(additions).toBe(1);
+  } finally {
+    other.close();
+    original.close();
+  }
+});
+
 test("a refused intent cannot move stores and simultaneous retries remain one creation", async () => {
   let additions = 0;
   const original = await createAddressRetryHarness("contacts", (store) => ({
