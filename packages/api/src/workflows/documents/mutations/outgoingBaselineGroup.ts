@@ -1,7 +1,10 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { documentUpdates } from "@tearleads/api-shared/schema";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentBaselineStageErrorCode,
+} from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   type DocumentBaselineGroup,
@@ -19,11 +22,14 @@ import { readWriteHeader } from "./shared/records";
  */
 export function documentBaselineGroupInvalid(
   reason: string,
+  /** Set when the group's stage is why: the stage's own refusal code. */
+  baselineStageCode?: DocumentBaselineStageErrorCode,
 ): DocumentMutationError {
   return new DocumentMutationError(
     `Document rotation baseline is not one whole group: ${reason}`,
     409,
     DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
+    baselineStageCode === undefined ? undefined : { baselineStageCode },
   );
 }
 

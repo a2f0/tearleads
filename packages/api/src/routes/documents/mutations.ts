@@ -75,10 +75,19 @@ function handleDocumentMutationError(error: unknown) {
   throw error;
 }
 
+/** Why a staged baseline's stage refused the commit, when it did. */
+function baselineStageCodeField(
+  error: ReturnType<typeof handleDocumentMutationError>,
+) {
+  const baselineStageCode = error.details?.baselineStageCode;
+  return baselineStageCode === undefined ? {} : { baselineStageCode };
+}
+
 function documentMutationErrorBody(
   error: ReturnType<typeof handleDocumentMutationError>,
 ): DocumentMutationFailureResponse {
   return {
+    ...baselineStageCodeField(error),
     ...(error.code === undefined ? {} : { code: error.code }),
     error: error.error,
   };
@@ -111,7 +120,7 @@ export function documentSyncErrorBody(
         : {}),
     };
   }
-  return { code, error: error.error };
+  return { ...baselineStageCodeField(error), code, error: error.error };
 }
 
 async function respondWithDocumentCreate(

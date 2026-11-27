@@ -147,11 +147,11 @@ test("document sync request guard preserves cross-field rules", () => {
     }),
   ).toBe(true);
   for (const outOfRange of [
-    { baselineSegmentIndex: 64 },
+    { baselineSegmentIndex: 4096 },
     { baselineSegmentIndex: -1 },
     { baselineSegmentIndex: 0.5 },
     { baselineSegmentCount: 0 },
-    { baselineSegmentCount: 65 },
+    { baselineSegmentCount: 4097 },
     { baselineSegmentsDigest: "AB".repeat(32) },
     { baselineId: "not-a-uuid" },
   ]) {

@@ -294,6 +294,40 @@ test("a segment depends only on segments before it", async () => {
   ).toBe("history_not_gapless");
 });
 
+// A dependency is one past the latest operation depended on, so an honest
+// entry is never zero. An entry at zero names no operation and passes any
+// bound, on a peer the group carries or on one nothing does: a writer could
+// pad every dependency vector with such peers for the API and every reader
+// to decode. It is refused on any segment, wherever it sits.
+test("a dependency that names a peer and no operation is refused", async () => {
+  const [first, second, third] = RANGES;
+  if (!first || !second || !third) throw new Error("Expected three ranges");
+  for (const padding of [
+    { "424242": 0 },
+    { "7": 0 },
+    { "7": 3, "424242": 0 },
+  ]) {
+    expect(
+      await fault(
+        await group([
+          first,
+          second,
+          { ...third, dependencyVersionVector: vector(padding) },
+        ]),
+      ),
+    ).toBe("history_not_gapless");
+  }
+  expect(
+    await fault(
+      await group([
+        { ...first, dependencyVersionVector: vector({ "424242": 0 }) },
+        second,
+        third,
+      ]),
+    ),
+  ).toBe("history_not_gapless");
+});
+
 // A segment's vectors are claims. What a group covers is what its spans
 // carry from zero, so a vector that names a peer at a counter no segment
 // reached, with no span of its own, must not count as coverage (#3238).

@@ -5,6 +5,7 @@ import {
   DOCUMENT_MUTATION_ERROR_CODES,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentBaselineStageErrorCode,
   type DocumentMutationErrorCode,
   type DocumentPeerFrontier,
   isPrincipalPolicyStaleErrorResponse,
@@ -12,6 +13,7 @@ import {
 } from "@tearleads/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
 import { DocumentContentKeyBundleError } from "../../../access/write/documentContentKeyStore";
+import { DocumentUpdatePayloadMissingError } from "../../../documents/documentUpdatePageRows";
 import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";
 import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
 import {
@@ -32,6 +34,13 @@ export class DocumentMutationError extends Error {
     readonly code?: DocumentMutationErrorCode | undefined,
     readonly details?:
       | {
+          /**
+           * With `document_sync_baseline_group_invalid` on a request that
+           * commits a staged baseline: why its stage could not be used.
+           */
+          readonly baselineStageCode?:
+            | DocumentBaselineStageErrorCode
+            | undefined;
           /** With `document_sync_peer_owned`: each refused peer's frontier. */
           readonly peerFrontiers?: readonly DocumentPeerFrontier[] | undefined;
           readonly principalHeads?:
@@ -179,6 +188,22 @@ function fromContainerMutationError(
   );
 }
 
+/**
+ * A request's updates were not stored in the order it sent them, or a staged
+ * baseline's segments not in index order. The database assigns a
+ * transaction's update sequences in insert order, so this is a server fault
+ * and never a client's: nothing the client changes makes a retry differ. It
+ * is refused as a coded conflict and the write rolls back, so no reader is
+ * served a group out of order; a retry is safe and inserts again.
+ */
+export function documentUpdatesStoredOutOfOrder(): DocumentMutationError {
+  return new DocumentMutationError(
+    "Document updates were not stored in request order",
+    409,
+    DOCUMENT_SYNC_ERROR_CODES.conflict,
+  );
+}
+
 export function toMutationError(error: unknown): DocumentMutationError | null {
   if (error instanceof DocumentMutationError) {
     return error;
@@ -192,7 +217,10 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
     );
   }
 
-  if (error instanceof DocumentUpdateReadError) {
+  if (
+    error instanceof DocumentUpdateReadError ||
+    error instanceof DocumentUpdatePayloadMissingError
+  ) {
     return new DocumentMutationError(error.message, error.status);
   }
 

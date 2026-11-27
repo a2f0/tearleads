@@ -18,6 +18,11 @@ export { attachmentBindings, blobStages, blobs } from "./blobs";
 export { containerKeyEpochs, containerKeyWraps } from "./containerKeying";
 export { containerSyncTombstones, containers } from "./containers";
 export {
+  documentBaselineSegmentSpans,
+  documentBaselineSegments,
+  documentBaselineStages,
+} from "./documentBaselineStages";
+export {
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,

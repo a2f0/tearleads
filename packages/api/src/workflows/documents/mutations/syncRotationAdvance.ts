@@ -19,6 +19,11 @@ import {
   selectOutgoingBaselineSegments,
 } from "./outgoingBaselineGroup";
 import { readWriteHeader } from "./shared/records";
+import {
+  assertStagedBaselineCoversCommittedFrontier,
+  lockStagedBaselineForCommit,
+  type StagedBaselineCommit,
+} from "./stagedBaselineCommit";
 
 /**
  * A newly written group must be signed at the request's epoch and cover the
@@ -32,18 +37,10 @@ async function assertNewBaselineGroupSound(input: {
   readonly requestContentKeyEpoch: number;
   readonly segments: readonly DocumentOutgoingUpdate[];
 }): Promise<void> {
-  for (const segment of input.segments) {
-    const header = readWriteHeader(
-      segment.writeHeader,
-      "Document rotation baseline write header",
-    );
-    if (header.contentKeyEpoch !== input.requestContentKeyEpoch) {
-      throw new DocumentMutationError(
-        "Document content-key rotation baseline must use the request content-key epoch",
-        409,
-      );
-    }
-  }
+  assertSegmentsSignedAtRequestEpoch(
+    input.segments,
+    input.requestContentKeyEpoch,
+  );
   const committedFrontier = await committedFrontierAfterBaselineCursor(
     input.executor,
     {
@@ -52,11 +49,7 @@ async function assertNewBaselineGroupSound(input: {
     },
   );
   if (!satisfiesVersionVector(input.group.coverage, committedFrontier)) {
-    throw new DocumentMutationError(
-      "Document content-key rotation baseline does not cover the committed frontier",
-      409,
-      DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
-    );
+    throw baselineDoesNotCoverCommittedFrontier();
   }
 }
 
@@ -95,26 +88,132 @@ export async function assertSyncRotationBaselinesSound(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
-}): Promise<void> {
-  const bundle = input.request.contentKeyBundle;
+  readonly userId: string;
+}): Promise<StagedBaselineCommit | null> {
   const segments = selectOutgoingBaselineSegments(
     input.request.outgoingUpdates,
   );
+  const baselineStageId = input.request.baselineStageId;
+  if (baselineStageId !== undefined) {
+    return assertStagedSyncBaselineSound({
+      ...input,
+      baselineStageId,
+      segments,
+    });
+  }
+  await assertInlineSyncBaselineSound({ ...input, segments });
+  return null;
+}
+
+/** Whether the request's bundle opens a content-key epoch past the latest. */
+async function requestAdvancesContentKeyEpoch(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+}): Promise<boolean> {
+  const bundle = input.request.contentKeyBundle;
+  if (!bundle) return false;
+  const latestEpoch = await getLatestDocumentContentKeyEpoch(
+    input.documentId,
+    input.executor,
+  );
+  return latestEpoch !== null && bundle.contentKeyEpoch > latestEpoch;
+}
+
+function assertSegmentsSignedAtRequestEpoch(
+  segments: readonly DocumentOutgoingUpdate[],
+  requestContentKeyEpoch: number,
+): void {
+  for (const segment of segments) {
+    const header = readWriteHeader(
+      segment.writeHeader,
+      "Document rotation baseline write header",
+    );
+    if (header.contentKeyEpoch !== requestContentKeyEpoch) {
+      throw new DocumentMutationError(
+        "Document content-key rotation baseline must use the request content-key epoch",
+        409,
+      );
+    }
+  }
+}
+
+/**
+ * The same gate for a baseline whose earlier segments were staged: the
+ * request carries the final segment and names the stage. The group rules
+ * hold for the stage and the final segment together
+ * (`lockStagedBaselineForCommit`), and the group must cover the committed
+ * frontier (`assertStagedBaselineCoversCommittedFrontier`), whatever the
+ * document holds: a stage is consumed by the request that names it. A retry
+ * of a request that committed finds its final segment committed and no
+ * stage, and inserts nothing, as a retried inline group does.
+ */
+async function assertStagedSyncBaselineSound(input: {
+  readonly baselineStageId: string;
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+  readonly segments: readonly DocumentOutgoingUpdate[] | null;
+  readonly userId: string;
+}): Promise<StagedBaselineCommit | null> {
+  const { segments } = input;
+  if (segments?.length !== 1) {
+    throw documentBaselineGroupInvalid(
+      "a request that commits a staged baseline carries its final segment alone",
+    );
+  }
+  const committed = await readCommittedBaselineGroupState(
+    input.executor,
+    input.documentId,
+    segments,
+  );
+  if (committed !== "new") {
+    if (await requestAdvancesContentKeyEpoch(input)) {
+      throw new DocumentMutationError(
+        "Document content-key rotation baseline must be newly written",
+        409,
+      );
+    }
+    return null;
+  }
+  const commit = await lockStagedBaselineForCommit(input.executor, {
+    baselineStageId: input.baselineStageId,
+    documentId: input.documentId,
+    requestContentKeyEpoch: input.request.contentKeyEpoch,
+    segments,
+    userId: input.userId,
+  });
+  assertSegmentsSignedAtRequestEpoch(segments, input.request.contentKeyEpoch);
+  await assertStagedBaselineCoversCommittedFrontier(input.executor, {
+    commit,
+    documentId: input.documentId,
+    uncovered: baselineDoesNotCoverCommittedFrontier,
+  });
+  return commit;
+}
+
+function baselineDoesNotCoverCommittedFrontier(): DocumentMutationError {
+  return new DocumentMutationError(
+    "Document content-key rotation baseline does not cover the committed frontier",
+    409,
+    DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+  );
+}
+
+async function assertInlineSyncBaselineSound(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+  readonly segments: readonly DocumentOutgoingUpdate[] | null;
+}): Promise<void> {
+  const { segments } = input;
   const group = segments
     ? await requireOutgoingBaselineGroup({
         documentId: input.documentId,
         segments,
       })
     : null;
-  let advancesEpoch = false;
-  if (bundle) {
-    const latestEpoch = await getLatestDocumentContentKeyEpoch(
-      input.documentId,
-      input.executor,
-    );
-    advancesEpoch =
-      latestEpoch !== null && bundle.contentKeyEpoch > latestEpoch;
-  }
+  const advancesEpoch = await requestAdvancesContentKeyEpoch(input);
   if (!group && !advancesEpoch) {
     return;
   }

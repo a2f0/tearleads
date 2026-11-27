@@ -54,7 +54,6 @@ function commitBaseline(input: {
     coversThroughUpdateId: input.cursor,
     documentId: input.documentId,
     ranges: baselineSegmentRanges(input.end),
-    withSpans: true,
   });
 }
 

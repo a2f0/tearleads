@@ -102,10 +102,16 @@ The protocol is fail-closed:
   history again and retries instead of resubmitting the refused baseline
 - a sync or unlink whose rotation baseline is not one whole group (its
   segments break a
-  [group rule](../document-link-and-sync-protocol.md#group-rules)) returns
+  [group rule](../document-rotation-baselines.md#group-rules)) returns
   `409 document_sync_baseline_group_invalid` and commits nothing; a sync
   whose whole group does not cover the committed frontier returns
   `409 document_sync_checkpoint_coverage_conflict`
+- a sync or unlink that commits a
+  [staged baseline](../document-rotation-baselines.md#committing-a-stage)
+  whose stage is gone, expired, for another content key, signed for
+  another manifest, or under an id a request has committed since returns
+  `409 document_sync_baseline_group_invalid` with a `baselineStageCode`,
+  commits nothing, and leaves the stage as it was
 - a reader served a rotation baseline that breaks its group rules fails the
   sync pass instead of voiding an update
 - a sync or unlink whose update extends a Loro peer past its committed

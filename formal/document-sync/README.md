@@ -223,6 +223,20 @@ write lock, and a covering unlink's baseline is refused when it falls short of
 the committed frontier and commits whole or not at all. See the
 [mapping, negative controls, and bounds](./EmptyFrontierUnlink.md).
 
+## Staged Baseline Commit
+
+[`StagedBaselineCommit.tla`](./StagedBaselineCommit.tla)
+models a rotation baseline uploaded ahead of time and committed by reference:
+a stage that takes segments in index order, the commit that places them ahead
+of an inline final segment under the manifest-head write lock, the sweep of
+expired stages, and a reader redirected to the latest whole group. TLC checks
+that no staged segment is served before its commit, that a committed group is
+whole and covers the committed frontier, that no delete removes a committed
+segment's payload, that a reader paging one baseline loses nothing when a
+newer one commits, and that a rotator eventually commits under bounded writes.
+See the
+[mapping, negative controls, and bounds](./StagedBaselineCommit.md).
+
 ## Attachment Key Reachability
 
 Attachment key availability across links, unlinks, and container rotations is

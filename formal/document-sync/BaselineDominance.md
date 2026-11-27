@@ -24,9 +24,9 @@ The abstraction maps to production at these seams:
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `Dominated` | `isDocumentUpdateDominatedByBaseline` |
-| `ReadableBaseline` / `WholeBaseline` | `loadLatestReadableBaselineCoverage`, the coverage of the group `loadLatestStoredDocumentBaselineGroup` returns: the newest one at the epoch whose stored segments all pass `judgeDocumentBaselineGroup` |
-| `storedSegments` | a group's `document_updates` rows whose columns still give the metadata hash their header signs (`storedDocumentUpdateMetadataHash`) |
-| `coverage` | what the group's spans carry from zero: the counters `judgeDocumentBaselineGroup` reaches walking the segments in order, never a vector a segment declares |
+| `ReadableBaseline` / `WholeBaseline` | `loadLatestReadableBaselineCoverage`, the coverage of the group `loadLatestStoredDocumentBaselineGroup` returns: the newest one at the epoch whose stored rows are still one whole group (`findLatestWholeStoredBaselineGroup`) and whose stored spans still run gapless from zero (`readStoredBaselineGroupCoverage`) |
+| `storedSegments` | a group's `document_updates` rows within the pull's bound. A served row whose columns no longer give the metadata hash its header signs fails the pull (`storedDocumentUpdateMetadataHash`) |
+| `coverage` | what the group's spans carry from zero: the counters `judgeDocumentBaselineGroup` reaches walking the segments in order when the group commits, and `readStoredBaselineGroupCoverage` walking its stored spans when it is served, never a vector a segment declares |
 | `Serve` / `RedirectServed` | `listMissingSyncUpdatesForResponse` through `selectServedSyncUpdates` |
 
 TLC explores the sync serve decision. The checked invariants require that:
@@ -127,15 +127,19 @@ normal-mode read is redirected through the readable current-epoch baseline only
 when that baseline dominates every omitted older-epoch update, and raw mode
 always serves the complete retained missing frontier. Baseline contents are
 end-to-end encrypted, so the server cannot verify what a segment carries;
-`ReadableBaseline` is a group whose stored segments each authenticate against
-their signed metadata hash and together pass the group rules
-(`judgeDocumentBaselineGroup`): index order, the signed count and digest, and
-spans that run gapless from zero, each segment starting every peer it names
-where the ones before it left that peer. The model trusts that an honest writer's
+`ReadableBaseline` is a group whose stored rows are whole, every index from
+zero in commit order up to the final segment's signed count with no other
+update among them, and whose stored spans run gapless from zero, each segment
+starting every peer it names where the ones before it left that peer. The
+group rules (`judgeDocumentBaselineGroup`), the signed digest among them, are
+held when the group commits, and each row is authenticated against its signed
+metadata hash when it is served. The model trusts that an honest writer's
 segments carry what their signed spans declare, exactly as production does; a
 writer that signs a span its payload does not match is outside the boundary,
 and every reader voids that segment. The model commits a group whole, as one
-transaction does, and does not model a group across requests. It also assumes
+transaction does. A group staged across requests commits whole too, and
+[StagedBaselineCommit](./StagedBaselineCommit.md) models its stage. It also
+assumes
 well-formed persisted version vectors and continued availability of that
 current-epoch baseline. Cryptographic authenticity, database transactions, SQL
 ordering, and Loro's own CRDT correctness remain outside the abstraction.

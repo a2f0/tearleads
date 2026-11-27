@@ -43,6 +43,13 @@ import {
   listDocumentAttributionRangesOperation,
 } from "./documentAttribution";
 import {
+  abandonDocumentBaselineStageOperation,
+  getDocumentBaselineStageOperation,
+  openDocumentBaselineStageOperation,
+  resignDocumentBaselineSegmentHeaderOperation,
+  stageDocumentBaselineSegmentOperation,
+} from "./documentBaselineStages";
+import {
   createDocumentOperation,
   getDocumentPurgeProofOperation,
   linkDocumentOperation,
@@ -171,6 +178,11 @@ export const protocolOperations: readonly [
   typeof linkDocumentOperation,
   typeof purgeDocumentOperation,
   typeof unlinkDocumentOperation,
+  typeof openDocumentBaselineStageOperation,
+  typeof getDocumentBaselineStageOperation,
+  typeof abandonDocumentBaselineStageOperation,
+  typeof stageDocumentBaselineSegmentOperation,
+  typeof resignDocumentBaselineSegmentHeaderOperation,
   typeof getContainerKekLogOperation,
   typeof listContainerDocumentLanesOperation,
   typeof listContainerParentLanesOperation,
@@ -266,6 +278,11 @@ export const protocolOperations: readonly [
   linkDocumentOperation,
   purgeDocumentOperation,
   unlinkDocumentOperation,
+  openDocumentBaselineStageOperation,
+  getDocumentBaselineStageOperation,
+  abandonDocumentBaselineStageOperation,
+  stageDocumentBaselineSegmentOperation,
+  resignDocumentBaselineSegmentHeaderOperation,
   getContainerKekLogOperation,
   listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,

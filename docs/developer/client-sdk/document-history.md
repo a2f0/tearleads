@@ -170,7 +170,7 @@ has not sent is outside it. So is an update the device has not pulled, which
 | `offline` | The device is offline, or has no keys or signed-in author. |
 | `not_synced` | The document has no remote record, or the server holds no update of it. |
 | `epoch_key_unreachable` | An older content key cannot be reached from this device. The result carries `contentKeyEpoch` and the `DocumentRawHistoryUnavailableError`. |
-| `rejected` | A served page failed a signature or integrity check or served a rotation baseline that breaks its [group rules](../../document-link-and-sync-protocol.md#reader-checks), or the server repeated a page cursor. |
+| `rejected` | A served page failed a signature or integrity check or served a rotation baseline that breaks its [group rules](../../document-rotation-baselines.md#reader-checks), or the server repeated a page cursor. |
 | `unsettled` | This device could not finish reading: a Loro runtime failure, an update the judge held behind one or deferred past its rebuild budget, or a document already reading suspect updates one a page. |
 | `too_large` | The server holds more than 20,000 updates of the document ([limits](../../limits.md#loro-runtime)). |
 | `interrupted` | `options.signal` aborted, the session's scope changed, or a request, or material a check needed, did not arrive. |

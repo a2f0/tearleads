@@ -9,6 +9,7 @@ import {
   nonEmptyStringSchema,
   plainObjectSchema,
   requiredUnknownSchema,
+  uuidV4StringSchema,
 } from "../schema";
 import {
   MAX_CONTAINER_PATH_LENGTH,
@@ -100,6 +101,7 @@ export const DocumentLinkSetMutationRequestSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       authorizingContainerPathRefs: ContainerManifestRefArrayArraySchema,
+      baselineStageId: uuidV4StringSchema.optional(),
       body: requiredUnknownSchema,
       containerRekeys: arraySchema(
         ContainerMutationRequestSchema,

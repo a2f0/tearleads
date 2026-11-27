@@ -1,4 +1,6 @@
 import {
+  MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
+  MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
 } from "@tearleads/validators/util";
@@ -19,7 +21,9 @@ export type BoundedRequest =
  * Ingress ceilings per route. Authenticated routes keep the route ceiling:
  * blob parts, document payloads, and container rotations carry keyrings and
  * baselines that their validators bound. Document sync has its own smaller
- * contract, enforced here before the route buffers anything. The surface a
+ * contract, enforced here before the route buffers anything, and so do a
+ * staged baseline segment, which is one update, and a staged segment's
+ * re-signed write header, which is one header. The surface a
  * client reaches without a session (registration and login, the billing
  * webhooks, and the health probe) only ever carries small JSON, so its ceiling
  * keeps an unauthenticated request from making the isolate buffer or parse
@@ -29,6 +33,10 @@ export const MAX_UNAUTHENTICATED_REQUEST_BYTES = 2 * 1024 * 1024;
 
 const UNAUTHENTICATED_PATHS = [/^\/$/, /^\/auth(\/|$)/, /^\/billing(\/|$)/];
 const DOCUMENT_SYNC_PATH = /^\/documents\/[^/]+\/sync$/;
+const DOCUMENT_BASELINE_SEGMENT_PATH =
+  /^\/documents\/[^/]+\/baseline-stages\/[^/]+\/segments\/[^/]+$/;
+const DOCUMENT_BASELINE_SEGMENT_HEADER_PATH =
+  /^\/documents\/[^/]+\/baseline-stages\/[^/]+\/segments\/[^/]+\/write-header$/;
 
 function ceilingForPath(pathname: string, routeCeiling: number): number {
   if (UNAUTHENTICATED_PATHS.some((pattern) => pattern.test(pathname))) {
@@ -36,6 +44,15 @@ function ceilingForPath(pathname: string, routeCeiling: number): number {
   }
   if (DOCUMENT_SYNC_PATH.test(pathname)) {
     return Math.min(MAX_DOCUMENT_SYNC_REQUEST_BYTES, routeCeiling);
+  }
+  if (DOCUMENT_BASELINE_SEGMENT_PATH.test(pathname)) {
+    return Math.min(MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES, routeCeiling);
+  }
+  if (DOCUMENT_BASELINE_SEGMENT_HEADER_PATH.test(pathname)) {
+    return Math.min(
+      MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
+      routeCeiling,
+    );
   }
   return routeCeiling;
 }

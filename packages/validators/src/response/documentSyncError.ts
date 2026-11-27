@@ -6,6 +6,7 @@ import {
   safeNonNegativeIntegerSchema,
 } from "../schema";
 import { PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT } from "../util/principalHistoryWire";
+import { DocumentBaselineStageErrorCodeSchema } from "./documentBaselineStage";
 import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
 
 export const DOCUMENT_SYNC_ERROR_CODES = {
@@ -116,6 +117,7 @@ export const DocumentSyncStateStaleErrorResponseSchema = z.looseObject({
 });
 
 export const DocumentSyncErrorResponseSchema = z.looseObject({
+  baselineStageCode: DocumentBaselineStageErrorCodeSchema.optional(),
   code: DocumentSyncErrorCodeSchema,
   error: z.string().min(1),
   peerFrontiers: arraySchema(

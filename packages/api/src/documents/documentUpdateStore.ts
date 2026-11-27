@@ -5,7 +5,6 @@ import {
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { decodeVersionVector } from "@tearleads/loro";
-import type { DocumentUpdateRecord } from "@tearleads/loro/server";
 
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -19,6 +18,8 @@ import {
 import {
   type DocumentUpdatePageWriteHeader,
   loadDocumentUpdatePageRows,
+  loadStoredDocumentUpdates,
+  type StoredDocumentUpdate,
 } from "./documentUpdatePageRows";
 
 interface SqlNamedColumn {
@@ -40,7 +41,7 @@ interface MissingDocumentUpdatePage {
   readonly hasMore: boolean;
   readonly lastUpdateId: string | null;
   readonly lastSequence: number;
-  readonly updates: readonly DocumentUpdateRecord[];
+  readonly updates: readonly StoredDocumentUpdate[];
   readonly writeHeaders: Map<string, DocumentUpdatePageWriteHeader>;
 }
 
@@ -205,19 +206,14 @@ async function listMissingDocumentUpdateCandidates(
 async function loadDocumentUpdatesByCandidate(
   executor: DatabaseSession,
   candidates: readonly MissingDocumentUpdateCandidate[],
-): Promise<DocumentUpdateRecord[]> {
+): Promise<StoredDocumentUpdate[]> {
   if (candidates.length === 0) {
     return [];
   }
-  const rows = await executor
-    .select()
-    .from(documentUpdates)
-    .where(
-      inArray(
-        documentUpdates.id,
-        candidates.map(({ id }) => id),
-      ),
-    );
+  const rows = await loadStoredDocumentUpdates(
+    executor,
+    candidates.map(({ id }) => id),
+  );
   const byId = new Map(rows.map((row) => [row.id, row]));
   return candidates.map((candidate) => {
     const row = byId.get(candidate.id);
@@ -298,7 +294,7 @@ export async function listMissingDocumentUpdates(
     localVersionVector: string | null;
     minLsn?: string | undefined;
   },
-): Promise<DocumentUpdateRecord[]> {
+): Promise<StoredDocumentUpdate[]> {
   await assertMinLsnSatisfied(executor, input.minLsn);
   const candidates = await listMissingDocumentUpdateCandidates(executor, input);
   return loadDocumentUpdatesByCandidate(executor, candidates);
@@ -470,7 +466,7 @@ export async function listMissingDocumentUpdatePage(
     if (row.writeHeader) writeHeaders.set(row.update.id, row.writeHeader);
     return row.update;
   });
-  const selected: DocumentUpdateRecord[] = [];
+  const selected: StoredDocumentUpdate[] = [];
   let selectedBytes = 2; // JSON array brackets.
   for (const update of loaded) {
     const updateBytes = Buffer.byteLength(JSON.stringify(update), "utf8");

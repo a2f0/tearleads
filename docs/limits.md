@@ -113,7 +113,19 @@ for the exact-length rule.
 | --- | --- | --- | --- |
 | Sync request body | 16 MiB (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`, [`validators/src/util/documentSyncLimits.ts`](../packages/validators/src/util/documentSyncLimits.ts)) | SDK applies the exact serialized-byte ceiling after encryption and trims the batch; the Worker entry bounds the stream at this ceiling before the route buffers it; API rejects. | Pagination for a batch. A single update that cannot fit abandons with `document_sync_request_too_large`. |
 | Outgoing updates per request | 64 (`MAX_DOCUMENT_SYNC_OUTGOING_UPDATES`) | SDK: [`data/documents/shared/sync/documentSyncOutgoingBatch.ts`](../packages/client-sdk/src/data/documents/shared/sync/documentSyncOutgoingBatch.ts). | Pagination. |
-| Rotation baseline segments | 64 (`MAX_DOCUMENT_BASELINE_SEGMENTS`) | Validators; SDK. | Refusal. |
+| Rotation baseline segments in one request | 64 (`MAX_DOCUMENT_BASELINE_SEGMENTS`) | Validators; SDK. | Refusal. A longer baseline is [staged](./document-rotation-baselines.md#a-baseline-staged-ahead). |
+| Segments of a staged rotation baseline | 4,096, the final one included (`MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS`) | Validators bound a segment's index and count and the stage route's `segmentIndex`, so index 4,094 is the last one staged. A commit inserts one small update row per staged segment under the document head lock, which this bounds. | Refusal (400). |
+| Staged baseline segment request | 16 MiB (`MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES`, the sync request ceiling) | The Worker entry bounds the stream before the route buffers it; the stage route rejects. One staged segment is one update, so every committed segment fits a response page. | Refusal (413). |
+| Re-signed staged write header request | 512 KiB (`MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES`) | The Worker entry bounds the stream before the route buffers it; the route rejects. The largest header the parser admits is about 430 KiB. | Refusal (413). |
+| Write header size | A document header cites at most 6,400 container manifests (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS`); any header names its device in at most 128 characters (`MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH`) and carries its signature in canonical base64 | Crypto: [`crypto/src/keying/writeHeader/writeHeaderCitations.ts`](../packages/crypto/src/keying/writeHeader/writeHeaderCitations.ts) and the verifier, wherever a header is signed or verified: an ordinary write, a staged segment, a re-signed header. Its other fields are fixed-size or must match the document. A blob header's citations are bounded by its own request. | Refusal (400; 403 for the signature). A committed header is then at most about 430 KiB, so a staged segment with its header, re-signed or not, serializes to under 17 MiB and fits a response page's 32 MiB update share. |
+| Bytes one baseline stage stores | 1 GiB (`MAX_DOCUMENT_BASELINE_STAGE_BYTES`), counting each staged segment's ciphertext, signed vectors, plaintext hash, and write header | API: `assertSegmentFitsStage` in [`stagedSegmentRows.ts`](../packages/api/src/workflows/documents/baselineStages/stagedSegmentRows.ts), before a segment is stored, against the stage row's running count (`stagedBytes` in its status). A re-signed header moves the count by the difference between the two headers, under the same check ([`resignSegmentHeader.ts`](../packages/api/src/workflows/documents/baselineStages/resignSegmentHeader.ts)). | 409 `document_baseline_stage_too_large`; the stage is unchanged. A history past it cannot be staged whole. |
+| Span rows one baseline stage stores | 1,048,576 (`MAX_DOCUMENT_BASELINE_STAGE_SPANS`), one for each peer a segment carries | API: the same check. A commit copies a stage's span rows, and writes at most as many peer-owner rows, under the document head lock, so this bounds them whatever the ciphertext's size. Committing a stage of 1,000,002 spans held that lock for 9.0 s on the in-memory test database (PGlite), about a second per 100,000 spans; it is not measured on Postgres. A baseline sent whole in one 16 MiB request can declare about 3.3 million spans under the same lock, so the staged bound is not the larger exposure, and it is not lowered: every peer of a history costs at least one span, so a bound of 100,000, which would hold the lock near a second here, would refuse any history of more peers. | 409 `document_baseline_stage_too_large`; the stage is unchanged. |
+| Open baseline stages per user and document | 1 (the unique index `document_baseline_stages_owner_idx`) | API: [`documents/baselineStages/`](../packages/api/src/workflows/documents/baselineStages/) deletes the caller's earlier stage, and what it staged, when another opens. | Replacement, never a refusal. |
+| Open baseline stages per user | 4 across documents (`MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER`) | API: `openDocumentBaselineStage` counts the caller's unexpired stages on other documents under a per-user lock, and deletes its expired ones. | 409 `document_baseline_stage_limit_reached`, naming the four as `openStages`; the writer abandons one or waits for one to commit or expire. |
+| Baseline stage lifetime | One hour after its last staged segment or re-signed header (`DOCUMENT_BASELINE_STAGE_IDLE_SECONDS`), and 24 hours after it opened at most (`DOCUMENT_BASELINE_STAGE_MAX_SECONDS`) | API: `judgeDocumentBaselineStage` on every stage request and commit; the hourly maintenance run deletes expired stages. Only a request that passes the access and billing checks of a document write moves the expiry. | 409 `document_baseline_stage_expired`, or that code beside `document_sync_baseline_group_invalid` on a commit; the writer opens a new stage. |
+| Expired stages deleted per maintenance run | Every one, in batches of 100, until 10,000 stages (`MAX_EXPIRED_STAGES_PER_SWEEP`) or five minutes (`EXPIRED_STAGE_SWEEP_BUDGET_MS`, [`cleanupExpiredStages.ts`](../packages/api/src/workflows/documents/baselineStages/cleanupExpiredStages.ts)) | API: `cleanupExpiredDocumentBaselineStages`, oldest expiry first, one transaction per stage, after the hour's blob garbage collection. The clock is read before every stage, so a run overruns its time by one stage's delete at most, and a stage whose delete fails is counted once and stepped past. | The run stops, reports the expired stages it left as `remaining`, and logs a warning; the next hourly run continues. An expired stage holds its bytes until a run reaches it and can do nothing else. |
+| Sealed baselines searched for a whole one | 4 (`MAX_LATEST_BASELINE_GROUP_CANDIDATES`, [`api/src/documents/documentStoredBaselineGroup.ts`](../packages/api/src/documents/documentStoredBaselineGroup.ts)) | API: the baseline redirect looks at the newest sealed groups at the current epoch for one whose rows are still whole. | No redirect: the pull serves every missing update. Only a group that lost a row after it committed is passed over. |
+| Spans read to weigh a stored baseline | Every span of the latest whole group: up to 1,048,576 for a staged one, plus its final segment's | API: `readStoredBaselineGroupCoverage` ([`api/src/documents/documentStoredBaselineGroup.ts`](../packages/api/src/documents/documentStoredBaselineGroup.ts)), one aggregate a peer with no sort, on a cold first page that starts before the group and on a pull that holds an update of an older epoch. It took 0.43 s for 1,050,000 spans of 50,000 peers on the in-memory test database (1.08 s with the window sort it replaced), and returns one row a peer. | None: the cost follows the group's spans, which the stage bound caps. The coverage is not stored. |
 | Merged queued update size | 8 MiB of base64 `updateData` (`QUEUED_UPDATE_MERGE_MAX_DATA_CHARACTERS`, half of `MAX_DOCUMENT_SYNC_REQUEST_BYTES`) | SDK: [`stores/documents/documentStore/sync/syncQueueMergePlan.ts`](../packages/client-sdk/src/stores/documents/documentStore/sync/syncQueueMergePlan.ts) plans within it and [`syncQueueMerge.ts`](../packages/client-sdk/src/stores/documents/documentStore/sync/syncQueueMerge.ts) rechecks the exported blob. | The run is cut there; rows past the cap start a new merge or go out unmerged. A merged update always fits a request. |
 | Queued rows inspected for merging per sync pass | 256 (`QUEUED_UPDATE_MERGE_MAX_ROWS_PER_PASS`) | SDK: [`stores/documents/documentStore/sync/syncQueueMergePlan.ts`](../packages/client-sdk/src/stores/documents/documentStore/sync/syncQueueMergePlan.ts) proves and plans only the first 256 queued rows (the front of the queue, sent first), whether or not they merge, so this bounds the proofs and export done while the SQL lock is held. | Rows past the bound are sent unmerged; a later pass inspects whatever is still queued. |
 | Authorization paths per request | 64 (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS`), each at most 100 deep, so 6,400 path refs (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS`) | Validators; derived from the structural limits so every valid link set stays syncable after later moves deepen its paths. | Refusal. |
@@ -123,6 +135,20 @@ for the exact-length rule.
 | Pull cursor length | 512 (`MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH`) | Validators. | Refusal. |
 | Refused peers named per refusal | 64 (`MAX_DOCUMENT_PEER_FRONTIERS`, [`validators/src/response/documentSyncError.ts`](../packages/validators/src/response/documentSyncError.ts)) in the `peerFrontiers` of a 409 `document_sync_peer_owned` or `document_sync_dependency_uncommitted` | API: `judgeDocumentPeerSpans` in [`validators/src/documentPeerSpans.ts`](../packages/validators/src/documentPeerSpans.ts), called from [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts), names the first 64 refused peers in canonical order, each with the frontier committed before the request; the response schema bounds the list. | Pagination. The client [recovers](./peer-ownership.md#rebasing-onto-a-fresh-peer) on the named peers, by a rebase onto a fresh peer or a relay, and its retry draws a refusal naming the rest. |
 | Span and peer-owner rows per insert statement | 8,192 (`DOCUMENT_PEER_ROWS_PER_INSERT`, [`api/src/documents/documentPeerRowChunks.ts`](../packages/api/src/documents/documentPeerRowChunks.ts)) | API: [`documents/documentUpdateSpans.ts`](../packages/api/src/documents/documentUpdateSpans.ts) inserts one span row per peer of each new update's declared span, and [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) one owner row per peer the write claims, in statements of at most this many rows inside the write's transaction. Document sync and a link-set mutation's rotation baseline both write through them. Postgres binds at most 65,535 parameters to one statement, and a span row binds five. | More statements in the same transaction; nothing is refused, so a write's rows are bounded only by its request body. A rotation baseline has span rows for every peer in the document's history, and nothing caps that history: see [the known defect](#known-defect-unbounded-document-history). |
+
+**What a member can hold staged.** No storage quota counts staged bytes: the
+organization data-usage report sums committed updates and blobs, and a
+staged segment is neither until its stage commits. The bounds above are the
+whole limit. A member who can write a document and holds a sync seat can
+keep four stages open, so at most 4 GiB of staged rows and 4,194,304 staged
+span rows at once, and an organization of *n* such members at most *n*
+times that. Holding it costs the upload: a stage lives 24 hours at most, and
+only while its writer stages or re-signs in it every hour, which the API
+allows only while the member can still write the document and its
+organization can sync. A member who loses either holds what it staged until
+that stage's expiry, an hour at most, and then until the hourly sweep
+reaches it. The sweep deletes every expired stage it finds, so the bytes
+are held again only by uploading them again.
 
 ## Loro runtime
 
@@ -271,7 +297,7 @@ writer waiting on another authorized member:
   and pulls.
 - **A baseline the server serves in part.** A reader fails the pass on a
   served rotation baseline that breaks a
-  [group rule](./document-link-and-sync-protocol.md#reader-checks), instead
+  [group rule](./document-rotation-baselines.md#reader-checks), instead
   of voiding segments for good. A server or API fault that withholds or
   reorders a segment then blocks that device's pulls of the document until
   the server serves the group whole, and its queued writes with them. A
@@ -325,12 +351,16 @@ for how the SDK reports the parked state.
 This defect stops writes outright rather than making a writer wait. Nothing
 caps a document's history: its peers, or its content, which deleting text
 does not shrink. A [rotation baseline](./glossary/keys.md#rotation-baseline)
-carries all of it in one request, as up to 64 segments. Once the history
-outgrows that request, a sync abandons the baseline past 16 MiB with
-`document_sync_request_too_large`, and a link-set mutation is refused past
-the 32 MiB route ceiling. No member can then rotate the document's content
-key, unlink, move, or purge-unlink it, and unlink can no longer remove a
-link's access to it ([#3238](https://github.com/a2f0/tearleads/issues/3238)).
+carries all of it, and the SDK sends one in a single request, as up to 64
+segments. Once the history outgrows that request, a sync abandons the
+baseline past 16 MiB with `document_sync_request_too_large`, and a link-set
+mutation is refused past the 32 MiB route ceiling. No member can then rotate
+the document's content key, unlink, move, or purge-unlink it, and unlink can
+no longer remove a link's access to it
+([#3238](https://github.com/a2f0/tearleads/issues/3238)). The API accepts a
+baseline [staged](./document-rotation-baselines.md#a-baseline-staged-ahead)
+across requests, of up to 4,096 segments, 1 GiB, and 1,048,576 spans; the
+defect stands until the SDK stages one, and past those bounds after it.
 A member can cause this with many peers or with content alone, and a large
 honest document reaches it too. Writes other than rotation baselines stay far
 below both bounds. Span and owner rows are written in chunks, so a

@@ -141,6 +141,22 @@ export {
   listDocumentAttributionRangesOperation,
 } from "./documentAttribution";
 export {
+  abandonDocumentBaselineStageOperation,
+  type DocumentBaselineStagePathParams,
+  DocumentBaselineStagePathParamsSchema,
+  type DocumentBaselineStageSegmentPathParams,
+  DocumentBaselineStageSegmentPathParamsSchema,
+  DocumentBaselineStagesPathParamsSchema,
+  getDocumentBaselineStageOperation,
+  isAbandonDocumentBaselineStageOperationResponse,
+  isDocumentBaselineStageStatusOperationResponse,
+  isOpenDocumentBaselineStageOperationRequest,
+  isResignDocumentBaselineSegmentHeaderOperationRequest,
+  openDocumentBaselineStageOperation,
+  resignDocumentBaselineSegmentHeaderOperation,
+  stageDocumentBaselineSegmentOperation,
+} from "./documentBaselineStages";
+export {
   createDocumentOperation,
   type DocumentMutationPathParams,
   DocumentMutationPathParamsSchema,

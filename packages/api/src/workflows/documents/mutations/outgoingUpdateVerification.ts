@@ -86,6 +86,77 @@ export async function verifyOutgoingWriteHeader(input: {
   return verified.value;
 }
 
+/**
+ * Verify a segment as it is staged, ahead of the request that commits it.
+ * Everything a writer signs is checked here, as for any update: the header's
+ * signature under the session's key, the object it names, the epoch, the
+ * signed metadata and ciphertext hashes, the envelope, and the commitment of
+ * the content key the stage is for. What cannot be checked yet is whether
+ * the header's manifest, key-target set and citations authorize the writer:
+ * the manifest a rotation writes does not exist until the request that
+ * commits the stage. That request verifies its own final segment in full
+ * and requires every staged header to name the same ones.
+ */
+export async function verifyStagedSegmentWriteHeader(input: {
+  /** The commitment of the content key the stage is for. */
+  readonly contentKeyCommitment: string;
+  readonly contentKeyEpoch: number;
+  readonly documentId: string;
+  readonly organizationId: string;
+  readonly signingPublicKey: Uint8Array;
+  readonly update: DocumentOutgoingUpdate;
+  readonly userId: string;
+}): Promise<VerifiedWriteHeader> {
+  const verified = await verifyStagedWriteHeaderSignature({
+    ...input,
+    writeHeader: input.update.writeHeader,
+  });
+  assertOutgoingEnvelopeCommitsToEpochKey(
+    await assertOutgoingUpdatePayloadMatchesHeader({
+      documentId: input.documentId,
+      header: verified.header,
+      update: input.update,
+    }),
+    input.contentKeyCommitment,
+  );
+  return verified;
+}
+
+/**
+ * The checks of a staged header that read the header alone: its writer is
+ * the session's user, it is signed at the stage's epoch for this document
+ * and organization, and the signature verifies under the session's key.
+ */
+export async function verifyStagedWriteHeaderSignature(input: {
+  readonly contentKeyEpoch: number;
+  readonly documentId: string;
+  readonly organizationId: string;
+  readonly signingPublicKey: Uint8Array;
+  readonly userId: string;
+  readonly writeHeader: unknown;
+}): Promise<VerifiedWriteHeader> {
+  const header = readWriteHeader(input.writeHeader, "Document write header");
+  if (
+    header.writerUserId !== input.userId ||
+    header.contentKeyEpoch !== input.contentKeyEpoch
+  ) {
+    throw new DocumentMutationError("Write header does not match stage", 400);
+  }
+  const verified = await verifyWriteHeader({
+    expectedObject: {
+      objectKind: "document",
+      objectId: input.documentId,
+      organizationId: input.organizationId,
+    },
+    header,
+    writerPublicKey: input.signingPublicKey,
+  });
+  if (!verified.ok) {
+    throw verified.error;
+  }
+  return verified.value;
+}
+
 async function assertOutgoingUpdatePayloadMatchesHeader(input: {
   readonly documentId: string;
   readonly header: WriteHeader;

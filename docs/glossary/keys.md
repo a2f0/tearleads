@@ -188,8 +188,10 @@ Related docs:
 The document's whole history, written again by a [rotate](#rotate) under the
 new epoch's [DEK](#dek) to bridge old readable state to the new epoch. It is
 an ordered group of ordinary [Loro updates](./content.md#loro-update), its
-segments, sent whole in the one request that rotates and committed together
-or not at all. Each segment's
+segments, committed together or not at all by the one request that rotates.
+That request carries the whole group, or its final segment and the name of
+the [baseline stage](#baseline-stage) the earlier ones were uploaded to.
+Each segment's
 [signed write header](./content.md#signed-write-header) commits `baselineId`
 and `baselineSegmentIndex`. The final segment also commits
 `baselineSegmentCount`, `baselineSegmentsDigest` (a hash chain over the
@@ -210,8 +212,29 @@ Related docs:
 
 - [document-rekey-and-audit-history.md](../document-rekey-and-audit-history.md#rotate-means-fresh-baseline-for-later-writes)
 - [document-rekey-and-audit-history.md](../document-rekey-and-audit-history.md#declared-coverage-is-trusted-not-verified)
-- [document-rekey-and-audit-history.md](../document-rekey-and-audit-history.md#rotation-baselines-in-document_updates)
-- [document-link-and-sync-protocol.md](../document-link-and-sync-protocol.md#rotation-baseline-groups)
+- [document-rotation-baselines.md](../document-rotation-baselines.md#group-rules)
+- [document-rotation-baselines.md](../document-rotation-baselines.md#storage)
+
+## Baseline Stage
+
+Where a writer uploads a [rotation baseline](#rotation-baseline) too large
+for one request, ahead of the request that rotates: every segment but the
+final one, in index order, one request each. A stage belongs to one user
+and one document and is named by the baseline's id. Nothing staged is an
+update of the document, and no pull serves it. The unlink or sync that
+rotates carries the final segment and names the stage; the staged segments
+then commit ahead of it in the same transaction, their ciphertext left where
+it was staged. Every request to a stage is checked as a document write is,
+for the caller's access and its organization's standing at that moment. A
+user holds one stage per document and four in all, and a stage stores at
+most 1 GiB. A stage expires an hour after its last upload and at most a
+day after it opened, and an expired or abandoned stage is deleted with what
+it staged.
+
+Related docs:
+
+- [document-rotation-baselines.md](../document-rotation-baselines.md#a-baseline-staged-ahead)
+- [limits.md](../limits.md#document-sync)
 
 ## Target Hash
 

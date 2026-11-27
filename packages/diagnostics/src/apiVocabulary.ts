@@ -21,6 +21,7 @@ export const API_OPERATIONS = {
   "billing.purge-invalidate": "organization purge invalidation",
   "billing.seat-sync": "Stripe seat synchronization",
   "blob.maintenance": "blob maintenance",
+  "document.maintenance": "document maintenance",
 } as const;
 
 export type ApiDiagnosticOperation = keyof typeof API_OPERATIONS;

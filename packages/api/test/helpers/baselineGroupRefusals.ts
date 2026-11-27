@@ -42,7 +42,11 @@ function peerOf(range: BaselineSegmentRange): string {
 export type SignGroup = (
   options: Pick<
     Parameters<typeof createSignedBaselineGroup>[0],
-    "baselineId" | "coversThroughUpdateId" | "override" | "ranges"
+    | "baselineId"
+    | "contentRecordId"
+    | "coversThroughUpdateId"
+    | "override"
+    | "ranges"
   >,
 ) => Promise<DocumentOutgoingUpdate[]>;
 
@@ -164,6 +168,28 @@ export const REFUSED_GROUPS: readonly RefusedGroup[] = [
             }),
           },
           second,
+          third,
+        ],
+      });
+    },
+    reason: NOT_GAPLESS,
+  },
+  {
+    name: "a dependency that names a peer and no operation",
+    baseline: ({ frontier, sign }) => {
+      const [first, second, third] = peerRanges(frontier);
+      if (!first || !second || !third) throw new Error("Expected three");
+      // The second segment's dependencies name a peer nothing carries, at
+      // zero: no operation, so no bound on a counter refuses it.
+      return sign({
+        ranges: [
+          first,
+          {
+            ...second,
+            dependencyVersionVector: encodeVersionVectorCounters({
+              "424242": 0,
+            }),
+          },
           third,
         ],
       });

@@ -157,7 +157,7 @@ test("atomic rotation baseline must cover the complete committed frontier", asyn
         }),
         documentId,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBeNull();
   }
 });
 

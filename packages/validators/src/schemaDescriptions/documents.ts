@@ -125,6 +125,8 @@ describeSchema(
   {
     authorizingContainerPathRefs:
       "Container paths that authorize a write; reads may omit them.",
+    baselineStageId:
+      "The staged rotation baseline this sync commits; its final segment comes first in `outgoingUpdates`.",
     containerRekeys:
       "Container rekeys to commit first in the same transaction.",
     contentKeyBundle:
@@ -215,6 +217,8 @@ describeSchema(
   DocumentSyncErrorResponseSchema,
   "A refused sync. The code tells the client what to do: rebuild a malformed rotation baseline or one that no longer covers the committed updates, commit rekeys first, replan, recover update ids, move ops off another user's peer or off uncommitted dependencies, or stop.",
   {
+    baselineStageCode:
+      "With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code.",
     peerFrontiers:
       "With `document_sync_peer_owned`, up to 64 peers another user owns that the request extends; with `document_sync_dependency_uncommitted`, up to 64 peers the request depends on past their committed frontier. Each carries the frontier committed before the request.",
     principalHeads:
@@ -272,6 +276,8 @@ describeSchema(
   {
     authorizingContainerPathRefs:
       "Paths through which the caller may write the document now.",
+    baselineStageId:
+      "For an unlink, the staged rotation baseline it commits; `rotationBaseline` is its final segment alone.",
     containerRekeys:
       "Container rekeys to commit first in the same transaction.",
     contentKeyBundle: "Content-key bundle for the new link set's targets.",
@@ -302,6 +308,10 @@ describeSchema(
 describeSchema(
   DocumentMutationFailureResponseSchema,
   "A refused document create, link, unlink, or purge.",
+  {
+    baselineStageCode:
+      "With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code.",
+  },
 );
 
 describeSchema(

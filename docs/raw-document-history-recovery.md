@@ -46,7 +46,7 @@ A segment the judge voided, or whose verdict is unsettled, is one sync has
 not applied, and the history checkpoint installed on this device was never
 served, so none of them enters the rebuild. A raw page whose served baseline
 breaks its
-[group rules](./document-link-and-sync-protocol.md#reader-checks) fails like
+[group rules](./document-rotation-baselines.md#reader-checks) fails like
 any invalid page, before the judge reads it.
 
 The built-in document content-key [rotation](./glossary/keys.md#rotate) preflight

@@ -35,6 +35,7 @@ define executable request, response, and verifier behavior.
   - [Rewrap](./glossary/keys.md#rewrap)
   - [Rotate](./glossary/keys.md#rotate)
   - [Rotation Baseline](./glossary/keys.md#rotation-baseline)
+  - [Baseline Stage](./glossary/keys.md#baseline-stage)
   - [Target Hash](./glossary/keys.md#target-hash)
 - [Documents and attachments](./glossary/content.md)
   - [Attachment Binding](./glossary/content.md#attachment-binding)

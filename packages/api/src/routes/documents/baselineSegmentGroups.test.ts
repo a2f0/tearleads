@@ -137,3 +137,58 @@ test("a sync commits a baseline of several segments whole, with the updates afte
   expect(retried.status).toBe(200);
   expect(await storedUpdates(created.id)).toHaveLength(committed.length + 4);
 });
+
+// A baseline id is its writer's choice, so it names a group only within its
+// document: another document's writer choosing the same one is no conflict.
+// Within one document it is taken, and a second group under it is refused
+// as a conflict, not a server error.
+test("two documents may each commit a baseline under the same id", async () => {
+  const baselineId = crypto.randomUUID();
+  const commit = async (
+    history: Awaited<ReturnType<typeof documentWithHistory>>,
+  ) => {
+    const { created, frontier, owner, root } = history;
+    const segments = await createSignedBaselineGroup({
+      accessManifestHash: created.manifestHash,
+      baselineId,
+      contentKeyEpoch: created.contentKeyEpoch,
+      dependencyManifestHashes: [root.bundle.manifestHash],
+      documentId: created.id,
+      organizationId: String(
+        Reflect.get(created.accessManifest.state, "organizationId"),
+      ),
+      owner,
+      ranges: baselineSegmentRanges(frontier, 2),
+      targetHash: created.targetHash,
+    });
+    const { request } = await createSignedDocumentSyncRequest({
+      created,
+      owner,
+      root,
+    });
+    return postDocumentSync(owner, created.id, {
+      ...request,
+      outgoingUpdates: segments,
+    });
+  };
+  const first = await documentWithHistory();
+  const second = await documentWithHistory();
+  expect((await commit(first)).status).toBe(200);
+  expect((await commit(second)).status).toBe(200);
+  for (const { committed, created } of [first, second]) {
+    expect(
+      (await storedUpdates(created.id))
+        .slice(committed.length)
+        .map((row) => [row.baselineId, row.baselineSegmentIndex]),
+    ).toEqual([
+      [baselineId, 0],
+      [baselineId, 1],
+    ]);
+  }
+
+  const again = await commit(first);
+  expect(again.status).toBe(409);
+  expect(await storedUpdates(first.created.id)).toHaveLength(
+    first.committed.length + 2,
+  );
+});

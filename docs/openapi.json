@@ -2840,6 +2840,205 @@
         "additionalProperties": {},
         "description": "Confirms that a session was signed out."
       },
+      "DocumentBaselineStageAbandonResponse": {
+        "type": "object",
+        "properties": {
+          "baselineId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "The abandoned baseline's id."
+          }
+        },
+        "required": [
+          "baselineId"
+        ],
+        "additionalProperties": {},
+        "description": "Acknowledges that a stage and its staged segments were deleted."
+      },
+      "DocumentBaselineStageConflictErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "document_baseline_stage_epoch_stale",
+              "document_baseline_stage_expired",
+              "document_baseline_stage_id_conflict",
+              "document_baseline_stage_limit_reached",
+              "document_baseline_stage_segment_conflict",
+              "document_baseline_stage_segment_invalid",
+              "document_baseline_stage_segment_out_of_order",
+              "document_baseline_stage_too_large"
+            ]
+          },
+          "error": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nextSegmentIndex": {
+            "maximum": 4095,
+            "minimum": 0,
+            "type": "integer",
+            "description": "With `document_baseline_stage_segment_out_of_order`, the index the stage expects next."
+          },
+          "openStages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "baselineId": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "documentId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expiresAt": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "baselineId",
+                "documentId",
+                "expiresAt"
+              ],
+              "additionalProperties": {}
+            },
+            "maxItems": 4,
+            "description": "With `document_baseline_stage_limit_reached`, the caller's open stages on other documents: each one's `baselineId`, `documentId` and `expiresAt`. Abandoning one makes room."
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": {},
+        "description": "A refused stage request. A `document_baseline_stage_*` code says what the stage is worth now; an uncoded conflict is a failed access check or a write that raced another, and leaves the stage as it was."
+      },
+      "DocumentBaselineStageNotFoundErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "const": "document_baseline_stage_not_found"
+          },
+          "error": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "code",
+          "error"
+        ],
+        "additionalProperties": {},
+        "description": "The stage does not exist for this caller and document; only this coded 404 proves it is gone."
+      },
+      "DocumentBaselineStageOpenRequest": {
+        "type": "object",
+        "properties": {
+          "baselineId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "The id every segment of the baseline signs as `baselineId`. Client-chosen; it names the stage in later requests."
+          },
+          "contentKeyCommitment": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Commitment of the content key the segments are encrypted under. For the document's current epoch it must be the stored one; for the next epoch it must be the one the rotating request's bundle declares."
+          },
+          "contentKeyEpoch": {
+            "exclusiveMinimum": 0,
+            "maximum": 1.7976931348623157e+308,
+            "type": "integer",
+            "description": "Content-key epoch the segments are written at: the document's current epoch, or the one the rotating request opens."
+          }
+        },
+        "required": [
+          "baselineId",
+          "contentKeyCommitment",
+          "contentKeyEpoch"
+        ],
+        "additionalProperties": {},
+        "description": "Opens the stage of one rotation baseline: the segments a writer uploads ahead of the request that rotates."
+      },
+      "DocumentBaselineStageStatusResponse": {
+        "type": "object",
+        "properties": {
+          "baselineId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "The staged baseline's id."
+          },
+          "contentKeyCommitment": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "Commitment of the content key the stage is for."
+          },
+          "contentKeyEpoch": {
+            "exclusiveMinimum": 0,
+            "maximum": 1.7976931348623157e+308,
+            "type": "integer",
+            "description": "Content-key epoch the stage is for."
+          },
+          "expiresAt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "When the stage expires unless another segment or header arrives first, as an ISO 8601 instant."
+          },
+          "nextSegmentIndex": {
+            "maximum": 4095,
+            "minimum": 0,
+            "type": "integer",
+            "description": "Index the next staged segment must carry, and the index of the final segment a rotating request sends to commit the stage now."
+          },
+          "segmentsDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "The baseline digest over the segments staged so far: what a final segment sent now must sign as `baselineSegmentsDigest`."
+          },
+          "stagedBytes": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer",
+            "description": "Bytes the stage stores so far: each staged segment's ciphertext, signed vectors, plaintext hash and write header. A stage holds at most 1 GiB."
+          }
+        },
+        "required": [
+          "baselineId",
+          "contentKeyCommitment",
+          "contentKeyEpoch",
+          "expiresAt",
+          "nextSegmentIndex",
+          "segmentsDigest",
+          "stagedBytes"
+        ],
+        "additionalProperties": {},
+        "description": "A rotation baseline stage as the server holds it."
+      },
+      "DocumentBaselineStageWriteHeaderRequest": {
+        "type": "object",
+        "properties": {
+          "writeHeader": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {},
+            "description": "The new signed write header. It must name the staged segment's content record, metadata hash, ciphertext hash and nonce domain at the stage's epoch."
+          }
+        },
+        "required": [
+          "writeHeader"
+        ],
+        "additionalProperties": {},
+        "description": "A staged segment's write header signed again, for the same ciphertext."
+      },
       "DocumentContentKeyBundleRequest": {
         "type": "object",
         "properties": {
@@ -3190,12 +3389,12 @@
                   "type": "string"
                 },
                 "baselineSegmentCount": {
-                  "maximum": 64,
+                  "maximum": 4096,
                   "minimum": 1,
                   "type": "integer"
                 },
                 "baselineSegmentIndex": {
-                  "maximum": 63,
+                  "maximum": 4095,
                   "minimum": 0,
                   "type": "integer"
                 },
@@ -3463,6 +3662,11 @@
             "$ref": "#/components/schemas/ContainerManifestRefArrayArray",
             "description": "Paths through which the caller may write the document now."
           },
+          "baselineStageId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "For an unlink, the staged rotation baseline it commits; `rotationBaseline` is its final segment alone."
+          },
           "body": {},
           "containerRekeys": {
             "type": "array",
@@ -3601,6 +3805,22 @@
       "DocumentMutationFailureResponse": {
         "type": "object",
         "properties": {
+          "baselineStageCode": {
+            "type": "string",
+            "enum": [
+              "document_baseline_stage_epoch_stale",
+              "document_baseline_stage_expired",
+              "document_baseline_stage_headers_stale",
+              "document_baseline_stage_id_conflict",
+              "document_baseline_stage_limit_reached",
+              "document_baseline_stage_not_found",
+              "document_baseline_stage_segment_conflict",
+              "document_baseline_stage_segment_invalid",
+              "document_baseline_stage_segment_out_of_order",
+              "document_baseline_stage_too_large"
+            ],
+            "description": "With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code."
+          },
           "code": {
             "$ref": "#/components/schemas/DocumentMutationErrorCode"
           },
@@ -3643,13 +3863,13 @@
             "description": "The rotation baseline the update is a segment of: an ordered group of updates that together carry the document's whole history at the epoch a rotation opened. Signed in the content-record metadata; absent for an ordinary update."
           },
           "baselineSegmentCount": {
-            "maximum": 64,
+            "maximum": 4096,
             "minimum": 1,
             "type": "integer",
             "description": "On a baseline's final segment only, how many segments the baseline has. Signed in the content-record metadata."
           },
           "baselineSegmentIndex": {
-            "maximum": 63,
+            "maximum": 4095,
             "minimum": 0,
             "type": "integer",
             "description": "The segment's place in its baseline, from zero. Signed in the content-record metadata. A request sends a baseline's segments together, in index order."
@@ -3907,6 +4127,22 @@
       "DocumentSyncErrorResponse": {
         "type": "object",
         "properties": {
+          "baselineStageCode": {
+            "type": "string",
+            "enum": [
+              "document_baseline_stage_epoch_stale",
+              "document_baseline_stage_expired",
+              "document_baseline_stage_headers_stale",
+              "document_baseline_stage_id_conflict",
+              "document_baseline_stage_limit_reached",
+              "document_baseline_stage_not_found",
+              "document_baseline_stage_segment_conflict",
+              "document_baseline_stage_segment_invalid",
+              "document_baseline_stage_segment_out_of_order",
+              "document_baseline_stage_too_large"
+            ],
+            "description": "With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code."
+          },
           "code": {
             "type": "string",
             "enum": [
@@ -4002,6 +4238,11 @@
           "authorizingContainerPathRefs": {
             "$ref": "#/components/schemas/ContainerManifestRefArrayArray",
             "description": "Container paths that authorize a write; reads may omit them."
+          },
+          "baselineStageId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "The staged rotation baseline this sync commits; its final segment comes first in `outgoingUpdates`."
           },
           "containerRekeys": {
             "type": "array",
@@ -4217,12 +4458,12 @@
                   "type": "string"
                 },
                 "baselineSegmentCount": {
-                  "maximum": 64,
+                  "maximum": 4096,
                   "minimum": 1,
                   "type": "integer"
                 },
                 "baselineSegmentIndex": {
-                  "maximum": 63,
+                  "maximum": 4095,
                   "minimum": 0,
                   "type": "integer"
                 },
@@ -17902,6 +18143,797 @@
           {
             "description": "document attribution segment start counters are less than end counters",
             "id": "response.document-attribution-counter-range"
+          }
+        ]
+      }
+    },
+    "/documents/{documentId}/baseline-stages/{baselineId}/segments/{segmentIndex}/write-header": {
+      "put": {
+        "operationId": "documents.baselineStages.segments.resign",
+        "summary": "Re-sign a staged segment's write header",
+        "description": "Replaces a staged segment's signed write header without uploading its ciphertext again, for a writer whose staged headers name a manifest, key-target set or signing key that has since changed. The new header must sign the same content record, metadata and ciphertext hashes at the stage's epoch. The stage's byte count moves by the difference between the two headers, and a header that would take it past the stage's bound returns 409 `document_baseline_stage_too_large`.",
+        "tags": [
+          "Documents"
+        ],
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "baselineId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "segmentIndex",
+            "required": true,
+            "schema": {
+              "maximum": 4094,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "style": "simple"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentBaselineStageWriteHeaderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequiredErrorResponse"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageNotFoundErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageConflictErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A serialized write header request is limited to 524288 bytes"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/documents/{documentId}/baseline-stages/{baselineId}/segments/{segmentIndex}": {
+      "put": {
+        "operationId": "documents.baselineStages.segments.stage",
+        "summary": "Stage one rotation baseline segment",
+        "description": "Stages one segment of the baseline, in index order: the server verifies its signed write header and envelope and that it starts every peer where the staged segments left it. The final segment is never staged; it travels in the rotating request. Sending the same index with the same ciphertext again is acknowledged without a write, an index that is not the stage's next returns 409 `document_baseline_stage_segment_out_of_order` naming the next one, and a segment that would take the stage past its byte or span cap returns 409 `document_baseline_stage_too_large`.",
+        "tags": [
+          "Documents"
+        ],
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "baselineId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "segmentIndex",
+            "required": true,
+            "schema": {
+              "maximum": 4094,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "style": "simple"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "baselineId": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                    "type": "string"
+                  },
+                  "baselineSegmentCount": {
+                    "maximum": 4096,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "baselineSegmentIndex": {
+                    "maximum": 4095,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "baselineSegmentsDigest": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]+$",
+                    "type": "string"
+                  },
+                  "coversThroughUpdateId": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                    "type": "string"
+                  },
+                  "dependencyVersionVector": {
+                    "maxLength": 16777216,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "encryptedData": {
+                    "maxLength": 16777216,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                    "type": "string"
+                  },
+                  "partialEndVersionVector": {
+                    "maxLength": 16777216,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "partialStartVersionVector": {
+                    "maxLength": 16777216,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "plaintextHash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "writeHeader": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "dependencyVersionVector",
+                  "encryptedData",
+                  "id",
+                  "partialEndVersionVector",
+                  "partialStartVersionVector",
+                  "plaintextHash",
+                  "writeHeader"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequiredErrorResponse"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageNotFoundErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageConflictErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A serialized staged segment is limited to 16777216 bytes"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "baselineId and baselineSegmentIndex must be absent together or both present; baselineSegmentCount and baselineSegmentsDigest appear only together and only with them, marking a baseline's final segment; only a final segment may carry coversThroughUpdateId",
+            "id": "request.rotation-baseline-segment-fields"
+          }
+        ]
+      }
+    },
+    "/documents/{documentId}/baseline-stages/{baselineId}": {
+      "delete": {
+        "operationId": "documents.baselineStages.abandon",
+        "summary": "Abandon a rotation baseline stage",
+        "description": "Deletes the caller's stage and every segment staged under it. A baseline a request already committed is not a stage and is not touched; a stage that is already gone returns 404 `document_baseline_stage_not_found`.",
+        "tags": [
+          "Documents"
+        ],
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "baselineId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageAbandonResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequiredErrorResponse"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageNotFoundErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageConflictErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "documents.baselineStages.get",
+        "summary": "Get rotation baseline stage status",
+        "description": "Returns the caller's stage: the next segment index it expects, the digest of the segments staged so far, and when it expires, so a writer can resume an interrupted upload. Only the exact 404 `document_baseline_stage_not_found` or 409 `document_baseline_stage_expired` responses prove the stage is gone; any other failure means the writer keeps it.",
+        "tags": [
+          "Documents"
+        ],
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "baselineId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequiredErrorResponse"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageNotFoundErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageConflictErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/documents/{documentId}/baseline-stages": {
+      "post": {
+        "operationId": "documents.baselineStages.open",
+        "summary": "Open a rotation baseline stage",
+        "description": "Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document, as every later stage request does, and replaces the caller's earlier stage for it; a user holds at most 4 open stages, and one more returns 409 `document_baseline_stage_limit_reached`. The stage expires 60 minutes after its last upload and at most 24 hours after it opened; nothing staged is served until a rotating request commits it.",
+        "tags": [
+          "Documents"
+        ],
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentBaselineStageOpenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequiredErrorResponse"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageNotFoundErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBaselineStageConflictErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
           }
         ]
       }

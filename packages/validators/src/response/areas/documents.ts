@@ -17,6 +17,24 @@ export {
   ListDocumentEditAttributionRangesResponseSchema,
 } from "../document";
 export {
+  DOCUMENT_BASELINE_STAGE_ERROR_CODES,
+  type DocumentBaselineStageAbandonResponse,
+  DocumentBaselineStageAbandonResponseSchema,
+  type DocumentBaselineStageConflictCode,
+  type DocumentBaselineStageConflictErrorResponse,
+  DocumentBaselineStageConflictErrorResponseSchema,
+  type DocumentBaselineStageErrorCode,
+  DocumentBaselineStageErrorCodeSchema,
+  type DocumentBaselineStageNotFoundErrorResponse,
+  DocumentBaselineStageNotFoundErrorResponseSchema,
+  type DocumentBaselineStageStatusResponse,
+  DocumentBaselineStageStatusResponseSchema,
+  isDocumentBaselineStageAbandonResponse,
+  isDocumentBaselineStageConflictErrorResponse,
+  isDocumentBaselineStageErrorCode,
+  isDocumentBaselineStageStatusResponse,
+} from "../documentBaselineStage";
+export {
   type DocumentContentKeyBundleResponse,
   DocumentContentKeyBundleResponseSchema,
   type DocumentContentKeyTargetEnvelopeResponse,

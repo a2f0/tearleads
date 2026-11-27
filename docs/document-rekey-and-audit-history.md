@@ -107,40 +107,14 @@ content for an epoch that already exists because authorization state changed.
 ### A Baseline Is A Group Of Segments
 
 A rotation baseline is an ordered group of ordinary update records, its
-segments. Each segment is an `update`-mode Loro blob with its own update id,
-envelope, and signed write header, written at the new content-key epoch.
-Imported in index order into an empty document, the segments rebuild the
-whole history their writer proved. A small history is one segment.
-
-Each segment's signed content-record metadata places it in the group. Every
-segment carries `baselineId` and `baselineSegmentIndex`. The final segment
-also carries `baselineSegmentCount`, `baselineSegmentsDigest` (a hash chain
-over the segments before it), and, optionally, `coversThroughUpdateId`. An
-ordinary update carries none of the five. The metadata hash covers them with
-the rest of the signed metadata, so they reach the AES-GCM associated data
-and the write-header signature. The update row repeats them so the server can
-find a group's segments and judge them together. Readers recompute the
-metadata hash from the served fields, so a field altered in storage fails
-verification. The
-[group rules](./document-link-and-sync-protocol.md#rotation-baseline-groups)
-define the fields, the digest, what the API admits, and what a reader checks.
-
-What a group covers is not signed. It is derived: for each peer, the highest
-end among the segments' signed `partialEndVersionVector`s. A group's spans
-run gapless from zero, so that version names every operation the group holds.
-The server does not turn that coverage into a compare-and-set gate on
-accepted sync updates. A retained client that loses a rotate race adopts the
-canonical bundle and re-emits from local CRDT state if needed.
-
-The final segment can also sign its author's processed cursor as
-`coversThroughUpdateId`: every update committed at or before it was imported
-into the history the baseline carries or void for its author. The rotation
-gates and the redirect ask the group to cover only the updates committed
-after that cursor, so an update whose op span overclaims does not refuse
-every rotation
-([advisory op spans](./advisory-op-spans.md#rotations-and-unlinks)). A
-baseline whose author voided every update is one empty segment that signs
-its cursor.
+segments, written at the new content-key epoch. Imported in index order into
+an empty document they rebuild the whole history their writer proved. What a
+group covers is not signed: it is where its segments' spans end, and the
+final segment may sign its author's processed cursor so that only later
+updates need covering.
+[Document rotation baselines](./document-rotation-baselines.md) defines the
+group, its rules, how a large one is staged across requests, and how it is
+stored and served.
 
 ### Declared Coverage Is Trusted, Not Verified
 
@@ -370,47 +344,10 @@ as update segments, not a flattened state-only snapshot.
 
 ### Rotation baselines in `document_updates`
 
-A baseline's segments are ordinary `document_updates` rows, with their
-`document_update_spans` rows and write headers. One statement inserts them
-in index order, so `sequence` rises with the index. Nullable columns hold
-each segment's signed
-[baseline fields](#a-baseline-is-a-group-of-segments), and an ordinary update
-leaves all five null:
-
-- `baseline_id` and `baseline_segment_index`, on every segment
-- `baseline_segment_count` and `baseline_segments_digest`, on the final
-  segment only
-- `baseline_covers_through_update_id`, on a final segment that signs a cursor
-
-No column stores what a group covers: the redirect merges the segments' end
-version vectors. A partial index on `(document_id, sequence)` where
-`baseline_id` is set lists a document's segments for the redirect. A unique
-partial index on `(baseline_id, baseline_segment_index)` keeps two rows from
-taking one place in a group, so a new group that reuses a committed group's
-`baselineId` is refused as a write conflict.
-
-Three readers consume the columns:
-
-- the coverage-gated baseline redirect
-  ([`documentSyncBaselineRedirect.ts`](../packages/api/src/documents/documentSyncBaselineRedirect.ts)),
-  which picks the latest whole group at the current content-key epoch
-  ([`documentStoredBaselineGroup.ts`](../packages/api/src/documents/documentStoredBaselineGroup.ts))
-- the sync response
-  ([`syncResponseUpdates.ts`](../packages/api/src/workflows/documents/mutations/syncResponseUpdates.ts)),
-  which returns each served segment's baseline fields
-- edit attribution
-  ([`documentEditAttribution.ts`](../packages/api/src/documents/documentEditAttribution.ts)),
-  which flags spans a baseline segment first delivered as re-assertions
-  rather than authorship
-
-The redirect and the sync response recompute the signed metadata hash from
-these columns and the update row, so a tampered column fails closed: the
-redirect skips the group, and a pull that would serve the row fails
-([serving](./document-link-and-sync-protocol.md#serving-and-the-redirect)).
-
-The write contract marks segments explicitly on outgoing updates with the
-[baseline segment fields](./document-link-and-sync-protocol.md#rotation-baseline-groups).
-Only marked updates set the columns.
+A baseline's segments are ordinary `document_updates` rows with nullable
+baseline columns, and a staged baseline's segments keep their ciphertext in
+the rows they were staged to:
+[storage](./document-rotation-baselines.md#storage).
 
 ### `blob_audit_objects`
 

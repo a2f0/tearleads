@@ -82,6 +82,9 @@ exec bun test \
   src/routes/documents/lostAcknowledgmentConcurrency.pg.test.ts \
   src/routes/documents/purgeSyncConcurrency.pg.test.ts \
   src/routes/documents/unlinkSyncConcurrency.pg.test.ts \
+  src/routes/documents/baselineStagePurgeRace.pg.test.ts \
+  src/routes/documents/baselineStageSweepRace.pg.test.ts \
+  src/routes/documents/baselineStageCommit.test.ts \
   src/routes/documents/syncPaginationConcurrency.pg.test.ts \
   src/routes/documents/syncProcessedThroughRace.pg.test.ts \
   src/routes/documents/syncProcessedThrough.test.ts \
@@ -111,6 +114,7 @@ exec bun test \
   src/workflows/blobs/mutations/finalizeAttachmentMutation.pg.test.ts \
   src/workflows/blobs/mutations/persistenceTimestamp.pg.test.ts \
   src/workflows/documents/mutations/documentLifecycleRace.pg.test.ts \
+  src/workflows/documents/mutations/stagedBaselinePromotion.test.ts \
   src/workflows/documents/mutations/purgeDocumentBlobRace.pg.test.ts \
   src/workflows/documents/mutations/syncInlineRekeyCommitConcurrency.pg.test.ts \
   src/workflows/organizations/organizationProfilePurgeRace.pg.test.ts \

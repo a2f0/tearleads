@@ -36,6 +36,7 @@ formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecov
 formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecoveryProgress.cfg
 formal/document-sync/RestartProbeConvergence.tla|formal/document-sync/RestartProbeConvergence.cfg
 formal/document-sync/SharedCopyReclaim.tla|formal/document-sync/SharedCopyReclaim.cfg
+formal/document-sync/StagedBaselineCommit.tla|formal/document-sync/StagedBaselineCommit.cfg
 formal/document-sync/VoidUpdateProgress.tla|formal/document-sync/VoidUpdateProgress.cfg
 formal/document-sync/VoidUpdateProgress.tla|formal/document-sync/VoidUpdateProgressKills.cfg
 formal/document-sync/VoidUpdateProgress.tla|formal/document-sync/VoidUpdateProgressTraps.cfg
