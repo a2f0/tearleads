@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { notifyDatabaseStatement } from "./databaseStatementObserver";
+import { notifyDatabaseStatement } from "./databaseStatementObserverRegistry";
 
 export interface DatabaseStatementCounter {
   statements: number;
@@ -14,9 +14,24 @@ export interface DatabaseStatementCounter {
 interface CounterScope {
   readonly counter: DatabaseStatementCounter;
   readonly parent: CounterScope | undefined;
+  /** Opened by `withRequestStatementCounter` around one HTTP request. */
+  readonly request: boolean;
+  /** What statement observers see: it groups statements and reaches nothing. */
+  readonly token: object;
 }
 
 const scopes = new AsyncLocalStorage<CounterScope>();
+
+function openScope<T>(
+  counter: DatabaseStatementCounter,
+  request: boolean,
+  work: () => T,
+): T {
+  return scopes.run(
+    { counter, parent: scopes.getStore(), request, token: Object.freeze({}) },
+    work,
+  );
+}
 
 /**
  * Count executed ORM statements without retaining SQL text or parameters.
@@ -27,21 +42,36 @@ export function withDatabaseStatementCounter<T>(
   counter: DatabaseStatementCounter,
   work: () => T,
 ): T {
-  return scopes.run({ counter, parent: scopes.getStore() }, work);
+  return openScope(counter, false, work);
+}
+
+/**
+ * `withDatabaseStatementCounter` for one HTTP request, as the API's
+ * request-cost middleware opens it. Statement observers group statements by
+ * this scope, so they tell requests apart inside any counter around them.
+ */
+export function withRequestStatementCounter<T>(
+  counter: DatabaseStatementCounter,
+  work: () => T,
+): T {
+  return openScope(counter, true, work);
 }
 
 /**
  * The ORM logger every API database is built with: it counts each statement
- * for the enclosing counters and hands it to any statement observer.
+ * for the enclosing counters and hands it to any statement observer, with the
+ * innermost request scope's token, or else the outermost scope's.
  */
 export const databaseStatementLogger = {
   logQuery(query: string, parameters: unknown[]): void {
+    let request: CounterScope | undefined;
     let outermost: CounterScope | undefined;
     for (let scope = scopes.getStore(); scope; scope = scope.parent) {
       scope.counter.statements += 1;
+      if (scope.request) request ??= scope;
       outermost = scope;
     }
-    notifyDatabaseStatement(query, parameters, outermost);
+    notifyDatabaseStatement(query, parameters, (request ?? outermost)?.token);
   },
 };
 
