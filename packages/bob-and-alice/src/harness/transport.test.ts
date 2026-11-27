@@ -168,3 +168,45 @@ test("a rewritten request is cancelled with its sender", async () => {
     await upstream.stop(true);
   }
 });
+
+test("the device proxy overrides matching responses without calling upstream", async () => {
+  let upstreamCalls = 0;
+  const upstream = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: () => {
+      upstreamCalls += 1;
+      return Response.json({ ok: true });
+    },
+  });
+  const transport = new DeviceTransport(upstream.url.origin);
+  let active = true;
+  transport.overrideResponses(
+    (request) => request.path === "/documents/doc-1/sync",
+    () =>
+      active ? Response.json({ error: "Not found" }, { status: 404 }) : null,
+  );
+  try {
+    const refused = await fetch(`${transport.origin}/documents/doc-1/sync`, {
+      method: "POST",
+    });
+    expect(refused.status).toBe(404);
+    expect(upstreamCalls).toBe(0);
+
+    active = false;
+    const forwarded = await fetch(`${transport.origin}/documents/doc-1/sync`, {
+      method: "POST",
+    });
+    expect(forwarded.status).toBe(200);
+    expect(upstreamCalls).toBe(1);
+    expect(
+      transport.history.map(({ status, errorCode }) => ({ status, errorCode })),
+    ).toEqual([
+      { status: 404, errorCode: undefined },
+      { status: 200, errorCode: undefined },
+    ]);
+  } finally {
+    transport.dispose();
+    await upstream.stop(true);
+  }
+});

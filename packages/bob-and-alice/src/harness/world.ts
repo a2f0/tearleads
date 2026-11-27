@@ -132,16 +132,32 @@ export class World {
     device: Device = primary(user),
     online = true,
   ): Promise<Device> {
+    return this.replaceDevice(user, device, () => device.restart(online));
+  }
+
+  async reloadDevice(
+    user: User,
+    device: Device = primary(user),
+    online = true,
+  ): Promise<Device> {
+    return this.replaceDevice(user, device, () => device.reload(online));
+  }
+
+  private async replaceDevice(
+    user: User,
+    device: Device,
+    reopen: () => Promise<Device>,
+  ): Promise<Device> {
     const index = user.devices.indexOf(device);
     if (index < 0) throw new Error("Device does not belong to this user");
-    const restarted = await device.restart(online);
-    user.devices[index] = restarted;
+    const next = await reopen();
+    user.devices[index] = next;
     const refused = this.refusedEdits.get(device);
     if (refused) {
-      this.refusedEdits.set(restarted, refused);
+      this.refusedEdits.set(next, refused);
       this.refusedEdits.delete(device);
     }
-    return restarted;
+    return next;
   }
 
   root(user: User): Folder {

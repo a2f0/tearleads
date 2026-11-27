@@ -7,31 +7,35 @@ API served over HTTP. Nothing reaches past those two surfaces, so a scenario
 can only do and observe what a deployed client could.
 
 - [`src/harness/apiServer.ts`](src/harness/apiServer.ts) boots one in-process
-  API per test process from
-  `@tearleads/api/test-runtime`.
+  API per test process from `@tearleads/api/test-runtime`, including the
+  `/events` realtime WebSocket gateway.
 - [`src/harness/device.ts`](src/harness/device.ts) is one installed client: its
-  own SQLite database and
-  a full `Tearleads` runtime. `Device.login` is a fresh install of an existing
+  own SQLite database, blob store, persistent keyring history key, and a full
+  `Tearleads` runtime. `Device.login` is a fresh install of an existing
   identity, with the same keys and an empty database. `Device.restart` reopens
-  the runtime with the same database, blob store, identity, and trust pins.
-  `Device.forgeQueuedUpdateSpans` plays a dishonest or broken writer: it
-  rewrites the declared spans of the device's own queued updates before they
-  are signed. `Device.relayQueuedUpdate` plays a client that relays another
-  writer's operations: it queues an update, copied with
+  the runtime with the same database, blob store, identity, remembered 2FA
+  device token, and trust pins, and logs in again. `Device.reload` rebuilds the
+  runtime over the same database, history key, and session context without
+  logging in again, as a page reload does. `Device.openDeviceFirst` opens the
+  device-first launch handle. `Device.forgeQueuedUpdateSpans` plays a dishonest
+  or broken writer: it rewrites the declared spans of the device's own queued
+  updates before they are signed. `Device.relayQueuedUpdate` plays a client
+  that relays another writer's operations: it queues an update, copied with
   `Device.queuedDocumentUpdates` from another device's outbox, in this
   device's own outbox under a fresh update id. They are the only reaches past
   the SDK's surface; both write only into the device's own outgoing queue, and
   `queuedDocumentUpdates` only reads one.
 - [`src/harness/transport.ts`](src/harness/transport.ts) puts a device-local
-  HTTP proxy in front of the real
-  API. A scenario can hold a selected request before submission or its response
-  after commit, then release or drop it. Gates make races reproducible and
-  recorded HTTP statuses prove which transaction lost the race. A scenario can
-  also rewrite matching JSON responses to play a dishonest server at the
-  network boundary, while the API itself stays honest. It can rewrite
-  matching JSON requests too, to play a client that asks for something the
-  SDK asks for only in a state a scenario cannot reach, such as the one-update
-  pages of a device isolating an update.
+  HTTP proxy in front of the real API. A scenario can hold a selected request
+  before submission or its response after commit, then release or drop it.
+  Gates make races reproducible and recorded HTTP statuses prove which
+  transaction lost the race. A scenario can also rewrite matching JSON
+  responses or return synthetic responses with `overrideResponses` (such as a
+  bare `404` or `503`) to play a dishonest or failing server at the network
+  boundary while the API itself stays honest. It can rewrite matching JSON
+  requests too, to play a client that asks for something the SDK asks for only
+  in a state a scenario cannot reach, such as the one-update pages of a device
+  isolating an update.
 - [`src/harness/accessModel.ts`](src/harness/accessModel.ts) is a deliberately
   naive reference for who may
   read and write each document, from parent pointers, grants, and group
@@ -91,6 +95,23 @@ request the API refuses with its error body.
 | `allVoidUnlink` | After a writer signs only false-span updates, a reader that voided all of them holds an empty document and unlinks it: its baseline is one empty segment signing its processed cursor, so the API asks it to cover only later updates. A fresh install is redirected past the voids and never meets them, and after a second rotation a new device starts from the new baseline. |
 | `pagedBaselineGroup` | An unlink's rotation baseline of several segments, cut at the SDK's own sizes from a 9 MiB history, is read whole across page boundaries. A fresh install asking for one update a page is redirected to the group, served one segment a page and nothing else, and asks for each later page with no version. A second rotation from a device that pages the same way reads the raw history, the first group included, a segment a page, and its unlink goes out because the rebuild equals what sync applied. |
 | `failingFirstPage` | A device sends a queued write with a pull whose first page serves a baseline without its first segment. The API commits the write and the other member reads it; the device fails the page, keeps the write queued, and resends it on each of seven passes. The API refuses each resend with `document_sync_update_id_conflict` and the pass's read-only recovery pull fails on the same page. Once the baseline is served whole, the recovery pull settles the write by content: one commit, nothing sent again. |
+| `adminsGroupRevoke` | Revoking an extra built-in Admins grant on a folder rotates Admins, rekeys the root under its successor, and cites that successor in the folder revoke. |
+| `downloadHistory` | A fresh install records the folder and document it downloads in the domain download history without a host watching the queue. |
+| `duplicateQueuedEdit` | Two quick edits followed by a restart that stops an in-flight sync pass do not enqueue duplicate updates for the second edit. |
+| `falseSpanAttribution` | Document attribution credits updates accurately, surfaces clock-ahead notices, and refuses to credit uncontained forged spans. |
+| `falseSpanMetadata` | A forged false-span rename in folder metadata is voided once per reader and reported once without blocking later metadata sync. |
+| `falseSpanMetadataRotation` | A folder whose metadata holds a voided false-span rename still rotates cleanly after a revoke because the baseline signs the reader's processed cursor. |
+| `oversizedCreate` | A first write too large for one sync request stays queued with its reason and is refused by the harness rather than treated as a committed create. |
+| `rosterVouchedShare` | A member shares a folder or adds a group member using roster-vouched identities without a direct identity link, while rejecting unvouched users. |
+| `stagedBaseline` | A multi-segment rotation baseline too large for one request is staged across segment uploads, takes a tail segment after a racing write, and is read whole by a fresh install. |
+| `attachmentAccess` | Multi-party encrypted attachment upload, byte-accurate download and `downloadHistory` recording, confidentiality after revocation and content-key rotation, removal propagation, and a concurrent attachment bind racing a peer edit (`409 attachment_document_changed`). |
+| `documentPurge` | A signed remote document purge destroys a peer's copy and offline queued edit while a bare `404` retains both; a lost purge response completes teardown from the signed purge proof after restart; purging one folder of a multi-link document preserves the surviving link. |
+| `containerMoveReplay` | A committed folder move whose response is dropped (`after-response`) survives restart, settles via writer-projection replay with zero duplicate move requests or extra key rotations, and keeps the revoked peer excluded. |
+| `organizationSyncPause` | Pausing sync on a joined organization holds uploads and downloads across devices while personal organization sync continues normally, then drains held edits and merges peer edits on resume. |
+| `twoFactorEnforcement` | Admin 2FA enforcement returns `403 organization_two_factor_required` while holding queued edits; RFC 6238 TOTP setup with `rememberDevice` resumes sync and survives restart; a fresh install requires a second factor (`TwoFactorLoginError`) and signs in with a recovery code. |
+| `deviceFirstCatchUp` | A settled device-first reload issues zero document syncs or writer-projection reads; after a peer edit it pulls only the edited document; a cut-short boot leaves a shared folder lane durably owed across reload; plus a `test.failing` canary for [#3291](https://github.com/a2f0/tearleads/issues/3291). |
+| `realtimeHints` | Real WebSocket `/events` ticket auth and `known_containers` authorization (rejecting unreadable folders), live `document_update_created` driving device-first sync, `resync_required` and hint cessation after subtree move or revoke, `shared_with_you` on grant, and socket closure (`1008 Session revoked`) on session destruction. |
+| `billingPurgeRecovery` | Scheduled billing purge while an owner device is stale offline, recovery into a replacement organization via `recoverPurgedOrganization` and trial activation, republishing under preserved ids, re-inviting and re-sharing a peer, and relaying lost pre-purge operations after `409 document_sync_dependency_uncommitted` without duplication. |
 
 Pin a reproducible open issue in a scenario file as a `test.failing` case.
 It passes while the bug stands and fails once it is
@@ -126,11 +147,12 @@ for irreversible purge refusal, preserved newer local state and storage limits.
 
 ## Limits
 
-- The API runs without realtime hints, so devices learn about changes only
-  when they pull. A device that lost write access may keep accepting local
-  edits that never sync, and keeps showing them. The harness records those as
-  the device's own refused edits and accepts them on that device and document
-  alone while it lacks write access.
+- Devices do not connect to the `/events` realtime gateway unless a scenario
+  opens a realtime socket (as `realtimeHints` does), so default scenarios learn
+  about changes only when they pull. A device that lost write access may keep
+  accepting local edits that never sync, and keeps showing them. The harness
+  records those as the device's own refused edits and accepts them on that
+  device and document alone while it lacks write access.
 - Every device trusts identities on first use through the SDK's own pins; no
   scenario models a malicious API.
 
