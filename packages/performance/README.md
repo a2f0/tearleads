@@ -315,10 +315,10 @@ comparison with an earlier report to the Markdown, and `--compare` prints one
 without running anything, refusing the flags that only a run uses. Both refuse
 a saved report that did not complete; a failed new run is compared, with its
 status beside its name. A report saved before schema version 2 loads with its
-missing fields as not captured. Deltas compare the lowest values; a statements
-cell stays blank unless both reports captured that phase. Relative report
-paths resolve from the repository root. The canaries still assert their
-ceilings, so a count above one fails that canary's run.
+missing fields as not captured. Deltas compare the lowest values. For a phase
+both reports have, the statements cell stays blank unless both captured it.
+Relative paths resolve from the repository root. The canaries still assert
+their ceilings, so a count above one fails that canary's run.
 
 ## Statement capture
 

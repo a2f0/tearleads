@@ -62,7 +62,7 @@ const report: CanaryReport = {
     },
   ],
 };
-/** As `perf:canaries` saved it before statement capture (#3330). */
+/** As the first runner (#3330) saved it, before statement capture (#3336). */
 const beforeCapture = {
   ...report,
   schemaVersion: 1,
