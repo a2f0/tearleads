@@ -63,6 +63,7 @@ reference.
 | Document lane revalidations | `DocumentLaneRevalidationRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Recorded attachment slots | `RecordedAttachmentSlotRepository(execSql)` | Built from the caller's executor at each call | None |
 | Container tree catch-up | `getOrCreateTreeCatchUp(domainScope)` | One catch-up state per domain scope | None |
+| Create-intent hold listings | `getOrCreateCreateIntentHoldListings(domainScope)` | One hold-listing tracker per domain scope, reset when the container contents store resets | None |
 
 ## Where code goes
 

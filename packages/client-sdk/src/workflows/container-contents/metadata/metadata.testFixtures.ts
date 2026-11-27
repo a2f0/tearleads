@@ -95,6 +95,7 @@ const metadataTestPersistenceStubs = {
     return true;
   },
   async recordCreateIntentRevisionError() {},
+  async recordCreateIntentRevisionHold() {},
   async recordMoveIntentError() {},
   async reassignContainerDocuments() {},
   async reconcileLocalRootContainer() {},

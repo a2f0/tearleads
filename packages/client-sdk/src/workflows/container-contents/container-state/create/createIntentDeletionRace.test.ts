@@ -8,6 +8,7 @@ import {
 import { createResponseFromRequest } from "../../../../../test/helpers/data/documentFixtures";
 import { createContainerContentsWorkflowRuntime } from "../../../../../test/helpers/workflows/containerContentsWorkflowRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
+import { NO_CREATE_INTENT_HOLD } from "../../../../data/containers/shared/createIntentHoldMachine";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { ContainerCreateIntentSupersededError } from "../../../../data/persistence/container-contents/containerIntentPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
@@ -109,6 +110,7 @@ async function runCreatePersistenceOutcome(
   const intent: ContainerCreateIntentRecord = {
     containerId: childContainerId,
     createdAt: "2026-08-24T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: `create-${persistenceStatus}-child`,
     intentType: "container.create",
     lastAttemptedAt: null,
