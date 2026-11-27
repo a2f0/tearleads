@@ -122,7 +122,7 @@ export async function planSubtreeDocuments(input: {
         retainedContainerId: disposition.retainedContainerId,
         unlinkContainerIds: disposition.unlinkContainerIds,
       });
-    } else if (document.documentId) {
+    } else if (document.documentId && disposition.containerIds.length > 0) {
       unlinkByDocument.set(document.documentId, {
         document,
         containerIds: disposition.containerIds,

@@ -199,3 +199,91 @@ test("subtree purge planning and move settlement stay within SQLite bind limits 
     });
   });
 }, 30_000);
+
+test("purgeContainerTree skips a stale primary inside the subtree whose remaining links are all external", async () => {
+  await withTestExecSql(
+    "purge-tree-stale-primary-external-only",
+    async (execSql) => {
+      await sqlDocumentsPersistence.ensureSchema(execSql);
+      const documentId = "stale-primary-external-only";
+      await sqlDocumentsPersistence.saveDocument(
+        execSql,
+        {
+          accessEpoch: 1,
+          accessStateHash: "document-access-state",
+          containerId: "trashed",
+          documentId,
+          documentKind: "note",
+          id: "local-stale-external",
+          snapshotEndVersion: "",
+          text: "",
+          title: "Already unlinked from trashed",
+        },
+        { updatedAt: "2026-09-01T00:00:00.000Z" },
+      );
+      await new Links(execSql).replaceDocumentLinks(documentId, ["outside"]);
+
+      const result = await purgeContainerTree({
+        containersById: new Map([["trashed", containerState("trashed", null)]]),
+        documentOperations: {
+          purgeLocal: async () => {
+            throw new Error("Unexpected local purge");
+          },
+          purgeRemote: async () => {
+            throw new Error("Unexpected remote purge");
+          },
+          unlink: async () => {
+            throw new Error("Unexpected no-op unlink");
+          },
+        },
+        persistence: {
+          ...defaultContainerContentsPersistence,
+          deleteContainers: async () => ["trashed"],
+          listUnsyncedMoveIntents: async () => [],
+          loadContainerMetadataState: async (_execSql, id) =>
+            containerState(id, null),
+        },
+        prepareDocumentRotationSnapshot: async () => {
+          throw new Error("Unexpected rotation snapshot preparation");
+        },
+        resolveProjectionUserKey: async () => null,
+        rootContainerId: "trashed",
+        runtime: { infra: { execSql } } as never,
+      });
+
+      expect(result).toMatchObject({
+        aborted: false,
+        completedCount: 1,
+        failedCount: 0,
+        purgedContainerIds: ["trashed"],
+        totalCount: 1,
+      });
+    },
+  );
+});
+
+test("listDocumentIdsByContainerIds chunks past 999 containers and deduplicates sorted ids", async () => {
+  await withTestExecSql("purge-tree-many-containers", async (execSql) => {
+    const links = new Links(execSql);
+    await links.ensureSchema();
+    const containerIds = Array.from(
+      { length: SQLITE_BOUND_VARIABLE_BUDGET + 50 },
+      (_, index) => `container-${String(index).padStart(4, "0")}`,
+    );
+    await links.replaceDocumentLinksBatch([
+      {
+        documentId: "doc-b",
+        containerIds: [containerIds[0] ?? "", containerIds.at(-1) ?? ""],
+      },
+      {
+        documentId: "doc-a",
+        containerIds: [containerIds.at(-1) ?? ""],
+      },
+    ]);
+
+    expect(await links.listDocumentIdsByContainerIds(containerIds)).toEqual([
+      "doc-a",
+      "doc-b",
+    ]);
+  });
+});

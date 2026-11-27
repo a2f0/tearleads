@@ -180,6 +180,7 @@ function resolveSubtreeDocumentOperations(
       (await allowsRemotePurge(document, retainedContainerId)) &&
       (await operations.purgeRemote(document, retainedContainerId)),
     unlink: async (document, containerIds) => {
+      if (containerIds.length === 0) return true;
       for (const containerId of containerIds) {
         if (!(await scope.allowsDocumentLink(document, containerId))) {
           return false;
