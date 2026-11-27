@@ -50,13 +50,21 @@
   cursor: pointer;
 }
 
-.mini-app-row--button:hover:not(:disabled),
 .mini-app-row--button:focus-visible:not(:disabled),
 .mini-app-row--selected {
   border-color: var(--emphasis-surface);
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
   opacity: 1;
+}
+
+@media (hover: hover) {
+  .mini-app-row--button:hover:not(:disabled) {
+    border-color: var(--emphasis-surface);
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+    opacity: 1;
+  }
 }
 
 .mini-app-row--button:disabled {

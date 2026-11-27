@@ -70,7 +70,7 @@
 }
 
 .system-monitor-feature-flags {
-  padding: var(--space-md);
+  padding-block: var(--space-md);
 }
 
 .system-monitor-feature-flag {
@@ -80,8 +80,9 @@
   gap: var(--space-md);
   min-height: var(--control-height);
   padding: var(--space-sm) 0;
-  border-bottom: var(--border);
+  border-bottom: var(--border-width) solid var(--color-hairline);
   font-size: var(--font-size-sm);
+  cursor: pointer;
 }
 
 .system-monitor-feature-flag-name {
@@ -101,13 +102,12 @@
 }
 
 .system-monitor-requests {
-  padding: var(--space-md);
+  padding-block: var(--space-md);
   font-size: var(--font-size-sm);
 }
 
 .system-monitor-request-table {
   margin-top: var(--space-md);
-  overflow-x: auto;
 }
 
 .system-monitor-request-table code {

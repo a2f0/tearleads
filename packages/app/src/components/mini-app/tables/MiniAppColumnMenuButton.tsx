@@ -34,8 +34,12 @@ export function MiniAppColumnMenuButton<ColumnId extends string>({
   const { closeContextMenu, contextMenu, openContextMenuAt } =
     useContextMenuPositionState();
 
-  const openMenu = (event: MouseEvent<HTMLButtonElement>) => {
+  const toggleMenu = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    if (contextMenu !== null) {
+      closeContextMenu();
+      return;
+    }
     const rect = event.currentTarget.getBoundingClientRect();
     openContextMenuAt({ x: rect.left, y: rect.bottom });
   };
@@ -47,7 +51,12 @@ export function MiniAppColumnMenuButton<ColumnId extends string>({
         aria-haspopup="menu"
         aria-label={ariaLabel}
         className="mini-app-column-menu-button"
-        onClick={openMenu}
+        onClick={toggleMenu}
+        onMouseDown={(event) => {
+          if (contextMenu !== null) {
+            event.stopPropagation();
+          }
+        }}
         title={ariaLabel}
         type="button"
       >

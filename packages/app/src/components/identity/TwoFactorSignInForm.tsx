@@ -61,7 +61,7 @@ export function TwoFactorSignInForm({
         />
         <span>Remember this device for 30 days</span>
       </label>
-      <MiniAppToolbar>
+      <MiniAppToolbar wrap>
         <MiniAppButton
           disabled={code.trim().length === 0}
           loading={authenticating}

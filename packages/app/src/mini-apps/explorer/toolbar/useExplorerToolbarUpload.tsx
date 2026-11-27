@@ -39,7 +39,7 @@ export function useExplorerToolbarUpload(
       <input
         ref={fileInputRef}
         className="explorer-file-input"
-        style={{ display: "none" }}
+        hidden
         type="file"
         multiple
         onChange={handleUploadChange}

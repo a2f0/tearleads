@@ -2,8 +2,22 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Keeps desktop onboarding copy and forms legible over patterned wallpapers in
+   Light, Dark, and Dusk. */
+.pane-onboarding {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-light);
 }
 
 .pane-content {

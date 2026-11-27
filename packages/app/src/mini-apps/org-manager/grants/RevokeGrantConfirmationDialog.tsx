@@ -1,5 +1,5 @@
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
-import { type FormEvent, useId } from "react";
+import { type FormEvent, useCallback, useId } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -7,6 +7,8 @@ import {
   MiniAppModalBusyOverlay,
   MiniAppModalForm,
   MiniAppModalPanel,
+  MiniAppStatus,
+  useModalEscapeAndFocusRestore,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
@@ -20,25 +22,26 @@ import {
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { ORG_MANAGER_BUSY_LABELS } from "./busyLabels";
-import "./RevokeGrantConfirmationDialog.css";
 
-export function RevokeGrantConfirmationDialog({
+function RevokeGrantConfirmationDialogOpen({
   busy,
   grant,
   onCancel,
   onConfirm,
 }: {
   busy: boolean;
-  grant: OrganizationContainerGrant | null;
+  grant: OrganizationContainerGrant;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
   const titleId = useId();
   const messageId = useId();
-
-  if (!grant) {
-    return null;
-  }
+  const handleEscape = useCallback(() => {
+    if (!busy) {
+      onCancel();
+    }
+  }, [busy, onCancel]);
+  useModalEscapeAndFocusRestore(handleEscape);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -61,9 +64,9 @@ export function RevokeGrantConfirmationDialog({
           <h2 id={titleId}>
             {ORG_MANAGER_LABELS.revokeGrantConfirmationTitle}
           </h2>
-          <p className="org-manager-revoke-grant-warning" id={messageId}>
+          <MiniAppStatus id={messageId} tone="error">
             {ORG_MANAGER_LABELS.revokeGrantConfirmationMessage}
-          </p>
+          </MiniAppStatus>
           <MiniAppInfoTable>
             <tbody>
               <MiniAppInfoRow
@@ -87,7 +90,7 @@ export function RevokeGrantConfirmationDialog({
             <MiniAppButton disabled={busy} onClick={onCancel} type="button">
               {ORG_MANAGER_LABELS.cancel}
             </MiniAppButton>
-            <MiniAppButton disabled={busy} type="submit">
+            <MiniAppButton disabled={busy} type="submit" variant="danger">
               {ORG_MANAGER_LABELS.revoke}
             </MiniAppButton>
           </MiniAppActions>
@@ -100,5 +103,30 @@ export function RevokeGrantConfirmationDialog({
         )}
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>
+  );
+}
+
+export function RevokeGrantConfirmationDialog({
+  busy,
+  grant,
+  onCancel,
+  onConfirm,
+}: {
+  busy: boolean;
+  grant: OrganizationContainerGrant | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!grant) {
+    return null;
+  }
+
+  return (
+    <RevokeGrantConfirmationDialogOpen
+      busy={busy}
+      grant={grant}
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+    />
   );
 }

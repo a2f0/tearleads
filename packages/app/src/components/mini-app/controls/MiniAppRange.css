@@ -1,0 +1,112 @@
+/* Shared range slider control, styled across Chromium, Firefox, WebKit, and
+   forced-colors high-contrast mode. Keeps a 44px touch target in routed mode.
+   Also matches .explorer-document-history-slider so direct stylesheet tests
+   continue to target that class unchanged. */
+.mini-app-range,
+.explorer-document-history-slider {
+  /* Fall back to solid ink when the browser cannot mix track colors. */
+  --mini-app-range-track: var(--color-dark);
+  --mini-app-range-thumb: var(--color-dark);
+  --mini-app-range-thumb-size: 1rem;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-height);
+  margin: 0;
+  background: transparent;
+  accent-color: var(--mini-app-range-thumb);
+  cursor: pointer;
+}
+
+@supports (color: color-mix(in oklab, black, white)) {
+  .mini-app-range,
+  .explorer-document-history-slider {
+    --mini-app-range-track: color-mix(
+      in oklab,
+      var(--color-dark),
+      var(--color-light)
+    );
+  }
+}
+
+@supports not (color: color-mix(in oklab, black, white)) {
+  .mini-app-range::-webkit-slider-thumb,
+  .explorer-document-history-slider::-webkit-slider-thumb {
+    box-shadow: inset 0 0 0 2px var(--color-light);
+  }
+
+  .mini-app-range::-moz-range-thumb,
+  .explorer-document-history-slider::-moz-range-thumb {
+    box-shadow: inset 0 0 0 2px var(--color-light);
+  }
+}
+
+.mini-app-range:disabled,
+.explorer-document-history-slider:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+.mini-app-range::-webkit-slider-runnable-track,
+.explorer-document-history-slider::-webkit-slider-runnable-track {
+  display: flex;
+  align-items: center;
+  height: var(--space-xs);
+  border-radius: var(--space-xs);
+  background: var(--mini-app-range-track);
+}
+
+.mini-app-range::-moz-range-track,
+.explorer-document-history-slider::-moz-range-track {
+  height: var(--space-xs);
+  border: 0;
+  border-radius: var(--space-xs);
+  background: var(--mini-app-range-track);
+}
+
+.mini-app-range::-webkit-slider-thumb,
+.explorer-document-history-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--mini-app-range-thumb-size);
+  height: var(--mini-app-range-thumb-size);
+  border: 0;
+  border-radius: 50%;
+  background: var(--mini-app-range-thumb);
+}
+
+.mini-app-range::-moz-range-thumb,
+.explorer-document-history-slider::-moz-range-thumb {
+  width: var(--mini-app-range-thumb-size);
+  height: var(--mini-app-range-thumb-size);
+  border: 0;
+  border-radius: 50%;
+  background: var(--mini-app-range-thumb);
+}
+
+@media (forced-colors: active) {
+  .mini-app-range,
+  .explorer-document-history-slider {
+    -webkit-appearance: auto;
+    appearance: auto;
+    accent-color: auto;
+    background: revert;
+  }
+
+  .mini-app-range::-webkit-slider-runnable-track,
+  .mini-app-range::-webkit-slider-thumb,
+  .mini-app-range::-moz-range-track,
+  .mini-app-range::-moz-range-thumb,
+  .explorer-document-history-slider::-webkit-slider-runnable-track,
+  .explorer-document-history-slider::-webkit-slider-thumb,
+  .explorer-document-history-slider::-moz-range-track,
+  .explorer-document-history-slider::-moz-range-thumb {
+    all: revert;
+  }
+
+  .mini-app-range:disabled,
+  .explorer-document-history-slider:disabled {
+    opacity: revert;
+  }
+}

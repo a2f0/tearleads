@@ -14,9 +14,20 @@
     color var(--transition);
 }
 
-.mini-app-button:hover:not(:disabled),
 .mini-app-button:focus-visible:not(:disabled) {
   background: var(--app-hover-surface);
+}
+
+@media (hover: hover) {
+  .mini-app-button:hover:not(:disabled) {
+    background: var(--app-hover-surface);
+  }
+}
+
+.mini-app-button[aria-pressed="true"] {
+  border-color: var(--emphasis-surface);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .mini-app-button:disabled {
@@ -65,9 +76,14 @@
   color: var(--color-danger);
 }
 
-.mini-app-button--danger:hover:not(:disabled),
 .mini-app-button--danger:focus-visible:not(:disabled) {
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+@media (hover: hover) {
+  .mini-app-button--danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  }
 }
 
 .mini-app-button--ghost {
@@ -75,8 +91,14 @@
   padding-inline: var(--space-sm);
 }
 
-.mini-app-button--ghost:hover:not(:disabled) {
+.mini-app-button--ghost:focus-visible:not(:disabled) {
   border-color: var(--emphasis-surface);
+}
+
+@media (hover: hover) {
+  .mini-app-button--ghost:hover:not(:disabled) {
+    border-color: var(--emphasis-surface);
+  }
 }
 
 .mini-app-icon-button {
@@ -91,6 +113,11 @@
 
 .mini-app-icon-button svg {
   flex: 0 0 auto;
+}
+
+:root[data-navigation-mode="routed"] .mini-app-icon-button svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
 
 .mini-app-clipboard-button--copied,

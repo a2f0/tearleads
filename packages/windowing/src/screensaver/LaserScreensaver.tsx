@@ -15,12 +15,6 @@ export function LaserScreensaver() {
       className="laser-screensaver"
       role="img"
       aria-label="Grayscale laser trails"
-      style={{
-        display: "block",
-        width: "100%",
-        height: "100%",
-        background: "black",
-      }}
     />
   );
 }

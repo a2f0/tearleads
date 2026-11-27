@@ -36,6 +36,8 @@ function RoutedPaneMobileSidebar({
         onClick={onClose}
       />
       <div
+        aria-label="Sidebar"
+        aria-modal="true"
         className="routed-pane-sidebar"
         id={ROUTED_PANE_SIDEBAR_ID}
         role="dialog"

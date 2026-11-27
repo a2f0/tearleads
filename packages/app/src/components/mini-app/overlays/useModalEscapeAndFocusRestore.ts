@@ -9,11 +9,11 @@ import { type RefObject, useEffect } from "react";
  */
 export function useModalEscapeAndFocusRestore(
   onClose: () => void,
-  closeButtonRef: RefObject<HTMLButtonElement | null>,
+  closeButtonRef?: RefObject<HTMLButtonElement | null> | undefined,
 ): void {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !event.defaultPrevented) {
         event.preventDefault();
         onClose();
       }
@@ -26,7 +26,7 @@ export function useModalEscapeAndFocusRestore(
 
   useEffect(() => {
     const previouslyFocused = document.activeElement;
-    closeButtonRef.current?.focus();
+    closeButtonRef?.current?.focus();
     return () => {
       if (previouslyFocused instanceof HTMLElement) {
         previouslyFocused.focus();

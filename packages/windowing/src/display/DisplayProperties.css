@@ -26,7 +26,7 @@
 .display-properties-section > legend {
   margin-bottom: var(--space-sm);
   padding: 0;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .display-properties-wallpapers {
@@ -62,15 +62,26 @@
   padding: var(--space-xs) var(--space-sm);
 }
 
-.display-properties-wallpaper:hover,
-.display-properties-theme:hover {
-  background: var(--app-hover-surface);
+@media (hover: hover) {
+  .display-properties-wallpaper:hover,
+  .display-properties-theme:hover {
+    background: var(--app-hover-surface);
+  }
 }
 
 .display-properties-wallpaper:has(:checked),
 .display-properties-theme:has(:checked) {
   border-color: var(--color-dark);
-  box-shadow: inset 0 0 0 1px var(--color-dark);
+  box-shadow: inset 0 0 0 var(--border-width) var(--color-dark);
+}
+
+@media (forced-colors: active) {
+  .display-properties-wallpaper:has(:checked),
+  .display-properties-theme:has(:checked) {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
 
 .display-properties-wallpaper:has(:focus-visible),
@@ -96,7 +107,7 @@
   height: 3.5rem;
   overflow: hidden;
   border-radius: calc(var(--app-radius-control) - 2px);
-  box-shadow: inset 0 0 0 1px var(--color-hairline);
+  box-shadow: inset 0 0 0 var(--border-width) var(--color-hairline);
 }
 
 /* Fit a complete tile vertically, repeating across the preview instead of
@@ -133,8 +144,10 @@
   cursor: pointer;
 }
 
-.display-properties-app-switch:hover {
-  background: var(--app-hover-surface);
+@media (hover: hover) {
+  .display-properties-app-switch:hover {
+    background: var(--app-hover-surface);
+  }
 }
 
 .display-properties-app-switch .display-properties-label {
@@ -157,7 +170,8 @@
 /* Touch (routed): the same 44px row and 24px glyph as the launcher, menus,
  * and a host's list rows, so this list does not read denser than the rest.
  * Author CSS outranks the icon's `size={16}` attributes. */
-:root[data-navigation-mode="routed"] .display-properties-app-switch {
+:root[data-navigation-mode="routed"] .display-properties-app-switch,
+:root[data-navigation-mode="routed"] .display-properties-theme {
   min-height: var(--control-height);
 }
 
@@ -183,10 +197,11 @@
   width: calc(var(--display-properties-switch-height) * 1.8);
   height: var(--display-properties-switch-height);
   margin: 0;
-  border: var(--border-width) solid var(--color-dark);
+  border: var(--border-width) solid var(--app-control-border, var(--color-dark));
   border-radius: calc(var(--display-properties-switch-height) / 2);
   background: transparent;
   cursor: pointer;
+  -webkit-appearance: none;
   appearance: none;
   transition: background var(--transition);
 }
@@ -206,11 +221,12 @@
 }
 
 .display-properties-switch:checked {
-  background: var(--color-dark);
+  border-color: var(--emphasis-surface);
+  background: var(--emphasis-surface);
 }
 
 .display-properties-switch:checked::before {
-  background: var(--color-light);
+  background: var(--emphasis-text);
   transform: translateX(calc(var(--display-properties-switch-height) * 0.8));
 }
 

@@ -22,20 +22,29 @@
 
 .app-settings-group legend,
 .app-settings-network legend {
+  padding: 0;
   margin-bottom: var(--space-sm);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .app-settings-network label {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  cursor: pointer;
 }
 
 .app-settings-network input[type="radio"] {
+  -webkit-appearance: auto;
   appearance: auto;
   accent-color: var(--color-dark);
   margin: 0;
+  cursor: pointer;
+}
+
+.app-settings-network input[type="radio"]:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
 }
 
 .app-settings-network input[type="radio"]:focus-visible {

@@ -1,3 +1,4 @@
+import { classNames } from "../../../components/shared/classNames";
 import { useOptionalWorkspace } from "./WorkspaceProvider";
 import "./WorkspaceSwitcher.css";
 
@@ -17,9 +18,16 @@ export function WorkspaceSwitcher() {
     <div className="workspace-switcher">
       {workspaceIds.map((id) => (
         <button
+          aria-pressed={activeWorkspace === id}
           key={id}
+          title={`Workspace ${id}`}
           type="button"
-          className={`tearleads-action-button tearleads-action-button--icon workspace-button${activeWorkspace === id ? " workspace-button--active" : ""}`}
+          className={classNames(
+            "tearleads-action-button",
+            "tearleads-action-button--icon",
+            "workspace-button",
+            activeWorkspace === id && "workspace-button--active",
+          )}
           onClick={() => setActiveWorkspace(id)}
         >
           {id}

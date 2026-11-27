@@ -24,11 +24,33 @@
   color: var(--emphasis-text);
 }
 
+/* Emphasis fill is dark in all three themes (#333 Light, #3a3a3a Dark,
+   #405575 Dusk), so lift the glyph's hues onto the dark-surface palette while
+   the indicator is hovered or focused. */
+.sync-status-indicator:focus-visible .sync-glyph {
+  --sync-glyph-synced-color: #6fbf87;
+  --sync-glyph-warning-color: #e3b341;
+  --sync-glyph-error-color: #ec7a74;
+  --sync-glyph-muted-color: var(--emphasis-text);
+}
+
 @media (hover: hover) {
   .sync-status-indicator:hover {
     background: var(--emphasis-surface);
     color: var(--emphasis-text);
   }
+
+  .sync-status-indicator:hover .sync-glyph {
+    --sync-glyph-synced-color: #6fbf87;
+    --sync-glyph-warning-color: #e3b341;
+    --sync-glyph-error-color: #ec7a74;
+    --sync-glyph-muted-color: var(--emphasis-text);
+  }
+}
+
+:root[data-navigation-mode="routed"] .sync-status-indicator svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
 
 /* Click-popover body. The status line reads as text; the write-queue link below
@@ -47,6 +69,15 @@
   padding: 0 var(--space-md) var(--space-sm);
   max-width: 16rem;
   list-style: none;
-  color: color-mix(in srgb, var(--color-dark) 70%, transparent);
-  font-size: 0.875em;
+  color: var(--color-dark);
+  opacity: var(--opacity-muted);
+  font-size: var(--font-size-xs);
+}
+
+.sync-status-popover-actions {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-xs);
+  padding-top: var(--space-xs);
+  border-top: var(--border-width) solid var(--color-hairline);
 }

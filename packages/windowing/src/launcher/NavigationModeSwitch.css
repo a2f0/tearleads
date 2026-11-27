@@ -15,8 +15,19 @@
   cursor: pointer;
 }
 
-.navigation-mode-switch:hover,
 .navigation-mode-switch:focus-visible {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .navigation-mode-switch:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
+}
+
+:root[data-navigation-mode="routed"] .navigation-mode-switch svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }

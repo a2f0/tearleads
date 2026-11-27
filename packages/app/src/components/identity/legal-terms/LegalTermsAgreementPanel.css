@@ -59,6 +59,7 @@
   contain: size;
   padding: var(--space-sm) var(--space-md);
   overflow-y: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
   overscroll-behavior: contain;
   font-size: var(--font-size-sm);
   line-height: 1.5;
@@ -68,13 +69,13 @@
 .legal-terms-agreement-document h2 {
   margin: var(--space-sm) 0 0;
   font-size: var(--font-size-md);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .legal-terms-agreement-document h3 {
   margin: var(--space-xs) 0 0;
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .legal-terms-agreement-document p,
@@ -94,6 +95,7 @@
 .legal-terms-agreement-document .legal-callout {
   padding: var(--space-xs) var(--space-sm);
   border-inline-start: 2px solid var(--color-dark);
+  border-radius: var(--app-radius-control);
   background: var(--color-muted);
 }
 
@@ -115,6 +117,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+:root[data-navigation-mode="routed"] .legal-terms-agreement-check {
+  min-height: var(--control-height);
 }
 
 .legal-terms-agreement-form .mini-app-toolbar {

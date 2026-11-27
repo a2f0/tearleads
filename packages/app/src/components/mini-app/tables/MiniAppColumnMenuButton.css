@@ -11,20 +11,26 @@
   height: 1.5rem;
   padding: 0;
   border: var(--border-width) solid transparent;
+  border-radius: var(--app-radius-control);
   background: none;
   color: inherit;
   line-height: 1;
   cursor: pointer;
 }
 
-.mini-app-column-menu-button:hover,
 .mini-app-column-menu-button[aria-expanded="true"] {
-  background: var(--color-muted);
+  background: var(--app-hover-surface);
+}
+
+@media (hover: hover) {
+  .mini-app-column-menu-button:hover {
+    background: var(--app-hover-surface);
+  }
 }
 
 .mini-app-column-menu-button:focus-visible {
-  outline: var(--border-width) solid var(--color-dark);
-  outline-offset: var(--border-width);
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
 }
 
 .mini-app-column-menu-list {
@@ -44,7 +50,7 @@
   margin: -1px;
   border: 0;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -55,13 +61,19 @@
   gap: var(--space-xs);
   min-width: 12rem;
   padding: var(--space-sm) var(--space-md);
+  border-radius: var(--app-radius-control);
   white-space: nowrap;
   cursor: pointer;
 }
 
-.mini-app-column-menu-item:hover,
 .mini-app-column-menu-item:focus-within {
-  background: var(--color-muted);
+  background: var(--app-hover-surface);
+}
+
+@media (hover: hover) {
+  .mini-app-column-menu-item:hover {
+    background: var(--app-hover-surface);
+  }
 }
 
 .mini-app-column-menu-label {
@@ -84,6 +96,11 @@
 :root[data-navigation-mode="routed"] .mini-app-column-menu-button {
   width: var(--control-height);
   height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .mini-app-column-menu-button svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
 
 :root[data-navigation-mode="routed"] .mini-app-column-menu-item {

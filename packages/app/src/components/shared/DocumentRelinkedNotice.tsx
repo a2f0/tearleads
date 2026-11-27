@@ -1,5 +1,6 @@
 import { MiniAppButton } from "../mini-app/controls/MiniAppButton";
 import { MiniAppStatus } from "../mini-app/controls/MiniAppStatus";
+import "./DocumentRelinkedNotice.css";
 
 export const DOCUMENT_RELINKED_LABELS = {
   message:
@@ -14,11 +15,13 @@ export const DOCUMENT_RELINKED_LABELS = {
  */
 export function DocumentRelinkedNotice(params: { onReopen: () => void }) {
   return (
-    <MiniAppStatus className="document-relinked-notice" role="status">
-      {DOCUMENT_RELINKED_LABELS.message}{" "}
+    <div className="document-relinked-notice">
+      <MiniAppStatus role="status">
+        {DOCUMENT_RELINKED_LABELS.message}
+      </MiniAppStatus>
       <MiniAppButton onClick={params.onReopen}>
         {DOCUMENT_RELINKED_LABELS.reopen}
       </MiniAppButton>
-    </MiniAppStatus>
+    </div>
   );
 }

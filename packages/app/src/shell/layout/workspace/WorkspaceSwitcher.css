@@ -3,11 +3,9 @@
   gap: var(--space-xs);
 }
 
-/* Reuse the header/footer action-button hover inversion so Light keeps its
-   original white-on-charcoal active chip unchanged, while Dark gets the calm
-   graphite emphasis chip — a step above the muted pane footer, so the active
-   workspace still reads as raised rather than receding into the bar. */
+/* Match PaneFooter's emphasis chip so Light, Dark, and Dusk all draw a
+   high-contrast active workspace button over the muted footer bar. */
 .workspace-button.workspace-button--active {
-  background: var(--tearleads-action-hover-surface);
-  color: var(--tearleads-action-hover-text);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }

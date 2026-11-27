@@ -1,4 +1,4 @@
-import { type FormEvent, useId, useState } from "react";
+import { type FormEvent, useCallback, useId, useRef, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -6,6 +6,8 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
+  MiniAppStatus,
+  useModalEscapeAndFocusRestore,
 } from "../mini-app/MiniAppLayout";
 import type { LogoutOptions } from "./useLogoutConfirmation";
 import "./LogoutConfirmationDialog.css";
@@ -21,21 +23,24 @@ interface LogoutConfirmationDialogProps {
   readonly onConfirm: (input: LogoutOptions) => void;
 }
 
-export function LogoutConfirmationDialog({
+function LogoutConfirmationDialogContent({
   busy,
-  isOpen,
   onCancel,
   onConfirm,
-}: LogoutConfirmationDialogProps) {
+}: Omit<LogoutConfirmationDialogProps, "isOpen">) {
   // Default to keeping local data so the destructive path is always an explicit
   // opt-out, never the accidental default.
   const [keepLocalData, setKeepLocalData] = useState(true);
   const checkboxId = useId();
   const titleId = useId();
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const handleEscape = useCallback(() => {
+    if (!busy) {
+      onCancel();
+    }
+  }, [busy, onCancel]);
 
-  if (!isOpen) {
-    return null;
-  }
+  useModalEscapeAndFocusRestore(handleEscape, cancelButtonRef);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -56,7 +61,10 @@ export function LogoutConfirmationDialog({
         <MiniAppModalForm onSubmit={handleSubmit}>
           <h2 id={titleId}>Log out</h2>
           <p>Log out of this session?</p>
-          <label className="logout-confirmation-keep-data" htmlFor={checkboxId}>
+          <label
+            className="mini-app-checkbox-label logout-confirmation-keep-data"
+            htmlFor={checkboxId}
+          >
             <MiniAppCheckbox
               id={checkboxId}
               checked={keepLocalData}
@@ -66,16 +74,25 @@ export function LogoutConfirmationDialog({
             <span>Keep local data on this device</span>
           </label>
           {!keepLocalData && (
-            <p className="logout-confirmation-warning">
+            <MiniAppStatus tone="error">
               This device's local database and stored files will be permanently
               destroyed.
-            </p>
+            </MiniAppStatus>
           )}
           <MiniAppActions>
-            <MiniAppButton disabled={busy} onClick={onCancel} type="button">
+            <MiniAppButton
+              disabled={busy}
+              onClick={onCancel}
+              ref={cancelButtonRef}
+              type="button"
+            >
               Cancel
             </MiniAppButton>
-            <MiniAppButton disabled={busy} type="submit">
+            <MiniAppButton
+              loading={busy}
+              type="submit"
+              variant={keepLocalData ? "default" : "danger"}
+            >
               {busy ? "Logging out..." : "Log Out"}
             </MiniAppButton>
           </MiniAppActions>
@@ -83,4 +100,15 @@ export function LogoutConfirmationDialog({
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>
   );
+}
+
+export function LogoutConfirmationDialog({
+  isOpen,
+  ...props
+}: LogoutConfirmationDialogProps) {
+  if (!isOpen) {
+    return null;
+  }
+
+  return <LogoutConfirmationDialogContent {...props} />;
 }

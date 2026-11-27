@@ -24,7 +24,13 @@
   );
   background: var(--color-muted);
   border-top: var(--border-width) solid var(--color-hairline);
+  overflow-x: auto;
+  scrollbar-width: none;
   user-select: none;
+}
+
+.window-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .window-toolbar-primary,

@@ -39,7 +39,11 @@ function PaneDesktopContents({ empty }: { empty: boolean }) {
   const { onboarding } = useAutoProvisioningStatus();
   const progress = useAccountBootstrapProgress();
   if (empty && onboarding && progress) {
-    return <AccountBootstrapProgressPanel progress={progress} />;
+    return (
+      <div className="pane-onboarding">
+        <AccountBootstrapProgressPanel progress={progress} />
+      </div>
+    );
   }
   return (
     <>

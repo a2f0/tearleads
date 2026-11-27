@@ -37,7 +37,7 @@ export function TwoFactorOnView({
         </MiniAppStatus>
       )}
       {change === null && (
-        <MiniAppToolbar>
+        <MiniAppToolbar wrap>
           <MiniAppButton onClick={() => setChange("regenerate")} type="button">
             New recovery codes
           </MiniAppButton>

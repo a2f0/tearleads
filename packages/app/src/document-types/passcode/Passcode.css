@@ -10,6 +10,7 @@
   display: grid;
   gap: var(--space-md);
   min-width: 0;
+  max-width: var(--form-measure);
 }
 
 .passcode-key-values .mini-app-key-value-row > dt {
@@ -45,6 +46,11 @@
   display: flex;
   flex: none;
   align-items: center;
+  gap: var(--space-xs);
+}
+
+:root[data-navigation-mode="routed"] .passcode-secret-actions {
+  gap: var(--space-sm);
 }
 
 .passcode-form {
@@ -59,6 +65,14 @@
     calc(var(--mini-app-info-label-width) + 2 * var(--info-table-cell-padding))
     minmax(0, 1fr);
   align-items: center;
+}
+
+.passcode-form-row:has(textarea) {
+  align-items: start;
+}
+
+.passcode-form-row:has(textarea) > label {
+  padding-top: var(--space-sm);
 }
 
 .passcode-form-row > label {
@@ -76,14 +90,23 @@
 
 .passcode-form-control > :is(input, textarea),
 .passcode-attribute-edit-row > input {
+  box-sizing: border-box;
   flex: 1 1 auto;
   min-width: 0;
   min-height: var(--control-height);
   padding: 0 var(--space-sm);
   border: var(--border);
-  background: transparent;
+  border-color: var(--app-control-border);
+  border-radius: var(--app-radius-control);
+  background: var(--color-light);
   color: inherit;
   font: inherit;
+}
+
+.passcode-form-control > :is(input, textarea):disabled,
+.passcode-attribute-edit-row > input:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
 }
 
 .passcode-form-control > textarea {
@@ -111,7 +134,12 @@
 .passcode-attribute-protected {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+:root[data-navigation-mode="routed"] .passcode-attribute-protected {
+  min-height: var(--control-height);
 }
 
 @container passcode-form (width < 48ch) {
@@ -136,7 +164,8 @@
     grid-template-columns: minmax(0, 1fr) auto auto;
   }
 
-  .passcode-attribute-edit-row > input {
+  .passcode-attribute-edit-row > input,
+  .passcode-attribute-edit-row > .passcode-form-control {
     grid-column: 1 / -1;
   }
 }

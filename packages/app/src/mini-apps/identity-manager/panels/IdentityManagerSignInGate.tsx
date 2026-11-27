@@ -52,7 +52,7 @@ export function IdentityManagerSignInGate({
         />
       )}
       {canAuthenticate && !identityMutations.twoFactorPrompt && (
-        <MiniAppToolbar>
+        <MiniAppToolbar wrap>
           <MiniAppButton
             disabled={identityBusy}
             onClick={() => void identityMutations.authenticate()}

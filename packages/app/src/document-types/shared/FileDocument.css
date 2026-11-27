@@ -2,6 +2,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  min-width: 0;
+}
+
+.file-document-fields > .mini-app-button {
+  align-self: flex-start;
 }
 
 /* A view whose preview fills the pane: the fields stretch to the document's
@@ -54,6 +59,7 @@
   min-width: 0;
   min-height: 0;
   border: var(--border);
+  border-radius: var(--app-radius-control);
   background: color-mix(in srgb, currentColor 4%, transparent);
   overflow: hidden;
 }
@@ -166,6 +172,7 @@
   position: absolute;
   inset: 0;
   overflow: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
 }
 
 .file-document-pdf-pages .pdfViewer {
@@ -176,13 +183,18 @@
   display: grid;
   justify-items: center;
   gap: var(--space-sm);
-  padding: var(--space-lg);
-  color: var(--text-muted);
+  padding: var(--space-md);
+  font-size: var(--font-size-sm);
   text-align: center;
+}
+
+.file-document-pdf-prompt p {
+  margin: 0;
+  opacity: var(--opacity-muted);
 }
 
 .file-document-pdf-prompt strong {
   max-width: 100%;
-  color: var(--text-primary);
+  color: var(--color-dark);
   overflow-wrap: anywhere;
 }

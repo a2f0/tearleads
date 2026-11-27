@@ -76,25 +76,15 @@
 }
 
 /* === Attachments panel === */
-/*
- * The tray is the foot of the note's pane, with no margin: in a window it meets
- * the bottom edge (or the status bar under it), in the routed shell the bar
- * below. `.note-document-scroll` clips the inline axis, so it reaches an edge
- * only where its host puts the pane there: the Notes mini-app on an unpadded
- * root, the Explorer by running its note pane out (Explorer.css). A host that
- * lists notes inside other content draws a card instead (ContainerNotes.css).
- * `--note-tray-padding-inline` lets a host line its content up with the body.
- */
+/* The tray sits flush at the foot of the note pane (a card in ContainerNotes).
+   `--note-tray-padding-inline` lets hosts align content with the note body. */
 .note-document-dropzone {
   flex: 0 0 auto;
   min-inline-size: 0;
   margin: 0;
   padding-block: var(--space-sm);
   padding-inline: var(--note-tray-padding-inline, var(--space-sm));
-  /* A soft "tray" that sits under the note body without competing with it. One
-     hairline separates it from the body; at the pane's edges side and bottom
-     rules would only double the surface's own border. A drag-over promotes it
-     to a solid outline. */
+  /* Hairline top rule at rest; solid outline while dragging files over it. */
   border: 0;
   border-block-start: var(--border-width) solid var(--color-hairline);
   background: color-mix(in srgb, currentColor 3%, transparent);
@@ -158,12 +148,8 @@
   opacity: var(--opacity-faint);
 }
 
-/* The empty hint reads "Drag files here…", but the routed (mobile / tablet /
-   iPad touch) shell has no drag-and-drop — only the Add button attaches. Drop
-   the hint there so it never promises an interaction the surface can't offer;
-   the "No attachments yet." title and the Add control stand on their own. Keyed
-   off the navigation-mode attribute (not `@media (pointer: coarse)`) so an iPad
-   with a trackpad — routed layout, `pointer: fine` — is still covered. */
+/* Hide the "Drag files here" hint in routed (touch/tablet) shells, which only
+   attach via the Add button. Keyed off navigation mode so iPad+trackpad matches. */
 :root[data-navigation-mode="routed"] .note-document-attachments-empty-hint {
   display: none;
 }
@@ -175,19 +161,26 @@
   padding: 0;
   display: grid;
   gap: var(--space-sm);
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
 }
 
 .note-document-attachment {
   position: relative;
   min-width: 0;
   border: var(--border-width) solid var(--color-hairline);
+  border-radius: var(--app-radius-control);
+  overflow: hidden;
   background: var(--color-light);
 }
 
-.note-document-attachment:hover,
 .note-document-attachment:focus-within {
-  border-color: currentColor;
+  border-color: var(--app-control-border);
+}
+
+@media (hover: hover) {
+  .note-document-attachment:hover {
+    border-color: var(--app-control-border);
+  }
 }
 
 /* The tile body is one big button: thumbnail on top, name + detail below. */
@@ -206,8 +199,8 @@
 }
 
 .note-document-attachment-open:focus-visible {
-  outline: var(--border-width) solid currentColor;
-  outline-offset: calc(-1 * var(--border-width));
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
 }
 
 .note-document-attachment-thumb {
@@ -238,7 +231,8 @@
   inset-block-start: var(--space-xs);
   inset-inline-start: var(--space-xs);
   padding: 0 var(--space-xs);
-  border: var(--border-width) solid currentColor;
+  border: var(--border);
+  border-radius: var(--app-radius-control);
   font-size: var(--font-size-2xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -285,15 +279,13 @@
   transition: opacity var(--transition);
 }
 
-/* Coarse pointers never hover, so keep the tools visible there. Declared
-   before the hover/focus reveal rules so selector specificity never descends
-   across rules targeting the same element. */
 @media (hover: none) {
   .note-document-attachment-tools {
     opacity: 1;
   }
 }
 
+:root[data-navigation-mode="routed"] .note-document-attachment-tools,
 .note-document-attachment:hover .note-document-attachment-tools,
 .note-document-attachment:focus-within .note-document-attachment-tools {
   opacity: 1;
@@ -307,22 +299,45 @@
   height: 1.75rem;
   padding: 0;
   border: var(--border);
+  border-color: var(--app-control-border);
+  border-radius: var(--app-radius-control);
   background: var(--color-light);
   color: inherit;
   cursor: pointer;
 }
 
-.note-document-attachment-tool:hover,
+:root[data-navigation-mode="routed"] .note-document-attachment-tool {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .note-document-attachment-tool svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
+}
+
 .note-document-attachment-tool:focus-visible {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
 }
 
-.note-document-attachment-tool--remove:hover,
 .note-document-attachment-tool--remove:focus-visible {
   background: var(--color-danger);
   color: var(--color-light);
   border-color: var(--color-danger);
+}
+
+@media (hover: hover) {
+  .note-document-attachment-tool:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
+
+  .note-document-attachment-tool--remove:hover {
+    background: var(--color-danger);
+    color: var(--color-light);
+    border-color: var(--color-danger);
+  }
 }
 
 /* === Preview overlay === */
@@ -378,12 +393,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Give the stage a real presentation area even for a tiny image or the
-     no-preview placeholder, but let it grow to fill the panel for large ones. */
   min-height: 16rem;
   flex: 1;
   padding: var(--space-md);
   overflow: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
   background: color-mix(in srgb, currentColor 5%, transparent);
 }
 
@@ -396,12 +410,6 @@
 
 .note-attachment-preview-stage--pdf .file-document-preview {
   min-height: 0;
-}
-
-.note-attachment-preview-image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
 }
 
 .note-attachment-preview-placeholder {
@@ -456,27 +464,9 @@
 }
 
 /* === Routed preview: fill the main content pane ===
-   On the routed (tablet / mobile) shell the preview replaces the main content
-   pane instead of floating over it as a centered card. It is portaled into
-   `.routed-pane-main` itself (see NoteAttachmentPreview.tsx), so sticky
-   positioning holds it against that pane's scrollport: the overlay stays
-   pinned over the visible pane while the pane scrolls, and the pane's own
-   overflow clips it to exactly the pane — never over the rail, app bar, or
-   taskbar. `width`/`height: 100%` resolve against the pane (the scrollport it
-   fills), and the backdrop's background matches the pane's `--color-light` so
-   the safe-area padding a 100%-width sticky box cannot cover is invisible.
-
-   `inset: 0` keeps its `bottom: 0`: the portal lands as the pane's last
-   child, so a `top`-only pin would leave the overlay below the fold until the
-   pane scrolled. The sticky box stays in flow and doubles the pane's
-   scrollable overflow while open; that scroll is inert — the opaque overlay
-   covers it and stays pinned — and it clamps away when the preview closes.
-   `position: absolute` was rejected because it scrolls with the pane instead
-   of staying pinned, and would need `.routed-pane-main` to become positioned,
-   re-anchoring every absolutely positioned descendant inside it. */
-/* The chained selector outranks the shared `.mini-app-modal-backdrop` base
-   rules regardless of stylesheet order, so the routed backdrop's `sticky`,
-   `padding`, and `background` never depend on which file bundled last. */
+   Portaled into `.routed-pane-main` (NoteAttachmentPreview.tsx) with sticky
+   positioning so the opaque overlay fills the main pane without covering the
+   rail, app bar, or taskbar. Chained to outrank `.mini-app-modal-backdrop`. */
 .note-attachment-preview-backdrop.note-attachment-preview-backdrop--routed {
   position: sticky;
   inset: 0;

@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--list-gap);
+  min-width: 0;
   min-height: 100%;
   box-sizing: border-box;
   padding: var(--space-sm);

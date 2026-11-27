@@ -74,18 +74,32 @@ export function useRoutedPaneOverlays({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
-  const toggleSidebar = useCallback(
-    () => setSidebarExpanded(invertBoolean),
-    [],
-  );
+  const toggleSidebar = useCallback(() => {
+    setSidebarExpanded((open) => {
+      const next = !open;
+      if (next && tier === "mobile") {
+        setDrawerOpen(false);
+      }
+      return next;
+    });
+  }, [tier]);
   const closeSidebar = useCallback(() => setSidebarExpanded(false), []);
-  const toggleDrawer = useCallback(() => setDrawerOpen(invertBoolean), []);
+  const toggleDrawer = useCallback(() => {
+    setDrawerOpen((open) => {
+      const next = !open;
+      if (next && tier === "mobile") {
+        setSidebarExpanded(false);
+      }
+      return next;
+    });
+  }, [tier]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const dismissDrawer = useCallback(() => {
     closeDrawer();
     menuButtonRef.current?.focus();
   }, [closeDrawer]);
   useEscapeToDismissDrawer(drawerOpen, dismissDrawer);
+  useEscapeToDismissDrawer(tier === "mobile" && sidebarExpanded, closeSidebar);
   const moveLauncher = () => {
     const wasOpen =
       launcherPlacement === "side" ? navigationRailExpanded : drawerOpen;

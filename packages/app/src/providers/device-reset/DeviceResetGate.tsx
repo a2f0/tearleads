@@ -1,5 +1,8 @@
 import { type PropsWithChildren, useEffect, useReducer } from "react";
+import "../../components/mini-app/controls/MiniAppButton.css";
 import "../../components/mini-app/controls/MiniAppStatus.css";
+import "../../components/mini-app/layout/MiniAppStatePanel.css";
+import "./DeviceResetGate.css";
 import { isDeviceResetRequested, runRequestedDeviceReset } from "./deviceReset";
 import {
   type DeviceResetGateState,
@@ -115,19 +118,24 @@ export function DeviceResetGate({
   }
   if (state.status === "resetting") {
     return (
-      <div role="status" className="mini-app-status">
+      <div role="status" className="device-reset-gate mini-app-status">
+        <span className="mini-app-state-panel-spinner" aria-hidden="true" />
         <p>Resetting this device…</p>
       </div>
     );
   }
   if (state.status === "reset-elsewhere") {
     return (
-      <div role="status" className="mini-app-status">
+      <div role="status" className="device-reset-gate mini-app-status">
         <p>
           This device is being reset from another tab or window. Reload once it
           has restarted.
         </p>
-        <button type="button" onClick={() => window.location.reload()}>
+        <button
+          className="mini-app-button"
+          type="button"
+          onClick={() => window.location.reload()}
+        >
           Reload
         </button>
       </div>
@@ -136,13 +144,19 @@ export function DeviceResetGate({
   // No way into the app from here: part of the device may already be wiped,
   // so the reset has to finish before anything boots on it.
   return (
-    <div role="alert" className="mini-app-status">
-      <p>This device could not be reset: {state.message}</p>
-      <p>
+    <div role="alert" className="device-reset-gate">
+      <p className="mini-app-status mini-app-status--error">
+        This device could not be reset: {state.message}
+      </p>
+      <p className="mini-app-status">
         Another tab or window may still be using its data. Close it, then try
         again.
       </p>
-      <button type="button" onClick={() => window.location.reload()}>
+      <button
+        className="mini-app-button"
+        type="button"
+        onClick={() => window.location.reload()}
+      >
         Try again
       </button>
     </div>

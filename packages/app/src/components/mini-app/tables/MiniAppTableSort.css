@@ -20,13 +20,21 @@
   cursor: pointer;
 }
 
-.mini-app-table-sort-button span {
-  display: inline;
+.mini-app-table-sort-button span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.mini-app-table-sort-button:hover,
 .mini-app-table-sort-button:focus-visible {
   text-decoration: underline;
+}
+
+@media (hover: hover) {
+  .mini-app-table-sort-button:hover {
+    text-decoration: underline;
+  }
 }
 
 .mini-app-table-sort-indicator {

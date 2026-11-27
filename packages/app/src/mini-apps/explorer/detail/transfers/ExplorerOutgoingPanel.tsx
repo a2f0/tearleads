@@ -160,7 +160,7 @@ function ExplorerOutgoingList(params: ExplorerOutgoingViewProps) {
       {/* With rows to show, a failed read is reported above them; without,
           in their place. */}
       {params.error !== null && rows.length > 0 ? (
-        <MiniAppStatus>
+        <MiniAppStatus tone="error">
           <WriteQueueLoadError error={params.error} />
         </MiniAppStatus>
       ) : null}

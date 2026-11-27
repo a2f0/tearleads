@@ -12,6 +12,19 @@
   font: inherit;
 }
 
+.mini-app-input:disabled,
+.mini-app-select:disabled,
+.mini-app-textarea:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+.mini-app-input[aria-invalid="true"],
+.mini-app-select[aria-invalid="true"],
+.mini-app-textarea[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
 .mini-app-input,
 .mini-app-select {
   padding: 0 var(--space-sm);
@@ -45,8 +58,8 @@
   font-size: var(--font-size-sm);
 }
 
-.mini-app-field > span:first-child,
-.mini-app-field > label:first-child {
+.mini-app-field > span:first-child:not(:has(.mini-app-modal-highlight)),
+.mini-app-field > label:first-child:not(:has(.mini-app-modal-highlight)) {
   opacity: var(--opacity-subtle);
 }
 

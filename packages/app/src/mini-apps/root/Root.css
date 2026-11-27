@@ -1,4 +1,4 @@
-.root-console {
+:root[data-navigation-mode="windowed"] .root-console {
   min-height: 26rem;
 }
 
@@ -27,6 +27,7 @@
   align-items: center;
   gap: var(--space-xs);
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .root-console-detail-value {
@@ -37,6 +38,7 @@
 }
 
 .root-console-detail-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -45,22 +47,49 @@
 .root-console-fact {
   overflow-wrap: anywhere;
 }
+
 .root-console-history-entry {
   padding: var(--space-sm);
 }
+
+.root-console-history-entry + .root-console-history-entry {
+  border-top: var(--border-width) solid var(--color-hairline);
+}
+
 .root-console-history-entry summary {
   cursor: pointer;
   overflow-wrap: anywhere;
 }
+
 /* Compound selector: outranks the shared table action's block display. */
 .mini-app-table-action.root-console-report-name {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
+
 /* Under the report name, indented past its icon to align with the name. */
 .root-console-report-summary {
   display: block;
   margin-top: var(--space-xs);
   padding-left: calc(18px + var(--space-sm));
+}
+
+:root[data-navigation-mode="routed"] .root-console-toggle {
+  min-height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .root-console-history-entry summary {
+  min-height: var(--control-height);
+  padding-block: var(--space-xs);
+  box-sizing: border-box;
+}
+
+:root[data-navigation-mode="routed"] .root-console-report-name svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
+}
+
+:root[data-navigation-mode="routed"] .root-console-report-summary {
+  padding-left: calc(var(--control-icon-size) + var(--space-sm));
 }

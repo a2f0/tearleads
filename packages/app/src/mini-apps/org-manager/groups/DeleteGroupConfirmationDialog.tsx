@@ -1,5 +1,5 @@
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
-import { type FormEvent, useId } from "react";
+import { type FormEvent, useCallback, useId } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -7,27 +7,30 @@ import {
   MiniAppModalForm,
   MiniAppModalHighlight,
   MiniAppModalPanel,
+  useModalEscapeAndFocusRestore,
 } from "../../../components/mini-app/MiniAppLayout";
 import { groupDisplayName, ORG_MANAGER_LABELS } from "../labels";
 import { GROUP_LABELS } from "./groupLabels";
 
-export function DeleteGroupConfirmationDialog({
+function DeleteGroupConfirmationDialogOpen({
   disabled,
   group,
   onCancel,
   onConfirm,
 }: {
   disabled: boolean;
-  group: OrganizationGroupSummary | null;
+  group: OrganizationGroupSummary;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
   const titleId = useId();
   const messageId = useId();
-
-  if (!group) {
-    return null;
-  }
+  const handleEscape = useCallback(() => {
+    if (!disabled) {
+      onCancel();
+    }
+  }, [disabled, onCancel]);
+  useModalEscapeAndFocusRestore(handleEscape);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -57,12 +60,37 @@ export function DeleteGroupConfirmationDialog({
             <MiniAppButton autoFocus onClick={onCancel} type="button">
               {ORG_MANAGER_LABELS.cancel}
             </MiniAppButton>
-            <MiniAppButton disabled={disabled} type="submit">
+            <MiniAppButton disabled={disabled} type="submit" variant="danger">
               {ORG_MANAGER_LABELS.deleteGroupAction}
             </MiniAppButton>
           </MiniAppActions>
         </MiniAppModalForm>
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>
+  );
+}
+
+export function DeleteGroupConfirmationDialog({
+  disabled,
+  group,
+  onCancel,
+  onConfirm,
+}: {
+  disabled: boolean;
+  group: OrganizationGroupSummary | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!group) {
+    return null;
+  }
+
+  return (
+    <DeleteGroupConfirmationDialogOpen
+      disabled={disabled}
+      group={group}
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+    />
   );
 }

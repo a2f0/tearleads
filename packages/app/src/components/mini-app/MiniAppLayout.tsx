@@ -12,6 +12,8 @@ export {
   MiniAppSelect,
   MiniAppTextarea,
 } from "./controls/MiniAppFormControls";
+export { MiniAppProgressBar } from "./controls/MiniAppProgressBar";
+export { MiniAppRange } from "./controls/MiniAppRange";
 export { MiniAppStatus } from "./controls/MiniAppStatus";
 export { MiniAppHeader, MiniAppHeaderCopy } from "./layout/MiniAppHeader";
 export { MiniAppFormPanel, MiniAppPanel } from "./layout/MiniAppPanel";

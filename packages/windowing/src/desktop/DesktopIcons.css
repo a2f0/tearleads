@@ -35,17 +35,20 @@
   -webkit-user-select: none;
 }
 
-.desktop-icon:hover {
-  background: color-mix(in srgb, var(--color-dark) 8%, transparent);
+@media (hover: hover) {
+  .desktop-icon:hover {
+    background: var(--app-hover-surface);
+  }
 }
 
 .desktop-icon[aria-selected="true"] {
-  background: color-mix(in srgb, var(--emphasis-surface) 18%, transparent);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .desktop-icon:focus-visible {
-  outline: 2px solid var(--emphasis-surface);
-  outline-offset: 1px;
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
 }
 
 .desktop-icon[data-dragging] {

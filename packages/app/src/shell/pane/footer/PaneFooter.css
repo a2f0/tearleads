@@ -2,23 +2,38 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-md);
+  min-width: 0;
+  padding: var(--space-md) calc(var(--space-md) + var(--safe-area-right))
+    calc(var(--space-md) + var(--safe-area-bottom))
+    calc(var(--space-md) + var(--safe-area-left));
   background: var(--color-muted);
   border-top: var(--border-width) solid var(--color-hairline);
 }
 
 /* On the muted footer surface the frame's default #fff hover is nearly
    invisible; use the shared emphasis chip (and pair keyboard focus). */
-.pane-footer .tearleads-action-button:hover,
 .pane-footer .tearleads-action-button:focus-visible {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
 }
 
+@media (hover: hover) {
+  .pane-footer .tearleads-action-button:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
+}
+
+/* min-width: 0 lets the button shrink below its content's min size as a flex
+   item of .pane-footer, so a row of open windows never overflows the
+   footer; max-width still caps it and the label truncates within. */
 .pane-footer-window {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  max-width: 12rem;
   height: var(--control-height);
   padding: 0 var(--space-md);
   font-weight: 400;
@@ -60,7 +75,6 @@
   color: var(--emphasis-text);
 }
 
-.pane-footer-menu-button:hover,
 .pane-footer-menu-button:focus-visible,
 .pane-footer-menu-button[aria-expanded="true"] {
   --tearleads-logo-primary: color-mix(
@@ -69,6 +83,17 @@
     var(--emphasis-surface)
   );
   --tearleads-logo-secondary: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .pane-footer-menu-button:hover {
+    --tearleads-logo-primary: color-mix(
+      in srgb,
+      var(--emphasis-text) 62%,
+      var(--emphasis-surface)
+    );
+    --tearleads-logo-secondary: var(--emphasis-text);
+  }
 }
 
 .pane-footer-menu-logo {
@@ -98,15 +123,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-}
-
-/* min-width: 0 lets the button shrink below its content's min size as a flex
-   item of .pane-footer, so a row of open windows never overflows the
-   footer; max-width still caps it and the label truncates within. */
-.pane-footer-window {
-  gap: var(--space-xs);
-  min-width: 0;
-  max-width: 12rem;
 }
 
 /* Keep the app glyph at full size; only the label truncates. */

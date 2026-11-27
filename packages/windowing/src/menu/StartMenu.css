@@ -18,9 +18,20 @@
   cursor: pointer;
 }
 
-.start-menu-button:hover,
 .start-menu-button:focus-visible,
 .start-menu-button[aria-expanded="true"] {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .start-menu-button:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
+}
+
+:root[data-navigation-mode="routed"] .start-menu-button svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }

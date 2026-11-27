@@ -14,13 +14,13 @@
   margin: 0;
   max-width: 100%;
   overflow: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
   padding: var(--panel-padding);
   border: var(--border);
+  border-radius: var(--app-radius-control);
   background: transparent;
   color: inherit;
-  font-family:
-    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
-    monospace;
+  font-family: var(--tearleads-font-family);
   font-size: var(--font-size-sm);
   white-space: pre-wrap;
   word-break: break-word;

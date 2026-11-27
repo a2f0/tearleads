@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import type { NavigationMode } from "./navigationMode";
 
 /**
@@ -16,7 +16,7 @@ import type { NavigationMode } from "./navigationMode";
  * `:root[data-navigation-mode="routed"]`, and so can a host's.
  */
 export function useNavigationModeDocumentAttribute(mode: NavigationMode): void {
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.setAttribute("data-navigation-mode", mode);
     return () => {
       document.documentElement.removeAttribute("data-navigation-mode");

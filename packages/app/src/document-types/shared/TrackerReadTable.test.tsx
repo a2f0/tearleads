@@ -88,7 +88,10 @@ function renderReadTable(params?: {
 
 /** Switch a hideable column on (or off) through the table's columns menu. */
 function toggleColumn(view: ReturnType<typeof render>, label: string) {
-  fireEvent.click(view.getByRole("button", { name: "Columns" }));
+  const trigger = view.getByRole("button", { name: "Columns" });
+  if (trigger.getAttribute("aria-expanded") !== "true") {
+    fireEvent.click(trigger);
+  }
   // Each entry is a checkbox whose accessible name is the column plus its state.
   fireEvent.click(
     view.getByRole("checkbox", { name: new RegExp(`^${label} `, "u") }),

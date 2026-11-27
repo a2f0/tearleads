@@ -3,8 +3,13 @@
 }
 
 /* An object's name, identity and (on phones) pending writes stack in its open
-   action, so the action wraps instead of holding one line. */
+   action, so the action wraps instead of holding one line or forcing a 44px
+   touch floor per wrapped block in routed mode. */
+:root[data-navigation-mode="routed"]
+  .explorer-outgoing-table
+  .mini-app-table-action,
 .explorer-outgoing-table .mini-app-table-action {
+  min-height: 0;
   line-height: normal;
   white-space: normal;
 }

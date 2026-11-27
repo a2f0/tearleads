@@ -7,6 +7,7 @@ import { SkipForwardIcon } from "@phosphor-icons/react/dist/csr/SkipForward";
 import type { ReactNode } from "react";
 import {
   MiniAppButton,
+  MiniAppRange,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
@@ -118,7 +119,7 @@ export function DocumentHistoryTimeline(params: {
         >
           <SkipForwardIcon aria-hidden size={ICON_SIZE} />
         </TimelineButton>
-        <input
+        <MiniAppRange
           aria-label={EXPLORER_LABELS.documentHistoryPositionLabel}
           aria-valuetext={position}
           className="explorer-document-history-slider"
@@ -127,7 +128,6 @@ export function DocumentHistoryTimeline(params: {
           min={0}
           onChange={(event) => params.onSeek(Number(event.target.value))}
           step={1}
-          type="range"
           value={params.selectedIndex}
         />
         <span className="explorer-document-history-position">{position}</span>

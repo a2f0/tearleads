@@ -12,6 +12,7 @@ import {
   MiniAppModalHighlight,
   MiniAppModalPanel,
   MiniAppStatus,
+  useModalEscapeAndFocusRestore,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerWriteQueueEntryDetail } from "./ExplorerWriteQueueEntryDetail";
@@ -27,6 +28,7 @@ export function WriteQueueDiscardConfirmDialog(params: {
   onConfirm: () => void;
 }) {
   const titleId = useId();
+  useModalEscapeAndFocusRestore(params.onCancel);
   return (
     <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
@@ -50,7 +52,7 @@ export function WriteQueueDiscardConfirmDialog(params: {
           </MiniAppStatus>
           <MiniAppActions>
             <MiniAppButton onClick={params.onCancel}>Cancel</MiniAppButton>
-            <MiniAppButton type="submit">
+            <MiniAppButton type="submit" variant="danger">
               {EXPLORER_LABELS.writeQueueDiscardAction}
             </MiniAppButton>
           </MiniAppActions>
@@ -152,7 +154,7 @@ function WriteQueueEntryBody(
   // Surface the error instead of falsely claiming the change finished syncing.
   if (params.error !== null) {
     return (
-      <MiniAppStatus>
+      <MiniAppStatus tone="error">
         <WriteQueueLoadError error={params.error} />
       </MiniAppStatus>
     );

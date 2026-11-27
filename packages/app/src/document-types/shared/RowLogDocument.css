@@ -1,7 +1,7 @@
 /* A row log's entry form: its fields flow into as many columns as fit, and
    the row's actions take a full line beneath them. */
 .row-log-entry {
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
 }
 
 .row-log-entry > .tracker-row-actions,

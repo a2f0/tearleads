@@ -1,4 +1,4 @@
-.local-keyring-unlock-gate {
+:root[data-navigation-mode="windowed"] .local-keyring-unlock-gate {
   min-width: 20rem;
   min-height: 16rem;
 }

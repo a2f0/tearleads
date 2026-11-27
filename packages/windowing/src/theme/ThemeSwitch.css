@@ -15,8 +15,19 @@
   cursor: pointer;
 }
 
-.theme-switch:hover,
 .theme-switch:focus-visible {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .theme-switch:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
+}
+
+:root[data-navigation-mode="routed"] .theme-switch svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }

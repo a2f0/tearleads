@@ -154,6 +154,7 @@ function ContainerPrimaryDocumentFieldSession({
             void saving.save(value || null);
           }}
           options={options}
+          portaled
           value={node.primaryDocumentId ?? ""}
         />
       </MiniAppFieldGroup>
@@ -185,7 +186,9 @@ function ContainerPrimaryDocumentFieldSession({
       />
       {busy ? <MiniAppStatus>Saving container view…</MiniAppStatus> : null}
       {saving.state.status === "failed" ? (
-        <div role="alert">{saving.state.error}</div>
+        <MiniAppStatus role="alert" tone="error">
+          {saving.state.error}
+        </MiniAppStatus>
       ) : null}
     </MiniAppInfoSection>
   );

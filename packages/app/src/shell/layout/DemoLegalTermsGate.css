@@ -11,5 +11,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  padding: var(--safe-area-top) var(--safe-area-right) var(--safe-area-bottom)
+    var(--safe-area-left);
   background: var(--color-light);
 }

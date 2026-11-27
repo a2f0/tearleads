@@ -15,7 +15,19 @@
 .org-manager-error {
   margin-bottom: var(--space-sm);
   padding: var(--space-sm);
-  border: var(--border);
+  border: var(--border-width) solid
+    color-mix(in srgb, var(--color-danger) 35%, transparent);
+  border-radius: var(--app-radius-control);
+}
+
+.org-manager-two-factor-notice {
+  display: grid;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: var(--border-width) solid
+    color-mix(in srgb, var(--color-danger) 35%, transparent);
+  border-radius: var(--app-radius-control);
 }
 
 .org-manager-hint {
@@ -24,15 +36,8 @@
 
 .org-manager-import-user-names {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: var(--space-md);
-}
-
-.org-manager-groups {
-  display: grid;
-  grid-template-columns: minmax(14rem, 0.8fr) minmax(18rem, 1.2fr);
-  gap: var(--space-md);
-  min-height: 0;
 }
 
 .org-manager-panel {
@@ -119,11 +124,6 @@
   font-size: var(--font-size-sm);
 }
 
-.org-manager-panel--detail {
-  border-left: var(--border);
-  padding-left: var(--space-md);
-}
-
 .org-manager-detail-header {
   margin-bottom: var(--space-sm);
 }
@@ -140,8 +140,10 @@
 
 .org-manager-detail-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
+  min-width: 0;
 }
 
 .org-manager-member-row {
@@ -170,6 +172,7 @@
 .org-manager-roster-profile-read-fields {
   display: grid;
   gap: var(--list-gap);
+  max-width: var(--form-measure);
 }
 
 .org-manager-member-row .mini-app-row-stack,
@@ -199,10 +202,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.org-manager-member-row .mini-app-button {
-  padding: 0 var(--panel-padding);
 }
 
 .org-manager-roster-profile-field {
@@ -246,7 +245,6 @@
 }
 
 .org-manager-policy-change-status,
-.org-manager-policy-change-principal-type,
 .org-manager-policy-change-role,
 .org-manager-policy-history-epoch {
   font-size: var(--font-size-sm);
@@ -259,11 +257,10 @@
 .org-manager-policy-change-principal {
   display: flex;
   align-items: baseline;
-  gap: var(--info-table-cell-padding);
+  gap: var(--space-xs);
   min-width: 0;
 }
 
-.org-manager-policy-change-principal-type,
 .org-manager-policy-change-role,
 .org-manager-policy-history-epoch {
   opacity: var(--opacity-muted);
@@ -273,18 +270,7 @@
   min-width: 0;
 }
 
-@media (max-width: 760px) {
-  .org-manager-groups {
-    grid-template-columns: 1fr;
-  }
-
-  .org-manager-panel--detail {
-    border-left: 0;
-    border-top: var(--border);
-    padding-left: 0;
-    padding-top: var(--space-md);
-  }
-
+@media (max-width: 759px) {
   .org-manager-policy-change {
     grid-template-columns: 1fr;
     gap: var(--space-2xs);

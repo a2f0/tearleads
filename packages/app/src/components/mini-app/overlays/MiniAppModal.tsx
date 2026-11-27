@@ -1,4 +1,9 @@
-import type { FormHTMLAttributes, HTMLAttributes } from "react";
+import {
+  type FormHTMLAttributes,
+  type HTMLAttributes,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { classNames } from "../../shared/classNames";
 import "./MiniAppModal.css";
 
@@ -106,8 +111,24 @@ export function MiniAppModalBusyOverlay({
   description?: string | undefined;
   label: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const panel = ref.current?.closest<HTMLElement>(
+      ".mini-app-modal-panel--takeover",
+    );
+    if (panel) {
+      panel.scrollTop = 0;
+    }
+  }, []);
+
   return (
-    <div className="mini-app-modal-busy" role="status" aria-live="polite">
+    <div
+      ref={ref}
+      className="mini-app-modal-busy"
+      role="status"
+      aria-live="polite"
+    >
       <span className="mini-app-modal-busy-spinner" aria-hidden="true" />
       <span className="mini-app-modal-busy-title">{label}</span>
       {description ? (

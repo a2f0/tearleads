@@ -46,7 +46,7 @@
 
 .mini-app-virtual-list--divided > .mini-app-virtual-list-row {
   border-block-end: var(--border-width) solid
-    var(--mini-app-row-divider-color, var(--border-color));
+    var(--mini-app-row-divider-color, var(--color-hairline));
 }
 
 /*

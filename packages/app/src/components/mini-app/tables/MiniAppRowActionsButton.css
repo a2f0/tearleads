@@ -58,7 +58,7 @@
   margin: -1px;
   border: 0;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -83,20 +83,26 @@
   height: 1.75rem;
   padding: 0;
   border: var(--border-width) solid transparent;
+  border-radius: var(--app-radius-control);
   background: transparent;
   color: inherit;
   line-height: 1;
   cursor: pointer;
 }
 
-.mini-app-row-actions-button:hover,
+/* Mix from currentColor rather than var(--color-muted) so the button stays
+   legible both on resting rows and on inverted selected/hovered rows in Light,
+   Dark, and Dusk. */
 .mini-app-row-actions-button:focus-visible {
-  background: var(--color-muted);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
 }
 
-.mini-app-row-actions-button:focus-visible {
-  outline: var(--border-width) solid currentColor;
-  outline-offset: var(--border-width);
+@media (hover: hover) {
+  .mini-app-row-actions-button:hover {
+    background: color-mix(in srgb, currentColor 16%, transparent);
+  }
 }
 
 /* Right-align the button within a table actions cell (the standalone toolbar
@@ -110,6 +116,11 @@
 :root[data-navigation-mode="routed"] .mini-app-row-actions-button {
   width: var(--control-height);
   height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .mini-app-row-actions-button svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
 
 /*

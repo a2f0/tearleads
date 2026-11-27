@@ -52,7 +52,7 @@ export function TwoFactorAnswerForm({
           value={code}
         />
       </MiniAppField>
-      <MiniAppToolbar>
+      <MiniAppToolbar wrap>
         <MiniAppButton
           disabled={code.trim().length === 0}
           loading={busy}

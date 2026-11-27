@@ -5,6 +5,7 @@
   flex-direction: column;
   width: max-content;
   overflow: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
   /* Touch. The menu closes on any scroll outside itself, so a swipe on it must
      never pan the page. A menu whose content fits has no scroll range, is not
      in the scroll chain at all, and overscroll-behavior would not apply — so
@@ -15,6 +16,7 @@
   touch-action: none;
   overscroll-behavior: contain;
   box-sizing: border-box;
+  color: var(--color-dark);
   background: var(--color-light);
   border: var(--border-strong);
   padding: var(--space-xs);
@@ -62,9 +64,14 @@
   border-radius: var(--app-radius-control);
 }
 
-.menu button:hover:not(:disabled),
 .menu button:focus-visible:not(:disabled) {
   background: var(--app-hover-surface);
+}
+
+@media (hover: hover) {
+  .menu button:hover:not(:disabled) {
+    background: var(--app-hover-surface);
+  }
 }
 
 .menu button:disabled {

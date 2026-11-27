@@ -12,3 +12,8 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+.container-document-view > h2,
+.container-document-view > p {
+  margin: 0;
+}

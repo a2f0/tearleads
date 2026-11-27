@@ -1,32 +1,32 @@
 .document-avatar {
+  --document-avatar-size: 32px;
+
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  width: var(--document-avatar-size);
+  height: var(--document-avatar-size);
   overflow: hidden;
-  border: 1px solid var(--color-hairline);
+  border: var(--border-width) solid var(--color-hairline);
   border-radius: 50%;
   background: var(--color-muted);
   color: var(--color-dark);
+  font-size: calc(var(--document-avatar-size) * 0.6);
 }
 
+/* Pixel sizes match virtualized row/list visual slots across both shells. */
 .document-avatar--small {
-  width: 20px;
-  height: 20px;
-  font-size: 12px;
+  --document-avatar-size: 20px;
 }
 
 .document-avatar--medium {
-  width: 32px;
-  height: 32px;
-  font-size: 20px;
+  --document-avatar-size: 32px;
 }
 
 .document-avatar--large {
-  width: 96px;
-  height: 96px;
-  font-size: 60px;
+  --document-avatar-size: 96px;
 }
 
 .document-avatar-image {

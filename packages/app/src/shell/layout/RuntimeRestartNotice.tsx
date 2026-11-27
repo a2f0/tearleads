@@ -5,6 +5,8 @@ import {
   subscribeRuntimeHealth,
 } from "@tearleads/client-sdk";
 import { useEffect, useReducer, useRef } from "react";
+import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
+import { classNames } from "../../components/shared/classNames";
 import {
   hasPendingPageDocumentWrites,
   reloadDiscardingPageDocumentWrites,
@@ -60,22 +62,28 @@ export function RuntimeRestartNoticeView({
     // user may keep them instead; after a step threw, try the press again.
     const unsaved = step === "unsaved";
     return (
-      <div className="runtime-restart-notice" role="status">
+      <div
+        className={classNames(
+          "runtime-restart-notice",
+          "runtime-restart-notice--warning",
+        )}
+        role="status"
+      >
         <span>
           {unsaved
             ? RUNTIME_RESTART_LABELS.unsaved
             : RUNTIME_RESTART_LABELS.failed}
         </span>
-        <button
-          className="runtime-restart-notice-button"
-          onClick={onDiscard}
-          type="button"
-        >
-          {RUNTIME_RESTART_LABELS.discard}
-        </button>
-        <button onClick={unsaved ? onKeep : onReload} type="button">
-          {unsaved ? RUNTIME_RESTART_LABELS.keep : RUNTIME_RESTART_LABELS.retry}
-        </button>
+        <div className="runtime-restart-notice-actions">
+          <MiniAppButton onClick={onDiscard} variant="danger">
+            {RUNTIME_RESTART_LABELS.discard}
+          </MiniAppButton>
+          <MiniAppButton onClick={unsaved ? onKeep : onReload}>
+            {unsaved
+              ? RUNTIME_RESTART_LABELS.keep
+              : RUNTIME_RESTART_LABELS.retry}
+          </MiniAppButton>
+        </div>
       </div>
     );
   }
@@ -83,16 +91,13 @@ export function RuntimeRestartNoticeView({
   return (
     <div className="runtime-restart-notice" role="status">
       <span>{RUNTIME_RESTART_LABELS.message}</span>
-      <button
-        className="runtime-restart-notice-button"
-        disabled={busy}
-        onClick={onReload}
-        type="button"
-      >
-        {busy
-          ? RUNTIME_RESTART_LABELS.reloading
-          : RUNTIME_RESTART_LABELS.reload}
-      </button>
+      <div className="runtime-restart-notice-actions">
+        <MiniAppButton loading={busy} onClick={onReload}>
+          {busy
+            ? RUNTIME_RESTART_LABELS.reloading
+            : RUNTIME_RESTART_LABELS.reload}
+        </MiniAppButton>
+      </div>
     </div>
   );
 }

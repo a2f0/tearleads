@@ -7,7 +7,8 @@
   flex-shrink: 0;
   overflow: hidden;
   border: var(--border);
-  background: var(--color-dark);
+  border-radius: var(--app-radius-control);
+  background: var(--color-muted);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -27,12 +28,13 @@
 }
 
 /* Circle crop guide: the inscribed circle stays clear while the oversized
-   box-shadow dims the square corners that will be cropped away. */
+   box-shadow dims the square corners that will be cropped away. Fixed light
+   ring contrasts against the dark dim mask in Light, Dark, and Dusk. */
 .avatar-editor-mask {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
-  border: 1px solid var(--color-light);
+  border: var(--border-width) solid rgb(255 255 255 / 85%);
   border-radius: 50%;
   box-shadow: 0 0 0 9999px var(--overlay-background);
   pointer-events: none;
@@ -41,7 +43,7 @@
 .avatar-editor-hint {
   margin: 0;
   font-size: var(--font-size-xs);
-  opacity: 0.75;
+  opacity: var(--opacity-muted);
 }
 
 .avatar-editor-zoom {
@@ -51,7 +53,7 @@
   font-size: var(--font-size-sm);
 }
 
-.avatar-editor-zoom input[type="range"] {
+.avatar-editor-zoom .mini-app-range {
   flex: 1 1 auto;
   min-width: 0;
 }

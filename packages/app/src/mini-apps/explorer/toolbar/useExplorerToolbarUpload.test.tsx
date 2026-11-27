@@ -46,7 +46,7 @@ test("one hidden picker imports into the container captured by its trigger", () 
     return;
   }
   expect(input.multiple).toBe(true);
-  expect(input.style.display).toBe("none");
+  expect(input.hidden).toBe(true);
 
   fireEvent.click(view.getByRole("button", { name: "Upload to folder 1" }));
   fireEvent.change(input, { target: { files } });
