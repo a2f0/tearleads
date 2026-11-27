@@ -25,7 +25,10 @@ import {
   type OwedDocumentRecord,
 } from "../../../data/persistence/documents/documentListingRevalidationRepository";
 import { readPersistedDocumentFrontiers } from "../../../data/persistence/documents/records/persistedDocumentFrontiers";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  type ExecSql,
+  runSerializedSqlMutation,
+} from "../../../data/sqlite/sqlSchema";
 import { isProcessedCursorWithheldForSync } from "./processedCursor";
 
 export type {
@@ -46,13 +49,28 @@ export async function oweListedDocumentReadsBehindListing(
   execSql: ExecSql,
   listed: ReadonlyArray<ListedDocumentHead>,
 ): Promise<ReadonlyArray<string>> {
-  const revalidations = new DocumentListingRevalidationRepository(execSql);
-  const behind = await revalidations.listBehindListing(
-    listed,
-    documentVerdictJudge(),
-  );
-  await revalidations.request(behind);
+  const behind = await oweListedRecordReads(execSql, listed);
   return [...new Set(behind.map(({ documentId }) => documentId))];
+}
+
+/**
+ * Owes a read to each record the listed rows show behind, as
+ * `oweListedDocumentReadsBehindListing` does, in one serialized mutation,
+ * and returns those records.
+ */
+export function oweListedRecordReads(
+  execSql: ExecSql,
+  listed: ReadonlyArray<ListedDocumentHead>,
+): Promise<ReadonlyArray<OwedDocumentRecord>> {
+  return runSerializedSqlMutation(execSql, async (locked) => {
+    const revalidations = new DocumentListingRevalidationRepository(locked);
+    const behind = await revalidations.listBehindListing(
+      listed,
+      documentVerdictJudge(),
+    );
+    await revalidations.request(behind);
+    return behind;
+  });
 }
 
 /** The read a listing still owes `record`, if any. */

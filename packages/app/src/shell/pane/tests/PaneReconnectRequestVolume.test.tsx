@@ -67,7 +67,7 @@ test("a settled pane reconnects with no pending local work", async () => {
   const requests = await measureWorkflowRequests({
     label: "reconnect without pending work",
     budget: {
-      total: 12,
+      total: 9,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
@@ -80,7 +80,8 @@ test("a settled pane reconnects with no pending local work", async () => {
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "GET /containers/:containerId/writer-projection": 1,
-        "GET /documents/:documentId/writer-projection": 3,
+        // Each listed head is one this device's creates authored and cached.
+        "GET /documents/:documentId/writer-projection": 0,
         // The notes are not probed: the listing that follows the
         // acknowledgement covers them.
         "POST /documents/:documentId/sync": 2,
@@ -164,7 +165,7 @@ test("reconnect discovers one folder created by a peer while disconnected", asyn
   const requests = await measureWorkflowRequests({
     label: "reconnect after peer folder create",
     budget: {
-      total: 18,
+      total: 15,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
@@ -176,7 +177,8 @@ test("reconnect discovers one folder created by a peer while disconnected", asyn
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "GET /containers/:containerId/writer-projection": 2,
-        "GET /documents/:documentId/writer-projection": 4,
+        // Only a head the peer authored is read.
+        "GET /documents/:documentId/writer-projection": 1,
         "POST /documents/:documentId/sync": 3,
       },
     },

@@ -88,7 +88,10 @@ this one none did.
   API, against 27 to 29 s on the earlier base; its PostgreSQL and local
   statement counts are within 2% of that base's, so the difference is not
   work the probe can see. When those notes are all in one folder, the listing
-  pages through their rows, so document listings rose to 38.
+  pages through their rows, so document listings rose to 38. Since #3325 a
+  create saves the head it authored to the discovery head cache, and the same
+  first reload of 1,000 notes in 100 folders made 14 requests, none of them a
+  document head, and settled in about 3.6 s.
 
 What this cannot say: how a browser's storage, worker and network change the
 times, what the app shell's own requests add, or what a reload costs after

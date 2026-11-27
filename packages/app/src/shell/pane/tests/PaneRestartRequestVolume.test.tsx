@@ -257,12 +257,12 @@ async function measureRestart(input: {
 
 test("a pane restart reconciles its persisted tree without replaying writes", async () => {
   // The first restart after the notes were created: their lanes list the
-  // rows those creates published, and each listed row's head is verified
-  // with one document writer-projection read. No note is synced: the cursor
-  // each create left covers the count its row lists.
+  // rows those creates published. No listed row's head is read back: each
+  // create saved the head it authored to the discovery head cache. No note
+  // is synced: the cursor each create left covers the count its row lists.
   await measureRestart({
     budget: {
-      total: 19,
+      total: 16,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
@@ -273,7 +273,7 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 1,
         "GET /containers/:containerId/writer-projection": 3,
-        "GET /documents/:documentId/writer-projection": 3,
+        "GET /documents/:documentId/writer-projection": 0,
         "POST /documents/:documentId/sync": 3,
       },
     },
