@@ -145,9 +145,13 @@ name and icon since #2539).
   the probes for the bootstrap fixture and say which a listing could answer.
 - A parent-lanes request and a documents request each take up to 32 lanes,
   and the server lists four at a time. Count crawl requests against the cap.
-- No canary restarts or reconnects a pane, so restart cost stays Traced and
-  this slice stayed partial in two audits. Measure it with a preload-driven
-  restart scenario outside the checkout, or report it as not measured.
+- Restart and reconnect costs are measured by
+  `PaneRestartRequestVolume.test.tsx` (persisted restart at 2 and 8 notes and
+  multiple folders) and `PaneReconnectRequestVolume.test.tsx` (settled
+  reconnect and reconnect after a peer's folder create), both run by
+  `perf:canaries`. For larger trees, delayed realtime acknowledgements, or
+  peer edits arriving during restart, measure with
+  `perf:reload --documents ... --ack-delay-ms ... --peer-edits ...`.
 
 ## `projections-and-keying`
 
