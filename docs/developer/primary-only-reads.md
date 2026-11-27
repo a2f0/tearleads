@@ -60,7 +60,7 @@ rollout.
 Eligible instances use the existing `commitLsn: "0/0"` and
 `commitLsnMode: "untracked"` pair. Their minimum-LSN check does not compare a
 numeric fence against the sentinel: primary reads do not need a replica catchup
-fence. Paged and direct/unpaged readers use the same policy. Checkpoints are still
+fence. Paged and direct page readers use the same policy. Checkpoints are still
 constructed after transaction commit for document sync, create seeds, container
 metadata seeds, and blob carried sync. Cursor authentication, snapshot bounds,
 raw history, access authorization, signed material, and rollback are unchanged.

@@ -107,19 +107,16 @@ async function lockSyncDocumentFrontier(input: {
       },
     };
   }
-  if (input.request.supportsPullPagination === true) {
-    await lockSyncDocumentPullWatermark({
-      documentId: input.documentId,
-      tx: input.tx,
-    });
-  }
+  await lockSyncDocumentPullWatermark({
+    documentId: input.documentId,
+    tx: input.tx,
+  });
   const lockedTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,
     input.tx,
     true,
   );
   if (
-    input.request.supportsPullPagination === true &&
     lockedTargets.linkSetManifestHash !== input.frontier.linkSetManifestHash
   ) {
     throw documentSyncStateStale(

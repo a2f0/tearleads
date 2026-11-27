@@ -63,6 +63,15 @@ async function syncDocumentTransaction(
   };
 }
 
+function assertPaginatedPullSupported(request: DocumentSyncRequest): void {
+  if (request.supportsPullPagination !== true) {
+    throw new DocumentMutationError(
+      "Paginated document pull support is required",
+      400,
+    );
+  }
+}
+
 async function buildSyncDocumentTransactionResult(input: {
   readonly appendResult: Awaited<ReturnType<typeof appendDocumentUpdates>>;
   readonly contentKeyBundle: StoredDocumentContentKeyBundle;
@@ -71,6 +80,7 @@ async function buildSyncDocumentTransactionResult(input: {
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
 }) {
+  assertPaginatedPullSupported(input.request);
   // A replica may advance between statements, which is safe only in this
   // order: first prove it reached the requested commit, then freeze a
   // snapshot bound at that point or later.
@@ -188,6 +198,7 @@ async function assertCreateSeedPullRequest(input: {
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
 }): Promise<void> {
+  assertPaginatedPullSupported(input.request);
   await assertMinLsnSatisfied(input.executor, input.request.minLsn);
   await resolveSyncPullPagePlan({
     countUpdatesThrough: () =>

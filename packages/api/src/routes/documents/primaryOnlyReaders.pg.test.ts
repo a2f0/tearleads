@@ -98,7 +98,6 @@ pgTest(
             request: {
               ...sync.request,
               outgoingUpdates: [],
-              minLsn: input.minLsn,
               historyMode: "raw",
             },
           });

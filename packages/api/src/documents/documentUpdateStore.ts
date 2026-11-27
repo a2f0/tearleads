@@ -129,9 +129,9 @@ async function listMissingDocumentUpdateCandidates(
   input: {
     readonly afterSequence?: number | undefined;
     readonly documentId: string;
-    readonly limit?: number | undefined;
+    readonly limit: number;
     readonly localVersionVector: string | null;
-    readonly upperBoundSequence?: number | undefined;
+    readonly upperBoundSequence: number;
   },
 ): Promise<MissingDocumentUpdateCandidate[]> {
   const updateId = aliasedColumn("u", documentUpdates.id);
@@ -152,11 +152,8 @@ async function listMissingDocumentUpdateCandidates(
     input.afterSequence === undefined
       ? sql``
       : sql`and ${updateSequence} > ${input.afterSequence}`;
-  const upperBound =
-    input.upperBoundSequence === undefined
-      ? sql``
-      : sql`and ${updateSequence} <= ${input.upperBoundSequence}`;
-  const limit = input.limit === undefined ? sql`` : sql`limit ${input.limit}`;
+  const upperBound = sql`and ${updateSequence} <= ${input.upperBoundSequence}`;
+  const limit = sql`limit ${input.limit}`;
   const result = await executor.execute(sql`
     select
       ${updateSequence} as "sequence",
