@@ -60,14 +60,18 @@ export function useSystemBootstrapBlocking(isBootstrapping: boolean): boolean {
 
 const SYSTEM_BOOTSTRAP_DESCRIPTION =
   "Creating your system folders and contact card. This takes a moment the first time.";
+const WAITING_FOR_ANOTHER_TAB_TITLE = "Waiting for another tab";
+const WAITING_FOR_ANOTHER_TAB_DESCRIPTION =
+  "Another tab is restoring or updating your local database. Retrying automatically.";
 
 export function SystemBootstrapGate({
   children,
   message,
 }: PropsWithChildren<{ readonly message: string }>) {
   const { isBootstrapping } = useSystemBootstrap();
-  const { status, clearWorker } = useDatabase();
+  const { status, clearWorker, waitingForAnotherTab = false } = useDatabase();
   const databaseFailed = status === "error";
+  const waitingForOtherTab = waitingForAnotherTab && status === "idle";
   const errorPanel = useMemo(
     () => (
       <MiniAppStatePanel
@@ -85,22 +89,35 @@ export function SystemBootstrapGate({
       <MiniAppSidebar>
         {databaseFailed ? (
           errorPanel
+        ) : waitingForOtherTab ? (
+          <MiniAppStatus busy>{WAITING_FOR_ANOTHER_TAB_TITLE}...</MiniAppStatus>
         ) : (
           <MiniAppStatus busy>{message}...</MiniAppStatus>
         )}
       </MiniAppSidebar>
     ),
-    [message, databaseFailed, errorPanel],
+    [message, databaseFailed, errorPanel, waitingForOtherTab],
   );
   const blocking = useSystemBootstrapBlocking(isBootstrapping);
 
   useRegisteredWindowSidebar({
-    enabled: blocking || databaseFailed,
+    enabled: blocking || databaseFailed || waitingForOtherTab,
     setSidebar,
     sidebar,
   });
 
   if (databaseFailed) return <MiniAppRoot>{errorPanel}</MiniAppRoot>;
+  if (waitingForOtherTab) {
+    return (
+      <MiniAppRoot>
+        <MiniAppStatePanel
+          busy
+          description={WAITING_FOR_ANOTHER_TAB_DESCRIPTION}
+          title={WAITING_FOR_ANOTHER_TAB_TITLE}
+        />
+      </MiniAppRoot>
+    );
+  }
   if (blocking) {
     return (
       <MiniAppRoot>

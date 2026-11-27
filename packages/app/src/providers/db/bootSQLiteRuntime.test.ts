@@ -1,5 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import {
+  isLocalSchemaMigrationLockTimeoutError,
+  type SQLiteRuntime,
+  withLocalSchemaMigrationLock,
+} from "@tearleads/client-sdk/sqlite";
 import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import {
   completeDeviceReset,
@@ -278,4 +282,203 @@ test("bootSQLiteRuntime opens nothing when the device-reset wipe fails, and keep
 
   expect(initialized).toBe(false);
   expect(isWorkerStorageWipePending()).toBe(true);
+});
+
+function installAbortableWebLocks(): () => void {
+  const previous = Object.getOwnPropertyDescriptor(navigator, "locks");
+  const queues = new Map<
+    string,
+    Array<{
+      readonly callback: () => Promise<unknown>;
+      readonly reject: (reason?: unknown) => void;
+      readonly resolve: (value: unknown) => void;
+      readonly signal?: AbortSignal | undefined;
+    }>
+  >();
+  const held = new Set<string>();
+  const pump = (name: string) => {
+    if (held.has(name)) return;
+    const queue = queues.get(name);
+    while (queue && queue.length > 0) {
+      const next = queue.shift();
+      if (!next) return;
+      if (next.signal?.aborted) {
+        next.reject(
+          next.signal.reason ?? new DOMException("Aborted", "AbortError"),
+        );
+        continue;
+      }
+      held.add(name);
+      void Promise.resolve()
+        .then(next.callback)
+        .then(next.resolve, next.reject)
+        .finally(() => {
+          held.delete(name);
+          pump(name);
+        });
+      return;
+    }
+  };
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: {
+      request: (
+        name: string,
+        optionsOrCallback:
+          | (() => Promise<unknown>)
+          | { readonly signal?: AbortSignal },
+        maybeCallback?: () => Promise<unknown>,
+      ) => {
+        const callback =
+          typeof optionsOrCallback === "function"
+            ? optionsOrCallback
+            : maybeCallback;
+        const signal =
+          typeof optionsOrCallback === "function"
+            ? undefined
+            : optionsOrCallback.signal;
+        if (!callback) throw new Error("Missing Web Lock callback");
+        if (signal?.aborted) {
+          return Promise.reject(
+            signal.reason ?? new DOMException("Aborted", "AbortError"),
+          );
+        }
+        return new Promise((resolve, reject) => {
+          const entry = { callback, reject, resolve, signal };
+          const queue = queues.get(name) ?? [];
+          queue.push(entry);
+          queues.set(name, queue);
+          signal?.addEventListener(
+            "abort",
+            () => {
+              const index = queue.indexOf(entry);
+              if (index !== -1) {
+                queue.splice(index, 1);
+                reject(
+                  signal.reason ?? new DOMException("Aborted", "AbortError"),
+                );
+              }
+            },
+            { once: true },
+          );
+          pump(name);
+        });
+      },
+    },
+  });
+  return () => {
+    if (previous) {
+      Object.defineProperty(navigator, "locks", previous);
+    } else {
+      Reflect.deleteProperty(navigator, "locks");
+    }
+  };
+}
+
+test("bootSQLiteRuntime surfaces a retrying state within the bound when another tab holds the migration lock", async () => {
+  const uninstall = installAbortableWebLocks();
+  let releaseRestore = () => {};
+  const restoreReleased = new Promise<void>((resolve) => {
+    releaseRestore = resolve;
+  });
+  let signalRestoreLocked = () => {};
+  const restoreLocked = new Promise<void>((resolve) => {
+    signalRestoreLocked = resolve;
+  });
+  let signalWaiting = () => {};
+  const waitingObserved = new Promise<void>((resolve) => {
+    signalWaiting = resolve;
+  });
+  let holder: Promise<void> = Promise.resolve();
+  const waitingTransitions: boolean[] = [];
+  const logs: string[] = [];
+  const runtime = createRuntime(async () => ({ ok: true }));
+
+  try {
+    holder = withLocalSchemaMigrationLock(async () => {
+      signalRestoreLocked();
+      await restoreReleased;
+    });
+    await restoreLocked;
+
+    const startedAt = Date.now();
+    const boot = bootSQLiteRuntime(
+      runtime,
+      "test-db",
+      "memory",
+      async () => "test-key",
+      (message) => logs.push(message),
+      {
+        lockWaitTimeoutMs: 50,
+        onWaitingForAnotherTab: (waiting) => {
+          waitingTransitions.push(waiting);
+          if (waiting) signalWaiting();
+        },
+      },
+    );
+
+    await waitingObserved;
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect(waitingTransitions).toEqual([true]);
+    expect(logs).toContain(
+      "Another tab holds the local schema migration lock during the schema migration; retrying.",
+    );
+
+    releaseRestore();
+    await holder;
+    await boot;
+    expect(waitingTransitions).toEqual([true, false]);
+  } finally {
+    releaseRestore();
+    await holder.catch(() => undefined);
+    uninstall();
+  }
+});
+
+test("bootSQLiteRuntime stops waiting on the migration lock when superseded", async () => {
+  const uninstall = installAbortableWebLocks();
+  let releaseRestore = () => {};
+  const restoreReleased = new Promise<void>((resolve) => {
+    releaseRestore = resolve;
+  });
+  let signalRestoreLocked = () => {};
+  const restoreLocked = new Promise<void>((resolve) => {
+    signalRestoreLocked = resolve;
+  });
+  let holder: Promise<void> = Promise.resolve();
+  let current = true;
+  const runtime = createRuntime(async () => ({ ok: true }));
+
+  try {
+    holder = withLocalSchemaMigrationLock(async () => {
+      signalRestoreLocked();
+      await restoreReleased;
+    });
+    await restoreLocked;
+
+    const startedAt = Date.now();
+    const failure = await bootSQLiteRuntime(
+      runtime,
+      "test-db",
+      "memory",
+      async () => "test-key",
+      () => {},
+      {
+        isCurrent: () => current,
+        lockWaitTimeoutMs: 50,
+        onWaitingForAnotherTab: (waiting) => {
+          if (waiting) current = false;
+        },
+      },
+    ).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect(isLocalSchemaMigrationLockTimeoutError(failure)).toBe(true);
+  } finally {
+    releaseRestore();
+    await holder.catch(() => undefined);
+    uninstall();
+  }
 });

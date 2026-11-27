@@ -47,8 +47,12 @@ durable, so a host that shares the database between tabs calls
 Every later ensure on the connection then finds the migration done. A backup
 restore holds the lock (`withLocalSchemaMigrationLock`) from BEGIN through
 COMMIT and calls `migrateLocalSchema` inside that transaction, so the restored
-data and its migration commit together and no tab checks the ledger in
-between.
+data and its migration commit together and no tab checks the ledger in between.
+Migration checks bound their wait for the Web Lock to
+`LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MS` (5 s) using an `AbortSignal`, failing
+with `LocalSchemaMigrationLockTimeoutError` (recognized by
+`isLocalSchemaMigrationLockTimeoutError`) if another tab still holds it so a
+booting tab can surface a retrying state rather than hanging indefinitely.
 
 The lock covers migration checks, not ordinary statements, but the lease
 covers those: a tab that finished its own check earlier (typically one still
