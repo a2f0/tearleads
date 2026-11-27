@@ -182,39 +182,3 @@ export async function resolveBaselineRedirectAfterSequence(input: {
     ? input.afterSequence
     : beforeBaseline;
 }
-
-/**
- * Apply the baseline redirect to a missing-update set. Skips the baseline lookup
- * entirely in the common case where no older-epoch update is present.
- */
-export async function selectServedSyncUpdateEntries<
-  Entry extends ServableSyncUpdateEntry,
->(input: {
-  readonly currentContentKeyEpoch: number;
-  readonly documentId: string;
-  readonly entries: readonly Entry[];
-  readonly executor: DatabaseSession;
-  readonly upperBoundSequence?: number | undefined;
-}): Promise<Entry[]> {
-  const hasOlderEpochUpdate = input.entries.some(
-    (entry) => entry.writeHeader.contentKeyEpoch < input.currentContentKeyEpoch,
-  );
-  if (!hasOlderEpochUpdate) {
-    return [...input.entries];
-  }
-
-  const baselineCoverage = await loadLatestReadableBaselineCoverage(
-    input.executor,
-    {
-      documentId: input.documentId,
-      contentKeyEpoch: input.currentContentKeyEpoch,
-      upperBoundSequence: input.upperBoundSequence,
-    },
-  );
-
-  return selectServedSyncUpdates({
-    entries: input.entries,
-    currentContentKeyEpoch: input.currentContentKeyEpoch,
-    baselineCoverage,
-  });
-}

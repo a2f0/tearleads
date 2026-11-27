@@ -63,6 +63,15 @@ async function syncDocumentTransaction(
   };
 }
 
+function assertPaginatedPullSupported(request: DocumentSyncRequest): void {
+  if (request.supportsPullPagination !== true) {
+    throw new DocumentMutationError(
+      "Paginated document pull support is required",
+      400,
+    );
+  }
+}
+
 async function buildSyncDocumentTransactionResult(input: {
   readonly appendResult: Awaited<ReturnType<typeof appendDocumentUpdates>>;
   readonly contentKeyBundle: StoredDocumentContentKeyBundle;
@@ -71,16 +80,15 @@ async function buildSyncDocumentTransactionResult(input: {
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
 }) {
-  if (input.request.supportsPullPagination === true) {
-    // A replica may advance between statements, which is safe only in this
-    // order: first prove it reached the requested commit, then freeze a
-    // snapshot bound at that point or later.
-    await assertMinLsnSatisfied(input.executor, input.request.minLsn);
-  }
-  const upperBound =
-    input.request.supportsPullPagination === true
-      ? await readDocumentUpdateUpperBound(input.executor, input.documentId)
-      : null;
+  assertPaginatedPullSupported(input.request);
+  // A replica may advance between statements, which is safe only in this
+  // order: first prove it reached the requested commit, then freeze a
+  // snapshot bound at that point or later.
+  await assertMinLsnSatisfied(input.executor, input.request.minLsn);
+  const upperBound = await readDocumentUpdateUpperBound(
+    input.executor,
+    input.documentId,
+  );
   const pullIdentity = {
     contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
     documentId: input.documentId,
@@ -124,12 +132,6 @@ async function buildSyncDocumentTransactionResult(input: {
     acceptedOutgoingUpdateIds: input.appendResult.acceptedOutgoingUpdateIds,
     documentId: input.documentId,
   };
-  if (pullPagePlan === null || page === undefined) {
-    throw new DocumentMutationError(
-      "Paginated document pull support is required",
-      400,
-    );
-  }
   const responseWithoutCommit = await buildPaginatedSyncPullResponse({
     base: responseBase,
     cursorHmacKey: input.cursorHmacKey,
@@ -196,10 +198,9 @@ async function assertCreateSeedPullRequest(input: {
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
 }): Promise<void> {
-  if (input.request.supportsPullPagination === true) {
-    await assertMinLsnSatisfied(input.executor, input.request.minLsn);
-  }
-  const plan = await resolveSyncPullPagePlan({
+  assertPaginatedPullSupported(input.request);
+  await assertMinLsnSatisfied(input.executor, input.request.minLsn);
+  await resolveSyncPullPagePlan({
     countUpdatesThrough: () =>
       Promise.reject(new Error("A create seed's pull has no upper bound")),
     cursorHmacKey: null,
@@ -214,12 +215,6 @@ async function assertCreateSeedPullRequest(input: {
       Promise.reject(new Error("A create seed's pull cursor never verifies")),
     upperBound: null,
   });
-  if (plan === null) {
-    throw new DocumentMutationError(
-      "Paginated document pull support is required",
-      400,
-    );
-  }
 }
 
 async function commitDocumentCreateSeed(

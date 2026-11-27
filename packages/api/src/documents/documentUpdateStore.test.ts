@@ -14,7 +14,6 @@ import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
   DocumentUpdateReadError,
   listMissingDocumentUpdatePage,
-  listMissingDocumentUpdates,
   readDocumentUpdateSequenceUpperBound,
   readDocumentUpdateUpperBound,
   resolveDocumentUpdateCursorBounds,
@@ -76,7 +75,7 @@ async function expectDocumentUpdateReadError(
   throw new Error("Expected document update read operation to fail");
 }
 
-test("listMissingDocumentUpdates returns only causally missing document updates", async () => {
+test("listMissingDocumentUpdatePage returns only causally missing document updates", async () => {
   const documentId = await createStoredDocument();
   const aliceDoc = await createDocument("document-update-store-alice");
   const aliceStartVersion = encodeVersionVector(aliceDoc);
@@ -106,32 +105,48 @@ test("listMissingDocumentUpdates returns only causally missing document updates"
     partialStartVersionVector: secondVectors.partialStartVersionVector,
     partialEndVersionVector: secondVectors.partialEndVersionVector,
   });
+  const upperBoundSequence = await readDocumentUpdateSequenceUpperBound(
+    db,
+    documentId,
+  );
 
-  const allMissing = await listMissingDocumentUpdates(db, {
+  const allMissing = await listMissingDocumentUpdatePage(db, {
+    afterSequence: 0,
     documentId,
     localVersionVector: null,
+    maxSerializedBytes: 100_000,
+    maxUpdates: 64,
+    upperBoundSequence,
   });
-  expect(allMissing.map((update) => update.id)).toEqual([
+  expect(allMissing.updates.map((update) => update.id)).toEqual([
     firstUpdateId,
     secondUpdateId,
   ]);
-  expect(allMissing[0]?.byteLength).toBe(
+  expect(allMissing.updates[0]?.byteLength).toBe(
     textEncoder.encode("encrypted-first-update-with-checkmark-✓").byteLength,
   );
 
-  const missingAfterFirstUpdate = await listMissingDocumentUpdates(db, {
+  const missingAfterFirstUpdate = await listMissingDocumentUpdatePage(db, {
+    afterSequence: 0,
     documentId,
     localVersionVector: encodeVersionVector(aliceDoc),
+    maxSerializedBytes: 100_000,
+    maxUpdates: 64,
+    upperBoundSequence,
   });
-  expect(missingAfterFirstUpdate.map((update) => update.id)).toEqual([
+  expect(missingAfterFirstUpdate.updates.map((update) => update.id)).toEqual([
     secondUpdateId,
   ]);
 
-  const missingAfterSecondUpdate = await listMissingDocumentUpdates(db, {
+  const missingAfterSecondUpdate = await listMissingDocumentUpdatePage(db, {
+    afterSequence: 0,
     documentId,
     localVersionVector: encodeVersionVector(bobDoc),
+    maxSerializedBytes: 100_000,
+    maxUpdates: 64,
+    upperBoundSequence,
   });
-  expect(missingAfterSecondUpdate).toEqual([]);
+  expect(missingAfterSecondUpdate.updates).toEqual([]);
 });
 
 test("document update pages retain their upper bound across concurrent writes", async () => {
@@ -254,17 +269,21 @@ test("document update pages budget serialized metadata, not only ciphertext", as
     });
   }
 
-  const stored = await listMissingDocumentUpdates(db, {
-    documentId,
-    localVersionVector: null,
-  });
-  const first = stored[0];
-  if (!first) throw new Error("Expected a stored update");
-  const oneUpdateBytes = Buffer.byteLength(JSON.stringify(first), "utf8") + 2;
   const upperBoundSequence = await readDocumentUpdateSequenceUpperBound(
     db,
     documentId,
   );
+  const fullPage = await listMissingDocumentUpdatePage(db, {
+    afterSequence: 0,
+    documentId,
+    localVersionVector: null,
+    maxSerializedBytes: 1_000_000,
+    maxUpdates: 64,
+    upperBoundSequence,
+  });
+  const first = fullPage.updates[0];
+  if (!first) throw new Error("Expected a stored update");
+  const oneUpdateBytes = Buffer.byteLength(JSON.stringify(first), "utf8") + 2;
   const page = await listMissingDocumentUpdatePage(db, {
     afterSequence: 0,
     documentId,
@@ -337,14 +356,18 @@ test("byte floors never cut a page short of its exact serialized trim", async ()
   }
 });
 
-test("listMissingDocumentUpdates rejects unsatisfied minLsn reads", async () => {
+test("listMissingDocumentUpdatePage rejects unsatisfied minLsn reads", async () => {
   const documentId = await createStoredDocument();
 
   const error = await expectDocumentUpdateReadError(
-    listMissingDocumentUpdates(db, {
+    listMissingDocumentUpdatePage(db, {
+      afterSequence: 0,
       documentId,
       localVersionVector: null,
+      maxSerializedBytes: 100_000,
+      maxUpdates: 64,
       minLsn: "FFFFFFFF/FFFFFFFF",
+      upperBoundSequence: 0,
     }),
   );
   expect(error.status).toBe(503);
@@ -353,13 +376,17 @@ test("listMissingDocumentUpdates rejects unsatisfied minLsn reads", async () => 
   );
 });
 
-test("listMissingDocumentUpdates rejects malformed local version vectors", async () => {
+test("listMissingDocumentUpdatePage rejects malformed local version vectors", async () => {
   const documentId = await createStoredDocument();
 
   const error = await expectDocumentUpdateReadError(
-    listMissingDocumentUpdates(db, {
+    listMissingDocumentUpdatePage(db, {
+      afterSequence: 0,
       documentId,
       localVersionVector: "not-base64",
+      maxSerializedBytes: 100_000,
+      maxUpdates: 64,
+      upperBoundSequence: 0,
     }),
   );
   expect(error.status).toBe(400);
