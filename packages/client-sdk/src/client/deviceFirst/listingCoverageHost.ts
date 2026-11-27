@@ -6,9 +6,9 @@ import {
 } from "../../stores/container-contents";
 import {
   getOrCreateDocumentListingCoverage,
+  requestRemoteSyncsOfOwedRecords,
   requestRemoteSyncsOfRecordsSavedElsewhere,
 } from "../../stores/documents";
-import { requestRegisteredDocumentRemoteSyncs } from "../../stores/documents/registry";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import type { ReconciliationHost } from "../../sync/reconciliation";
 import { forgetUnheldDocumentLaneListings } from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
@@ -45,7 +45,7 @@ export function createListingCoverageHost(
         return;
       }
       const { execSql } = input.infra;
-      requestRegisteredDocumentRemoteSyncs(
+      requestRemoteSyncsOfOwedRecords(
         domainScope,
         await listOwedDocumentListingReads(execSql),
       );

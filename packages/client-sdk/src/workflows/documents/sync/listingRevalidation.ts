@@ -1,17 +1,19 @@
 /**
- * Reads a container listing owes an ordinary document.
+ * Reads a container listing owes the records of an ordinary document.
  *
  * A document whose lane a listing covers is not probed when its store loads
  * or its socket reconnects. Instead, a listing that shows the document with
- * more updates than this device's processed cursor covers, or with another
- * access head than the one its record's key bundle was issued under, owes it
- * one read, written to `document_listing_revalidations` before the listing
- * is applied and the lane's watermark passes the row
- * (`oweListedDocumentReads`). A store reads its document's debt when it
- * loads and before each remote pull, and settles it only once
- * the cursor its completed pull saved covers the advertised count: a replica
- * that lags the listing can answer without the edit, and that debt then
- * waits for a later pull.
+ * more updates than a record's processed cursor covers, or with another
+ * access head than the one the record's key bundle was issued under, owes
+ * that record one read, written to `document_listing_revalidations` before
+ * the listing is applied and the lane's watermark passes the row
+ * (`oweListedDocumentReads`). A debt belongs to the record, so two records of
+ * one document each owe and pay their own. A store reads its record's debt
+ * when it loads and before each remote pull, and settles it only once the
+ * cursor its completed pull saved covers the advertised count and the
+ * manifest it saved is the advertised head or a later one: a replica that
+ * lags the listing can answer without the edit or the head, and that debt
+ * then waits for a later pull.
  */
 
 import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
@@ -20,26 +22,25 @@ import {
   type DocumentListingRevalidation,
   DocumentListingRevalidationRepository,
   type ListedDocumentHead,
+  type OwedDocumentRecord,
 } from "../../../data/persistence/documents/documentListingRevalidationRepository";
 import { readPersistedDocumentFrontiers } from "../../../data/persistence/documents/records/persistedDocumentFrontiers";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import {
-  isProcessedCursorWithheldForSync,
-  readProcessedUpdateCountForSync,
-} from "./processedCursor";
+import { isProcessedCursorWithheldForSync } from "./processedCursor";
 
 export type {
   DocumentListingRevalidation,
   ListedDocumentHead,
+  OwedDocumentRecord,
 } from "../../../data/persistence/documents/documentListingRevalidationRepository";
 
 /**
- * Owes a read, durably, to each listed document this device holds behind the
- * listing: its processed cursor does not cover the listed count, or its
- * record's key bundle was issued under another access head. Returns the
- * documents owed. It must run before the listing is applied, which can drop
- * that key bundle, and a document lane's watermark may pass a listed row
- * only after this ran for it.
+ * Owes a read, durably, to each record of a listed document that the
+ * listing shows behind: its processed cursor does not cover the listed
+ * count, or its key bundle was issued under another access head. Returns
+ * the documents owed. It must run before the listing is applied, which can
+ * drop that key bundle, and a document lane's watermark may pass a listed
+ * row only after this ran for it.
  */
 export async function oweListedDocumentReadsBehindListing(
   execSql: ExecSql,
@@ -51,30 +52,28 @@ export async function oweListedDocumentReadsBehindListing(
     documentVerdictJudge(),
   );
   await revalidations.request(behind);
-  return behind.map(({ documentId }) => documentId);
+  return [...new Set(behind.map(({ documentId }) => documentId))];
 }
 
-/** The read a listing still owes `documentId`, if any. */
+/** The read a listing still owes `record`, if any. */
 export function findOwedDocumentListingRead(
   execSql: ExecSql,
-  documentId: string,
+  record: OwedDocumentRecord,
 ): Promise<DocumentListingRevalidation | null> {
-  return new DocumentListingRevalidationRepository(execSql).find(documentId);
+  return new DocumentListingRevalidationRepository(execSql).find(record);
 }
 
-/** Every document a listing still owes a read. */
+/** Every record a listing still owes a read. */
 export function listOwedDocumentListingReads(
   execSql: ExecSql,
-): Promise<ReadonlyArray<string>> {
-  return new DocumentListingRevalidationRepository(
-    execSql,
-  ).listOwedDocumentIds();
+): Promise<ReadonlyArray<OwedDocumentRecord>> {
+  return new DocumentListingRevalidationRepository(execSql).listOwed();
 }
 
 /**
- * Forgets the reads owed to documents this device no longer holds a record
- * of. Nothing reads such a debt, so a catch-up clears them once its own
- * reads are requested.
+ * Forgets the reads owed by records that no longer hold their document.
+ * Nothing reads such a debt, so a catch-up clears them once its own reads
+ * are requested.
  */
 export function forgetUnheldDocumentListingReads(
   execSql: ExecSql,
@@ -143,33 +142,17 @@ export function isDocumentProcessedCursorWithheld(
 
 /**
  * Settles the debt a completed pull observed before its request, if the
- * processed cursor that pull left covers the count the listing advertised.
- * Returns whether the debt is settled. `frontier` is the content frontier the
- * pull's save recorded, under which the cursor must still be sendable.
+ * record that owes it now pays it, as its record and cursor stand on disk:
+ * its processed cursor covers the count the listing advertised, and the
+ * manifest its last pull saved is the head the listing showed or a later
+ * one. Returns whether the debt is settled.
  */
-export async function settleCoveredDocumentListingRead(
+export function settleCoveredDocumentListingRead(
   execSql: ExecSql,
-  input: {
-    readonly frontier: string;
-    readonly localId: string;
-    readonly owed: DocumentListingRevalidation;
-  },
+  owed: DocumentListingRevalidation,
 ): Promise<boolean> {
-  // A debt at count zero is owed for a moved access head alone: the server
-  // holds no update a cursor could count, so the completed pull pays it.
-  if (input.owed.advertisedUpdateCount > 0) {
-    const processed =
-      input.frontier === ""
-        ? null
-        : await readProcessedUpdateCountForSync(execSql, {
-            documentId: input.owed.documentId,
-            frontier: input.frontier,
-            scope: { appKind: DOCUMENTS_APP_KIND, localId: input.localId },
-          });
-    if (processed === null || processed < input.owed.advertisedUpdateCount) {
-      return false;
-    }
-  }
-  await new DocumentListingRevalidationRepository(execSql).settle(input.owed);
-  return true;
+  return new DocumentListingRevalidationRepository(execSql).settle(
+    owed,
+    documentVerdictJudge(),
+  );
 }
