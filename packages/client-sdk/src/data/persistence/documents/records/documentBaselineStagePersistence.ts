@@ -1,5 +1,6 @@
 import { type AccessEvent, readKeyingCanonicalJson } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   documentBaselineStageTables,
@@ -93,6 +94,18 @@ export interface PersistedStagedBaselineUpload {
   readonly signedAt: string;
 }
 
+function parseJsonValue(json: string): { ok: true; value: unknown } | null {
+  try {
+    return { ok: true, value: JSON.parse(json) };
+  } catch {
+    return null;
+  }
+}
+
+function readField(record: Record<string, unknown>, key: string): unknown {
+  return record[key];
+}
+
 function readStringField(
   record: Record<string, unknown>,
   key: string,
@@ -101,38 +114,32 @@ function readStringField(
   return typeof value === "string" ? value : null;
 }
 
+function readNonEmptyStringField(
+  record: Record<string, unknown>,
+  key: string,
+): string | null {
+  const value = readStringField(record, key);
+  return value && value.length > 0 ? value : null;
+}
+
 function parseSegmentRecords(
   json: string,
 ): readonly PersistedStagedSegmentRecord[] | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    return null;
-  }
+  const parsed = parseJsonValue(json)?.value;
   if (!Array.isArray(parsed)) return null;
   const records: PersistedStagedSegmentRecord[] = [];
   for (const item of parsed) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
-    const rec = item as Record<string, unknown>;
-    const ciphertextHash = readStringField(rec, "ciphertextHash");
-    const contentRecordId = readStringField(rec, "contentRecordId");
-    const dependencyVersionVector = readStringField(
-      rec,
-      "dependencyVersionVector",
-    );
-    const digestAfter = readStringField(rec, "digestAfter");
-    const metadataHash = readStringField(rec, "metadataHash");
-    const partialEndVersionVector = readStringField(
-      rec,
-      "partialEndVersionVector",
-    );
-    const partialStartVersionVector = readStringField(
-      rec,
-      "partialStartVersionVector",
-    );
-    const plaintextHash = readStringField(rec, "plaintextHash");
-    const updateId = readStringField(rec, "updateId");
+    if (!isPlainObject(item)) return null;
+    const str = (key: string) => readStringField(item, key);
+    const ciphertextHash = str("ciphertextHash");
+    const contentRecordId = str("contentRecordId");
+    const dependencyVersionVector = str("dependencyVersionVector");
+    const digestAfter = str("digestAfter");
+    const metadataHash = str("metadataHash");
+    const partialEndVersionVector = str("partialEndVersionVector");
+    const partialStartVersionVector = str("partialStartVersionVector");
+    const plaintextHash = str("plaintextHash");
+    const updateId = str("updateId");
     if (
       ciphertextHash === null ||
       contentRecordId === null ||
@@ -164,12 +171,7 @@ function parseSegmentRecords(
 function parseKeyTargets(
   json: string,
 ): readonly PersistedRotationKeyTarget[] | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    return null;
-  }
+  const parsed = parseJsonValue(json)?.value;
   if (!Array.isArray(parsed) || parsed.length === 0) return null;
   const targets: PersistedRotationKeyTarget[] = [];
   for (const item of parsed) {
@@ -188,33 +190,110 @@ function parseKeyTargets(
   return targets;
 }
 
+function readStringArrayField(
+  record: Record<string, unknown>,
+  key: string,
+): string[] | null {
+  const value = record[key];
+  if (!Array.isArray(value)) return null;
+  const result: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") return null;
+    result.push(item);
+  }
+  return result;
+}
+
+function readLinkSetEventType(
+  record: Record<string, unknown>,
+): "document.link" | "document.unlink" | null {
+  const eventType = readStringField(record, "eventType");
+  return eventType === "document.link" || eventType === "document.unlink"
+    ? eventType
+    : null;
+}
+
+function readNullableStringField(
+  record: Record<string, unknown>,
+  key: string,
+): string | null | undefined {
+  const value = record[key];
+  if (value === null) return null;
+  return typeof value === "string" ? value : undefined;
+}
+
 function parseLinkSetEvent(
   json: string | null,
 ): AccessEvent | null | undefined {
   if (json === null) return undefined;
-  let parsed: unknown;
+  const parsed = parseJsonValue(json)?.value;
+  if (!isPlainObject(parsed) || Object.keys(parsed).length !== 14) {
+    return null;
+  }
+  const eventType = readLinkSetEventType(parsed);
+  const previousManifestHash = readNullableStringField(
+    parsed,
+    "previousManifestHash",
+  );
+  const dependencyManifestHashes = readStringArrayField(
+    parsed,
+    "dependencyManifestHashes",
+  );
+  if (
+    !eventType ||
+    readField(parsed, "version") !== 1 ||
+    readStringField(parsed, "objectKind") !== "document" ||
+    previousManifestHash === undefined ||
+    !dependencyManifestHashes
+  ) {
+    return null;
+  }
+  const read = (key: string) => readNonEmptyStringField(parsed, key);
+  const eventId = read("eventId");
+  const objectId = read("objectId");
+  const organizationId = read("organizationId");
+  const bodyHash = read("bodyHash");
+  const signerUserId = read("signerUserId");
+  const signerDeviceId = read("signerDeviceId");
+  const signerKeyFingerprint = read("signerKeyFingerprint");
+  const signedAt = read("signedAt");
+  const signature = read("signature");
+  if (
+    !(
+      eventId &&
+      objectId &&
+      organizationId &&
+      bodyHash &&
+      signerUserId &&
+      signerDeviceId &&
+      signerKeyFingerprint &&
+      signedAt &&
+      signature
+    )
+  ) {
+    return null;
+  }
+  const unsigned: Omit<AccessEvent, "signature"> = {
+    bodyHash,
+    dependencyManifestHashes,
+    eventId,
+    eventType,
+    objectId,
+    objectKind: "document",
+    organizationId,
+    previousManifestHash,
+    signedAt,
+    signerDeviceId,
+    signerKeyFingerprint,
+    signerUserId,
+    version: 1,
+  };
   try {
-    parsed = JSON.parse(json);
+    readKeyingCanonicalJson(unsigned, "Persisted link-set event");
   } catch {
     return null;
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return null;
-  }
-  const event = parsed as Record<string, unknown>;
-  const eventId = readStringField(event, "eventId");
-  const signedAt = readStringField(event, "signedAt");
-  const signature = readStringField(event, "signature");
-  if (!eventId || !signedAt || !signature) {
-    return null;
-  }
-  const { signature: _signature, ...fields } = event;
-  try {
-    readKeyingCanonicalJson(fields, "Persisted link-set event");
-  } catch {
-    return null;
-  }
-  return parsed as AccessEvent;
+  return { ...unsigned, signature };
 }
 
 function decodeContentKey(base64: string): Uint8Array | null {
