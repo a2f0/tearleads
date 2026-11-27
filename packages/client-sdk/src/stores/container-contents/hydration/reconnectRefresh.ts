@@ -3,6 +3,7 @@ import type {
   HydrationOutcome,
   ReconnectCrawl,
 } from "../../../workflows/container-contents/remoteHydration";
+import { classifyDatabaseFailure } from "../../../workflows/container-contents/syncLane";
 import {
   type ReconnectOutcome,
   type ReconnectRefreshState,
@@ -108,6 +109,7 @@ export class ReconnectRefresh {
         if (!isCurrent()) return finish("retry");
         if (manualRejection && manualRejection === error)
           return finish(outcome);
+        if (classifyDatabaseFailure(error) === "busy") return finish("busy");
         finish(
           error instanceof ProjectionDependencyUnavailableError
             ? "retry"

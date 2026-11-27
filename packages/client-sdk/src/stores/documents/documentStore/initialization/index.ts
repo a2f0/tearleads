@@ -1,26 +1,9 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  emptyVersionVector,
-  encodeVersionVector,
-  exportAllUpdates,
-  exportFullHistorySnapshot,
-  mergeVersionVectors,
-  updateText,
-} from "@tearleads/loro";
-import {
-  DEFAULT_DOCUMENT_ACCESS_EPOCH,
-  DEFAULT_DOCUMENT_KIND,
-} from "../../../../data/documents/documentConstants";
-import {
-  initializeStoredDocumentKind,
-  readStoredDocumentState,
-} from "../../../../data/documents/documentKinds";
+import { mergeVersionVectors } from "@tearleads/loro";
 import type { DocumentSummary } from "../../../../data/documents/documentSummary";
-import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import {
-  type DocumentRecord,
   isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
+  retryWhileDatabaseBusy,
 } from "../../../../workflows/documents";
 import { loadOrganizationSyncPausesBeforeSync } from "../../../../workflows/sync/coordination";
 import type { DocumentStoreRelinkInput } from "../../types";
@@ -32,8 +15,8 @@ import {
   advancePendingBaseVersion,
   documentSummaryFromRecord,
   persistDocument,
-  saveDocumentRecord,
 } from "../persistence";
+import { noteDocumentStoreWrite } from "../reportWriteFailure";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -47,7 +30,7 @@ import {
   invalidateDocumentStoreRemoteSync,
   isDocumentStoreSyncGenerationCurrent,
 } from "../sync/syncGeneration";
-import { writeInitialDocumentContent } from "./initialContent";
+import { createInitialDocumentRecord } from "./createInitialDocumentRecord";
 import {
   installPersistedAttachments,
   type LoadedDocumentStoreState,
@@ -62,76 +45,6 @@ import {
   recoverDroppedAttachmentSlots,
 } from "./initializationRecovery";
 import { relinkRecordPatch } from "./relinkRecordPatch";
-
-async function createInitialDocumentRecord(
-  state: DocumentStoreState,
-  nextDoc: DocumentState,
-): ReturnType<typeof saveDocumentRecord> {
-  initializeStoredDocumentKind(
-    nextDoc,
-    state.initialDocumentKind,
-    state.runtime.infra.documentProjectors,
-  );
-  if (state.initialText) updateText(nextDoc, state.initialText);
-  const wroteInitialContent = writeInitialDocumentContent(state, nextDoc);
-  const initialDocumentState = readStoredDocumentState(
-    nextDoc,
-    state.runtime.infra.documentProjectors,
-  );
-  const hasInitialContent =
-    wroteInitialContent ||
-    state.initialText.length > 0 ||
-    state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND;
-  const initialUpdate = hasInitialContent
-    ? createPendingUpdateFields(exportAllUpdates(nextDoc))
-    : null;
-  // A deferred birth still commits its checkpoint, but leaves the marker at the
-  // empty version with nothing queued: the promised attach exports every op
-  // since that marker, so one update carries the birth and the attachment.
-  const birthDurability = !initialUpdate
-    ? {}
-    : state.deferInitialUpdate
-      ? { pendingBaseVersionOverride: emptyVersionVector() }
-      : { pendingUpdate: initialUpdate };
-
-  const created: DocumentRecord = {
-    id: state.localId,
-    containerId: state.runtime.state.containerId ?? null,
-    documentId: state.initialDocumentId,
-    documentKind: initialDocumentState.documentKind,
-    text: initialDocumentState.text,
-    title: initialDocumentState.title,
-    snapshotEndVersion: encodeVersionVector(nextDoc),
-    accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
-    accessStateHash: null,
-    effectiveAccessLevel: "admin",
-    lastCommitLsn: null,
-    contentKeyBundle: null,
-    documentKekTargets: null,
-    documentManifestBundle: null,
-  };
-  // The create-only persistence primitive commits the canonical row and birth
-  // checkpoint together. A concurrent initializer either wins both or adopts
-  // both, so it cannot replace another pane's history or keying state.
-  const persisted = await saveDocumentRecord(
-    state,
-    nextDoc,
-    {
-      ...created,
-      snapshotEndVersion: encodeVersionVector(nextDoc),
-    },
-    {
-      historyCheckpoint: {
-        coveredTailIds: [],
-        endVersionVector: encodeVersionVector(nextDoc),
-        pruneCoveredLocalState: false,
-        snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
-      },
-      ...birthDurability,
-    },
-  );
-  return persisted;
-}
 
 function installPersistedDocumentRecord(
   state: DocumentStoreState,
@@ -374,21 +287,40 @@ export function ensureDocumentStoreInitialized(
     return;
   }
 
-  const initializePromise = initializeDocumentStore(state, scheduleSync).catch(
-    (error: unknown) => {
+  const initializeGeneration = state.localWriteGeneration;
+  // Every SQLite call inside initializeDocumentStore is read-only or idempotent
+  // (create-only birth + recovery helpers), so retrying a busy refusal in place
+  // avoids dropping the mutation call that triggered initialization (#3373).
+  const initializePromise = retryWhileDatabaseBusy(
+    () => initializeDocumentStore(state, scheduleSync),
+    {
+      isCurrent: () =>
+        state.localWriteGeneration === initializeGeneration &&
+        state.runtime.infra.dbStatus === "ready",
+      onBusy: () => {
+        noteDocumentStoreWrite(
+          state,
+          `Documents: retrying initialization of ${state.localId} behind another tab's database transaction`,
+        );
+      },
+    },
+  ).catch((error: unknown) => {
+    if (state.initializePromise === initializePromise) {
       state.initializePromise = null;
+    }
+    if (state.localWriteGeneration === initializeGeneration) {
       // A caller that deferred the birth for its attach may give up once
       // opening fails; never leave its durable birth holding sync. No attach
       // has reached a live doc yet, so lifting the hold ships nothing unsafe.
       state.deferInitialUpdate = false;
+    }
 
-      if (isDatabaseUnavailableError(error)) {
-        return;
-      }
+    if (isDatabaseUnavailableError(error)) {
+      return;
+    }
 
-      throw error;
-    },
-  );
+    throw error;
+  });
   state.initializePromise = initializePromise;
   void initializePromise.catch(() => undefined);
 }

@@ -4,6 +4,8 @@ import {
   createDomainScope,
   type Tearleads,
 } from "@tearleads/client-sdk";
+import { DATABASE_BUSY_RUN_LIMIT } from "@tearleads/client-sdk/sqlite";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import type { RuntimeSnapshot } from "../sdk/TearleadsProvider";
@@ -388,3 +390,40 @@ test.each(["unmount", "disable"] as const)(
     }
   },
 );
+
+test("busy SQLite refusals retry without entering error or logging diagnostics", async () => {
+  const errors: unknown[] = [];
+  const observedStatuses: string[] = [];
+  let attempts = 0;
+  // Exceed one in-place retryWhileDatabaseBusy burst so the controller's own
+  // timer-driven busy pause is exercised too.
+  const failuresBeforeSuccess = DATABASE_BUSY_RUN_LIMIT + 1;
+  const view = renderController(
+    async () => {
+      attempts += 1;
+      if (attempts <= failuresBeforeSuccess) {
+        throw new Error("Failed query", {
+          cause: new Error(DATABASE_TRANSACTION_BUSY_MESSAGE),
+        });
+      }
+      return true;
+    },
+    { bootstrapInput: bootstrapInput("busy-target"), enabled: true },
+    { errors },
+  );
+  try {
+    await waitFor(
+      () => {
+        observedStatuses.push(view.result.current.status);
+        expect(view.result.current.status).toBe("ready");
+      },
+      { timeout: 4_000 },
+    );
+    expect(attempts).toBe(failuresBeforeSuccess + 1);
+    expect(observedStatuses).not.toContain("error");
+    expect(view.result.current.error).toBeNull();
+    expect(errors).toEqual([]);
+  } finally {
+    view.unmount();
+  }
+});

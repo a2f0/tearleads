@@ -125,6 +125,8 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   refreshTree: () => Promise<void>;
   /** Refresh only the top-level root lane from the server. */
   refreshRootTree: () => Promise<void>;
+  /** True if the SQLite worker refused the statement as busy behind another tab. */
+  isBusyError?: ((error: unknown) => boolean) | undefined;
   /** True if the destroyed-db error should be swallowed rather than surfaced. */
   isIgnorableError: (error: unknown) => boolean;
   /** Host diagnostics sink; bare runtimes do not structure errors. */

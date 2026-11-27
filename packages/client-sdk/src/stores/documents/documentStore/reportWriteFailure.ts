@@ -139,7 +139,11 @@ export function reportOrRetryBusyDocumentWrite(
     ),
   );
   const pending = retriesByState.get(state);
-  if (!pending || write.savesAll || !pending.savesAll) {
+  const pendingIsCurrent =
+    pending !== undefined &&
+    pending.writeGeneration === state.localWriteGeneration &&
+    pending.doc === state.doc;
+  if (!pendingIsCurrent || write.savesAll || !pending.savesAll) {
     retriesByState.set(state, { ...write, doc: state.doc });
   }
   if (!pending) {

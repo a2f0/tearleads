@@ -4,6 +4,7 @@ import {
   restoreDocumentContent,
 } from "../../../../data/documents/documentRestore";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
+import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import type { DocumentMutationGuard } from "../../types";
 import { ensureDocumentStoreReady } from "../initialization";
@@ -14,7 +15,10 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "../persistence";
-import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
+import {
+  noteDocumentStoreWrite,
+  reportDocumentStoreWriteFailure,
+} from "../reportWriteFailure";
 import { resolveRowAttribution } from "../rows/rowAttribution";
 import {
   canWriteDocument,
@@ -89,23 +93,42 @@ async function persistRestoredContent(
     preserveSnapshotStructuredFields: true,
     preserveSnapshotText: true,
   };
+  const retryOptions = {
+    isCurrent: () =>
+      state.localWriteGeneration === expectedLocalWriteGeneration &&
+      isDocumentStoreSyncGenerationCurrent(state, generation) &&
+      options.stillCurrent?.() !== false,
+    onBusy: () => {
+      noteDocumentStoreWrite(
+        state,
+        `Documents: retrying content restore for ${state.localId} behind another tab's database transaction`,
+      );
+    },
+  };
   if (!pendingUpdate) {
     // Already this content: nothing to save, only the identity to revalidate.
     return isPersistedAndCurrent(
       state,
       generation,
-      await persistDocument(state, currentDoc, {}, saveOptions, generation),
+      await retryWhileDatabaseBusy(
+        () => persistDocument(state, currentDoc, {}, saveOptions, generation),
+        retryOptions,
+      ),
     );
   }
   const coveredVersion = encodeVersionVector(currentDoc);
   // From here until a persist covers it, the doc holds edits SQLite lacks.
   state.unsavedLocalEdits = true;
-  const persisted = await persistDocument(
-    state,
-    currentDoc,
-    { snapshotEndVersion: coveredVersion },
-    { ...saveOptions, pendingUpdate },
-    generation,
+  const persisted = await retryWhileDatabaseBusy(
+    () =>
+      persistDocument(
+        state,
+        currentDoc,
+        { snapshotEndVersion: coveredVersion },
+        { ...saveOptions, pendingUpdate },
+        generation,
+      ),
+    retryOptions,
   );
   if (!isPersistedAndCurrent(state, generation, persisted)) {
     return false;

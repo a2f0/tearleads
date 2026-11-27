@@ -1,12 +1,17 @@
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
+import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
 import {
   deleteUnreferencedStagedAttachmentBytes,
   type stagePendingAttachments,
 } from "../attachmentUpload/attachmentStaging";
 import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
 import { persistDocument } from "../persistence";
+import { noteDocumentStoreWrite } from "../reportWriteFailure";
 import type { DocumentStoreState } from "../state";
-import type { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";
+import {
+  type captureDocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "../sync/syncGeneration";
 
 export async function restoreFailedAttachmentMutation(input: {
   generation: NonNullable<
@@ -36,18 +41,34 @@ export async function persistStagedAttachmentMutation(input: {
 }) {
   const { staged, state } = input;
   try {
-    return await persistDocument(
-      state,
-      input.currentDoc,
-      { snapshotEndVersion: input.coveredVersion },
+    // A busy refusal ran zero SQLite statements while staged bytes and the
+    // mutated doc are still intact, so retrying the atomic persist in place
+    // completes the attach/replace without rolling back or restaging (#3373).
+    return await retryWhileDatabaseBusy(
+      () =>
+        persistDocument(
+          state,
+          input.currentDoc,
+          { snapshotEndVersion: input.coveredVersion },
+          {
+            attachmentStaging: staged,
+            pendingUpdate:
+              createPendingUpdateFields(input.attachmentUpdate) ?? undefined,
+            preserveSnapshotStructuredFields: true,
+            preserveSnapshotText: true,
+          },
+          input.generation,
+        ),
       {
-        attachmentStaging: staged,
-        pendingUpdate:
-          createPendingUpdateFields(input.attachmentUpdate) ?? undefined,
-        preserveSnapshotStructuredFields: true,
-        preserveSnapshotText: true,
+        isCurrent: () =>
+          isDocumentStoreSyncGenerationCurrent(state, input.generation),
+        onBusy: () => {
+          noteDocumentStoreWrite(
+            state,
+            `Documents: retrying attachment persist for ${state.localId} behind another tab's database transaction`,
+          );
+        },
       },
-      input.generation,
     );
   } catch (error) {
     await deleteUnreferencedStagedAttachmentBytes({

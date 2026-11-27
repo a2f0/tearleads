@@ -104,13 +104,20 @@ async function runReconcileLane(
     if (result.status === "reconciled") {
       acknowledgeContainerForce(state, result.containerId, forceGeneration);
     } else if (result.status === "failed") {
+      const busy = host.isBusyError?.(result.error) === true;
       rearmFailedContainer(
         state,
         result.containerId,
         forceGeneration,
         lifecycleGeneration,
+        busy,
       );
-      firstError ??= result.error;
+      if (
+        firstError === undefined ||
+        (host.isBusyError?.(firstError) === true && !busy)
+      ) {
+        firstError = result.error;
+      }
     }
   });
   if (firstError !== undefined) throw firstError;

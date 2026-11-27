@@ -1,4 +1,8 @@
 import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "@tearleads/client-sdk/sqlite";
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -18,6 +22,8 @@ import type {
   SystemBootstrapResult,
   SystemBootstrapRunInput,
 } from "./systemBootstrapRun";
+
+const BUSY_SYSTEM_BOOTSTRAP_RETRY_MS = 1_000;
 
 export interface SystemBootstrapContextValue {
   readonly ensureBootstrapped: () => Promise<SystemBootstrapResult>;
@@ -99,6 +105,23 @@ export function useSystemBootstrapController(
       return;
     const next = dispatch({ run: state.attempt.run, type: "wake-consumed" });
     if (next !== state) void ensureBootstrapped();
+  }, [authority, dispatch, ensureBootstrapped, state, stateRef]);
+
+  useEffect(() => {
+    if (
+      state !== stateRef.current ||
+      state.status !== "waiting" ||
+      !state.attempt?.busyRetryPending ||
+      !runBelongsToOwner(state.attempt.run, authority.latestRef.current)
+    ) {
+      return;
+    }
+    const { run } = state.attempt;
+    const timer = setTimeout(() => {
+      const next = dispatch({ run, type: "busy-pause-ended" });
+      if (next !== state) void ensureBootstrapped();
+    }, BUSY_SYSTEM_BOOTSTRAP_RETRY_MS);
+    return () => clearTimeout(timer);
   }, [authority, dispatch, ensureBootstrapped, state, stateRef]);
 
   return useMemo(
@@ -274,7 +297,9 @@ function bootstrapAttempt(
   return Promise.resolve()
     .then(() => {
       if (!authority.isCurrent(owner)) return false;
-      return input.runBootstrap(owner.input);
+      return retryWhileDatabaseBusy(() => input.runBootstrap(owner.input), {
+        isCurrent: () => authority.isCurrent(owner),
+      });
     })
     .then((completed): SystemBootstrapResult => {
       if (superseded()) return { completed: false, skipped: true };
@@ -288,6 +313,10 @@ function bootstrapAttempt(
     })
     .catch((error: unknown): SystemBootstrapResult => {
       if (superseded()) return { completed: false, error };
+      if (classifyDatabaseFailure(error) === "busy") {
+        dispatch({ run, type: "run-busy" });
+        return { completed: false };
+      }
       input.logError("Failed to bootstrap system containers", error);
       dispatch({ error, run, type: "run-failed" });
       return { completed: false, error };

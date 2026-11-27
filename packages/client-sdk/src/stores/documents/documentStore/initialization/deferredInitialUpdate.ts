@@ -1,5 +1,6 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
+import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import {
   type AttachmentWriteGeneration,
@@ -12,6 +13,7 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "../persistence";
+import { noteDocumentStoreWrite } from "../reportWriteFailure";
 import { type DocumentStoreState, resetDocumentStore } from "../state";
 import {
   captureDocumentStoreSyncGeneration,
@@ -124,16 +126,29 @@ async function enqueueDeferredTail(
     pendingDeltaSinceBase(state, currentDoc),
   );
   if (!pendingUpdate) return;
-  const persisted = await persistDocument(
-    state,
-    currentDoc,
-    { snapshotEndVersion: documentVersion },
+  const persisted = await retryWhileDatabaseBusy(
+    () =>
+      persistDocument(
+        state,
+        currentDoc,
+        { snapshotEndVersion: documentVersion },
+        {
+          pendingUpdate,
+          preserveSnapshotStructuredFields: true,
+          preserveSnapshotText: true,
+        },
+        syncGeneration,
+      ),
     {
-      pendingUpdate,
-      preserveSnapshotStructuredFields: true,
-      preserveSnapshotText: true,
+      isCurrent: () =>
+        isDocumentStoreSyncGenerationCurrent(state, syncGeneration),
+      onBusy: () => {
+        noteDocumentStoreWrite(
+          state,
+          `Documents: retrying deferred birth persist for ${state.localId} behind another tab's database transaction`,
+        );
+      },
     },
-    syncGeneration,
   );
   if (
     !persisted ||

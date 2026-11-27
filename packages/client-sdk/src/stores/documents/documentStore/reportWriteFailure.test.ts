@@ -11,7 +11,7 @@ import type {
 import type { DocumentsRuntime } from "../types";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
-import { setDocumentText } from "./mutations";
+import { setDocumentStructuredFields, setDocumentText } from "./mutations";
 import {
   BUSY_WRITE_RETRY_MS,
   reportDocumentStoreWriteFailure,
@@ -383,4 +383,61 @@ test("a guarded busy retry never replaces one that saves every unsaved edit", as
     BUSY_WRITE_RETRY_MS * 3,
   );
   expect(requeued).toEqual(["text"]);
+});
+
+test("a structured-field write refused as busy is saved again without another edit", async () => {
+  const database = await createTestExecSql("document-busy-field-retry");
+  const reported: unknown[] = [];
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: (_m, e) => reported.push(e) },
+  });
+  try {
+    const state = await createWriteFailureStore(sdk, database.execSql);
+    failCommits(state, [busyRefusal()]);
+
+    await setDocumentStructuredFields(state, () => undefined, "contact", {
+      firstName: "Ada",
+    });
+    expect(state.unsavedLocalEdits).toBe(true);
+
+    await waitFor(
+      () => !state.unsavedLocalEdits,
+      "The busy structured-field write was not saved again.",
+      BUSY_WRITE_RETRY_MS * 3,
+    );
+    expect(reported).toEqual([]);
+  } finally {
+    sdk.dispose();
+    database.close();
+  }
+});
+
+test("a stale-generation busy retry does not block a new-generation guarded write", async () => {
+  const state = {
+    doc: null,
+    localWriteGeneration: 1,
+    pendingLocalWrites: 0,
+    runtime: { util: { log: () => undefined } },
+    unsavedLocalEdits: true,
+  } as unknown as DocumentStoreState;
+  const requeued: string[] = [];
+
+  reportOrRetryBusyDocumentWrite(state, MESSAGE, busyRefusal(), {
+    requeue: () => requeued.push("old-text"),
+    savesAll: true,
+    writeGeneration: 1,
+  });
+  // Store reset bumps generation before the timer fires.
+  state.localWriteGeneration = 2;
+  reportOrRetryBusyDocumentWrite(state, MESSAGE, busyRefusal(), {
+    requeue: () => requeued.push("new-guarded"),
+    savesAll: false,
+    writeGeneration: 2,
+  });
+  await waitFor(
+    () => requeued.length > 0,
+    "The new-generation busy retry did not run.",
+    BUSY_WRITE_RETRY_MS * 3,
+  );
+  expect(requeued).toEqual(["new-guarded"]);
 });

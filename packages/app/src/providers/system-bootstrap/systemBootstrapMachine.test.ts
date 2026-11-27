@@ -85,6 +85,27 @@ describe("system bootstrap transitions", () => {
       { ...waiting, attempt: { run: RUN_A, wakePending: false } },
     ],
     [
+      "running + run-busy enters waiting with busy retry pending",
+      runningA,
+      { run: RUN_A, type: "run-busy" },
+      {
+        ...waiting,
+        attempt: { busyRetryPending: true, run: RUN_A, wakePending: false },
+      },
+    ],
+    [
+      "waiting busy + busy-pause-ended clears busy retry flag",
+      {
+        ...waiting,
+        attempt: { busyRetryPending: true, run: RUN_A, wakePending: false },
+      },
+      { run: RUN_A, type: "busy-pause-ended" },
+      {
+        ...waiting,
+        attempt: { busyRetryPending: false, run: RUN_A, wakePending: false },
+      },
+    ],
+    [
       "rerun + run-incomplete keeps the latch",
       rerunningA,
       { run: RUN_A, type: "run-incomplete" },

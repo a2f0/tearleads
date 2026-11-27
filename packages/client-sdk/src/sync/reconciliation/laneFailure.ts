@@ -13,8 +13,9 @@ interface FailedLaneState {
 }
 
 export interface FailedForcedContainer {
+  busy?: boolean | undefined;
   containerId: string;
-  forceGeneration: number;
+  forceGeneration?: number | undefined;
 }
 
 export const SWEEP_RETRY_BACKOFF_MS = 1_000;
@@ -24,8 +25,16 @@ export function rearmFailedContainer(
   containerId: string,
   forceGeneration: number | undefined,
   lifecycleGeneration: number,
+  busy = false,
 ): void {
   if (!state.active || state.lifecycleGeneration !== lifecycleGeneration) {
+    return;
+  }
+  if (busy) {
+    // A busy SQLite refusal is transient cross-tab contention: re-queue the
+    // container without spending its once-per-force automatic retry budget.
+    state.queue.enqueue(containerId, "idle");
+    state.lane?.requestSyncAfter(SWEEP_RETRY_BACKOFF_MS);
     return;
   }
   const shouldRetryForce =
@@ -50,9 +59,15 @@ export function rearmFailedSweepContainers(
     return;
   }
   for (const failure of failures) {
+    if (!state.active || state.lifecycleGeneration !== lifecycleGeneration) {
+      continue;
+    }
+    if (failure.busy) {
+      state.queue.enqueue(failure.containerId, "idle");
+      continue;
+    }
     if (
-      state.active &&
-      state.lifecycleGeneration === lifecycleGeneration &&
+      failure.forceGeneration !== undefined &&
       state.forcedContainerGenerations.get(failure.containerId) ===
         failure.forceGeneration &&
       state.automaticRetryGenerations.get(failure.containerId) !==

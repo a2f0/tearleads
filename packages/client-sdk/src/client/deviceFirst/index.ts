@@ -1,6 +1,7 @@
 import type { DomainScope } from "../../data/shared/domainScope";
 import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
 import {
+  classifyDatabaseFailure,
   type DomainSyncCoordinator,
   getOrCreateDomainSyncCoordinator,
   isDatabaseUnavailableError,
@@ -418,6 +419,7 @@ class DeviceFirstService implements DeviceFirst {
         refreshContainerTree((onListingUnavailable) =>
           store.getContainerStore().refreshRootLane({ onListingUnavailable }),
         ),
+      isBusyError: (error) => classifyDatabaseFailure(error) === "busy",
       isIgnorableError: isDatabaseUnavailableError,
       // Resolve the runtime per call: it is rebuilt as the active identity
       // changes, and a reference captured here would report into a dead host.

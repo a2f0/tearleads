@@ -2,6 +2,7 @@ import {
   readUserTimingClock,
   recordUserTimingEntry,
 } from "../shared/userTiming";
+import { classifyDatabaseFailure } from "../sqlite/availability/databaseBusyRetry";
 import type {
   DomainSyncCoordinatorState,
   SyncLaneState,
@@ -23,6 +24,7 @@ const FAILED_LANE_REARM_BACKOFF_MS = 1000;
 
 type SyncLaneRunResult =
   | { status: "completed" }
+  | { status: "busy"; error: unknown }
   | { status: "failed"; error: unknown };
 
 // Keyed on the registered config so a discarded lane is collectable.
@@ -70,6 +72,9 @@ async function runSyncLane(
     if (state.config.shouldIgnoreError?.(error)) {
       return { status: "completed" };
     }
+    if (classifyDatabaseFailure(error) === "busy") {
+      return { status: "busy", error };
+    }
     reportUnexpectedSyncLaneFailure(state, error);
 
     if (state.config.onUnexpectedError) {
@@ -100,6 +105,11 @@ function recordSyncLaneRunResult(
     lane.lastAction = "failed";
     lane.lastError = describeSyncLaneError(runResult.error);
     lane.lastFailedAt = lane.lastActionAt;
+  } else if (runResult.status === "busy") {
+    // Transient cross-tab lock contention is re-queued automatically and must
+    // neither increment errorCount nor leave the lane in an error state.
+    lane.lastAction = "requested";
+    lane.lastError = null;
   } else {
     lane.lastAction = "completed";
     lane.lastCompletedAt = lane.lastActionAt;
@@ -151,6 +161,9 @@ function settleAbandonedSyncLaneRun(
     token: run.token,
   });
   recordSyncLaneRunTiming(lane, run.startedAtMs, runResult, true);
+  if (runResult.status === "busy" && !coordinatorState.disposed) {
+    lane.request = transitionSyncLaneRequest(lane.request, { type: "request" });
+  }
   recordSyncLaneRunResult(lane, runResult);
   publishSyncCoordinatorSnapshot(coordinatorState);
   if (!coordinatorState.disposed && hasPendingRequest(lane.request)) {
@@ -257,11 +270,20 @@ export async function runCoordinatorLane(
       ),
     );
   }
+  if (
+    runResult.status === "busy" &&
+    raceOutcome.kind === "settled" &&
+    !coordinatorState.disposed
+  ) {
+    // A busy refusal is transient: re-request the lane even when no other
+    // trigger arrived so it resumes automatically after the cooldown.
+    lane.request = transitionSyncLaneRequest(lane.request, { type: "request" });
+  }
   recordSyncLaneRunResult(lane, runResult);
   publishSyncCoordinatorSnapshot(coordinatorState);
 
   if (
-    runResult.status === "failed" &&
+    (runResult.status === "failed" || runResult.status === "busy") &&
     hasPendingRequest(lane.request) &&
     raceOutcome.kind === "settled"
   ) {
