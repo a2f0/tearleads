@@ -72,6 +72,26 @@ test("routed overlay machine lets tablet sidebar coexist with drawer and resets 
   expect(transitionRoutedPaneOverlays(closed, { type: "close-sidebar" })).toBe(
     closed,
   );
+
+  // set-drawer-open enforces mobile mutual exclusion and preserves tablet sidebar.
+  expect(
+    transitionRoutedPaneOverlays(
+      { status: "sidebar" },
+      { open: true, tier: "mobile", type: "set-drawer-open" },
+    ),
+  ).toEqual({ status: "drawer" });
+  expect(
+    transitionRoutedPaneOverlays(
+      { status: "sidebar" },
+      { open: true, tier: "tablet", type: "set-drawer-open" },
+    ),
+  ).toEqual({ status: "sidebar-and-drawer" });
+  expect(
+    transitionRoutedPaneOverlays(
+      { status: "sidebar-and-drawer" },
+      { open: false, tier: "tablet", type: "set-drawer-open" },
+    ),
+  ).toEqual({ status: "sidebar" });
 });
 
 test("a document-level modal Escape handler runs before the routed overlay listener", () => {
@@ -113,9 +133,12 @@ test("mobile sidebar and launcher sheet close each other and Escape restores foc
     const menuButton = view.getByRole("button", { name: "Menu" });
     const sheet = view.container.querySelector(".routed-pane-sheet");
 
-    // Open mobile sidebar; then open launcher sheet -> sidebar closes.
+    // Open mobile sidebar; focus moves into the sidebar dialog. Then open
+    // launcher sheet -> sidebar closes.
     fireEvent.click(sidebarButton);
-    expect(view.getByRole("dialog", { name: "Sidebar" })).toBeTruthy();
+    const sidebarDialog = view.getByRole("dialog", { name: "Sidebar" });
+    expect(sidebarDialog).toBeTruthy();
+    expect(sidebarDialog.contains(document.activeElement)).toBe(true);
 
     fireEvent.click(menuButton);
     expect(sheet?.getAttribute("data-open")).toBe("true");

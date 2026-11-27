@@ -54,8 +54,9 @@ export function useModalEscapeAndFocusRestore(
   useEffect(() => {
     const entry: ModalEscapeEntry = {
       getDialog: () =>
-        initialFocusRef.current?.closest<HTMLElement>('[role="dialog"]') ??
-        null,
+        initialFocusRef.current?.closest<HTMLElement>(
+          '[role="dialog"], [role="alertdialog"]',
+        ) ?? null,
       onClose: close,
     };
     if (modalEscapeStack.length === 0) {

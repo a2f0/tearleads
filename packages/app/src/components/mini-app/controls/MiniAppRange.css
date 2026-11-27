@@ -5,7 +5,6 @@
   --mini-app-range-track: var(--color-dark);
   --mini-app-range-thumb: var(--color-dark);
   --mini-app-range-thumb-size: 1rem;
-  -webkit-appearance: none;
   appearance: none;
   width: 100%;
   min-width: 0;
@@ -57,7 +56,6 @@
 }
 
 .mini-app-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
   appearance: none;
   width: var(--mini-app-range-thumb-size);
   height: var(--mini-app-range-thumb-size);
@@ -76,28 +74,48 @@
 
 @media (forced-colors: active) {
   .mini-app-range {
-    -webkit-appearance: auto;
     appearance: auto;
     accent-color: auto;
     background: revert;
+    margin: revert;
   }
 
-  /* Separate rules per vendor pseudo-element: CSS invalidates an entire
-     selector list if any engine does not recognize another vendor's pseudo. */
+  /* Revert only authored properties per vendor pseudo-element (never `all: revert`,
+     which also resets inherited `color-scheme` to light on WebKit GTK) and keep
+     each vendor pseudo-element in its own rule so unrecognized pseudos never
+     invalidate a selector list. */
   .mini-app-range::-webkit-slider-runnable-track {
-    all: revert;
+    display: revert;
+    align-items: revert;
+    height: revert;
+    border-radius: revert;
+    background: revert;
   }
 
   .mini-app-range::-webkit-slider-thumb {
-    all: revert;
+    appearance: revert;
+    width: revert;
+    height: revert;
+    border: revert;
+    border-radius: revert;
+    background: revert;
+    box-shadow: revert;
   }
 
   .mini-app-range::-moz-range-track {
-    all: revert;
+    height: revert;
+    border: revert;
+    border-radius: revert;
+    background: revert;
   }
 
   .mini-app-range::-moz-range-thumb {
-    all: revert;
+    width: revert;
+    height: revert;
+    border: revert;
+    border-radius: revert;
+    background: revert;
+    box-shadow: revert;
   }
 
   .mini-app-range:disabled {

@@ -56,7 +56,8 @@
   scrollbar-gutter: var(--scrollbar-gutter);
   cursor: auto;
   touch-action: auto;
-  background: var(--overlay-background);
+  /* Opaque surface so locked session content stays hidden even without ::backdrop. */
+  background: var(--tearleads-background, var(--color-muted));
   color: var(--color-dark);
   font-family: inherit;
 }
