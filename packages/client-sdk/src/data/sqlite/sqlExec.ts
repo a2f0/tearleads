@@ -2,6 +2,12 @@ import {
   readUserTimingClock,
   recordUserTimingEntry,
 } from "../shared/userTiming";
+import {
+  hasClientSqlMutationObservers,
+  hasClientSqlStatementObservers,
+  notifyClientSqlMutation,
+  notifyClientSqlStatement,
+} from "./observer/sqlObserver";
 
 export type SqlRowValue = string | number | null;
 export type SqlRow = Record<string, SqlRowValue>;
@@ -232,6 +238,45 @@ function defineExecSql(
   return execSql;
 }
 
+// Tracks active serialized mutation statement counts per connection for observers.
+const activeMutationStats = new WeakMap<ExecSql, { statements: number }>();
+
+function countBindValues(bind: SqlBind | undefined): number {
+  if (bind === undefined) return 0;
+  return Array.isArray(bind) ? bind.length : Object.keys(bind).length;
+}
+
+async function executeObservedClientSql(
+  client: ExecSqlClientLike,
+  sql: string,
+  bind: SqlBind | undefined,
+  options: { rowMode?: SqlRowMode } | undefined,
+  inMutationLock: boolean,
+): Promise<Array<SqlRow | SqlArrayRow>> {
+  const startedAt = readUserTimingClock();
+  let failed = true;
+  let rowCount = 0;
+  try {
+    const result = await client.exec({
+      sql,
+      ...(bind !== undefined ? { bind } : {}),
+      ...(options?.rowMode ? { rowMode: options.rowMode } : {}),
+    });
+    failed = false;
+    rowCount = result.rows.length;
+    return result.rows;
+  } finally {
+    notifyClientSqlStatement({
+      sql,
+      bindCount: countBindValues(bind),
+      durationMs: Math.max(0, readUserTimingClock() - startedAt),
+      rowCount,
+      inMutationLock,
+      failed,
+    });
+  }
+}
+
 export function createExecSql(client: ExecSqlClientLike): ExecSql {
   const existingExecSql = clientExecSqls.get(client);
   if (existingExecSql) {
@@ -239,6 +284,17 @@ export function createExecSql(client: ExecSqlClientLike): ExecSql {
   }
 
   const execSql = defineExecSql(async (sql, bind, options) => {
+    const activeMutation = activeMutationStats.get(execSql);
+    if (activeMutation) activeMutation.statements += 1;
+    if (hasClientSqlStatementObservers()) {
+      return executeObservedClientSql(
+        client,
+        sql,
+        bind,
+        options,
+        activeMutation !== undefined,
+      );
+    }
     const result = await client.exec({
       sql,
       ...(bind !== undefined ? { bind } : {}),
@@ -330,6 +386,11 @@ export async function runSerializedSqlMutation<T>(
   }
 
   const locked = createSerializedSqlExec(execSql);
+  const mutationStats =
+    hasClientSqlMutationObservers() || hasClientSqlStatementObservers()
+      ? { statements: 0 }
+      : undefined;
+  if (mutationStats) activeMutationStats.set(connection, mutationStats);
   let failed = true;
   try {
     scopedExecutors.get(execSql)?.assertCurrent();
@@ -337,11 +398,20 @@ export async function runSerializedSqlMutation<T>(
     failed = false;
     return result;
   } finally {
+    if (mutationStats) activeMutationStats.delete(connection);
     serializedSqlExecs.delete(locked);
     const releasedAtMs = readUserTimingClock();
     releaseCurrent();
     if (sqlMutationQueue.get(connection) === queuedCurrent) {
       sqlMutationQueue.delete(connection);
+    }
+    if (mutationStats && hasClientSqlMutationObservers()) {
+      notifyClientSqlMutation({
+        waitMs: Math.max(0, acquiredAtMs - queuedAtMs),
+        holdMs: Math.max(0, releasedAtMs - acquiredAtMs),
+        statements: mutationStats.statements,
+        failed,
+      });
     }
     recordUserTimingEntry({
       endMs: releasedAtMs,

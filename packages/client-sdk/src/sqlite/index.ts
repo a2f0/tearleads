@@ -53,6 +53,8 @@ export {
 } from "../data/sqlite/sqlitePersistenceRuntime";
 export {
   assertRestorableLocalSchemaLedger,
+  type ClientSqlMutationObserver,
+  type ClientSqlStatementObserver,
   createExecSql,
   defineSqlTableSchema,
   type ExecSql,
@@ -65,6 +67,10 @@ export {
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
   LocalSchemaMigrationLockTimeoutError,
   migrateLocalSchema,
+  type ObservedClientSqlMutation,
+  type ObservedClientSqlStatement,
+  observeClientSqlMutations,
+  observeClientSqlStatements,
   resetConnectionSchemaMemo,
   runSerializedSqlMutation,
   type SqlArrayRow,

@@ -9,6 +9,7 @@ test("runs every canary once by default", () => {
     baseline: null,
     statements: false,
     paramHash: false,
+    clientStatements: false,
     payloadAudit: false,
     stacks: false,
   });
@@ -31,6 +32,7 @@ test("runs every canary once by default", () => {
     baseline: "before.json",
     statements: false,
     paramHash: false,
+    clientStatements: false,
     payloadAudit: false,
     stacks: false,
   });
@@ -38,7 +40,10 @@ test("runs every canary once by default", () => {
     statements: true,
     paramHash: true,
   });
-  expect(parseCanaryOptions(["--payload-audit", "--stacks"])).toMatchObject({
+  expect(
+    parseCanaryOptions(["--client-statements", "--payload-audit", "--stacks"]),
+  ).toMatchObject({
+    clientStatements: true,
     payloadAudit: true,
     stacks: true,
   });
