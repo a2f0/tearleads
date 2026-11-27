@@ -16,10 +16,17 @@ export interface ReconcileQueue {
    * With `accepts`, take the next one it accepts and leave the others queued.
    */
   dequeue: (accepts?: (containerId: string) => boolean) => string | null;
+  /** Whether the container is queued. */
+  has: (containerId: string) => boolean;
   get size(): number;
   clear: () => void;
-  /** Empty the queue, returning each container with its priority, in order. */
-  drain: () => Array<readonly [string, ReconcilePriority]>;
+  /**
+   * Take every queued container, or with `accepts` each one it accepts,
+   * returning each with its priority, in order.
+   */
+  drain: (
+    accepts?: (containerId: string) => boolean,
+  ) => Array<readonly [string, ReconcilePriority]>;
 }
 
 export function createReconcileQueue(): ReconcileQueue {
@@ -53,13 +60,18 @@ export function createReconcileQueue(): ReconcileQueue {
     },
     dequeue: (accepts = () => true) =>
       takeByPriority("active", accepts) ?? takeByPriority("idle", accepts),
+    has: (containerId) => priorityByContainerId.has(containerId),
     get size() {
       return priorityByContainerId.size;
     },
     clear: () => priorityByContainerId.clear(),
-    drain: () => {
-      const entries = Array.from(priorityByContainerId);
-      priorityByContainerId.clear();
+    drain: (accepts = () => true) => {
+      const entries = Array.from(priorityByContainerId).filter(
+        ([containerId]) => accepts(containerId),
+      );
+      for (const [containerId] of entries) {
+        priorityByContainerId.delete(containerId);
+      }
       return entries;
     },
   };

@@ -46,18 +46,17 @@ adding an update. The mechanism is the one
   record the listing shows behind owes its own read, and a store reads and
   settles only its own record's. A record whose store is displaced and never
   opens keeps its debt, and no other store waits on it: no listing can show
-  that record caught up without a read. The catch-up asks only a loaded store
-  whose own record owes, so the debt costs nothing there; the listing that
-  writes it still asks the document's registered store, which pulls once and
-  finds nothing of its own owed. The displaced record's store pays the debt
-  when it opens, and the debt is forgotten once the record is gone or names
-  another document.
+  that record caught up without a read. The listing that writes a debt and
+  the catch-up both ask only a loaded store whose own record owes, so the
+  debt costs the document's other store nothing. The displaced record's
+  store pays the debt when it opens, and the debt is forgotten once the
+  record is gone or names another document.
 - Who reads. Once the debt is durable and the listing's rows have applied,
-  the document's registered store is asked to probe. A listing superseded
-  before it applied asks nobody: the debt stays, and the catch-up that ends
-  the sweep asks every store a debt names. A store that opens later reads its
-  document's debt when its record loads, and a store that knows of a debt is
-  not covered until it settles.
+  each loaded store whose own record the listing owed is asked to probe. A
+  listing superseded before it applied asks nobody: the debt stays, and the
+  catch-up that ends the sweep asks every store a debt names. A store that
+  opens later reads its document's debt when its record loads, and a store
+  that knows of a debt is not covered until it settles.
 - Settling. A completed pull settles the debt it saw before its request, and
   only once the cursor that pull saved counts as many updates as the listing
   advertised and the manifest it saved beside the record's key bundle is the
@@ -164,11 +163,16 @@ crawl that the same acknowledgement starts already says which folders moved.
   crawl can vouch for (a new device's folders become known while it boots,
   after its connection was acknowledged). The wait takes no turn among the
   sweeps, so a root or full refresh runs beside it and does not end it. The
-  deferral lasts until the catch-up's sweep takes its turn, so a root sweep
-  ahead of it in line lists none of its lanes either. An acknowledgement that
-  arrives during the wait shares it. One that arrives after the crawl settled
+  deferral lasts until the catch-up's sweep has read its plan and taken the
+  queue entries the plan covers, so a root sweep ahead of it in line lists
+  none of its lanes either, and the lane lists none the sweep is about to
+  list. A turn that has not come 15 seconds after the crawl settled (a sweep
+  ahead of it is stuck on its tree listing) ends the deferral early; the
+  sweep still runs when its turn comes. An acknowledgement that arrives
+  during the wait shares it. One that arrives after the crawl settled
   supersedes the catch-up and waits on a crawl of its own: the earlier sweep
-  then lists nothing and counts nothing as reconciled.
+  then lists nothing and counts nothing as reconciled, and a lane listed at
+  once for it waits for the new crawl.
 - Settling. A listing reads its lane's request before it is sent and settles
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been
@@ -181,14 +185,24 @@ crawl that the same acknowledgement starts already says which folders moved.
   the socket dropped again), the host reports no crawl, or the crawl's
   outcome or the owed record cannot be read, nothing vouches for the lanes
   it was not served, and the catch-up lists every known lane, as it did
-  before lanes were owed listings.
+  before lanes were owed listings. A row the client refuses each time it is
+  served leaves every reconnect crawl incomplete, so while that row stays,
+  every catch-up takes this fallback. When the database closes under the
+  wait, the catch-up lists nothing.
 - Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's
   owes lanes the same way and lists nothing for them at once. The request is
   durable, so the next catch-up lists the lane, as does the owed-lane resume
   of a start that never connects, and a listing of that lane sent for any
   other reason settles it. That is when a lost hint was recovered before
-  lanes were owed listings: at the next acknowledged connection. A hint that
-  arrives still forces its own lanes.
+  lanes were owed listings: at the next acknowledged connection. A row this
+  device's own write republished owes its lane the same way, so that listing
+  is paid at the next acknowledged connection or start, where it finds
+  nothing new. A hint that arrives still forces its own lanes.
+- Another tab's listings. A catch-up reloads no rows for a lane the crawl
+  vouched for, so folder contents another tab sharing the database listed
+  and saved reach this tab only when it next lists or reloads that lane.
+  Before lanes were owed listings, every catch-up reloaded every lane's rows
+  from disk.
 - Not covered, before or after. Access gained or lost through a principal
   policy changes a row's effective access level without republishing
   anything, so neither a listing from a watermark nor this mechanism sees it;

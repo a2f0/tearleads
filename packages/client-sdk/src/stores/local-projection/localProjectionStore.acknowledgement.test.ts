@@ -147,3 +147,35 @@ test("a projection opened after the acknowledgement still owes the catch-up", as
     close();
   }
 });
+
+test("the tree store learns of a connection before its catch-up is signalled", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-projection-acknowledged-order-test",
+  );
+  const domainScope = {} as DomainScope;
+  try {
+    const calls: string[] = [];
+    const tree = createTree(true);
+    // The real tree store owes the new connection's crawl in this call. A
+    // catch-up signalled first could read the previous connection's
+    // complete crawl as this one's.
+    tree.containerStore.updateRuntime = (runtime) => {
+      calls.push(`tree:${runtime.state.serverEventsConnectionGeneration}`);
+    };
+    const runtime = (connectionGeneration: number) =>
+      createRuntime({ connectionGeneration, domainScope, execSql });
+    const store = createLocalProjectionStore({
+      containerStore: tree.containerStore,
+      runtime: runtime(0),
+    });
+    store.onReconcileSignal((signal) => calls.push(signal.reason));
+    store.updateRuntime(runtime(0));
+    calls.length = 0;
+
+    store.updateRuntime(runtime(1));
+
+    expect(calls).toEqual(["tree:1", "connection-acknowledged"]);
+  } finally {
+    close();
+  }
+});
