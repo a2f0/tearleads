@@ -6,6 +6,7 @@ import {
 } from "../../documents/documentSummary";
 import { documentProjection } from "../../sqlite/schema/documentProjectionSchema";
 import { documents } from "../../sqlite/schema/documentRecordSchema";
+import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import { registerClientSQLiteCommitGuard } from "../../sqlite/sqliteCommitGuards";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
@@ -175,29 +176,22 @@ export async function applyContainerDocumentTombstones(
   });
 }
 
-export async function listDocumentsByContainerIdsOrDocumentIds(
+// Reserves fixed binds for `documentSummaryJoin` (`app_kind`) and the hidden
+// document-kind exclusion list.
+const DOCUMENT_LOOKUP_BATCH_SIZE = sqliteRowsPerStatement(
+  1,
+  1 + HIDDEN_DOCUMENT_SUMMARY_KINDS.length,
+);
+
+function compareStringsDesc(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? 1 : -1;
+}
+
+async function queryDocumentSummaries(
   execSql: ExecSql,
-  input: {
-    containerIds: ReadonlyArray<string>;
-    documentIds: ReadonlyArray<string>;
-  },
+  whereCondition: SQL,
 ): Promise<DocumentSummary[]> {
-  const uniqueContainerIds = Array.from(new Set(input.containerIds));
-  const uniqueDocumentIds = Array.from(new Set(input.documentIds));
-  if (uniqueContainerIds.length === 0 && uniqueDocumentIds.length === 0) {
-    return [];
-  }
-
-  const filters: SQL[] = [];
-  if (uniqueContainerIds.length > 0) {
-    filters.push(inArray(documentProjection.containerId, uniqueContainerIds));
-  }
-
-  if (uniqueDocumentIds.length > 0) {
-    filters.push(inArray(documentProjection.documentId, uniqueDocumentIds));
-  }
-
-  const whereCondition = filters.length === 1 ? filters[0] : or(...filters);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select(documentSummarySelection)
@@ -215,8 +209,76 @@ export async function listDocumentsByContainerIdsOrDocumentIds(
       desc(documentProjection.updatedAt),
       desc(documentProjection.localId),
     );
-
   return rows.map(mapDocumentSummary);
+}
+
+async function collectBatchedDocumentSummaries(
+  execSql: ExecSql,
+  values: ReadonlyArray<string>,
+  buildCondition: (batch: ReadonlyArray<string>) => SQL,
+  summariesByLocalId: Map<string, DocumentSummary>,
+): Promise<void> {
+  for (
+    let offset = 0;
+    offset < values.length;
+    offset += DOCUMENT_LOOKUP_BATCH_SIZE
+  ) {
+    const batch = await queryDocumentSummaries(
+      execSql,
+      buildCondition(values.slice(offset, offset + DOCUMENT_LOOKUP_BATCH_SIZE)),
+    );
+    for (const summary of batch) summariesByLocalId.set(summary.id, summary);
+  }
+}
+
+export async function listDocumentsByContainerIdsOrDocumentIds(
+  execSql: ExecSql,
+  input: {
+    containerIds: ReadonlyArray<string>;
+    documentIds: ReadonlyArray<string>;
+  },
+): Promise<DocumentSummary[]> {
+  const uniqueContainerIds = Array.from(new Set(input.containerIds));
+  const uniqueDocumentIds = Array.from(new Set(input.documentIds));
+  if (uniqueContainerIds.length === 0 && uniqueDocumentIds.length === 0) {
+    return [];
+  }
+
+  if (
+    uniqueContainerIds.length + uniqueDocumentIds.length <=
+    DOCUMENT_LOOKUP_BATCH_SIZE
+  ) {
+    const filters: SQL[] = [];
+    if (uniqueContainerIds.length > 0) {
+      filters.push(inArray(documentProjection.containerId, uniqueContainerIds));
+    }
+    if (uniqueDocumentIds.length > 0) {
+      filters.push(inArray(documentProjection.documentId, uniqueDocumentIds));
+    }
+    const whereCondition = filters.length === 1 ? filters[0] : or(...filters);
+    if (!whereCondition) return [];
+    return queryDocumentSummaries(execSql, whereCondition);
+  }
+
+  const summariesByLocalId = new Map<string, DocumentSummary>();
+  await collectBatchedDocumentSummaries(
+    execSql,
+    uniqueContainerIds,
+    (batch) => inArray(documentProjection.containerId, batch),
+    summariesByLocalId,
+  );
+  await collectBatchedDocumentSummaries(
+    execSql,
+    uniqueDocumentIds,
+    (batch) => inArray(documentProjection.documentId, batch),
+    summariesByLocalId,
+  );
+
+  return Array.from(summariesByLocalId.values()).sort(
+    (left, right) =>
+      compareStringsDesc(left.updatedAt, right.updatedAt) ||
+      compareStringsDesc(left.id, right.id),
+  );
 }
 
 export const sqlDocumentsPersistence: DocumentsPersistence = {

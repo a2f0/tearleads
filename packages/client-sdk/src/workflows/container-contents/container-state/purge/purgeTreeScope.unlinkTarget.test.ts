@@ -16,6 +16,7 @@ import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import { DocumentContainerProjectionRepository as Links } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { DocumentMoveIntentRepository } from "../../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../../documents/linkSet";
 import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
@@ -249,6 +250,168 @@ for (const restoreDuringPreparation of [false, true]) {
           await sqlDocumentsPersistence.loadDocument(execSql, "local-note"),
         ).not.toBeNull();
       }
+    });
+  });
+}
+
+// D's primary container is `root` (outside the purged folder `child`), and D
+// holds a secondary link inside `child`. Purging `child` unlinks only `child`
+// and leaves D intact, while still blocking if `child` is restored, a document
+// placement intent is queued, or the link disappears during preparation.
+for (const mode of [
+  "allowed",
+  "restore-target",
+  "document-move-intent",
+  "concurrent-unlink",
+] as const) {
+  test(`secondary-link subtree unlink enforces target and placement scope (${mode})`, async () => {
+    const fixture = await createLinkedFixture();
+    const { author, writerProjection } = fixture;
+    const organizationId = author.organizationId;
+    await withTestExecSql(`purge-secondary-unlink-${mode}`, async (execSql) => {
+      await persistence.ensureSchema(execSql);
+      await sqlDocumentsPersistence.ensureSchema(execSql);
+      const root = await containerState({
+        id: fixture.root.containerId,
+        organizationId,
+        parentId: null,
+      });
+      const child = await containerState({
+        id: fixture.child.containerId,
+        organizationId,
+        parentId: root.container.id,
+      });
+      for (const state of [root, child])
+        await persistence.saveContainer(execSql, state.container, state.record);
+      await sqlDocumentsPersistence.saveDocument(
+        execSql,
+        {
+          accessEpoch: 1,
+          accessStateHash: "document-state",
+          containerId: root.container.id,
+          documentId: writerProjection.documentId,
+          documentKind: "note",
+          id: "local-note",
+          snapshotEndVersion: "",
+          text: "Primary outside purged folder",
+          title: "Note",
+        },
+        { updatedAt: "2026-10-01T00:00:00.000Z" },
+      );
+      await new Links(execSql).replaceDocumentLinks(
+        writerProjection.documentId,
+        [root.container.id, child.container.id],
+      );
+      let unlinks = 0;
+      let purges = 0;
+      const deletes: unknown[] = [];
+      await purgeContainerTree({
+        containersById: new Map([
+          [root.container.id, root],
+          [child.container.id, child],
+        ]),
+        rootContainerId: child.container.id,
+        persistence,
+        prepareDocumentRotationSnapshot: async () => {
+          if (mode === "restore-target") {
+            await persistence.saveContainer(
+              execSql,
+              { ...child.container, parentId: "restored" },
+              null,
+              {
+                moveIntent: {
+                  parentContainerId: "restored",
+                  previousParentContainerId: root.container.id,
+                },
+              },
+            );
+          } else if (mode === "document-move-intent") {
+            await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
+              documentId: writerProjection.documentId,
+              localId: "local-note",
+              sourceContainerId: root.container.id,
+              targetContainerId: "other-folder",
+            });
+          } else if (mode === "concurrent-unlink") {
+            await new Links(execSql).replaceDocumentLinks(
+              writerProjection.documentId,
+              [root.container.id],
+            );
+          }
+          return exportFullHistorySnapshot(await createDocument("unlink"));
+        },
+        resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+        runtime: withPrincipalPolicies({
+          apiClient: createMockApiClient({
+            getContainerWriterProjection: async (containerId) =>
+              containerId === fixture.child.containerId
+                ? fixture.child
+                : fixture.root,
+            getDocumentWriterProjection: async () => writerProjection,
+            listDocumentAttachments: async () => [],
+            primeDocumentWriterProjection: () => {},
+            unlinkDocument: async (documentId, request) => {
+              unlinks += 1;
+              return createLinkSetResponseFromRequest(documentId, request);
+            },
+            purgeDocument: async () => {
+              purges += 1;
+              return null;
+            },
+            deleteContainerResult: async (containerId, options) => {
+              deletes.push({
+                containerId,
+                requiredAncestorId: options?.requiredAncestorId,
+              });
+              return createMockRequestFailure({
+                message: "conflict",
+                method: "DELETE",
+                path: `/containers/${containerId}`,
+                status: 409,
+              });
+            },
+          }),
+          auth: {
+            isAuthenticated: true,
+            organizationId,
+            userId: author.signerUserId,
+          },
+          crypto: {
+            encapsulationKeyPair: {
+              publicKey: fixture.publicKey,
+              secretKey: fixture.secretKey,
+            },
+            signingFingerprint: author.signerKeyFingerprint,
+            signingKeyPair: {
+              signingPrivateKey: author.signerPrivateKey,
+              signingPublicKey: fixture.signingPublicKey,
+            },
+          },
+          infra: {
+            blobStore: createMemoryBlobStore(),
+            dbStatus: "ready",
+            documentProjectors: defaultDocumentProjectorRegistry,
+            execSql,
+          },
+          resolveTrustedUserIdentity: async () => null,
+          util: { log: () => {}, reportSecurityIncident: async () => {} },
+        }) as unknown as ContainerContentsWorkflowRuntime,
+      });
+      expect(purges).toBe(0);
+      expect(unlinks).toBe(mode === "allowed" ? 1 : 0);
+      expect(deletes).toEqual(
+        mode === "restore-target"
+          ? []
+          : [
+              {
+                containerId: child.container.id,
+                requiredAncestorId: root.container.id,
+              },
+            ],
+      );
+      expect(
+        await sqlDocumentsPersistence.loadDocument(execSql, "local-note"),
+      ).not.toBeNull();
     });
   });
 }
