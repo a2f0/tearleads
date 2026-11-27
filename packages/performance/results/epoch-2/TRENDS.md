@@ -8,7 +8,7 @@ across greenfield optimization PRs. Started 2026-11-27T22:34:02.103Z.
 
 | Checkpoint | Kind | Revision | PR | Issues | Label | Step Summary |
 | --- | --- | --- | --- | --- | --- | --- |
-| `000-baseline` | baseline | `53819b364` | — | #3263, #3289, #3291, #3342, #3353, #3396 | Clean main baseline (53819b364) | Epoch baseline |
+| `000-baseline` | baseline | `53819b364` | — | #3263, #3289, #3291, #3342, #3353, #3396 | Main baseline (53819b364) | Epoch baseline |
 
 ## Cumulative Scorecard (`000-baseline` -> `000-baseline`)
 

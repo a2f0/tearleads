@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { cpus } from "node:os";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { repositoryRoot } from "../reportFiles";
 import { compareSnapshots } from "./analyze";
 import { extractCanariesMetrics, extractInventoryMetrics } from "./extract";
@@ -13,11 +13,7 @@ import {
   extractRotationMetrics,
   extractScenariosMetrics,
 } from "./extractProbes";
-import {
-  formatComparisonMarkdown,
-  formatEpochTrendsMarkdown,
-  formatResultsIndexMarkdown,
-} from "./markdown";
+import { formatComparisonMarkdown } from "./markdown";
 import { type EpochOptions, epochUsage, parseEpochOptions } from "./options";
 import {
   CURRENT_EPOCH,
@@ -27,6 +23,12 @@ import {
   type EpochRuntimeInfo,
   type EpochSnapshot,
 } from "./schema";
+import {
+  epochDir,
+  loadAllSnapshots,
+  loadManifest,
+  writeEpochViews,
+} from "./storage";
 
 export interface EpochHost {
   readonly repoRoot: string;
@@ -39,176 +41,6 @@ const defaultHost: EpochHost = {
   resultsDir: resolve(repositoryRoot, "packages/performance/results"),
   print: (text) => console.log(text),
 };
-
-function epochDir(resultsDir: string): string {
-  return join(resultsDir, `epoch-${CURRENT_EPOCH}`);
-}
-
-function manifestPath(resultsDir: string): string {
-  return join(epochDir(resultsDir), "manifest.json");
-}
-
-function defaultManifest(now: string): EpochManifest {
-  return {
-    schemaVersion: EPOCH_SCHEMA_VERSION,
-    epoch: CURRENT_EPOCH,
-    title: "Greenfield Protocol, Database & Realtime Optimization Pass",
-    startedAt: now,
-    description:
-      "Structured longitudinal performance snapshots capturing schema, wire, API DB, client SQLite, query plan, multi-party scenario, and scaling probe metrics across greenfield optimization PRs.",
-    entries: [],
-  };
-}
-
-function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === "object" && error !== null && "code" in error;
-}
-
-function isValidKind(kind: unknown): boolean {
-  return kind === "baseline" || kind === "checkpoint" || kind === "final";
-}
-
-function assertManifestEntry(value: unknown, path: string, idx: number): void {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${path} entries[${idx}] must be an object.`);
-  }
-  const issues = Reflect.get(value, "issues");
-  const seq = Reflect.get(value, "seq");
-  if (
-    typeof Reflect.get(value, "id") !== "string" ||
-    typeof seq !== "number" ||
-    !Number.isFinite(seq) ||
-    typeof Reflect.get(value, "label") !== "string" ||
-    !isValidKind(Reflect.get(value, "kind")) ||
-    typeof Reflect.get(value, "recordedAt") !== "string" ||
-    typeof Reflect.get(value, "revision") !== "string" ||
-    typeof Reflect.get(value, "dirty") !== "boolean" ||
-    !Array.isArray(issues) ||
-    !issues.every((n) => typeof n === "number") ||
-    typeof Reflect.get(value, "snapshotFile") !== "string"
-  ) {
-    throw new Error(`${path} entries[${idx}] is not a valid manifest entry.`);
-  }
-}
-
-function assertEpochManifest(
-  value: unknown,
-  path: string,
-): asserts value is EpochManifest {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} manifest.`);
-  }
-  const entries = Reflect.get(value, "entries");
-  if (
-    Reflect.get(value, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
-    Reflect.get(value, "epoch") !== CURRENT_EPOCH ||
-    typeof Reflect.get(value, "title") !== "string" ||
-    typeof Reflect.get(value, "startedAt") !== "string" ||
-    typeof Reflect.get(value, "description") !== "string" ||
-    !Array.isArray(entries)
-  ) {
-    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} manifest.`);
-  }
-  for (const [idx, entry] of entries.entries()) {
-    assertManifestEntry(entry, path, idx);
-  }
-}
-
-async function loadManifest(resultsDir: string): Promise<EpochManifest> {
-  const path = manifestPath(resultsDir);
-  let raw: string;
-  try {
-    raw = await readFile(path, "utf8");
-  } catch (error) {
-    if (isErrnoException(error) && error.code === "ENOENT") {
-      return defaultManifest(new Date().toISOString());
-    }
-    throw error;
-  }
-  const parsed: unknown = JSON.parse(raw);
-  assertEpochManifest(parsed, path);
-  return parsed;
-}
-
-function assertEpochSnapshot(
-  value: unknown,
-  path: string,
-): asserts value is EpochSnapshot {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} snapshot.`);
-  }
-  const runtime = Reflect.get(value, "runtime");
-  if (
-    Reflect.get(value, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
-    Reflect.get(value, "epoch") !== CURRENT_EPOCH ||
-    typeof Reflect.get(value, "id") !== "string" ||
-    typeof Reflect.get(value, "label") !== "string" ||
-    typeof Reflect.get(value, "revision") !== "string" ||
-    !isValidKind(Reflect.get(value, "kind")) ||
-    !Array.isArray(Reflect.get(value, "issues")) ||
-    typeof runtime !== "object" ||
-    runtime === null
-  ) {
-    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} snapshot.`);
-  }
-}
-
-function resolveConfinedSnapshotPath(
-  dir: string,
-  snapshotFile: string,
-): string {
-  const resolvedDir = resolve(dir);
-  const resolvedPath = resolve(resolvedDir, snapshotFile);
-  const rel = relative(resolvedDir, resolvedPath);
-  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
-    throw new Error(`Snapshot path '${snapshotFile}' escapes ${resolvedDir}.`);
-  }
-  return resolvedPath;
-}
-
-async function loadAllSnapshots(
-  resultsDir: string,
-  manifest: EpochManifest,
-): Promise<EpochSnapshot[]> {
-  const dir = epochDir(resultsDir);
-  return Promise.all(
-    manifest.entries.map(async (entry) => {
-      const path = resolveConfinedSnapshotPath(dir, entry.snapshotFile);
-      const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
-      assertEpochSnapshot(parsed, path);
-      if (parsed.id !== entry.id) {
-        throw new Error(
-          `Snapshot ${path} id '${parsed.id}' does not match manifest entry '${entry.id}'.`,
-        );
-      }
-      return parsed;
-    }),
-  );
-}
-
-async function writeEpochViews(
-  resultsDir: string,
-  manifest: EpochManifest,
-  snapshots: readonly EpochSnapshot[],
-): Promise<void> {
-  const dir = epochDir(resultsDir);
-  await mkdir(join(dir, "snapshots"), { recursive: true });
-  await writeFile(
-    manifestPath(resultsDir),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    "utf8",
-  );
-  await writeFile(
-    join(dir, "TRENDS.md"),
-    formatEpochTrendsMarkdown(manifest, snapshots),
-    "utf8",
-  );
-  await writeFile(
-    join(resultsDir, "README.md"),
-    formatResultsIndexMarkdown(manifest, snapshots),
-    "utf8",
-  );
-}
 
 function currentRuntime(): EpochRuntimeInfo {
   return {
@@ -417,8 +249,17 @@ async function runRecordMode(
 ): Promise<number> {
   const snapshot = await buildSnapshot(options, host.repoRoot);
   const manifest = await loadManifest(resultsDir);
+  // Validate existing snapshots before writing so a corrupt ledger aborts cleanly.
+  const existingSnapshots = await loadAllSnapshots(resultsDir, manifest);
   const snapshotFile = `snapshots/${options.id}.json`;
   const updatedManifest = upsertManifestEntry(manifest, snapshot, snapshotFile);
+  const existingIndex = existingSnapshots.findIndex(
+    (s) => s.id === snapshot.id,
+  );
+  const snapshots = [...existingSnapshots];
+  if (existingIndex >= 0) snapshots[existingIndex] = snapshot;
+  else snapshots.push(snapshot);
+
   const dir = epochDir(resultsDir);
   await mkdir(join(dir, "snapshots"), { recursive: true });
   await writeFile(
@@ -426,7 +267,6 @@ async function runRecordMode(
     `${JSON.stringify(snapshot, null, 2)}\n`,
     "utf8",
   );
-  const snapshots = await loadAllSnapshots(resultsDir, updatedManifest);
   await writeEpochViews(resultsDir, updatedManifest, snapshots);
 
   host.print(

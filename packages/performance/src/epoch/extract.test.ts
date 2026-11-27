@@ -371,9 +371,12 @@ describe("extractCanariesMetrics", () => {
                 maxMutationWaitMs: 0,
                 maxStatementsPerMutation: 5,
                 avgStatementsPerMutation: 5,
-                truncated: false,
+                truncated: true,
                 phases: [],
-                top: [{ sql: "BEGIN IMMEDIATE", count: 1, durationMs: 0.1 }],
+                top: [
+                  { sql: "BEGIN IMMEDIATE", count: 1, durationMs: 0.1 },
+                  { sql: "select 1", count: 9, durationMs: 1.9 },
+                ],
               },
             },
           },
@@ -394,8 +397,11 @@ describe("extractCanariesMetrics", () => {
     );
     const incomplete = await extractCanariesMetrics(incompletePath);
     expect(incomplete.metrics.apiStatements).toBeNull();
+    expect(incomplete.metrics.clientSqlStatements).toBeNull();
     expect(incomplete.metrics.clientSqlTxControls).toBeNull();
+    expect(incomplete.metrics.topClientQueries).toEqual([]);
     expect(incomplete.metrics.byCanary[0]?.apiStatements).toBeNull();
+    expect(incomplete.metrics.byCanary[0]?.clientSqlStatements).toBeNull();
     expect(incomplete.metrics.byCanary[1]?.apiStatements).toBeNull();
 
     const failedPath = join(dir, "canaries-failed.json");

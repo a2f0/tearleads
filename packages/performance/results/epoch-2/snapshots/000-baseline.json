@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "epoch": 2,
   "id": "000-baseline",
-  "label": "Clean main baseline (53819b364)",
+  "label": "Main baseline (53819b364)",
   "kind": "baseline",
-  "recordedAt": "2026-11-27T23:12:37.815Z",
+  "recordedAt": "2026-11-27T23:21:53.056Z",
   "revision": "53819b364768ac87e42c4fe48c5d41e7b8ad1ec9",
   "dirty": true,
   "issues": [3263, 3289, 3291, 3342, 3353, 3396],
@@ -14,7 +14,7 @@
     "arch": "arm64",
     "cpu": "Apple M2 Pro"
   },
-  "notes": "Epoch 2 clean-main baseline captured at 53819b364 before greenfield optimization and bug-scrub pass.",
+  "notes": "Epoch 2 baseline at 53819b364 before greenfield optimization PRs. All runtime probes ran on clean 53819b364; static perf:inventory ran with the Epoch 2 false-positive filter applied (dirty: true reflects only that performance harness edit).",
   "inventory": {
     "postgres": {
       "tables": 57,

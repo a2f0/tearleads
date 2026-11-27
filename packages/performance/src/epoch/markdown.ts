@@ -204,10 +204,10 @@ function renderStepComparisons(snapshots: readonly EpochSnapshot[]): string[] {
     const headingLabel = after.label.replace(/\s*\r?\n\s*/gu, " ").trim();
     lines.push(
       "",
-      `### \`${before.id}\` -> \`${after.id}\` (${headingLabel})`,
+      `### \`${before.id}\` -> \`${after.id}\``,
       "",
       ...wrapProse(
-        `Revisions: \`${before.revision.slice(0, 9)}\` -> \`${after.revision.slice(0, 9)}\`. ` +
+        `${headingLabel}. Revisions: \`${before.revision.slice(0, 9)}\` -> \`${after.revision.slice(0, 9)}\`. ` +
           `Improved: **${diff.improvements.length}**, Regressed: **${diff.regressions.length}**, ` +
           `Tradeoffs: **${diff.tradeoffs.length}**.`,
       ),

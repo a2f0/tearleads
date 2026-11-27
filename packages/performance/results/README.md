@@ -65,4 +65,4 @@ Baseline `53819b364` -> Latest `53819b364` (1 checkpoint recorded).
 
 | Checkpoint | Kind | Revision | PR | Issues | Label | Step Summary |
 | --- | --- | --- | --- | --- | --- | --- |
-| `000-baseline` | baseline | `53819b364` | — | #3263, #3289, #3291, #3342, #3353, #3396 | Clean main baseline (53819b364) | Epoch baseline |
+| `000-baseline` | baseline | `53819b364` | — | #3263, #3289, #3291, #3342, #3353, #3396 | Main baseline (53819b364) | Epoch baseline |

@@ -161,9 +161,11 @@ function mergeRouteStats(
   for (const route of routes) {
     const prev = target.get(route.route);
     const pureRepeats =
-      route.pureReadRepeats === null
-        ? (prev?.pureReadRepeats ?? null)
-        : (prev?.pureReadRepeats ?? 0) + route.pureReadRepeats;
+      prev === undefined
+        ? route.pureReadRepeats
+        : prev.pureReadRepeats === null || route.pureReadRepeats === null
+          ? null
+          : prev.pureReadRepeats + route.pureReadRepeats;
     target.set(route.route, {
       route: route.route,
       requests: (prev?.requests ?? 0) + route.requests,
@@ -180,7 +182,9 @@ function mergeClientTopQueries(
   target: Map<string, { count: number; durationMs: number }>,
   run: CanaryRun,
 ): void {
-  if (run.clientSql?.status !== "captured") return;
+  if (run.clientSql?.status !== "captured" || run.clientSql.summary.truncated) {
+    return;
+  }
   for (const entry of run.clientSql.summary.top) {
     const sql = normalizeClientSql(entry.sql);
     if (isTxControlSql(sql)) continue;
@@ -292,7 +296,9 @@ function extractPayloadFields(run: CanaryRun, payloadAuditEnabled: boolean) {
 
 function extractClientFields(run: CanaryRun, txControls: number | null) {
   const client =
-    run.clientSql?.status === "captured" ? run.clientSql.summary : null;
+    run.clientSql?.status === "captured" && !run.clientSql.summary.truncated
+      ? run.clientSql.summary
+      : null;
   return {
     statements: client?.statements ?? null,
     inLock: client?.inLockStatements ?? null,

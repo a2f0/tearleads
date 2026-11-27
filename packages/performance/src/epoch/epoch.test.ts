@@ -281,7 +281,9 @@ describe("compareSnapshots", () => {
       latestWithoutPlans,
     ]);
     expect(trends).toContain("A \\| B C");
-    expect(trends).toContain("### `000-baseline` -> `002-no-plans` (A | B C)");
+    expect(trends).toContain(
+      "### `000-baseline` -> `002-no-plans`\n\nA | B C.",
+    );
     expect(trends).toContain(
       "| Plans | Postgres generic Sort plans | 3 queries | — | — | n/a |",
     );
