@@ -34,10 +34,20 @@ adding an update. The mechanism is the one
   refreshes it after a peer's link change or rotation whose hint was lost. A
   record with no key bundle has completed no pull and is not covered.
 - Durability. The debt is written to `document_listing_revalidations`, at the
-  listed count, before the listed row is applied and before the lane's
-  watermark advances past it. Applying a row whose access epoch moved drops
-  the key bundle the record held, which would hide that move from a later
-  check. A listing read from a lagging replica never lowers a debt.
+  listed count and the listed head's access epoch, before the listed row is
+  applied and before the lane's watermark advances past it. Applying a row
+  whose access epoch moved drops the key bundle the record held, which would
+  hide that move from a later check. A listing read from a lagging replica
+  never lowers a debt. A pause or a newer sweep that skips the debt write
+  stops the listing: none of its rows apply and its watermark stays.
+- One debt per record. After an identity recovery or a relink, two records
+  can name one server document, each with its own cursor and key bundle. Each
+  record the listing shows behind owes its own read, and a store reads and
+  settles only its own record's. A record whose store is displaced and never
+  opens keeps its debt, which costs no request and holds no other store
+  uncovered: no listing can show that record caught up without a read. Its
+  store pays the debt when it opens, and the debt is forgotten once the record
+  is gone or names another document.
 - Who reads. Once the debt is durable and the listing's rows have applied,
   the document's registered store is asked to probe. A listing superseded
   before it applied asks nobody: the debt stays, and the catch-up that ends
@@ -46,10 +56,14 @@ adding an update. The mechanism is the one
   not covered until it settles.
 - Settling. A completed pull settles the debt it saw before its request, and
   only once the cursor that pull saved counts as many updates as the listing
-  advertised. A replica lagging the listing can answer without the edit; the
-  store then asks for one more pull two seconds later, and the debt otherwise
-  waits for the next pull, reconnect or restart. A debt at a count of 0 is
-  owed for the access head alone, and any completed pull settles it.
+  advertised and the record's key bundle carries the listed head or a later
+  one. Each head of a document has its own manifest epoch, and a head move
+  raises it, so the record's manifest at the listed epoch or past it read that
+  move, and a debt is not owed forever when the head moves again. A replica
+  lagging the listing can answer without the edit, or with the head from
+  before the move; the store then asks for one more pull two seconds later,
+  and the debt otherwise waits for the next pull, reconnect or restart. A
+  debt at a count of 0 is owed for the access head alone.
 - Coverage. Every write that changes what a pull or an attachment listing
   returns touches the document row, so the row is published past each of its
   lanes' watermarks. The same write republishes each container the document
@@ -74,14 +88,21 @@ adding an update. The mechanism is the one
   document in any listing: profiles carry member data kept to an
   organization's administrators, and reach a device by id from the roster. A
   listing of the roster profile container therefore vouches for nothing, and
-  a store of a roster profile probes as before.
+  a store of a roster profile probes as before. Coverage is decided by the
+  container, not the document, because a bound profile lives in that
+  container alone: the roster binds a profile only to a document in its
+  organization's profile container, and the server refuses a link set that
+  moves a bound document out of it, so no listing of another container omits
+  one.
 - Withheld cursors. A listing owes a read only to a row it is served, and a
   row behind its lane's watermark is not served again. A record that holds a
   [processed cursor its next pull withholds](./advisory-op-spans.md#the-processed-cursor)
   (the device now runs another judge, or its content was restored to an
   older version) owes the pull that judges its updates again, so its store
   probes when it loads and after each acknowledged connection until a pull
-  leaves a cursor the next one would send.
+  leaves a cursor the next one would send. A store reads the cursor again
+  each time its record loads, so a store reset and reloaded over a cursor
+  another runtime has since made sendable is covered again.
 - Attachments. Attachment bytes download after a sync response, so a document
   that names an attachment whose bytes the device does not hold also probes.
 - No-brick. The read is this device's own pull, with its stored commit
@@ -181,8 +202,8 @@ not cover and is withheld, so the server returns what the copy lacks. With
 one tab, a store's document always holds what its record has on disk, and the
 comparison asks for nothing. A local edit another tab has saved and not yet
 submitted cannot be pulled; it arrives with the hint for its accepted write.
-The catch-up also forgets debts of documents the device no longer holds a
-record of, and lane requests of containers it does not store.
+The catch-up also forgets debts of records the device no longer holds, or that
+now name another document, and lane requests of containers it does not store.
 [SharedDatabaseListing](../formal/document-sync/SharedDatabaseListing.md)
 models the two tabs.
 
