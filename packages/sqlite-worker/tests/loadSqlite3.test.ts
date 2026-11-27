@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Sqlite3Static } from "@tearleads/sqlite-instance";
+import { isDatabaseInAutocommit } from "../src/autocommit";
 import {
   execDatabaseStatement,
   initDatabase,
@@ -345,4 +346,63 @@ test("installSahPoolVfsWithRetry does not trip the hang guard on a healthy or th
     }),
   ).resolves.toBe(poolUtil);
   expect(throwing.attempts()).toBe(3);
+});
+
+test("autocommit mode marks every transaction boundary the lease relies on", async () => {
+  const db = await initDatabase({
+    cipher: "sqlcipher",
+    dbName: `autocommit-${crypto.randomUUID()}.db`,
+    key: "secret",
+  });
+  const { capi } = await loadSqlite3();
+  const after = (sql: string): [string, boolean] => {
+    try {
+      db.exec(sql);
+      return [sql, isDatabaseInAutocommit(capi, db)];
+    } catch {
+      return [`${sql} (failed)`, isDatabaseInAutocommit(capi, db)];
+    }
+  };
+
+  expect([
+    after("CREATE TABLE t (v INTEGER PRIMARY KEY)"),
+    after("BEGIN"),
+    after("COMMIT"),
+    after("BEGIN IMMEDIATE"),
+    after("SAVEPOINT inner_sp"),
+    after("RELEASE SAVEPOINT inner_sp"),
+    after("ROLLBACK"),
+    after("SAVEPOINT outer_sp; INSERT INTO t VALUES (1)"),
+    after("ROLLBACK TO SAVEPOINT outer_sp"),
+    after("RELEASE SAVEPOINT outer_sp"),
+    after("BEGIN"),
+    after("INSERT INTO t VALUES (1)"),
+    after("INSERT OR ROLLBACK INTO t VALUES (1)"),
+    after("BEGIN; INSERT INTO t VALUES (2); COMMIT"),
+    after("BEGIN; INSERT INTO t VALUES (3); INSERT INTO t VALUES (3)"),
+    after("ROLLBACK"),
+  ]).toEqual([
+    ["CREATE TABLE t (v INTEGER PRIMARY KEY)", true],
+    ["BEGIN", false],
+    ["COMMIT", true],
+    ["BEGIN IMMEDIATE", false],
+    ["SAVEPOINT inner_sp", false],
+    ["RELEASE SAVEPOINT inner_sp", false],
+    ["ROLLBACK", true],
+    ["SAVEPOINT outer_sp; INSERT INTO t VALUES (1)", false],
+    ["ROLLBACK TO SAVEPOINT outer_sp", false],
+    ["RELEASE SAVEPOINT outer_sp", true],
+    ["BEGIN", false],
+    ["INSERT INTO t VALUES (1)", false],
+    ["INSERT OR ROLLBACK INTO t VALUES (1) (failed)", true],
+    ["BEGIN; INSERT INTO t VALUES (2); COMMIT", true],
+    [
+      "BEGIN; INSERT INTO t VALUES (3); INSERT INTO t VALUES (3) (failed)",
+      false,
+    ],
+    ["ROLLBACK", true],
+  ]);
+
+  db.close();
+  expect(isDatabaseInAutocommit(capi, db)).toBe(true);
 });

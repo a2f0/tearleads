@@ -160,9 +160,11 @@ function webLocks(): LockManager | null {
 
 /**
  * Holds the cross-tab migration lock while `run` executes. Browser tabs share
- * one worker handle but not their mutation queues, so a tab could read another
- * tab's uncommitted ledger as current and write rows that tab's rollback then
- * deletes; every migration check waits on this Web Lock. A caller that
+ * one worker handle but not their mutation queues. The worker's transaction
+ * lease keeps a tab's statements out of another tab's open transaction, but a
+ * migration check reads the ledger before its savepoint opens, so two tabs
+ * could both read it as behind; every migration check waits on this Web Lock
+ * instead. A caller that
  * rewrites the schema in its own transaction (a backup restore) holds it from
  * BEGIN through COMMIT and passes `crossTabLockHeld` to the migration it runs
  * inside. Take the connection's mutation lock first. Hosts without Web Locks

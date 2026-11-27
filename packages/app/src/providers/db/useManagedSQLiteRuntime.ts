@@ -220,10 +220,13 @@ function useSpawnSQLiteRuntimeForDbName(
 // the rejection as the database going away) and retire the runtime so
 // `waitForReadySQLiteRuntime` rejects and the retry surface appears. A browser
 // tab whose open database went away with another tab's owner worker is not
-// broken: closing that tab is ordinary. Its runtime is retired to idle, which
-// the identity boot reopens at once without spending the retry budget that
-// bounds real failures (see useEnsureDatabaseForIdentity), and it is logged
-// rather than reported as a crash.
+// broken: closing that tab is ordinary. Neither is one whose transaction the
+// worker rolled back after it sat idle while another tab waited. Its runtime
+// is retired to idle, which the identity boot reopens at once without
+// spending the retry budget that bounds real failures (see
+// useEnsureDatabaseForIdentity), and it is logged with the error's own detail
+// (a revocation names the database, the idle time, and how many statements
+// waited) rather than reported as a crash.
 function useWorkerCrashRecovery(params: {
   destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
   log: (message: string) => void;
@@ -233,7 +236,7 @@ function useWorkerCrashRecovery(params: {
   return useCallback(
     (error: Error) => {
       if (isDatabaseConnectionLostError(error)) {
-        log("Database connection lost with its owner tab; reopening");
+        log(`Database connection lost; reopening. ${error.message}`);
         destroyCurrentRuntime("idle");
         return;
       }

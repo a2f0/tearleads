@@ -182,11 +182,12 @@ async function applyOrphanVerdict(
 
 /**
  * Settles the orphans of ended lifetimes `ended` still on the scope, and
- * deletes them. Each is settled only by the claim whose delete removed it:
- * the database worker does not isolate one tab's transaction from another
- * tab's statements, so two tabs may read the same orphan, and a window is
- * counted at most once. A claim counts at most one attempt per update: tabs
- * reading one update in a browser process that crashes die together.
+ * deletes them. Each is settled only by the claim whose delete removed it, so
+ * a window is counted at most once even where two tabs read the same orphan:
+ * the app's database worker keeps another tab's statements out of this
+ * transaction, but a host may supply a worker that does not. A claim counts
+ * at most one attempt per update: tabs reading one update in a browser
+ * process that crashes die together.
  */
 async function claimOrphansInTransaction(
   tx: ClientSQLiteTransactionScope,

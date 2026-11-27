@@ -1,6 +1,9 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterPublicKeyResolver } from "../../data/documents/shared/types";
-import { isDatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
+import {
+  isDatabaseTransactionBusyError,
+  isDatabaseUnavailableError,
+} from "../../data/sqlite/availability/databaseUnavailable";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
@@ -75,8 +78,13 @@ async function resolveWriterPublicKey(input: {
     // Returning null here would surface downstream as a generic "writer public
     // key missing" verification error that sync lanes cannot classify, so the
     // lane would count a real failure for a routine runtime swap. Rethrow and
-    // let the lanes' shouldIgnoreError treat it as the benign signal it is.
-    if (isDatabaseUnavailableError(error)) {
+    // let the lanes' shouldIgnoreError treat it as the benign signal it is. A
+    // read another tab's transaction held off is no more an unresolvable
+    // writer: rethrow it so the pass fails and re-runs instead of rejecting.
+    if (
+      isDatabaseUnavailableError(error) ||
+      isDatabaseTransactionBusyError(error)
+    ) {
       throw error;
     }
     input.util.log(

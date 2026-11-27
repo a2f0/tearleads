@@ -37,6 +37,7 @@ export {
   type WipeOpfsStorageResult,
   wipeOpfsStorage,
 } from "@tearleads/sqlite-worker/wipe-opfs-storage";
+export { isDatabaseTransactionBusyError } from "../data/sqlite/availability/databaseUnavailable";
 export { clientSQLiteSchema } from "../data/sqlite/schema";
 export {
   type ClientSQLiteDatabase as SQLiteDatabase,

@@ -3,6 +3,7 @@ import {
   type DatabasePersistenceMode,
   type ExecSqlClientLike,
   ensureLocalSchemaMigrated,
+  isDatabaseTransactionBusyError,
   requestPersistentStorage,
   type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
@@ -90,6 +91,40 @@ async function assertDatabaseReadable(
 ): Promise<void> {
   const execSql = createExecSql(client);
   await execSql("SELECT count(*) FROM sqlite_master");
+}
+
+const BUSY_RETRY_PAUSE_MS = 100;
+
+/**
+ * Run a boot step again each time another tab's transaction holds it off.
+ *
+ * The worker refuses a statement that waited its transaction lease's bound
+ * while another connection held a transaction; the statement did not run, and
+ * this connection has no transaction of its own for it to have been part of,
+ * so the step can simply run again. Each refusal is bounded, and it only
+ * recurs while the other tab keeps working: a holder that stalls is rolled
+ * back, and one whose tab closes is released. Failing the boot instead would
+ * spend the identity boot's retry budget on another tab's restore or long
+ * sync and leave this one on an error screen behind it.
+ */
+async function retryWhileTransactionBusy<T>(
+  step: () => Promise<T>,
+  label: string,
+  log: (message: string) => void,
+): Promise<T> {
+  for (;;) {
+    try {
+      return await step();
+    } catch (error) {
+      if (!isDatabaseTransactionBusyError(error)) {
+        throw error;
+      }
+      log(`Another tab held a database transaction during ${label}; retrying.`);
+      // The SDK's worker refuses only after its wait bound; a host worker that
+      // refuses at once must not be asked again in a tight loop.
+      await new Promise((resolve) => setTimeout(resolve, BUSY_RETRY_PAUSE_MS));
+    }
+  }
 }
 
 function describeBootError(
@@ -219,9 +254,14 @@ export async function bootSQLiteRuntime(
   // freshly created and cannot be key-mismatched, so skip the probe.
   if (persistence !== "memory") {
     try {
-      await withBootRoundTripTimeout(
-        assertDatabaseReadable(runtime.client),
-        "database readability check",
+      await retryWhileTransactionBusy(
+        () =>
+          withBootRoundTripTimeout(
+            assertDatabaseReadable(runtime.client),
+            "database readability check",
+          ),
+        "the readability check",
+        log,
       );
     } catch (error) {
       log(`Failed to verify SQLite database: ${describeBootError(error)}`);
@@ -233,7 +273,14 @@ export async function bootSQLiteRuntime(
   // contain the migration: the SDK's cross-tab migration lock ends when the
   // migration commits, which inside an open transaction is not yet durable.
   try {
-    await ensureLocalSchemaMigrated(createExecSql(runtime.client));
+    // A refusal can only reach the migration's statements before it holds a
+    // transaction, since a holder's own statements are never refused, so the
+    // whole migration runs again; it records itself only once it commits.
+    await retryWhileTransactionBusy(
+      () => ensureLocalSchemaMigrated(createExecSql(runtime.client)),
+      "the schema migration",
+      log,
+    );
   } catch (error) {
     log(`Failed to migrate the local database: ${describeBootError(error)}`);
     throw error;

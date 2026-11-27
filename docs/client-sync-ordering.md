@@ -253,7 +253,8 @@ following signals require a probe:
   survive process restart. When a server-events connect attempt is in flight,
   the probe waits on that attempt instead: its acknowledgement arms the
   reconnect probe below, which covers strictly more, and an attempt that ends
-  without one (no ticket, a failed socket, an unready tree at open, or the
+  without one (no ticket, a failed socket, no acknowledgement within 15
+  seconds of socket open, a socket with no interest declaration, or the
   binding stopping) releases the startup probe at once;
 - after a server-events disconnect, the client waits for the local container
   tree to be ready, sends its authoritative interest set, and advances a

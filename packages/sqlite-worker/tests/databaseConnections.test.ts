@@ -234,6 +234,34 @@ test("same database with different init options is rejected", async () => {
   });
 });
 
+test("an open a close overtook gives its database back before the connection opens again", async () => {
+  const createOptions = createDatabaseWorkerConnectionFactory();
+  const connection = createOptions();
+  const dbName = `overtaken-${crypto.randomUUID()}.db`;
+
+  const overtaken = connection.onInit?.(initOptions(dbName));
+  await connection.onClose?.();
+  // Until the overtaken open settles, the connection cannot open again.
+  await expect(connection.onInit?.(initOptions(dbName))).rejects.toThrow(
+    "Database has already been initialized.",
+  );
+  await expect(overtaken).rejects.toThrow(
+    "Database connection closed before initialization completed.",
+  );
+
+  await connection.onInit?.(initOptions(dbName));
+  expect(await connection.onExec?.({ sql: "SELECT 1 AS value" })).toEqual([
+    { value: 1 },
+  ]);
+  await connection.onClose?.();
+
+  // No reference outlived the closes: the database closed, so another key
+  // opens a fresh one instead of meeting the first key's options.
+  const other = createOptions();
+  await other.onInit?.(initOptions(dbName, "another-secret"));
+  await other.onClose?.();
+});
+
 test("a worker that has opened persistent storage refuses to wipe it", async () => {
   installOpfsMemoryShim();
   const scope = connectSharedWorkerPort(

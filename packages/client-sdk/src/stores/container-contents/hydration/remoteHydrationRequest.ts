@@ -7,10 +7,6 @@ import { isDatabaseUnavailableError } from "../../../workflows/container-content
 import { ownsContainerStore } from "../containerState/storeScope";
 import { refreshLocalContainerStates } from "../localRefresh";
 import {
-  resolveHeldCrawl,
-  waitForPendingConnectAttempt,
-} from "./connectAttemptGate";
-import {
   IDLE_RECOVERY_HYDRATION,
   type RecoveryHydrationEvent,
   type RecoveryHydrationState,
@@ -89,8 +85,6 @@ function createResetRecoveryInput(
 ): RemoteHydrationRequestInput {
   return {
     ...input,
-    // A wait this request sat through was for an earlier connect attempt.
-    connectAttemptSettled: undefined,
     followDiscoveredParentLanes: true,
     onFullyHydrated: undefined,
     parentIds: undefined,
@@ -209,8 +203,14 @@ function retryRemoteHydrationAfterReset(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   // The acknowledgement that superseded this crawl owes one that lists the
-  // same lanes after it; listing them here as well would list the tree twice.
-  if (input.yieldsToReconnectCrawl?.()) return Promise.resolve();
+  // same lanes after it, so this one waits behind it and lists only if that
+  // acknowledgement is lost first (`connectAttemptGate.ts`).
+  if (input.yieldsToReconnectCrawl?.()) {
+    input.state.connectAttemptGate?.park(() =>
+      retryRemoteHydrationAfterReset(input),
+    );
+    return Promise.resolve();
+  }
   // The reconnect state machine owns its retry across a reset.
   if (input.reconnect) {
     // A superseded crawl still owes the manual refresh whose reset it consumed.
@@ -361,32 +361,25 @@ function bindManualTreeReset(
 
 /**
  * Holds a crawl that yields to the reconnect crawl until the connect attempt
- * in flight settles. It holds no hydration slot meanwhile, so no other
- * request waits behind it.
+ * in flight settles (`connectAttemptGate.ts`). The crawl it releases starts
+ * without waiting again, or is requested again if the store's generation
+ * moved meanwhile.
  */
 function holdForConnectAttempt(
   input: RemoteHydrationRequestInput,
 ): Promise<void> | null {
-  const { state, yieldsToReconnectCrawl } = input;
-  if (!yieldsToReconnectCrawl || input.connectAttemptSettled) return null;
-  const settled = waitForPendingConnectAttempt(state);
-  if (!settled) return null;
+  const { state } = input;
+  if (!input.yieldsToReconnectCrawl || !state.connectAttemptGate) return null;
   const { lifecycleGeneration, structuralGeneration } = state;
-  return settled.then(() => {
-    const held = { ...input, connectAttemptSettled: true as const };
-    const outcome = resolveHeldCrawl({
-      generationCurrent: isRequestGenerationCurrent({
-        lifecycleGeneration,
-        state,
-        structuralGeneration,
-      }),
-      reconnectCrawlOwed: yieldsToReconnectCrawl(),
-    });
-    if (outcome === "drop") return undefined;
-    return outcome === "start"
-      ? requestContainerContentsRemoteHydration(held)
-      : retryRemoteHydrationAfterReset(held);
-  });
+  return state.connectAttemptGate.hold(() =>
+    isRequestGenerationCurrent({
+      lifecycleGeneration,
+      state,
+      structuralGeneration,
+    })
+      ? requestUnheldHydration(input)
+      : retryRemoteHydrationAfterReset(input),
+  );
 }
 
 export function requestContainerContentsRemoteHydration(
@@ -395,7 +388,14 @@ export function requestContainerContentsRemoteHydration(
   input = bindManualTreeReset(input);
   if (!ownsHydrationRequest(input)) return Promise.resolve();
   const held = holdForConnectAttempt(input);
-  if (held) return held;
+  if (!held) return requestUnheldHydration(input);
+  input.state.trackHydration?.(held);
+  return held;
+}
+
+function requestUnheldHydration(
+  input: RemoteHydrationRequestInput,
+): Promise<void> {
   queueRequestedParentIds(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);
   const request = readinessBarrier ?? startHydration(prepareTreeReset(input));

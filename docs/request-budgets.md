@@ -76,7 +76,7 @@ unless noted.
 | [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 6 | One document create, one multipart stage, one part upload, one attachment binding that carries the first content update and acknowledges its KEK targets by hash, no sync; one organization-policy read shared by the create and the bind's sync drain; no per-part authorization or stage-completion request; 34,500 request and 2,300 response bytes, plus the bytes of the one allowed root projection read when it happens |
 | [`DualPaneProvider.activePeerRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx) | An active peer reconciles an ungranted custom-group change | Exactly 4 | One read-model read, two organization-policy reads and one group-policy read; no container or document request and no Admins-policy read |
 | [`DeviceFirstOfflineRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx) | Offline folder create, cached note edit, and move to Trash | 0 each | After reconnect the queued create, link and unlink commit |
-| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged: the first restart after local creates / a later one / the first after a local edit | 19 / 11 / 13 | Two user folders; fresh SDK and SQLite worker; no replayed writes; the later restart costs at most 11 with two notes, with eight notes, and with eight folders; a root refresh requested before the tree crawl answers adds one tree request and one policy read (13) and no document listing |
+| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged: the first restart after local creates / a later one / the first after a local edit | 19 / 10 / 12 | Two user folders; fresh SDK and SQLite worker; no replayed writes; the interest acknowledgement arrives 300 ms after the declaration, and no document listing or sync is sent before it; the later restart costs at most 10 with two notes, with eight notes, and with eight folders; a root refresh requested before the tree crawl answers adds one tree request and one policy read and leaves the probe as the one document listing (11) |
 | [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 12 / 18 | Disconnect costs zero; one WebSocket ticket, one memberships read and one tree crawl each; no write-bearing syncs |
 
 [`DualPaneProvider.sidebarReloadBudget.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sidebarReloadBudget.test.tsx)
@@ -171,14 +171,15 @@ be remeasured and documented when an optimization changes the baseline.
 | `GET /principals/history` | 1 | 0 | 0 | 0 |
 | `GET /containers/:containerId/writer-projection` | 3 | 2 | 1 | 2 |
 | `GET /documents/:documentId/writer-projection` | 0 | 0 | 0 | 1 |
-| `POST /documents/:documentId/sync` (all read-only) | 3 | 2 | 2 | 3 |
-| **Total** | **16** | **11** | **9** | **15** |
+| `POST /documents/:documentId/sync` (all read-only) | 3 | 1 | 2 | 3 |
+| **Total** | **16** | **10** | **9** | **15** |
 
 No note is synced in any column. A listing
 [covers each note](./document-listing-coverage.md): its row carries the
 document's update count, and a note whose count the device's cursor covers
-owes no read. The syncs that remain are system-container documents, which are
-pulled once per launch, and one probe for a document no listing names.
+owes no read. The syncs that remain are system-container documents, whose
+startup probe runs once per launch unless an acknowledgement's catch-up covers
+it, and one probe for a document no listing names.
 
 The first restart is the first launch after the notes were created. Their
 lanes list the rows those creates published, and no listed row's head is read
@@ -186,21 +187,29 @@ back: each is the head its create authored, which the create saved to the
 discovery head cache once the server's acknowledgement matched it, as
 provisioning does for the documents it seeds. The reconnects list those rows
 too and read none of their heads; the peer case reads one head, of a document
-the peer created. The settled restart is
-every launch after that: the tree crawl is served no folder's row, so the
-catch-up after the acknowledgement lists no document lane at all, and the cost
-is the same with two notes and with eight, which the canary runs at both
-sizes. Its two listing requests are one batch of queued lanes and one
-unwatermarked batch for the initial document probe, which reads up to 32 lanes
-per request. A third size, eight folders of one note each, costs no more: the
-tree crawl lists the root lane and each known folder's child lane, up to 32
-parent lanes per request, so it is one request here too. The root lane's
-second listing, for membership, takes one of the 32, so a tree of 31 folders
-or more needs a second request. The first restart
-after a local edit is served the edited note's folder, whose lane the catch-up
-then lists: one more listing and one more policy read than a settled restart;
-the note is not synced and its head is not read, because the device's own
-accepted update is behind its cursor.
+the peer created. The settled restart is every launch after that: the tree
+crawl is served no folder's row, so the catch-up after the acknowledgement
+lists no document lane at all, and the cost is the same with two
+notes and with eight, which the canary runs at both sizes. Nothing lists before
+the acknowledgement, which the canary delays by 300 ms as a hub's round trip
+would: the known lanes a regain queues wait for the connect attempt in flight,
+and so do the startup probes of the documents the restart opens, and the
+acknowledgement's catch-up then covers both. The socket's attempt stays pending
+while its declaration waits for the local tree to load, bounded by the 15-second
+acknowledgement deadline. The settled restart's two listing requests are the
+lane of the container Explorer opens, which lists at once, and one unwatermarked
+batch for the initial document probe, which reads up to 32 lanes per request;
+its one sync is the probe for a document no listing names. Before they waited,
+queued lanes and startup probes ran ahead of the catch-up, and with the
+acknowledgement 300 ms late a settled restart cost 14 to 16 requests. A third
+size, eight folders of one note each, costs no more: the tree crawl lists the
+root lane and each known folder's child lane, up to 32 parent lanes per request,
+so it is one request here too. The root lane's second listing, for membership,
+takes one of the 32, so a tree of 31 folders or more needs a second request. The
+first restart after a local edit is served the edited note's folder, whose lane
+the catch-up then lists: one more listing and one more policy read than a
+settled restart; the note is not synced and its head is not read, because the
+device's own accepted update is behind its cursor.
 
 A connect costs one tree crawl. Going online starts a crawl, and so does the
 interest acknowledgement that follows, which must list after the
@@ -208,9 +217,11 @@ acknowledgement because hints sent before it are lost. The first crawl
 therefore gives way: it does not start while a connect attempt is pending,
 and it is neither started nor retried while the crawl of a current
 acknowledgement is owed. If the attempt ends without an acknowledgement, the
-first crawl lists. It waits without holding the store's hydration slot, so a
-refresh or a write's follow-up crawl made meanwhile lists at once. Before, a
-reconnect listed the tree twice. A crawl costs one request for every 32
+first crawl lists, and so it does if the acknowledgement is lost before its
+own crawl lists: that crawl cannot run again until a new acknowledgement. It
+waits without holding the store's hydration slot, so a refresh or a write's
+follow-up crawl made meanwhile lists at once. Before, a reconnect listed the
+tree twice. A crawl costs one request for every 32
 lanes; a lane with more children than its share of the 500-row page, 15 in a
 full batch, continues in a later request.
 

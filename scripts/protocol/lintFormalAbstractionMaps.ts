@@ -35,6 +35,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/local-trust/PurgeRecovery.md": 1,
   "formal/local-trust/SubtreePurgeScope.md": 1,
   "formal/local-trust/SessionRetryIdentity.md": 1,
+  "formal/local-trust/TransactionLease.md": 1,
   "formal/local-trust/PrincipalAcknowledgementRace.md": 1,
   "formal/local-trust/SystemDestination.md": 1,
   "formal/local-trust/RootDocumentPriming.md": 1,
@@ -490,10 +491,7 @@ if (import.meta.main) {
   }
 
   const { tablesByDoc, tokens } = collectMappedTokens(docs);
-  const tables = [...tablesByDoc.values()].reduce(
-    (sum, count) => sum + count,
-    0,
-  );
+  const tables = [...tablesByDoc.values()].reduce((sum, n) => sum + n, 0);
   console.log(
     `Checked ${tokens.length} abstraction-map tokens across ${tables} tables.`,
   );

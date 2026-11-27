@@ -12,6 +12,7 @@ import { createRestoredAccessReconciler } from "../accessRestorationSweep";
 import { ownsContainerStore } from "../containerState/storeScope";
 import { primeStoreDocumentSubtree } from "../documentWork/documentRecovery";
 import { observeContainerBackgroundHydration } from "../hydration/backgroundHydration";
+import { owesAcknowledgedCrawl } from "../hydration/connectAttemptGate";
 import {
   type RemoteHydrationRefreshOptions,
   refreshAllRemoteHydration,
@@ -290,21 +291,6 @@ function logSyncLaneFailure(
 ): unknown {
   const { log, logError } = state.runtime.util;
   return logError ? logError(message, error) : log(message);
-}
-
-/**
- * Whether the crawl an acknowledged connection owes will list the tree. An
- * owed crawl starts only while its acknowledgement is current, so one left
- * over from a connection that has since dropped vouches for nothing: the
- * crawl that would yield to it must list.
- */
-function owesAcknowledgedCrawl(
-  state: ContainerContentsStoreSyncState,
-): boolean {
-  return (
-    state.reconnectRefresh.owesCrawl &&
-    state.runtime.isAcknowledgementCurrent?.() !== false
-  );
 }
 
 function createHydrationRequester(input: {

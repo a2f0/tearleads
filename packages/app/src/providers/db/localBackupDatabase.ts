@@ -285,9 +285,11 @@ export async function restoreBackupDatabase(input: {
     }
 
     try {
-      // Held from BEGIN through COMMIT or ROLLBACK: another tab sharing the
-      // worker handle must not run its migration check against the
-      // uncommitted restore.
+      // Held from BEGIN through COMMIT or ROLLBACK, so another tab's
+      // migration check reads the ledger only once the restore settles. The
+      // worker's transaction lease also holds that tab's statements back
+      // while the restore's transaction is open, but a migration check waits
+      // here rather than being refused at the lease's wait bound.
       await withLocalSchemaMigrationLock(() =>
         replaceDatabaseFromBackup(execSql, input),
       );

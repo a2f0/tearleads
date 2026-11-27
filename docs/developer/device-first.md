@@ -145,8 +145,9 @@ Scheduling policy (active-first, then idle backfill):
 1. On local hydration, enqueue the active container at active priority, and
    every [owed document lane](#owed-document-lanes) at idle priority unless
    an acknowledged connection's catch-up will list it. On auth-gain /
-   online-regain, also reset the session suppression set and enqueue all
-   other known containers at idle priority.
+   online-regain, also reset the session suppression set and, once the
+   connect attempt in flight settles, enqueue all other known containers at
+   idle priority, behind any catch-up an acknowledgement owes.
 2. The active container reconciles first (background, post-paint). Its results
    `applyReconciled` into Layer A, patching the list in place with no re-blank.
 3. Idle priority drains as the coordinator goes quiet
@@ -214,17 +215,16 @@ connect attempt, with one that never acknowledges, and with one that does.
 
 #### Document content pull policy
 
-The reconciliation service owns discovery scheduling; registered document
-stores own encrypted content sync and attachment hydration. Hint-driven
-reconciliation passes `force` and `documentId` to the content puller, and hints
-merge their targets into one trailing pass that revalidates only the named
-registered stores. A full force without a target, which is an explicit
-Refresh, revalidates every registered store. The catch-up after an
-acknowledged connection (`reconcileAcknowledgedConnection`) lists the owed
-lanes and forces nothing: a listed document the device's processed cursor does
-not cover is owed a read
-([document listing coverage](../document-listing-coverage.md)). Discovery
-itself does not open documents.
+The reconciliation service owns discovery scheduling; registered document stores
+own encrypted content sync and attachment hydration. Hint-driven reconciliation
+passes `force` and `documentId` to the content puller, and hints merge their
+targets into one trailing pass that revalidates only the named registered
+stores. A full force without a target, which is an explicit Refresh, revalidates
+every registered store. The catch-up after an acknowledged connection
+(`reconcileAcknowledgedConnection`) lists the owed lanes and forces nothing: a
+listed document the device's processed cursor does not cover is owed a read
+([document listing coverage](../document-listing-coverage.md)). Discovery itself
+does not open documents.
 
 The device-first scope opens them instead, in the background, whatever the
 host is showing. Its discovered-document primer

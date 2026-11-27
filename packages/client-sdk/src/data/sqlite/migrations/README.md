@@ -33,29 +33,29 @@ required column, leaves the database as it was found. A database older than
 the baseline still fails with "reset the local database". Another connection
 that records the ledger first wins; the losing run accepts its ledger.
 
-Browser tabs reach one database through a single worker handle, and the
-worker does not isolate one tab's transaction from another tab's statements.
-So that no tab reads another tab's uncommitted ledger as current and writes
-rows a failed migration then rolls back, each connection's migration check
-holds the `tearleads-local-schema-migration` Web Lock until its migration
-commits or rolls back. Hosts without Web Locks have no second tab on the
-handle. Inside a feature's transaction a migration would release that lock
-before anything is durable, so a host that shares the database between tabs
-calls `ensureLocalSchemaMigrated` before any feature runs, as the app does
-at boot. Every later ensure on the connection then finds the migration done.
-A backup restore holds the lock (`withLocalSchemaMigrationLock`) from BEGIN
-through COMMIT and calls `migrateLocalSchema` inside that transaction, so the
-restored data and its migration commit together and no tab checks the ledger
-in between.
+Browser tabs reach one database through a single worker handle. The worker's
+[transaction lease](../../../../../sqlite-worker/README.md#transaction-lease)
+keeps every other tab's statements out of a transaction one tab holds, but a
+migration check reads the ledger before its savepoint opens, outside any
+transaction. So that two tabs do not both read the ledger as behind and apply
+the same steps, each connection's migration check holds the
+`tearleads-local-schema-migration` Web Lock until its migration commits or
+rolls back. Hosts without Web Locks have no second tab on the handle. Inside a
+feature's transaction a migration would release that lock before anything is
+durable, so a host that shares the database between tabs calls
+`ensureLocalSchemaMigrated` before any feature runs, as the app does at boot.
+Every later ensure on the connection then finds the migration done. A backup
+restore holds the lock (`withLocalSchemaMigrationLock`) from BEGIN through
+COMMIT and calls `migrateLocalSchema` inside that transaction, so the restored
+data and its migration commit together and no tab checks the ledger in
+between.
 
-The lock covers migration checks, not ordinary statements. A tab that
-finished its own check earlier (typically one still running the previous
-build after an update) can still write inside another tab's migration
-savepoint and lose that write if the migration rolls back. Isolating one
-tab's transaction from another's needs a transaction lease in the SQLite
-worker; that, and keeping an older build's tab working against a newer
-schema, belong to mixed client versions, which this ledger does not yet
-handle.
+The lock covers migration checks, not ordinary statements, but the lease
+covers those: a tab that finished its own check earlier (typically one still
+running the previous build after an update) waits for another tab's migration
+savepoint to end instead of writing inside it. Keeping an older build's tab
+working against a newer schema belongs to mixed client versions, which this
+ledger does not yet handle.
 
 ## Adding a step
 
