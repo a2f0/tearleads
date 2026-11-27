@@ -80,6 +80,44 @@ test("each size grows once, then reloads first and then settled", async () => {
   expect(measured.at(-1)?.requests).toBe(4);
 });
 
+test("runs peer edits and measures a peer-edited reload when requested", async () => {
+  const traffic = emptyTraffic();
+  const { account, calls } = fakeAccount(traffic);
+  const peerAccount = {
+    ...account,
+    async peerEdit(count: number) {
+      calls.push(`peerEdit ${count}`);
+    },
+  };
+  const measured: ReloadMeasurement[] = [];
+  await measureReloads({
+    account: peerAccount,
+    options: {
+      documents: [10],
+      perFolder: 10,
+      samples: 1,
+      ackDelayMs: 200,
+      peerEdits: 3,
+    },
+    traffic: () => ({ ...traffic }),
+    measured: async (measurement) => {
+      measured.push(measurement);
+    },
+  });
+  expect(calls).toEqual([
+    "grow 10 by 10",
+    "reload 10",
+    "reload 10",
+    "peerEdit 3",
+    "reload 10",
+  ]);
+  expect(measured.map((m) => [m.documents, m.reload])).toEqual([
+    [10, "first"],
+    [10, "settled"],
+    [13, "peer-edited"],
+  ]);
+});
+
 test("a failed reload stops the run", async () => {
   const { account } = fakeAccount(emptyTraffic());
   account.reload = async () => {
