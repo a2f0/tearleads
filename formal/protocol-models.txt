@@ -76,3 +76,4 @@ formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/Documen
 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergenceProbe.cfg
 formal/document-sync/SharedDatabaseListing.tla|formal/document-sync/SharedDatabaseListing.cfg
 formal/document-sync/DocumentLanePolling.tla|formal/document-sync/DocumentLanePolling.cfg
+formal/document-sync/CatchUpCoordination.tla|formal/document-sync/CatchUpCoordination.cfg

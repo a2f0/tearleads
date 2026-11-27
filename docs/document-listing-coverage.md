@@ -216,7 +216,8 @@ crawl that the same acknowledgement starts already says which folders moved.
   anything, so neither a listing from a watermark nor this mechanism sees it;
   an access change to the container itself resets its lane.
 
-[DocumentLanePolling](../formal/document-sync/DocumentLanePolling.md) models
+[DocumentLanePolling](../formal/document-sync/DocumentLanePolling.md) and
+[CatchUpCoordination](../formal/document-sync/CatchUpCoordination.md) model
 this, and `PaneRestartRequestVolume.test.tsx` holds a restart with nothing
 changed to no catch-up listing at all.
 

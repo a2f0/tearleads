@@ -6,6 +6,9 @@ it knows after each acknowledged connection.
 [DocumentListingConvergence](./DocumentListingConvergence.md) starts from a
 listing of the lane and shows that the listing finds a peer's edit. This model
 is the step before it: what makes the client list the lane at all.
+[CatchUpCoordination](./CatchUpCoordination.md) models the catch-up state
+machine's deferral, superseding, overdue turn bound, and fallback-vouching
+rules around that crawl.
 
 Every server write that changes what a container's document lane returns also
 republishes the container's row: a content write, an attachment bind or
@@ -16,40 +19,51 @@ granted directly. After each acknowledged connection the container store
 lists the root lane and every known folder's child lane from their
 watermarks. A row it is served owes that container's document lane one
 listing, in `document_lane_revalidations`, before the row is applied and
-before the serving lane's watermark passes it. The catch-up that follows the
-crawl lists every lane a durable record says is owed, and nothing else.
+before the serving lane's watermark passes it. Tree listings outside a
+catch-up (a hint's tree listing, a start's, or a retried crawl) owe the lane
+the same way with no sweep behind them. The catch-up that follows the crawl
+lists every lane a durable record says is owed, and nothing else.
 
 A listing reads the request's revision before it is sent and settles only that
-revision, and only when it applied with no candidate left pending. A listing
-already in flight when the row was served may have been answered before the
-write behind it, so it leaves the newer request in place. A hint reaches the
-client only while it is up and its interest is acknowledged, and forces a
-listing of the lane. A crash loses memory, the socket and in-flight work; both
-watermarks and the request survive.
+revision, and only when it succeeds and applies with no candidate left pending.
+A listing already in flight when the row was served may have been answered
+before the write behind it, so it leaves the newer request in place. A failed
+or refused listing leaves the watermark behind and keeps the durable request
+open. A hint reaches the client only while it is up and its interest is
+acknowledged, and forces a listing of the lane. A crash loses memory, the
+socket and in-flight work; both watermarks and the request survive.
 
 | Model action | Production seam |
 | --- | --- |
 | `PeerWrite` | a write that changes the document lane and republishes the linked containers: `touchAcceptedSyncTargets`, `finalizeAttachmentMutation`, `recordDocumentLinkSetChange`, a create's `touchContainers`, and a purge's `publishDocumentPurge`; its hint reaches `enqueueReconciliationForEvents` |
 | `OtherTouch` | `touchContainerStructure` for a grant or a rekey, or a metadata edit's `touchAcceptedSyncTargets` |
+| `Crash` | a reload or process exit; `stopReconciliationService` drops in-memory state and in-flight work |
+| `Start` | process restart reloading durable watermarks and owed requests from `findOwedDocumentLaneListings` |
+| `Disconnect` | `setConnected` with false on the reconciliation service |
 | `Acknowledge` | `consumePendingContainerContentsReconnectRefresh` after the interest acknowledgement advances the connection generation |
 | `BeginCrawl` | `fetchContainerParentLaneBatch` listing the lane that serves the container from its saved watermark |
 | `CrawlOwe` | `oweServedDocumentLanes` in `applyContainerParentLanePage`, through the store host's `requestDocumentLaneListings` |
 | `CrawlPass` | `checkpointPage` saving the serving lane's watermark with `markContainerParentLaneFetched` |
 | `FinishCrawl` | the reconnect crawl settling: `crawlSettled` on the scope's `getOrCreateTreeCatchUp` port, which releases `whenCrawlSettles` |
-| `SweepListing` | `requestAcknowledgedConnectionSweep` planning with `listOwedDocumentLaneContainerIds`; the listing reads the request with `findOwedDocumentLaneListings` before `listContainerDocumentsFromWatermarks` |
+| `OutsideTreeListing` | `applyContainerParentLanePage` outside a reconnect crawl (a hint's tree listing, a start's, or a retried crawl) calling `oweServedDocumentLanes` and `checkpointPage` with no catch-up sweep behind it |
+| `SweepListing` | `requestAcknowledgedConnectionSweep` planning with `listOwedDocumentLaneContainerIds`; the listing reads the request with `findOwedDocumentLaneListings` before `listContainerDocumentLanesFromApi` |
 | `HintListing` | `enqueueContainer` with a force, listed by `reconcileMarkedContainers` |
+| `FailListing` | a failed, refused, or incomplete listing in `reconcileMarkedContainers` that leaves `settleOwedDocumentLaneListing` uncalled and retries on the lane |
 | `FinishListing` | `applyListedContainerDocuments` saving the lane's watermark, then `settleOwedDocumentLaneListing` for the request read before the listing |
 
 `LaneEvidenceRetained` requires that while the document lane holds a change
 the client has not listed, something still obliges a listing: a durable
-request, a container row the next crawl will be served, or, while the process
-is up, a pending hint or a listing in flight that captured the change.
+request, a container row the next crawl will be served, an in-progress crawl
+that saw the row and has not yet owed its listing, or, while the process is
+up, a pending hint or a listing in flight that captured the change.
 `Converges` requires that once writes, crashes and disconnects stop, the
-client has listed every change to the lane, and `DebtsSettle` that every owed
-listing is eventually settled. Weak fairness covers only the client's own
-steps and the server's delivery of the interest acknowledgement.
+client has listed every change to the lane. `DebtsSettle` requires that every
+owed listing settles once an acknowledged connection's catch-up runs for it;
+only a request written by an outside tree listing while already connected
+waits for the next acknowledged connection. Weak fairness covers only the
+client's own steps and the server's delivery of the interest acknowledgement.
 
-Four guards are parameters with registered negative controls:
+Five guards are parameters with registered negative controls:
 
 - `TouchFolderOnWrite = FALSE` lets a write change the document lane without
   republishing the container's row, as a purge did before it touched its
@@ -63,17 +77,24 @@ Four guards are parameters with registered negative controls:
 - `ListDurableDebts = FALSE` lists only the lanes the catch-up's own crawl
   owed. A request written before a crash is then never listed, because the
   serving lane's watermark already passed the row, violating `Converges`.
+- `SettleOnFailedListing = TRUE` settles the durable request when a listing
+  fails without advancing the lane's watermark, violating
+  `LaneEvidenceRetained`.
 
-[`DocumentLanePolling.cfg`](./DocumentLanePolling.cfg) allows two writes to
-the lane, one other touch of the container, one crash and one disconnect. TLC
-explores 65,800 generated states, 18,636 distinct states, and depth 25.
+[`DocumentLanePolling.cfg`](./DocumentLanePolling.cfg) allows three writes to
+the lane, one other touch of the container, two crashes, one disconnect, one
+failed listing, and one outside tree listing. TLC explores 4,257,295 generated
+states, 1,013,488 distinct states, and depth 33.
 
 The model has one container and one lane that serves its row. The root lane
 is also listed from no watermark, for the containers it holds now; that
 listing owes nothing and saves no cursor, and is not modeled. A crawl that
-did not complete vouches for nothing: the catch-up then lists every known
-lane, as it did before lanes were owed listings, which is also outside the
-model, as is a start whose connection is never acknowledged
+did not complete vouches for nothing: the catch-up then falls back to listing
+every known lane except those listed cleanly after the latest acknowledgement
+with no candidate left pending (fenced per container by `pendingGenerations`
+against older concurrent batches in `catchUpMachine.ts`, and checked in
+[CatchUpCoordination](./CatchUpCoordination.md)) and not forced since. A start
+whose connection is never acknowledged is outside the model
 ([DiscoveryLaneResumption](./DiscoveryLaneResumption.tla) covers the lanes
 such a start resumes). The serialized publication order that makes "past the
 watermark" mean "not yet served" is [DiscoveryPublication](./DiscoveryPublication.tla)'s
@@ -91,22 +112,15 @@ than the page that served the container's row would settle the request
 without the change. Production reads one primary database with no query
 cache. If replicas or a cache arrive, the request row would keep the
 checkpoint of the page that served the row, and the listing would send it
-as its floor, as a listing sent `afterParentPage` already does. And a
-listing is assumed to be answered by its own request:
-production gives each listing lane ids of its own, so the API client never
-answers it from an identical request already in flight.
+as its floor, as a listing sent `afterParentPage` already does. And each
+settling listing is assumed to be answered by its own request: production
+passes the explicit `inFlight: "ownRequest"` option on
+`listContainerDocumentLanesFromApi` so each settling listing carries unique
+lane ids and never joins an earlier in-flight request (`"mayJoin"` is used
+only by the initial probe in `createProbeLaneListing`, which moves no
+watermark and settles no request).
 
-The only tree listing in the model is the crawl an acknowledgement owes,
-which the catch-up's sweep follows. A hint's tree listing, a start's, a
-retried crawl's, or the regained crawl that yielded to an acknowledgement and
-is restored because that acknowledgement was lost before its crawl listed
-(`connectAttemptGate.ts`) owes lanes the same way with no sweep behind it;
-those requests wait for the next acknowledged connection or the next start's
-resume, so `DebtsSettle` describes requests a catch-up's crawl recorded. The
-idle backfill a regain queues waits for the connect attempt in flight and is
-raised behind the catch-up an acknowledgement owes, which takes its lanes
+The idle backfill a regain queues waits for the connect attempt in flight and
+is raised behind the catch-up an acknowledgement owes, which takes its lanes
 over; after an attempt that ends without one it lists them. It only adds
-listings and is not modelled. Neither is the deferral of unforced lanes
-while a catch-up waits: it holds listings back until the sweep has read its
-plan, or until 15 seconds after the crawl settled, and an owed lane is
-listed either way.
+listings and is not modelled.
