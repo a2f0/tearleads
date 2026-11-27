@@ -49,6 +49,13 @@ function wrapProse(text: string, width = 78): string[] {
   return lines;
 }
 
+function wrapBullet(text: string, width = 78): string[] {
+  const wrapped = wrapProse(text, width - 2);
+  return wrapped.map((line, index) =>
+    index === 0 ? `- ${line}` : `  ${line}`,
+  );
+}
+
 /** Formats a before-vs-after comparison between two Epoch 2 snapshots. */
 export function formatComparisonMarkdown(comparison: EpochComparison): string {
   const lines = [
@@ -225,11 +232,11 @@ function renderStepComparisons(snapshots: readonly EpochSnapshot[]): string[] {
       );
     }
     if (diff.tradeoffs.length > 0) {
-      lines.push("", "**Tradeoffs:**");
+      lines.push("", "**Tradeoffs:**", "");
       for (const tradeoff of diff.tradeoffs) {
         lines.push(
-          ...wrapProse(
-            `- **${tradeoff.improvedDimension}** (${tradeoff.improvedSummary}) vs **${tradeoff.regressedDimension}** (${tradeoff.regressedSummary})`,
+          ...wrapBullet(
+            `**${tradeoff.improvedDimension}** (${tradeoff.improvedSummary}) vs **${tradeoff.regressedDimension}** (${tradeoff.regressedSummary})`,
           ),
         );
       }

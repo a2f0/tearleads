@@ -1,7 +1,7 @@
+import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { cpus } from "node:os";
-import { join, resolve } from "node:path";
-import { sourceIdentity } from "../database/artifacts";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { repositoryRoot } from "../reportFiles";
 import { compareSnapshots } from "./analyze";
 import { extractCanariesMetrics, extractInventoryMetrics } from "./extract";
@@ -64,18 +64,53 @@ function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return typeof error === "object" && error !== null && "code" in error;
 }
 
+function isValidKind(kind: unknown): boolean {
+  return kind === "baseline" || kind === "checkpoint" || kind === "final";
+}
+
+function assertManifestEntry(value: unknown, path: string, idx: number): void {
+  if (typeof value !== "object" || value === null) {
+    throw new Error(`${path} entries[${idx}] must be an object.`);
+  }
+  const issues = Reflect.get(value, "issues");
+  const seq = Reflect.get(value, "seq");
+  if (
+    typeof Reflect.get(value, "id") !== "string" ||
+    typeof seq !== "number" ||
+    !Number.isFinite(seq) ||
+    typeof Reflect.get(value, "label") !== "string" ||
+    !isValidKind(Reflect.get(value, "kind")) ||
+    typeof Reflect.get(value, "recordedAt") !== "string" ||
+    typeof Reflect.get(value, "revision") !== "string" ||
+    typeof Reflect.get(value, "dirty") !== "boolean" ||
+    !Array.isArray(issues) ||
+    !issues.every((n) => typeof n === "number") ||
+    typeof Reflect.get(value, "snapshotFile") !== "string"
+  ) {
+    throw new Error(`${path} entries[${idx}] is not a valid manifest entry.`);
+  }
+}
+
 function assertEpochManifest(
   value: unknown,
   path: string,
 ): asserts value is EpochManifest {
+  if (typeof value !== "object" || value === null) {
+    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} manifest.`);
+  }
+  const entries = Reflect.get(value, "entries");
   if (
-    typeof value !== "object" ||
-    value === null ||
     Reflect.get(value, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
     Reflect.get(value, "epoch") !== CURRENT_EPOCH ||
-    !Array.isArray(Reflect.get(value, "entries"))
+    typeof Reflect.get(value, "title") !== "string" ||
+    typeof Reflect.get(value, "startedAt") !== "string" ||
+    typeof Reflect.get(value, "description") !== "string" ||
+    !Array.isArray(entries)
   ) {
     throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} manifest.`);
+  }
+  for (const [idx, entry] of entries.entries()) {
+    assertManifestEntry(entry, path, idx);
   }
 }
 
@@ -102,7 +137,6 @@ function assertEpochSnapshot(
   if (typeof value !== "object" || value === null) {
     throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} snapshot.`);
   }
-  const kind = Reflect.get(value, "kind");
   const runtime = Reflect.get(value, "runtime");
   if (
     Reflect.get(value, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
@@ -110,13 +144,26 @@ function assertEpochSnapshot(
     typeof Reflect.get(value, "id") !== "string" ||
     typeof Reflect.get(value, "label") !== "string" ||
     typeof Reflect.get(value, "revision") !== "string" ||
-    (kind !== "baseline" && kind !== "checkpoint" && kind !== "final") ||
+    !isValidKind(Reflect.get(value, "kind")) ||
     !Array.isArray(Reflect.get(value, "issues")) ||
     typeof runtime !== "object" ||
     runtime === null
   ) {
     throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} snapshot.`);
   }
+}
+
+function resolveConfinedSnapshotPath(
+  dir: string,
+  snapshotFile: string,
+): string {
+  const resolvedDir = resolve(dir);
+  const resolvedPath = resolve(resolvedDir, snapshotFile);
+  const rel = relative(resolvedDir, resolvedPath);
+  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error(`Snapshot path '${snapshotFile}' escapes ${resolvedDir}.`);
+  }
+  return resolvedPath;
 }
 
 async function loadAllSnapshots(
@@ -126,9 +173,14 @@ async function loadAllSnapshots(
   const dir = epochDir(resultsDir);
   return Promise.all(
     manifest.entries.map(async (entry) => {
-      const path = join(dir, entry.snapshotFile);
+      const path = resolveConfinedSnapshotPath(dir, entry.snapshotFile);
       const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
       assertEpochSnapshot(parsed, path);
+      if (parsed.id !== entry.id) {
+        throw new Error(
+          `Snapshot ${path} id '${parsed.id}' does not match manifest entry '${entry.id}'.`,
+        );
+      }
       return parsed;
     }),
   );
@@ -207,6 +259,75 @@ async function extractOptional<T>(
   return inputPath ? loader(resolve(repoRoot, inputPath)) : undefined;
 }
 
+function gitSourceIdentity(repoRoot: string): {
+  readonly revision: string;
+  readonly dirty: boolean;
+} {
+  const git = (...args: string[]) =>
+    execFileSync("git", args, { cwd: repoRoot, encoding: "utf8" }).trim();
+  return {
+    revision: git("rev-parse", "HEAD"),
+    dirty: git("status", "--porcelain").length > 0,
+  };
+}
+
+async function readReportProvenance(
+  path: string,
+): Promise<{ readonly revision?: string; readonly dirty?: boolean }> {
+  const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
+  if (typeof parsed !== "object" || parsed === null) return {};
+  const revision = Reflect.get(parsed, "revision");
+  const dirty = Reflect.get(parsed, "dirty");
+  return {
+    ...(typeof revision === "string" && revision.length > 0
+      ? { revision }
+      : {}),
+    ...(typeof dirty === "boolean" ? { dirty } : {}),
+  };
+}
+
+async function resolveProvenance(
+  options: RecordOptions,
+  repoRoot: string,
+  canaries: { readonly revision: string; readonly dirty: boolean } | undefined,
+): Promise<{ readonly revision: string; readonly dirty: boolean }> {
+  const inputPaths = [
+    options.inventory,
+    options.plans,
+    options.scenarios,
+    options.reload,
+    options.realtime,
+    options.rotations,
+    options.baselines,
+  ].filter((p): p is string => p !== undefined);
+
+  const sources: { readonly revision?: string; readonly dirty?: boolean }[] = [
+    ...(canaries
+      ? [{ revision: canaries.revision, dirty: canaries.dirty }]
+      : []),
+    ...(await Promise.all(
+      inputPaths.map((p) => readReportProvenance(resolve(repoRoot, p))),
+    )),
+  ];
+  const revisions = [
+    ...new Set(
+      sources
+        .map((s) => s.revision)
+        .filter((r): r is string => r !== undefined),
+    ),
+  ];
+  if (revisions.length > 1) {
+    throw new Error(
+      `Input reports come from different revisions: ${revisions.join(", ")}.`,
+    );
+  }
+  const revision = revisions[0];
+  if (revision !== undefined) {
+    return { revision, dirty: sources.some((s) => s.dirty === true) };
+  }
+  return gitSourceIdentity(repoRoot);
+}
+
 async function buildSnapshot(
   options: RecordOptions,
   repoRoot: string,
@@ -231,7 +352,11 @@ async function buildSnapshot(
     extractOptional(repoRoot, options.baselines, extractBaselineMetrics),
   ]);
 
-  const fallbackSource = sourceIdentity();
+  const provenance = await resolveProvenance(
+    options,
+    repoRoot,
+    canariesExtracted,
+  );
   return {
     schemaVersion: EPOCH_SCHEMA_VERSION,
     epoch: CURRENT_EPOCH,
@@ -239,8 +364,8 @@ async function buildSnapshot(
     label: options.label,
     kind: options.kind,
     recordedAt: new Date().toISOString(),
-    revision: canariesExtracted?.revision ?? fallbackSource.revision,
-    dirty: canariesExtracted?.dirty ?? fallbackSource.dirty,
+    revision: provenance.revision,
+    dirty: provenance.dirty,
     ...(options.pr !== undefined ? { pr: options.pr } : {}),
     issues: options.issues,
     runtime: canariesExtracted?.runtime ?? currentRuntime(),

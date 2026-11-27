@@ -21,11 +21,18 @@ afterEach(async () => {
   }
 });
 
-function writeSamplePlans(sortQueries: number, path: string): Promise<void> {
+function writeSamplePlans(
+  sortQueries: number,
+  path: string,
+  revision = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  dirty = false,
+): Promise<void> {
   return writeFile(
     path,
     JSON.stringify({
       scenario: "postgres-query-plans",
+      revision,
+      dirty,
       summary: {
         inspected: 25,
         planned: 23,
@@ -224,5 +231,74 @@ describe("runEpochCommand", () => {
     await expect(runEpochCommand(["render"], host)).rejects.toThrow(
       /not a valid Epoch 2 snapshot/u,
     );
+
+    // Mismatched snapshot ID throws.
+    await writeFile(
+      join(resultsDir, "epoch-2/snapshots/001-after.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        epoch: 2,
+        id: "wrong-id",
+        label: "Wrong",
+        kind: "checkpoint",
+        recordedAt: "2026-11-27T00:00:00Z",
+        revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        dirty: false,
+        issues: [],
+        runtime: { bun: "1", platform: "darwin", arch: "arm64", cpu: null },
+      }),
+    );
+    await expect(runEpochCommand(["render"], host)).rejects.toThrow(
+      /does not match manifest entry/u,
+    );
+
+    // Path traversal in manifest snapshotFile throws.
+    const manifestPath = join(resultsDir, "epoch-2/manifest.json");
+    const manifest = JSON.parse(
+      await readFile(manifestPath, "utf8"),
+    ) as EpochManifest;
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        ...manifest,
+        entries: [{ ...manifest.entries[0], snapshotFile: "../escape.json" }],
+      }),
+    );
+    await expect(runEpochCommand(["render"], host)).rejects.toThrow(/escapes/u);
+
+    // Mismatched revisions across input reports throws.
+    const plansRevB = join(dir, "plans-b.json");
+    const reloadRevA = join(dir, "reload-a.json");
+    await writeSamplePlans(
+      0,
+      plansRevB,
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    );
+    await writeFile(
+      reloadRevA,
+      JSON.stringify({
+        scenario: "document-reload",
+        status: "complete",
+        revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        dirty: false,
+        summary: [],
+      }),
+    );
+    await expect(
+      runEpochCommand(
+        [
+          "record",
+          "--id",
+          "002-mix",
+          "--label",
+          "Mix",
+          "--plans",
+          plansRevB,
+          "--reload",
+          reloadRevA,
+        ],
+        { ...host, resultsDir: join(dir, "mix") },
+      ),
+    ).rejects.toThrow(/different revisions/u);
   });
 });

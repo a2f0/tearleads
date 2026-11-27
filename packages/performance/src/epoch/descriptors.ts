@@ -1,3 +1,17 @@
+import {
+  largestBaselinePhase,
+  largestRealtimeDeclaration,
+  largestRotationPhase,
+  matchingCanaryAggregatePair,
+  settledReloadRow,
+  sharedBaselinePhase,
+  sharedCanaryMaxPair,
+  sharedCanarySumPair,
+  sharedRealtimeDeclaration,
+  sharedRotationPhase,
+  sharedScenarioSumPair,
+  sharedSettledReload,
+} from "./descriptorPickers";
 import type { EpochSnapshot } from "./schema";
 
 export type MetricDimension =
@@ -23,112 +37,13 @@ export interface MetricDescriptor {
   /** Single-snapshot picker for display scorecards. */
   readonly pick: (snapshot: EpochSnapshot) => number | null | undefined;
   /**
-   * Optional pair-aware picker that aligns two snapshots on their largest
-   * shared scaling tier so mismatched sizes are never compared directly.
+   * Optional pair-aware picker that aligns two snapshots on shared canary,
+   * scenario, or scaling tiers so mismatched subsets are never compared directly.
    */
   readonly pickPair?: (
     before: EpochSnapshot,
     after: EpochSnapshot,
   ) => readonly [number, number] | undefined;
-}
-
-function largestSharedRow<T>(
-  beforeRows: readonly T[] | undefined,
-  afterRows: readonly T[] | undefined,
-  keyOf: (row: T) => string,
-  rankOf: (row: T) => number,
-): readonly [T, T] | undefined {
-  if (!beforeRows || !afterRows) return undefined;
-  const afterByKey = new Map(afterRows.map((row) => [keyOf(row), row]));
-  let best: readonly [T, T] | undefined;
-  let bestRank = -Infinity;
-  for (const b of beforeRows) {
-    const a = afterByKey.get(keyOf(b));
-    if (!a) continue;
-    const rank = rankOf(b);
-    if (rank > bestRank) {
-      bestRank = rank;
-      best = [b, a];
-    }
-  }
-  return best;
-}
-
-function settledReloadRow(snapshot: EpochSnapshot) {
-  const settled = snapshot.reload?.filter((row) => row.reload === "settled");
-  return settled && settled.length > 0
-    ? [...settled].sort((a, b) => b.documents - a.documents)[0]
-    : undefined;
-}
-
-function sharedSettledReload(before: EpochSnapshot, after: EpochSnapshot) {
-  return largestSharedRow(
-    before.reload?.filter((row) => row.reload === "settled"),
-    after.reload?.filter((row) => row.reload === "settled"),
-    (r) => `${r.documents}:${r.folders}`,
-    (r) => r.documents,
-  );
-}
-
-function largestRealtimeDeclaration(snapshot: EpochSnapshot) {
-  const decls = snapshot.realtime?.filter((row) => row.pass === "declaration");
-  return decls && decls.length > 0
-    ? [...decls].sort((a, b) => b.size - a.size)[0]
-    : undefined;
-}
-
-function sharedRealtimeDeclaration(
-  before: EpochSnapshot,
-  after: EpochSnapshot,
-) {
-  return largestSharedRow(
-    before.realtime?.filter((row) => row.pass === "declaration"),
-    after.realtime?.filter((row) => row.pass === "declaration"),
-    (r) => `${r.size}`,
-    (r) => r.size,
-  );
-}
-
-function largestRotationPhase(snapshot: EpochSnapshot, phase: string) {
-  const rows = snapshot.rotations?.filter((row) => row.phase === phase);
-  return rows && rows.length > 0
-    ? [...rows].sort(
-        (a, b) => b.rotations - a.rotations || b.depth - a.depth,
-      )[0]
-    : undefined;
-}
-
-function sharedRotationPhase(
-  before: EpochSnapshot,
-  after: EpochSnapshot,
-  phase: string,
-) {
-  return largestSharedRow(
-    before.rotations?.filter((row) => row.phase === phase),
-    after.rotations?.filter((row) => row.phase === phase),
-    (r) => `${r.rotations}:${r.depth}`,
-    (r) => r.rotations * 1000 + r.depth,
-  );
-}
-
-function largestBaselinePhase(snapshot: EpochSnapshot, phase: string) {
-  const rows = snapshot.baselines?.filter((row) => row.phase === phase);
-  return rows && rows.length > 0
-    ? [...rows].sort((a, b) => b.sizeMiB - a.sizeMiB)[0]
-    : undefined;
-}
-
-function sharedBaselinePhase(
-  before: EpochSnapshot,
-  after: EpochSnapshot,
-  phase: string,
-) {
-  return largestSharedRow(
-    before.baselines?.filter((row) => row.phase === phase),
-    after.baselines?.filter((row) => row.phase === phase),
-    (r) => `${r.sizeMiB}:${r.race}`,
-    (r) => r.sizeMiB,
-  );
 }
 
 /** Canonical cross-dimension scorecard tracked across every Epoch 2 snapshot. */
@@ -195,6 +110,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.canaries?.requests,
+    pickPair: (b, a) =>
+      sharedCanarySumPair(
+        b,
+        a,
+        (c) => c.requests,
+        (e) => e.requests,
+      ),
   },
   {
     key: "canaries.requestBytes",
@@ -204,6 +126,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0.5,
     pick: (s) => s.canaries?.requestBytes,
+    pickPair: (b, a) =>
+      sharedCanarySumPair(
+        b,
+        a,
+        (c) => c.requestBytes,
+        (e) => e.requestBytes,
+      ),
   },
   {
     key: "canaries.responseBytes",
@@ -213,6 +142,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0.5,
     pick: (s) => s.canaries?.responseBytes,
+    pickPair: (b, a) =>
+      sharedCanarySumPair(
+        b,
+        a,
+        (c) => c.responseBytes,
+        (e) => e.responseBytes,
+      ),
   },
   {
     key: "canaries.redundantBytes",
@@ -222,6 +158,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0.5,
     pick: (s) => s.canaries?.redundantBytes,
+    pickPair: (b, a) =>
+      sharedCanarySumPair(
+        b,
+        a,
+        (c) => c.redundantBytes,
+        (e) => e.redundantBytes,
+      ),
   },
   {
     key: "canaries.exactHeadRereads",
@@ -231,6 +174,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.canaries?.exactHeadRereads,
+    pickPair: (b, a) =>
+      sharedCanarySumPair(
+        b,
+        a,
+        (c) => c.exactHeadRereads,
+        (e) => e.exactHeadRereads,
+      ),
   },
   {
     key: "canaries.apiStatements",
@@ -240,6 +190,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.canaries?.apiStatements,
+    pickPair: (b, a) =>
+      sharedCanarySumPair(
+        b,
+        a,
+        (c) => c.apiStatements,
+        (e) => e.apiStatements,
+      ),
   },
   {
     key: "canaries.apiTxStatements",
@@ -249,6 +206,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.canaries?.apiTxStatements,
+    pickPair: (b, a) =>
+      sharedCanarySumPair(
+        b,
+        a,
+        (c) => c.apiTxStatements,
+        (e) => e.apiTxStatements,
+      ),
   },
   {
     key: "canaries.apiLockHoldStatements",
@@ -258,6 +222,8 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.canaries?.apiLockHoldStatements,
+    pickPair: (b, a) =>
+      matchingCanaryAggregatePair(b, a, (c) => c.apiLockHoldStatements),
   },
   {
     key: "canaries.apiPureReadRepeats",
@@ -267,6 +233,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.canaries?.apiPureReadRepeats,
+    pickPair: (b, a) =>
+      sharedCanarySumPair(
+        b,
+        a,
+        (c) => c.apiPureReadRepeats,
+        (e) => e.apiPureReadRepeats,
+      ),
   },
   {
     key: "canaries.clientSqlStatements",
@@ -276,6 +249,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.canaries?.clientSqlStatements,
+    pickPair: (b, a) =>
+      sharedCanarySumPair(
+        b,
+        a,
+        (c) => c.clientSqlStatements,
+        (e) => e.clientSqlStatements,
+      ),
   },
   {
     key: "canaries.clientSqlTxControls",
@@ -285,6 +265,8 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.canaries?.clientSqlTxControls,
+    pickPair: (b, a) =>
+      matchingCanaryAggregatePair(b, a, (c) => c.clientSqlTxControls),
   },
   {
     key: "canaries.clientSqlDurationMs",
@@ -294,6 +276,8 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 5,
     pick: (s) => s.canaries?.clientSqlDurationMs,
+    pickPair: (b, a) =>
+      matchingCanaryAggregatePair(b, a, (c) => c.clientSqlDurationMs),
   },
   {
     key: "canaries.clientSqlMaxHoldMs",
@@ -303,6 +287,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 10,
     pick: (s) => s.canaries?.clientSqlMaxHoldMs,
+    pickPair: (b, a) =>
+      sharedCanaryMaxPair(
+        b,
+        a,
+        (c) => c.clientSqlMaxHoldMs,
+        (e) => e.clientSqlMaxHoldMs,
+      ),
   },
   {
     key: "plans.seqScanQueries",
@@ -339,6 +330,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.scenarios?.requests,
+    pickPair: (b, a) =>
+      sharedScenarioSumPair(
+        b,
+        a,
+        (s) => s.requests,
+        (e) => e.requests,
+      ),
   },
   {
     key: "scenarios.apiStatements",
@@ -348,6 +346,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.scenarios?.apiStatements,
+    pickPair: (b, a) =>
+      sharedScenarioSumPair(
+        b,
+        a,
+        (s) => s.apiStatements,
+        (e) => e.apiStatements,
+      ),
   },
   {
     key: "scenarios.pureReadRepeats",
@@ -357,6 +362,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.scenarios?.pureReadRepeats,
+    pickPair: (b, a) =>
+      sharedScenarioSumPair(
+        b,
+        a,
+        (s) => s.pureReadRepeats,
+        (e) => e.pureReadRepeats,
+      ),
   },
   {
     key: "scenarios.clientSqlStatements",
@@ -366,6 +378,13 @@ export const epochMetricDescriptors: readonly MetricDescriptor[] = [
     direction: "lower-is-better",
     noiseThresholdPct: 0,
     pick: (s) => s.scenarios?.clientSqlStatements,
+    pickPair: (b, a) =>
+      sharedScenarioSumPair(
+        b,
+        a,
+        (s) => s.clientSqlStatements,
+        (e) => e.clientSqlStatements,
+      ),
   },
   {
     key: "reload.settled.requests",

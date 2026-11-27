@@ -124,10 +124,11 @@ function sumRepeatField(
 async function summarizeRunStatements(
   run: CanaryRun,
 ): Promise<ParsedRunStatements | null> {
-  if (run.statements.status === "off") return null;
+  if (run.statements.status !== "captured") return null;
   const raw = await readCaptureFile(run.statements.capture).catch(() => null);
   if (raw === null) return null;
   const summary = summarizeCapture(parseCapture(raw), 50);
+  if (summary.truncated) return null;
   return {
     summary,
     sameKeyRepeats: sumRepeatField(summary, "sameKeyRepeats"),
@@ -137,23 +138,20 @@ async function summarizeRunStatements(
 
 async function countTxControls(run: CanaryRun): Promise<number | null> {
   if (run.clientSql?.status !== "captured") return null;
+  if (run.clientSql.summary.truncated) return null;
   const raw = await readCaptureFile(run.clientSql.capture).catch(() => null);
-  if (raw !== null) {
-    let count = 0;
-    for (const record of parseClientSqlCapture(raw)) {
-      if (
-        "kind" in record &&
-        record.kind === "stmt" &&
-        isTxControlSql(record.sql)
-      ) {
-        count += 1;
-      }
+  if (raw === null) return null;
+  let count = 0;
+  for (const record of parseClientSqlCapture(raw)) {
+    if (
+      "kind" in record &&
+      record.kind === "stmt" &&
+      isTxControlSql(record.sql)
+    ) {
+      count += 1;
     }
-    return count;
   }
-  return run.clientSql.summary.top
-    .filter((entry) => isTxControlSql(entry.sql))
-    .reduce((sum, entry) => sum + entry.count, 0);
+  return count;
 }
 
 function mergeRouteStats(

@@ -319,8 +319,153 @@ describe("compareSnapshots", () => {
     expect(multiTierTrends).toContain(
       "| Realtime | Realtime hub auth statements | 9 stmts | 3 stmts | -6 (-66.7%) | improved |",
     );
+    expect(multiTierTrends).toContain("\n**Tradeoffs:**\n\n- **");
     expect(formatResultsIndexMarkdown(manifest, [before])).toContain(
       "# Performance results",
     );
+  });
+
+  test("aligns canary/scenario comparisons on shared names and tie-breaks reload/baseline tiers", () => {
+    const makeCanary = (
+      canary: string,
+      requests: number,
+      apiStatements: number,
+    ) => ({
+      canary,
+      wallMs: 100,
+      requests,
+      requestBytes: requests * 10,
+      responseBytes: requests * 20,
+      redundantBytes: requests * 2,
+      exactHeadRereads: 1,
+      apiStatements,
+      apiTxStatements: apiStatements - 10,
+      apiPureReadRepeats: 2,
+      clientSqlStatements: requests * 10,
+      clientSqlMaxHoldMs: 10,
+    });
+    const makeScenario = (scenario: string, requests: number) => ({
+      scenario,
+      wallMs: 100,
+      requests,
+      conflicts: 0,
+      requestBytes: 100,
+      responseBytes: 100,
+      apiStatements: requests * 5,
+      pureReadRepeats: 5,
+      clientSqlStatements: 80,
+    });
+    const baseCanaries = sampleSnapshot().canaries;
+    if (!baseCanaries) throw new Error("expected sample canaries");
+    const reload = [
+      {
+        documents: 100,
+        folders: 5,
+        reload: "settled",
+        medianRequests: 8,
+        medianSettledMs: 20,
+        medianApiStatements: 40,
+        medianClientStatements: 80,
+      },
+      {
+        documents: 100,
+        folders: 10,
+        reload: "settled",
+        medianRequests: 6,
+        medianSettledMs: 20,
+        medianApiStatements: 30,
+        medianClientStatements: 60,
+      },
+    ];
+    const baselines = [
+      {
+        phase: "first-unlink-rotate",
+        sizeMiB: 5,
+        race: false,
+        baselineMode: "inline",
+        medianWallMs: 100,
+        medianRequests: 4,
+        maxConflicts: 0,
+        medianPgStatements: 90,
+        medianLocalSqlCalls: 100,
+        peakRssDeltaMiB: 10,
+      },
+      {
+        phase: "first-unlink-rotate",
+        sizeMiB: 5,
+        race: true,
+        baselineMode: "inline",
+        medianWallMs: 100,
+        medianRequests: 4,
+        maxConflicts: 0,
+        medianPgStatements: 120,
+        medianLocalSqlCalls: 100,
+        peakRssDeltaMiB: 10,
+      },
+    ];
+    const base = sampleSnapshot({
+      canaries: {
+        ...baseCanaries,
+        canaryCount: 2,
+        requests: 30,
+        apiLockHoldStatements: 200,
+        byCanary: [makeCanary("Alpha", 10, 50), makeCanary("Beta", 20, 60)],
+      },
+      scenarios: {
+        scenarioCount: 1,
+        wallMs: 100,
+        requests: 10,
+        conflicts: 0,
+        requestBytes: 100,
+        responseBytes: 100,
+        apiStatements: 50,
+        pureReadRepeats: 5,
+        clientSqlStatements: 80,
+        byScenario: [makeScenario("s1", 10)],
+      },
+      reload,
+      baselines,
+    });
+    const next = sampleSnapshot({
+      id: "001-subset",
+      canaries: {
+        ...baseCanaries,
+        canaryCount: 1,
+        requests: 8,
+        apiLockHoldStatements: 50,
+        byCanary: [makeCanary("Alpha", 8, 40)],
+      },
+      scenarios: {
+        scenarioCount: 2,
+        wallMs: 200,
+        requests: 25,
+        conflicts: 0,
+        requestBytes: 200,
+        responseBytes: 200,
+        apiStatements: 140,
+        pureReadRepeats: 12,
+        clientSqlStatements: 180,
+        byScenario: [makeScenario("s1", 9), makeScenario("s2-new", 16)],
+      },
+      reload,
+      baselines,
+    });
+    const diff = compareSnapshots(base, next);
+    expect(
+      diff.metrics.find((m) => m.key === "canaries.requests"),
+    ).toMatchObject({ before: 10, after: 8 });
+    expect(
+      diff.metrics.find((m) => m.key === "canaries.apiLockHoldStatements"),
+    ).toBeUndefined();
+    expect(
+      diff.metrics.find((m) => m.key === "scenarios.requests"),
+    ).toMatchObject({ before: 10, after: 9 });
+    expect(
+      diff.metrics.find((m) => m.key === "reload.settled.requests")?.before,
+    ).toBe(6);
+    expect(
+      diff.metrics.find((m) => m.key === "baselines.firstUnlink.pgStatements")
+        ?.before,
+    ).toBe(120);
   });
 });

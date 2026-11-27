@@ -311,6 +311,93 @@ describe("extractCanariesMetrics", () => {
     );
     expect(missingNonZero.metrics.requests).toBeNull();
 
+    // Unmatched statements, truncated statements, and missing raw clientSql yield null.
+    const truncStmtPath = join(dir, "trunc.statements.jsonl");
+    await writeFile(
+      truncStmtPath,
+      [
+        JSON.stringify({ label: "t", sql: "select 1", params: 0 }),
+        JSON.stringify({ truncated: 1 }),
+      ].join("\n"),
+    );
+    const incompletePath = join(dir, "canaries-incomplete.json");
+    await writeFile(
+      incompletePath,
+      JSON.stringify({
+        schemaVersion: 2,
+        scenario: "request-volume-canaries",
+        runId: "r2c",
+        startedAt: "2026-11-27T00:00:00.000Z",
+        updatedAt: "2026-11-27T00:01:00.000Z",
+        status: "complete",
+        revision: "53819b364",
+        dirty: false,
+        runtime: { bun: "1.4.3", platform: "darwin", arch: "arm64", cpu: "M2" },
+        options: {
+          canaries: [],
+          samples: 1,
+          statements: true,
+          paramHash: true,
+          clientStatements: true,
+        },
+        boundary: "test",
+        summary: [],
+        runs: [
+          {
+            canary: "TruncCanary",
+            file: "t.test.tsx",
+            sample: 1,
+            status: "passed",
+            exitCode: 0,
+            wallMs: 100,
+            tests: { pass: 1, fail: 0 },
+            log: "t.log",
+            phases: [{ label: "p1", total: 1 }],
+            statements: {
+              status: "captured",
+              capture: truncStmtPath,
+              perPhase: [1],
+            },
+            clientSql: {
+              status: "captured",
+              capture: join(dir, "nonexistent-client-sql.jsonl"),
+              summary: {
+                label: "total",
+                statements: 10,
+                inLockStatements: 5,
+                durationMs: 2,
+                mutations: 1,
+                maxMutationHoldMs: 1,
+                maxMutationWaitMs: 0,
+                maxStatementsPerMutation: 5,
+                avgStatementsPerMutation: 5,
+                truncated: false,
+                phases: [],
+                top: [{ sql: "BEGIN IMMEDIATE", count: 1, durationMs: 0.1 }],
+              },
+            },
+          },
+          {
+            canary: "UnmatchedCanary",
+            file: "u.test.tsx",
+            sample: 1,
+            status: "passed",
+            exitCode: 0,
+            wallMs: 100,
+            tests: { pass: 1, fail: 0 },
+            log: "u.log",
+            phases: [{ label: "p1", total: 1 }],
+            statements: { status: "unmatched", capture: stmtPath },
+          },
+        ],
+      }),
+    );
+    const incomplete = await extractCanariesMetrics(incompletePath);
+    expect(incomplete.metrics.apiStatements).toBeNull();
+    expect(incomplete.metrics.clientSqlTxControls).toBeNull();
+    expect(incomplete.metrics.byCanary[0]?.apiStatements).toBeNull();
+    expect(incomplete.metrics.byCanary[1]?.apiStatements).toBeNull();
+
     const failedPath = join(dir, "canaries-failed.json");
     await writeFile(
       failedPath,
