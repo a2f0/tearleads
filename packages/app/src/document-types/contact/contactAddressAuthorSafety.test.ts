@@ -112,7 +112,8 @@ for (const surface of addressSurfaces) {
       expect(
         (await settle(f.actions.onAddAddress(retryFields, intent))).status,
       ).toBe("rejected");
-      expect(f.generatedIds).toHaveLength(1);
+      // The refused add returned null rather than a bogus row id.
+      expect(f.generatedIds).toEqual([]);
       // A valid successor must not uncover a hidden stale row in live Loro.
       await f.document.setStructuredFields("contact", {});
       expect(content(await f.reopen())).toEqual(durableBefore);
