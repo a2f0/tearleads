@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { emptyTraffic, type PostgresTraffic } from "../realtime/postgresWire";
+import { emptyTraffic, type PostgresTraffic } from "../inProcess/postgresWire";
 import { measureReloads, type ReloadMeasurement } from "./measureReload";
 import type { ReloadOutcome } from "./reloadAccount";
 

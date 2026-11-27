@@ -1,4 +1,4 @@
-import { ascendingIntegers, integer } from "../realtime/optionValues";
+import { ascendingIntegers, integer } from "../inProcess/optionValues";
 
 export interface ReloadOptions {
   /** Note counts the account grows to, ascending. */

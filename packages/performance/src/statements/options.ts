@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { integer } from "../realtime/optionValues";
+import { integer } from "../inProcess/optionValues";
 
 export type StatementOptions =
   | {

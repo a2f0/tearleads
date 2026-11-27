@@ -1,5 +1,9 @@
 import { parseArgs } from "node:util";
-import { ascendingIntegers, integer, MAX_DECLARED_IDS } from "./optionValues";
+import {
+  ascendingIntegers,
+  integer,
+  MAX_DECLARED_IDS,
+} from "../inProcess/optionValues";
 
 export interface RealtimeOptions {
   /** Declared folder counts, ascending; the largest sets the seeded tree. */

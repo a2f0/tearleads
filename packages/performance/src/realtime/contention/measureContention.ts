@@ -1,3 +1,8 @@
+import type { InProcessApi } from "../../inProcess/inProcessApi";
+import {
+  type PostgresTraffic,
+  trafficSince,
+} from "../../inProcess/postgresWire";
 import type { SeededTree } from "../artifacts";
 import {
   type AuthorizationCall,
@@ -5,8 +10,6 @@ import {
   type ProbeHub,
   type ProbeSocket,
 } from "../hubSocket";
-import type { InProcessApi } from "../inProcessApi";
-import { type PostgresTraffic, trafficSince } from "../postgresWire";
 import { type ResourceUse, startResourceSampler } from "../resources";
 import { type HintLag, startHintMonitor, systemClock } from "./hintMonitor";
 import type { ContentionOptions } from "./options";
