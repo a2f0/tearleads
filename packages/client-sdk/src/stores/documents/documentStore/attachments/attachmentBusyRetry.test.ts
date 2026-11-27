@@ -226,8 +226,8 @@ test("replace and remove retry busy refusals cleanly without reporting errors", 
   }
 });
 
-test("exhausted busy attach and remove roll back staged bytes and snapshot and report loss", async () => {
-  const database = await createTestExecSql("attach-remove-busy-exhausted");
+test("exhausted busy attach rolls back staged bytes and snapshot and reports loss", async () => {
+  const database = await createTestExecSql("attach-busy-exhausted");
   const reported: unknown[] = [];
   const sdk = new Tearleads({
     logger: { log: () => undefined, logError: (_m, e) => reported.push(e) },
@@ -253,19 +253,12 @@ test("exhausted busy attach and remove roll back staged bytes and snapshot and r
       },
     );
 
-    let failAllStagingCommits = true;
-    let failAllRemovalCommits = false;
     let stagingAttempts = 0;
-    let removalAttempts = 0;
     const persistence: DocumentsPersistence = {
       ...sqlDocumentsPersistence,
       async commitDocumentMutation(...args) {
-        if (args[1].attachmentStaging && failAllStagingCommits) {
+        if (args[1].attachmentStaging) {
           stagingAttempts += 1;
-          throw busyRefusal();
-        }
-        if (args[1].attachmentRemoval && failAllRemovalCommits) {
-          removalAttempts += 1;
           throw busyRefusal();
         }
         return sqlDocumentsPersistence.commitDocumentMutation(...args);
@@ -287,9 +280,39 @@ test("exhausted busy attach and remove roll back staged bytes and snapshot and r
     expect(writtenKeys).toHaveLength(1);
     expect(await innerBlobStore.readBytes(writtenKeys[0] ?? "")).toBeNull();
     expect(reported).toHaveLength(1);
+  } finally {
+    sdk.dispose();
+    database.close();
+  }
+});
 
-    // Attach cleanly once busy clears, then exhaust retries on removal.
-    failAllStagingCommits = false;
+test("exhausted busy remove rolls back the snapshot and reports loss", async () => {
+  const database = await createTestExecSql("remove-busy-exhausted");
+  const reported: unknown[] = [];
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: (_m, e) => reported.push(e) },
+  });
+  try {
+    let failAllRemovalCommits = false;
+    let removalAttempts = 0;
+    const persistence: DocumentsPersistence = {
+      ...sqlDocumentsPersistence,
+      async commitDocumentMutation(...args) {
+        if (args[1].attachmentRemoval && failAllRemovalCommits) {
+          removalAttempts += 1;
+          throw busyRefusal();
+        }
+        return sqlDocumentsPersistence.commitDocumentMutation(...args);
+      },
+    };
+
+    const state = await createAttachmentStore({
+      execSql: database.execSql,
+      localId: "exhausted-remove-doc",
+      persistence,
+      sdk,
+    });
+
     await attachFilesToDocumentStore(state, noop, [FILE_A]);
     const slotId = state.snapshot.attachments[0]?.slotId;
     if (!slotId) throw new Error("Expected attached slot");

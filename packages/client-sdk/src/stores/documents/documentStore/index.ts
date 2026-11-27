@@ -41,10 +41,10 @@ import { restoreDocumentStoreContent } from "./history/restoreContent";
 import {
   ensureDocumentStoreInitialized,
   ensureDocumentStoreReady,
-  relinkDocumentStore,
 } from "./initialization";
 import { applyDocumentStoreCreationOptions } from "./initialization/initialContent";
 import { joinBackingDocumentStoreOpen } from "./initialization/openJoin";
+import { relinkDocumentStore } from "./initialization/relinkDocumentStore";
 import { registerInternalDocumentRelink } from "./internalRelink";
 import { countQueuedWrite } from "./localWriteQueue";
 import { setDocumentStructuredFields, setDocumentText } from "./mutations";

@@ -12,7 +12,7 @@ import {
   removeRowFromDocumentStore,
   updateRowInDocumentStore,
 } from "../rows";
-import { createDocumentStoreState } from "../state";
+import { createDocumentStoreState, resetDocumentStore } from "../state";
 import { ensureDocumentStoreReady } from "./index";
 
 const noop = () => undefined;
@@ -232,6 +232,121 @@ test("exhausted busy initialization returns null from addRow and reports the los
     expect(nextId).toBeString();
     expect(state.initialized).toBe(true);
     expect(state.snapshot.rows.map((row) => row.id)).toEqual([nextId ?? ""]);
+  } finally {
+    sdk.dispose();
+    database.close();
+  }
+});
+
+test("a store reset during the busy init pause neither clobbers the replacement init nor logs an error", async () => {
+  const database = await createTestExecSql("init-busy-reset-during-pause");
+  const reported: unknown[] = [];
+  const logged: string[] = [];
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: (_m, e) => reported.push(e) },
+  });
+  try {
+    await sqlDocumentsPersistence.ensureSchema(database.execSql);
+    let loadCall = 0;
+    const enteredPause = Promise.withResolvers<void>();
+    const replacementStarted = Promise.withResolvers<void>();
+    const releaseReplacement = Promise.withResolvers<void>();
+    const persistence: DocumentsPersistence = {
+      ...sqlDocumentsPersistence,
+      async loadDocumentStoreState(...args) {
+        loadCall += 1;
+        if (loadCall === 1) {
+          enteredPause.resolve();
+          throw busyRefusal();
+        }
+        if (loadCall === 2) {
+          replacementStarted.resolve();
+          await releaseReplacement.promise;
+        }
+        return sqlDocumentsPersistence.loadDocumentStoreState(...args);
+      },
+    };
+    const state = createColdStore({
+      execSql: database.execSql,
+      localId: "init-reset-doc",
+      logged,
+      persistence,
+      sdk,
+    });
+
+    const firstInit = ensureDocumentStoreReady(state, noop);
+    await enteredPause.promise;
+    // Reset and immediately start a replacement initialization while the first
+    // attempt is sleeping in its 100 ms busy pause.
+    resetDocumentStore(state);
+    state.deferInitialUpdate = true;
+    const replacementInit = ensureDocumentStoreReady(state, noop);
+    await replacementStarted.promise;
+    const replacementPromise = state.initializePromise;
+
+    // Wait for the stale first initialization to exit its pause while the
+    // replacement is still in flight.
+    expect(await firstInit).toBe(false);
+    expect(state.initializePromise).toBe(replacementPromise);
+    expect(state.deferInitialUpdate).toBe(true);
+    expect(reported).toEqual([]);
+
+    releaseReplacement.resolve();
+    expect(await replacementInit).toBe(true);
+    expect(state.initialized).toBe(true);
+    expect(state.deferInitialUpdate).toBe(true);
+    expect(reported).toEqual([]);
+  } finally {
+    sdk.dispose();
+    database.close();
+  }
+});
+
+test("a failed initialization after loading clears partial doc and record state", async () => {
+  const database = await createTestExecSql("init-busy-partial-cleanup");
+  const reported: unknown[] = [];
+  const logged: string[] = [];
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: (_m, e) => reported.push(e) },
+  });
+  try {
+    await sqlDocumentsPersistence.ensureSchema(database.execSql);
+    let failAllLoads = false;
+    let createCalls = 0;
+    const persistence: DocumentsPersistence = {
+      ...sqlDocumentsPersistence,
+      async loadDocumentStoreState(...args) {
+        if (failAllLoads) throw busyRefusal();
+        return sqlDocumentsPersistence.loadDocumentStoreState(...args);
+      },
+      async createDocumentWithHistoryCheckpoint(...args) {
+        createCalls += 1;
+        const result =
+          await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+            ...args,
+          );
+        // After birth commits, the post-create reload and subsequent retries
+        // all hit busy, forcing initialization to fail after `state.record` was
+        // installed during `saveDocumentRecord`.
+        failAllLoads = true;
+        return result;
+      },
+    };
+    const state = createColdStore({
+      execSql: database.execSql,
+      localId: "init-partial-doc",
+      logged,
+      persistence,
+      sdk,
+    });
+
+    await expect(ensureDocumentStoreReady(state, noop)).rejects.toThrow();
+    expect(createCalls).toBe(1);
+    expect(state.initialized).toBe(false);
+    expect(state.record).toBeNull();
+    expect(state.doc).toBeNull();
+    expect(state.pendingBaseVersion).toBeNull();
+    expect(state.snapshot.ready).toBe(false);
   } finally {
     sdk.dispose();
     database.close();

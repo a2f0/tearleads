@@ -5,6 +5,7 @@ import {
 } from "../../../../data/documents/documentRestore";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import {
+  classifyDatabaseFailure,
   type DocumentRecord,
   retryWhileDatabaseBusy,
 } from "../../../../workflows/documents";
@@ -202,6 +203,16 @@ export async function restoreDocumentStoreContent(
         );
       })
       .catch((error: unknown) => {
+        const stillCurrent =
+          state.localWriteGeneration === writeGeneration &&
+          state.runtime.infra.dbStatus === "ready";
+        if (classifyDatabaseFailure(error) === "busy" && !stillCurrent) {
+          noteDocumentStoreWrite(
+            state,
+            `${RESTORE_FAILURE_MESSAGE} after store state moved on`,
+          );
+          return;
+        }
         reportDocumentStoreWriteFailure(state, RESTORE_FAILURE_MESSAGE, error);
       })
       // Always settle, so the count cannot stick above zero.

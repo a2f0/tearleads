@@ -1,13 +1,21 @@
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
+import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "../../../../workflows/documents";
+import { requestDocumentStoreSync } from "../../registry";
 import {
   deleteUnreferencedStagedAttachmentBytes,
   type stagePendingAttachments,
 } from "../attachmentUpload/attachmentStaging";
 import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
+import { ensureDocumentStoreInitialized } from "../initialization";
 import { persistDocument } from "../persistence";
-import { noteDocumentStoreWrite } from "../reportWriteFailure";
-import type { DocumentStoreState } from "../state";
+import {
+  noteDocumentStoreWrite,
+  reportDocumentStoreWriteFailure,
+} from "../reportWriteFailure";
+import { type DocumentStoreState, resetDocumentStore } from "../state";
 import {
   type captureDocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
@@ -21,6 +29,25 @@ import {
 export const ATTACHMENT_FAILURE_MESSAGE =
   "Documents: attachment mutation failed";
 
+/**
+ * Reports an attachment write failure, suppressing spurious error diagnostics
+ * when a busy retry stopped only because the store reset or tore down.
+ */
+export function reportAttachmentMutationFailure(
+  state: DocumentStoreState,
+  error: unknown,
+  stillCurrent: boolean,
+): void {
+  if (classifyDatabaseFailure(error) === "busy" && !stillCurrent) {
+    noteDocumentStoreWrite(
+      state,
+      `${ATTACHMENT_FAILURE_MESSAGE} after store state moved on`,
+    );
+    return;
+  }
+  reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
+}
+
 export async function restoreFailedAttachmentMutation(input: {
   generation: NonNullable<
     ReturnType<typeof captureDocumentStoreSyncGeneration>
@@ -28,12 +55,24 @@ export async function restoreFailedAttachmentMutation(input: {
   rollbackSnapshot: Uint8Array;
   state: DocumentStoreState;
 }): Promise<void> {
-  await reloadDocumentFromDurableHistory({
-    expectedGeneration: input.generation,
-    preserveQueuedWritesWhenIdentityMatches: true,
-    sameIdentitySnapshot: input.rollbackSnapshot,
-    state: input.state,
-  });
+  try {
+    await reloadDocumentFromDurableHistory({
+      expectedGeneration: input.generation,
+      preserveQueuedWritesWhenIdentityMatches: true,
+      sameIdentitySnapshot: input.rollbackSnapshot,
+      state: input.state,
+    });
+  } catch {
+    // If durable reload also failed (for example, another tab kept SQLite busy
+    // past the retry budget), drop the mutated live doc and reinitialize so an
+    // uncommitted attachment slot or removal can never leak into a later edit.
+    if (isDocumentStoreSyncGenerationCurrent(input.state, input.generation)) {
+      resetDocumentStore(input.state);
+      ensureDocumentStoreInitialized(input.state, () =>
+        requestDocumentStoreSync(input.state),
+      );
+    }
+  }
 }
 
 export async function persistStagedAttachmentMutation(input: {

@@ -32,6 +32,7 @@ import {
 } from "../sync/syncGeneration";
 import {
   ATTACHMENT_FAILURE_MESSAGE,
+  reportAttachmentMutationFailure,
   restoreFailedAttachmentMutation,
 } from "./attachmentMutationPersistence";
 import {
@@ -263,10 +264,11 @@ export async function removeAttachmentFromDocumentStore(
         persistRemovedAttachment(state, slotId, writeGeneration),
       )
       .catch((error: unknown) => {
-        reportDocumentStoreWriteFailure(
+        reportAttachmentMutationFailure(
           state,
-          ATTACHMENT_FAILURE_MESSAGE,
           error,
+          isAttachmentWriteGenerationCurrent(state, writeGeneration) &&
+            state.runtime.infra.dbStatus === "ready",
         );
       }),
   );

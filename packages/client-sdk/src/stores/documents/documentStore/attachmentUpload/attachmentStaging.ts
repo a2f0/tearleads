@@ -49,7 +49,17 @@ async function deleteStagedAttachmentBytes(input: {
   const { state } = input;
   const cleanupResults = await Promise.allSettled(
     input.pendingAttachments.map((attachment) =>
-      state.runtime.infra.blobStore.deleteBytes(attachment.storageKey),
+      retryWhileDatabaseBusy(
+        () => state.runtime.infra.blobStore.deleteBytes(attachment.storageKey),
+        {
+          onBusy: () => {
+            noteDocumentStoreWrite(
+              state,
+              "Documents: staged attachment rollback delete delayed behind another tab's database transaction",
+            );
+          },
+        },
+      ),
     ),
   );
   const failedCleanupCount = cleanupResults.filter(

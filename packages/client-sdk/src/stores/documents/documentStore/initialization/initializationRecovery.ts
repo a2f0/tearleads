@@ -4,10 +4,7 @@ import {
   type DocumentAttachment,
   getDocumentAttachments,
 } from "../../../../data/documents/documentContent";
-import {
-  type LocalAttachmentRecord,
-  retryWhileDatabaseBusy,
-} from "../../../../workflows/documents";
+import type { LocalAttachmentRecord } from "../../../../workflows/documents";
 import { listUnsettledAttachmentMarkers } from "../attachments/attachmentDetachState";
 import { settleStoreAttachmentRemovalMarker } from "../attachments/attachmentRemovalMarkers";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "../pendingUpdateRefusal";
@@ -17,7 +14,6 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "../persistence";
-import { noteDocumentStoreWrite } from "../reportWriteFailure";
 import type { DocumentState, DocumentStoreState } from "../state";
 import type { DocumentStoreSyncGeneration } from "../sync/syncGeneration";
 import { isDocumentStoreSyncGenerationCurrent } from "../sync/syncGeneration";
@@ -130,25 +126,12 @@ export async function recoverDroppedAttachmentSlots(
   // content. There is no in-flight user edit to protect here. The doc is
   // private to initialization and the enqueue above dual-wrote its delta, so
   // its version is a durably covered frontier.
-  const persisted = await retryWhileDatabaseBusy(
-    () =>
-      persistDocument(
-        state,
-        doc,
-        { snapshotEndVersion: encodeVersionVector(doc) },
-        {},
-        writeGeneration,
-      ),
-    {
-      isCurrent: () =>
-        isDocumentStoreSyncGenerationCurrent(state, writeGeneration),
-      onBusy: () => {
-        noteDocumentStoreWrite(
-          state,
-          "Documents: attachment slot recovery delayed behind another tab's database transaction",
-        );
-      },
-    },
+  const persisted = await persistDocument(
+    state,
+    doc,
+    { snapshotEndVersion: encodeVersionVector(doc) },
+    {},
+    writeGeneration,
   );
   if (!persistedCurrent(persisted)) {
     return;

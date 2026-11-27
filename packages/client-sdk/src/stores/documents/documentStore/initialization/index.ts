@@ -1,35 +1,25 @@
 import { mergeVersionVectors } from "@tearleads/loro";
-import type { DocumentSummary } from "../../../../data/documents/documentSummary";
 import {
   isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
   retryWhileDatabaseBusy,
 } from "../../../../workflows/documents";
 import { loadOrganizationSyncPausesBeforeSync } from "../../../../workflows/sync/coordination";
-import type { DocumentStoreRelinkInput } from "../../types";
 import { runHeldCopyChecks } from "../attachments/heldCopyCheckRun";
-import { chainIdentityWrite } from "../identityWriteChain";
-import type { DocumentRelinkCommitSideEffect } from "../internalRelink";
 import { runDocumentOrphanMaintenance } from "../orphanMaintenance";
-import {
-  advancePendingBaseVersion,
-  documentSummaryFromRecord,
-  persistDocument,
-} from "../persistence";
+import { advancePendingBaseVersion } from "../persistence";
 import { noteDocumentStoreWrite } from "../reportWriteFailure";
 import {
   type DocumentState,
   type DocumentStoreState,
+  EMPTY_DOCUMENT_SNAPSHOT,
+  setDocumentSnapshot,
   setReadySnapshot,
 } from "../state";
 import { createStoredDocument } from "../storedDocument";
 import { loadDocumentListingCoverage } from "../sync/listingCoverage";
 import { loadDocumentStoreStartupProbe } from "../sync/startupProbeDeferral";
-import {
-  captureDocumentStoreSyncGeneration,
-  invalidateDocumentStoreRemoteSync,
-  isDocumentStoreSyncGenerationCurrent,
-} from "../sync/syncGeneration";
+import { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";
 import { createInitialDocumentRecord } from "./createInitialDocumentRecord";
 import {
   installPersistedAttachments,
@@ -44,7 +34,6 @@ import {
   healLocalAttachmentDetachState,
   recoverDroppedAttachmentSlots,
 } from "./initializationRecovery";
-import { relinkRecordPatch } from "./relinkRecordPatch";
 
 function installPersistedDocumentRecord(
   state: DocumentStoreState,
@@ -113,12 +102,19 @@ async function restoreOrCreateInitialDocument(input: {
     state,
     activePersistedState.document.peerSalt,
   );
-  return restoreLoadedInitialDocument({
-    initializeGeneration,
-    nextDoc: replacementDoc,
-    persistedState: activePersistedState,
-    state,
-  });
+  try {
+    const restored = await restoreLoadedInitialDocument({
+      initializeGeneration,
+      nextDoc: replacementDoc,
+      persistedState: activePersistedState,
+      state,
+    });
+    if (!restored) replacementDoc.free();
+    return restored;
+  } catch (error) {
+    replacementDoc.free();
+    throw error;
+  }
 }
 
 function restorePendingBaseVersion(input: {
@@ -150,50 +146,28 @@ interface InitializedDocumentStoreAttempt {
   readonly restored: RestoredInitialDocumentState;
 }
 
-async function initializeDocumentStoreAttempt(
+function clearPartialInitialization(state: DocumentStoreState): void {
+  if (state.initialized) return;
+  const partialDoc = state.doc;
+  state.doc = null;
+  state.record = null;
+  state.pullContinuation = null;
+  state.pendingBaseVersion = null;
+  state.pendingAttachments = [];
+  state.attachmentBlobIdBySlotId = {};
+  state.attachmentContentSha256BySlotId = {};
+  state.attachmentStorageKeyBySlotId = {};
+  if (state.snapshot.ready) {
+    setDocumentSnapshot(state, { ...EMPTY_DOCUMENT_SNAPSHOT });
+  }
+  partialDoc?.free();
+}
+
+async function healAndCheckInitialDocument(
   state: DocumentStoreState,
+  restored: RestoredInitialDocumentState,
   initializeGeneration: number,
 ): Promise<InitializedDocumentStoreAttempt | null> {
-  const persistedState = await loadPersistedDocumentStoreState({
-    execSql: state.runtime.infra.execSql,
-    localId: state.localId,
-    persistence: state.persistence,
-  });
-  // A record a peer rebase moved writes on its salted peer.
-  const nextDoc = await createStoredDocument(
-    state,
-    persistedState.document?.peerSalt,
-  );
-  if (state.localWriteGeneration !== initializeGeneration) {
-    return null;
-  }
-  await loadOrganizationSyncPausesBeforeSync({
-    domainScope: state.runtime.state.domainScope,
-    execSql: state.runtime.infra.execSql,
-    log: state.runtime.util.log,
-  });
-  if (state.localWriteGeneration !== initializeGeneration) {
-    return null;
-  }
-  // Only readers opened this store: leave the record missing until a join.
-  // Ending in this same step means a creator that joins later starts its own
-  // initialization instead of waiting on this one.
-  if (!persistedState.document && state.createIfMissing === false) {
-    state.initializePromise = null;
-    return null;
-  }
-  const restored = await restoreOrCreateInitialDocument({
-    initializeGeneration,
-    nextDoc,
-    persistedState,
-    state,
-  });
-  if (!restored) {
-    if (state.localWriteGeneration === initializeGeneration) {
-      state.initializePromise = null;
-    }
-    return null;
-  }
   const activePersistedState = restored.activePersistedState;
   installPersistedAttachments(state, activePersistedState);
 
@@ -251,6 +225,69 @@ async function initializeDocumentStoreAttempt(
   return { coveredByListing, restored };
 }
 
+async function initializeDocumentStoreAttempt(
+  state: DocumentStoreState,
+  initializeGeneration: number,
+): Promise<InitializedDocumentStoreAttempt | null> {
+  const persistedState = await loadPersistedDocumentStoreState({
+    execSql: state.runtime.infra.execSql,
+    localId: state.localId,
+    persistence: state.persistence,
+  });
+  // A record a peer rebase moved writes on its salted peer.
+  const nextDoc = await createStoredDocument(
+    state,
+    persistedState.document?.peerSalt,
+  );
+  let returnedDoc: DocumentState | null = null;
+  try {
+    if (state.localWriteGeneration !== initializeGeneration) {
+      return null;
+    }
+    await loadOrganizationSyncPausesBeforeSync({
+      domainScope: state.runtime.state.domainScope,
+      execSql: state.runtime.infra.execSql,
+      log: state.runtime.util.log,
+    });
+    if (state.localWriteGeneration !== initializeGeneration) {
+      return null;
+    }
+    // Only readers opened this store: leave the record missing until a join.
+    // Ending in this same step means a creator that joins later starts its own
+    // initialization instead of waiting on this one.
+    if (!persistedState.document && state.createIfMissing === false) {
+      state.initializePromise = null;
+      return null;
+    }
+    const restored = await restoreOrCreateInitialDocument({
+      initializeGeneration,
+      nextDoc,
+      persistedState,
+      state,
+    });
+    if (!restored) {
+      if (state.localWriteGeneration === initializeGeneration) {
+        state.initializePromise = null;
+      }
+      return null;
+    }
+    const result = await healAndCheckInitialDocument(
+      state,
+      restored,
+      initializeGeneration,
+    );
+    if (result) returnedDoc = result.restored.doc;
+    return result;
+  } finally {
+    if (nextDoc !== returnedDoc && nextDoc !== state.doc) {
+      nextDoc.free();
+    }
+    if (!returnedDoc && state.localWriteGeneration === initializeGeneration) {
+      clearPartialInitialization(state);
+    }
+  }
+}
+
 async function initializeDocumentStore(
   state: DocumentStoreState,
   scheduleSync: () => void,
@@ -265,26 +302,41 @@ async function initializeDocumentStore(
   // replaced record and doc back to life. Every reset bumps the local write
   // generation, so a stale capture here aborts before each assignment batch.
   const initializeGeneration = state.localWriteGeneration;
+  const isCurrent = () =>
+    state.localWriteGeneration === initializeGeneration &&
+    state.runtime.infra.dbStatus === "ready";
 
   // Each step before `state.initialized = true` is safe to repeat if the
   // SQLite worker refuses a statement behind another tab's transaction: reads
   // are pure, create-only birth adopts any committed row on retry, and
   // attachment recovery / detach healing skip work already committed.
-  const loaded = await retryWhileDatabaseBusy(
-    () => initializeDocumentStoreAttempt(state, initializeGeneration),
-    {
-      isCurrent: () =>
-        state.localWriteGeneration === initializeGeneration &&
-        state.runtime.infra.dbStatus === "ready",
-      onBusy: () => {
-        noteDocumentStoreWrite(
-          state,
-          "Documents: initialization delayed behind another tab's database transaction",
-        );
+  let loaded: InitializedDocumentStoreAttempt | null;
+  try {
+    loaded = await retryWhileDatabaseBusy(
+      () => initializeDocumentStoreAttempt(state, initializeGeneration),
+      {
+        isCurrent,
+        onBusy: () => {
+          noteDocumentStoreWrite(
+            state,
+            "Documents: initialization delayed behind another tab's database transaction",
+          );
+        },
       },
-    },
-  );
-  if (!loaded || state.localWriteGeneration !== initializeGeneration) {
+    );
+  } catch (error) {
+    // A reset or database teardown during the busy pause supersedes this
+    // initialization; return quietly instead of reporting a stale busy error.
+    if (!isCurrent()) {
+      return;
+    }
+    clearPartialInitialization(state);
+    throw error;
+  }
+  if (!loaded || !isCurrent()) {
+    if (loaded && state.localWriteGeneration === initializeGeneration) {
+      clearPartialInitialization(state);
+    }
     return;
   }
 
@@ -324,11 +376,13 @@ export function ensureDocumentStoreInitialized(
 
   const initializePromise = initializeDocumentStore(state, scheduleSync).catch(
     (error: unknown) => {
-      state.initializePromise = null;
-      // A caller that deferred the birth for its attach may give up once
-      // opening fails; never leave its durable birth holding sync. No attach
-      // has reached a live doc yet, so lifting the hold ships nothing unsafe.
-      state.deferInitialUpdate = false;
+      if (state.initializePromise === initializePromise) {
+        state.initializePromise = null;
+        // A caller that deferred the birth for its attach may give up once
+        // opening fails; never leave its durable birth holding sync. No attach
+        // has reached a live doc yet, so lifting the hold ships nothing unsafe.
+        state.deferInitialUpdate = false;
+      }
 
       if (isDatabaseUnavailableError(error)) {
         return;
@@ -373,75 +427,4 @@ export async function ensureDocumentStoreReady(
   }
 
   return awaitInitializationForSync(state);
-}
-
-export async function relinkDocumentStore(
-  state: DocumentStoreState,
-  input: DocumentStoreRelinkInput,
-  scheduleSync: () => void,
-  commitSideEffect?: DocumentRelinkCommitSideEffect,
-): Promise<DocumentSummary | null> {
-  if (
-    input.stillCurrent?.() === false ||
-    !(await ensureDocumentStoreReady(state, scheduleSync)) ||
-    input.stillCurrent?.() === false ||
-    !state.doc
-  ) {
-    return null;
-  }
-  const currentDoc = state.doc;
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation) return null;
-  // Read the record and persist on the identity-write chain so an in-flight
-  // eager create cannot interleave: a create that captured a null identity
-  // before its network round trip would otherwise write the derived documentId
-  // over the one this relink assigns.
-  const persisted = await chainIdentityWrite(state, async () => {
-    if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
-    const currentDocumentId = state.record?.documentId ?? null;
-    const patch = relinkRecordPatch(state.record, input);
-
-    // Relink rewrites access/identity metadata, not content. If it lands while
-    // the user is mid-edit, re-deriving text/structured fields from the
-    // (possibly lagging) doc would republish a stale read over the live
-    // optimistic snapshot and drop in-flight keystrokes; preserve the snapshot
-    // like the keystroke and sync persists do.
-    // A prior chained write may have cleared this store (resurrect-guard
-    // refusal): persisting the captured doc against a null record would
-    // resurrect the document as a create. The identity check runs inside
-    // the chain, after every earlier write settled.
-    if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
-      return null;
-    }
-    const result = await persistDocument(
-      state,
-      currentDoc,
-      patch,
-      {
-        preserveSnapshotStructuredFields: true,
-        preserveSnapshotText: true,
-        stillCurrent: input.stillCurrent,
-      },
-      generation,
-      commitSideEffect,
-    );
-    if (result && currentDocumentId !== input.documentId) {
-      state.writerProjection = null;
-      invalidateDocumentStoreRemoteSync(state);
-    }
-    return result;
-  });
-  // A refused persist means the durable row vanished mid-relink (resurrect
-  // guard); there is no summary to report.
-  if (!persisted) {
-    return null;
-  }
-  if (persisted.updatedAt === undefined) {
-    return null;
-  }
-  return documentSummaryFromRecord(
-    persisted.record,
-    persisted.updatedAt,
-    state.runtime.infra.documentProjectors,
-  );
 }

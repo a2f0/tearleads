@@ -249,16 +249,19 @@ async function editCreation(
   return id;
 }
 
-function releaseUnmutatedCreation(
-  intent: object,
+async function preparePreviousCreation(
   attempt: CreationAttempt,
-): void {
-  if (
-    creations.get(intent) === attempt &&
-    attempt.state.status === "creating"
-  ) {
-    creations.delete(intent);
+  store: DocumentStore,
+  authorized: () => boolean,
+): Promise<void> {
+  if (attempt.state.status === "refused") {
+    attempt.state = transitionContactAddressCreation(attempt.state, {
+      type: "retry",
+    });
+    return;
   }
+  await flushPending(store, authorized);
+  reconcileCreation(attempt, authorized);
 }
 
 export async function addContactAddressRow(
@@ -286,8 +289,7 @@ export async function addContactAddressRow(
     // Keep the original lifetime even after a confirmed no-effect refusal.
     const authorized = () => current() && attempt.current();
     if (previous) {
-      await flushPending(store, authorized);
-      reconcileCreation(attempt, authorized);
+      await preparePreviousCreation(attempt, store, authorized);
       if (attempt.state.status !== "creating")
         return editCreation(attempt, values, authorized);
     }
@@ -301,7 +303,9 @@ export async function addContactAddressRow(
       mutationOptions(store, authorized),
     );
     if (id === null) {
-      releaseUnmutatedCreation(intent, attempt);
+      attempt.state = transitionContactAddressCreation(attempt.state, {
+        type: "refused",
+      });
       throw new Error(SAVE_FAILURE);
     }
     attempt.state = transitionContactAddressCreation(attempt.state, {

@@ -91,6 +91,50 @@ export function installDurableDocumentReload(input: {
   );
 }
 
+async function installReloadedDurableDocument(input: {
+  durableRecord: DurableDocumentRecord;
+  expectedGeneration: DocumentStoreSyncGeneration;
+  historyRestoreState: DurableHistory;
+  preserveQueuedWritesWhenIdentityMatches: boolean;
+  sameIdentitySnapshot?: Uint8Array | undefined;
+  state: DocumentStoreState;
+}): Promise<boolean> {
+  const { durableRecord, expectedGeneration, state } = input;
+  const replacementDoc = await createFreshPeerStoredDocument();
+  let installed = false;
+  try {
+    const canRestoreCapturedSnapshot = Boolean(
+      input.sameIdentitySnapshot &&
+        (state.record?.documentId ?? null) === durableRecord.documentId,
+    );
+    if (canRestoreCapturedSnapshot && input.sameIdentitySnapshot) {
+      importSnapshot(replacementDoc, input.sameIdentitySnapshot);
+    }
+    // The captured snapshot removes the failed in-memory mutation, but it
+    // cannot replace the durable source of truth: another pane may have
+    // advanced history and the record frontier while attachment staging was
+    // in flight. Merge the latest checkpoint and tail in both paths before
+    // installing that record/frontier beside the rebuilt CRDT.
+    importDurableDocumentHistory(replacementDoc, input.historyRestoreState);
+    if (!isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)) {
+      return false;
+    }
+
+    installDurableDocumentReload({
+      durableRecord,
+      preserveQueuedWritesWhenIdentityMatches:
+        input.preserveQueuedWritesWhenIdentityMatches,
+      replacementDoc,
+      retainsLiveDocEdits: canRestoreCapturedSnapshot,
+      state,
+    });
+    installed = true;
+    return true;
+  } finally {
+    if (!installed) replacementDoc.free();
+  }
+}
+
 export async function reloadDocumentFromDurableHistory(input: {
   expectedGeneration: DocumentStoreSyncGeneration;
   preserveQueuedWritesWhenIdentityMatches: boolean;
@@ -103,9 +147,8 @@ export async function reloadDocumentFromDurableHistory(input: {
   }
 
   return retryWhileDatabaseBusy(
-    async () => {
-      const replacementDoc = await createFreshPeerStoredDocument();
-      return runSerializedSqlMutation(
+    () =>
+      runSerializedSqlMutation(
         state.runtime.infra.execSql,
         async (lockedExecSql) => {
           if (
@@ -122,37 +165,17 @@ export async function reloadDocumentFromDurableHistory(input: {
             markDocumentStoreRemoved(state);
             return false;
           }
-          const canRestoreCapturedSnapshot = Boolean(
-            input.sameIdentitySnapshot &&
-              (state.record?.documentId ?? null) === durableRecord.documentId,
-          );
-          if (canRestoreCapturedSnapshot && input.sameIdentitySnapshot) {
-            importSnapshot(replacementDoc, input.sameIdentitySnapshot);
-          }
-          // The captured snapshot removes the failed in-memory mutation, but it
-          // cannot replace the durable source of truth: another pane may have
-          // advanced history and the record frontier while attachment staging was
-          // in flight. Merge the latest checkpoint and tail in both paths before
-          // installing that record/frontier beside the rebuilt CRDT.
-          importDurableDocumentHistory(replacementDoc, historyRestoreState);
-          if (
-            !isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)
-          ) {
-            return false;
-          }
-
-          installDurableDocumentReload({
+          return installReloadedDurableDocument({
             durableRecord,
+            expectedGeneration,
+            historyRestoreState,
             preserveQueuedWritesWhenIdentityMatches:
               input.preserveQueuedWritesWhenIdentityMatches,
-            replacementDoc,
-            retainsLiveDocEdits: canRestoreCapturedSnapshot,
+            sameIdentitySnapshot: input.sameIdentitySnapshot,
             state,
           });
-          return true;
         },
-      );
-    },
+      ),
     {
       isCurrent: () =>
         isDocumentStoreSyncGenerationCurrent(state, expectedGeneration),
