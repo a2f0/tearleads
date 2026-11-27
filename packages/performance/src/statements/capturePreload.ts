@@ -12,11 +12,15 @@
  * the README for the environment variables.
  */
 import { beforeEach } from "bun:test";
-import { observeDatabaseStatements } from "@tearleads/api-shared/statement-observer";
+import {
+  observeDatabaseRequestScopes,
+  observeDatabaseStatements,
+} from "@tearleads/api-shared/statement-observer";
 import { createCaptureWriter } from "./captureFile";
 import {
   createStatementRecorder,
   phaseFromConsole,
+  phaseStartFromConsole,
   readCaptureEnvironment,
 } from "./recorder";
 
@@ -41,12 +45,18 @@ beforeEach(() => {
   Reflect.set(globalThis, labelKey, undefined);
 });
 
-observeDatabaseStatements(({ sql, parameters, scope }) =>
-  recorder.statement(sql, parameters, scope),
+observeDatabaseStatements(({ sql, parameters, scope, transaction }) =>
+  recorder.statement(sql, parameters, scope, transaction),
+);
+
+observeDatabaseRequestScopes(({ scope, method, route, status }) =>
+  recorder.requestScope(scope, { method, route, status }),
 );
 
 const info = console.info.bind(console);
 console.info = (...args: unknown[]) => {
+  const started = phaseStartFromConsole(args);
+  if (started !== null) recorder.phaseStart(started);
   const phase = phaseFromConsole(args);
   if (phase) recorder.phaseEnd(phase.label, phase.requests);
   info(...args);

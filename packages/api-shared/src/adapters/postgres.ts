@@ -35,6 +35,7 @@ export {
   type PostgresReadRouting,
 } from "./databaseReadConsistency";
 export {
+  recordRequestScopeMetadata,
   withDatabaseStatementCounter,
   withRequestStatementCounter,
 } from "./databaseStatementCounter";

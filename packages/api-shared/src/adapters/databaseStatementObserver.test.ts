@@ -1,10 +1,14 @@
 import { expect, test } from "bun:test";
 import { sql } from "drizzle-orm";
 import {
+  recordRequestScopeMetadata,
   withDatabaseStatementCounter,
   withRequestStatementCounter,
 } from "./databaseStatementCounter";
-import type { ObservedDatabaseStatement } from "./databaseStatementObserver";
+import type {
+  ObservedDatabaseRequestScope,
+  ObservedDatabaseStatement,
+} from "./databaseStatementObserver";
 import * as statementObserver from "./databaseStatementObserver";
 import { createDefaultManagedApiDatabase } from "./postgres";
 
@@ -100,6 +104,54 @@ test("observers see the request a statement ran in, inside any counter", async (
   }
 });
 
+test("observers see transaction tokens and request-scope route metadata", async () => {
+  const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
+  const observed: ObservedDatabaseStatement[] = [];
+  const scopes: ObservedDatabaseRequestScope[] = [];
+  const stopStmts = statementObserver.observeDatabaseStatements((statement) => {
+    observed.push(statement);
+  });
+  const stopScopes = statementObserver.observeDatabaseRequestScopes((meta) => {
+    scopes.push(meta);
+  });
+  const counter = { statements: 0, txStatements: 0 };
+  try {
+    await withRequestStatementCounter(counter, async () => {
+      await managed.db.execute(sql`select 1`);
+      await managed.db.transaction(async (tx) => {
+        await tx.execute(sql`select 2`);
+        await tx.execute(sql`select 3`);
+      });
+      recordRequestScopeMetadata(() => ({
+        method: "POST",
+        route: "/documents/{documentId}/sync",
+        status: 200,
+      }));
+    });
+  } finally {
+    stopStmts();
+    stopScopes();
+    await managed.close();
+  }
+  expect(counter).toEqual({ statements: 3, txStatements: 2 });
+  expect(observed[0]?.transaction).toBeUndefined();
+  expect(observed[1]?.transaction).toBeObject();
+  expect(observed[2]?.transaction).toBe(observed[1]?.transaction);
+  expect(Object.isFrozen(observed[1]?.transaction)).toBe(true);
+  expect(scopes).toHaveLength(1);
+  const requestScope = observed[0]?.scope;
+  if (!requestScope) throw new Error("expected request scope");
+  expect(scopes[0]).toEqual({
+    scope: requestScope,
+    method: "POST",
+    route: "/documents/{documentId}/sync",
+    status: 200,
+  });
+});
+
 test("the public entry only registers observers", () => {
-  expect(Object.keys(statementObserver)).toEqual(["observeDatabaseStatements"]);
+  expect(Object.keys(statementObserver).sort()).toEqual([
+    "observeDatabaseRequestScopes",
+    "observeDatabaseStatements",
+  ]);
 });

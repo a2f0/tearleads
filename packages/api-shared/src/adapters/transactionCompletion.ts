@@ -1,3 +1,4 @@
+import { withDatabaseTransactionScope } from "./databaseStatementCounter";
 import type {
   ApiDatabase,
   DatabaseSession,
@@ -109,9 +110,11 @@ export function withDatabaseTransactionCompletion(
     const current = frame(database);
     let committed = false;
     try {
-      const result = await database.transaction(
-        (tx) => callback(transactionProxy(tx, current)),
-        config,
+      const result = await withDatabaseTransactionScope(() =>
+        database.transaction(
+          (tx) => callback(transactionProxy(tx, current)),
+          config,
+        ),
       );
       committed = true;
       return result;

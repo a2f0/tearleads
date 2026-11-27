@@ -25,7 +25,45 @@ test("renders phases, labels, top statements and same-key repeats", () => {
   expect(markdown).toContain("| 2 | `select a \\| b` |");
   expect(markdown).toContain("| t | 1 | `select a \\| b` |");
   expect(markdown).toContain("…` |");
+  expect(markdown).toContain("## Pure read repeats (no intervening write)");
   expect(markdown).not.toContain("x".repeat(250));
+});
+
+test("renders route table and transaction summary when present", () => {
+  const markdown = formatStatementSummary(
+    summarizeCapture([
+      {
+        label: "t",
+        sql: 'select id from "users" where id = $1',
+        params: 1,
+        paramHash: "k1",
+        request: 1,
+        tx: 1,
+      },
+      {
+        label: "t",
+        sql: 'select id from "users" where id = $1',
+        params: 1,
+        paramHash: "k1",
+        request: 1,
+        tx: 1,
+      },
+      {
+        requestScope: 1,
+        method: "GET",
+        route: "/principals/organization/{organizationId}/policy",
+        status: 200,
+      },
+    ]),
+    "Intro.",
+  );
+  expect(markdown).toContain(
+    "2 statements (2 in 1 transactions, 0 under locks).",
+  );
+  expect(markdown).toContain("## By route");
+  expect(markdown).toContain(
+    "| `GET /principals/organization/{organizationId}/policy` | 1 | 2 | 2.0 | 2 | 2 | 0 | 1 | 1 |",
+  );
 });
 
 test("leaves out sections the capture cannot support", () => {
