@@ -53,3 +53,18 @@ SQLite after constructing the SDK, await `client.init(...)` first, then call
 `id`.
 See [database lifecycle](client-sdk/configuration.md#constructor-options) for initialization
 and failure states.
+
+A worker that serves several clients on one database, as the SDK's own worker
+does for browser tabs, must keep each client's transaction to itself. One SQLite
+handle holds one transaction at a time, so without that, one tab's statements
+run inside another tab's transaction, and a rollback can undo them. The SDK's
+worker does this with its
+[transaction lease](../../packages/sqlite-worker/README.md#transaction-lease).
+While another client holds a transaction, a statement waits up to 5 seconds.
+If it is still waiting then, the worker refuses it without running it. A host
+that supplies its own worker must give the same guarantee. A host that calls
+the SDK's SQLite client directly should treat a refusal that
+`isDatabaseTransactionBusyError` matches as a reason to retry, not a failure.
+A client that sits idle in its transaction while another one waits is rolled
+back and fails as a `DatabaseConnectionLostError`, which the host handles by
+opening the database again.

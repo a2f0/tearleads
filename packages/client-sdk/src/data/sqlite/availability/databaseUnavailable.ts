@@ -1,3 +1,5 @@
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
+
 // "The database was not there", as distinct from "the work was wrong".
 //
 // The runtime is released and rebooted underneath in-flight callers on every
@@ -50,6 +52,33 @@ export function isDatabaseUnavailableError(error: unknown): boolean {
       return true;
     }
 
+    current = current.cause;
+  }
+
+  return false;
+}
+
+// How far a cause chain is followed; bounded so a cyclic cause cannot loop.
+const BUSY_CAUSE_DEPTH_LIMIT = 8;
+
+// True when the SQLite worker refused a statement because another connection
+// (another tab) held a transaction on the database for the lease's wait bound.
+// The statement did not run, and the same work succeeds once that transaction
+// ends, so it is never evidence about the work: keying verification, writer-key
+// resolution, and boot keep it out of verdicts and retry budgets (other retry
+// paths are #3360). Unlike an unavailable database nothing announces when it
+// clears, so it is not one of those: the work re-runs on its caller's own
+// retry schedule.
+export function isDatabaseTransactionBusyError(error: unknown): boolean {
+  let current = error;
+  for (
+    let depth = 0;
+    depth < BUSY_CAUSE_DEPTH_LIMIT && current instanceof Error;
+    depth += 1
+  ) {
+    if (current.message.includes(DATABASE_TRANSACTION_BUSY_MESSAGE)) {
+      return true;
+    }
     current = current.cause;
   }
 

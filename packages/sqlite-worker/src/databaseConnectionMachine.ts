@@ -18,6 +18,10 @@ import {
  * - `deleted`: another connection deleted its database. It answers so until
  *   it opens one again, so a deliberate delete never reads as a database that
  *   was never opened.
+ * - `revoked`: the worker rolled back its transaction after it sat idle while
+ *   another connection waited (see `transactionLeaseMachine.ts`). Every
+ *   statement is answered `refusal` until it opens the database again; a
+ *   delete still deletes `dbName`.
  */
 export type DatabaseConnectionState =
   | { readonly status: "unopened" }
@@ -28,7 +32,12 @@ export type DatabaseConnectionState =
       readonly released: boolean;
     }
   | { readonly status: "open"; readonly dbName: string }
-  | { readonly status: "deleted" };
+  | { readonly status: "deleted" }
+  | {
+      readonly status: "revoked";
+      readonly dbName: string;
+      readonly refusal: string;
+    };
 
 export type DatabaseConnectionEvent =
   | { readonly type: "openStarted"; readonly attempt: number }
@@ -42,7 +51,10 @@ export type DatabaseConnectionEvent =
   | { readonly type: "released" }
   // Another connection deleted the connection's database.
   | { readonly type: "deletedElsewhere" }
-  // The worker no longer has the connection's database open.
+  // The worker rolled back the connection's idle transaction.
+  | { readonly type: "transactionRevoked"; readonly refusal: string }
+  // The worker no longer has the connection's database open, or closed it
+  // because its handle could not leave a transaction.
   | { readonly type: "databaseClosed" };
 
 export const UNOPENED_DATABASE_CONNECTION: DatabaseConnectionState = {
@@ -77,6 +89,28 @@ function settleOpenAttempt(
     : settledOpen(state);
 }
 
+// The worker took an open connection's database away.
+function retireOpenConnection(
+  state: Extract<DatabaseConnectionState, { status: "open" }>,
+  event: Extract<
+    DatabaseConnectionEvent,
+    { type: "deletedElsewhere" | "transactionRevoked" | "databaseClosed" }
+  >,
+): DatabaseConnectionState {
+  switch (event.type) {
+    case "deletedElsewhere":
+      return DELETED_DATABASE_CONNECTION;
+    case "transactionRevoked":
+      return {
+        status: "revoked",
+        dbName: state.dbName,
+        refusal: event.refusal,
+      };
+    case "databaseClosed":
+      return UNOPENED_DATABASE_CONNECTION;
+  }
+}
+
 export function transitionDatabaseConnection(
   state: DatabaseConnectionState,
   event: DatabaseConnectionEvent,
@@ -101,9 +135,11 @@ export function transitionDatabaseConnection(
       // A deleted connection keeps saying so until it opens again.
       return state.status === "deleted" ? state : UNOPENED_DATABASE_CONNECTION;
     case "deletedElsewhere":
-      return state.status === "open" ? DELETED_DATABASE_CONNECTION : state;
+    case "transactionRevoked":
     case "databaseClosed":
-      return state.status === "open" ? UNOPENED_DATABASE_CONNECTION : state;
+      return state.status === "open"
+        ? retireOpenConnection(state, event)
+        : state;
   }
 }
 
@@ -121,6 +157,8 @@ export function databaseConnectionRefusal(
   switch (state.status) {
     case "deleted":
       return DATABASE_DELETED_MESSAGE;
+    case "revoked":
+      return state.refusal;
     case "opening":
       return state.afterDelete
         ? DATABASE_DELETED_MESSAGE
@@ -134,5 +172,7 @@ export function databaseConnectionRefusal(
 export function databaseConnectionDbName(
   state: DatabaseConnectionState,
 ): string | null {
-  return state.status === "open" ? state.dbName : null;
+  return state.status === "open" || state.status === "revoked"
+    ? state.dbName
+    : null;
 }

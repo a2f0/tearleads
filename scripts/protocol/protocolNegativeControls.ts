@@ -36,6 +36,7 @@ import { SYNC_LANE_NEGATIVE_CONTROLS } from "./protocolSyncLaneNegativeControls"
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
 import { TERMINAL_ANCHOR_NEGATIVE_CONTROLS } from "./protocolTerminalAnchorNegativeControls";
 import { TOMBSTONE_NEGATIVE_CONTROLS } from "./protocolTombstoneNegativeControls";
+import { TRANSACTION_LEASE_NEGATIVE_CONTROLS } from "./protocolTransactionLeaseNegativeControls";
 import { VOID_UPDATE_NEGATIVE_CONTROLS } from "./protocolVoidUpdateNegativeControls";
 
 /**
@@ -49,6 +50,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ANCESTOR_RECOVERY_NEGATIVE_CONTROLS,
   ...PURGE_SCOPE_NEGATIVE_CONTROLS,
   ...SESSION_RETRY_NEGATIVE_CONTROLS,
+  ...TRANSACTION_LEASE_NEGATIVE_CONTROLS,
   ...STAGE_PROMOTION_NEGATIVE_CONTROLS,
   ...SYNC_LANE_NEGATIVE_CONTROLS,
   ...HISTORY_NEGATIVE_CONTROLS,

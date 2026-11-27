@@ -1,5 +1,9 @@
 import type { createCrossTabDatabaseWorker } from "../src/crossTabRuntime";
-import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "../src/types";
+import {
+  WORKER_CONNECT_PORT_MESSAGE_TYPE,
+  WORKER_DISCONNECT_PORT_MESSAGE_TYPE,
+  WORKER_PORT_DISCONNECTED_MESSAGE_TYPE,
+} from "../src/types";
 
 type WorkerMessage = {
   id: number;
@@ -208,6 +212,8 @@ export class SilentPortWorker extends EventTarget {
   static lastConstructed: SilentPortWorker | null = null;
 
   readonly ports: MessagePort[] = [];
+  // Every message each port carried to the worker, in port order.
+  readonly portMessages: unknown[][] = [];
   terminated = false;
 
   constructor() {
@@ -238,6 +244,8 @@ export class PortAwareWorker extends EventTarget {
   static lastConstructed: PortAwareWorker | null = null;
 
   readonly ports: MessagePort[] = [];
+  // Every message each port carried to the worker, in port order.
+  readonly portMessages: unknown[][] = [];
   terminated = false;
 
   constructor() {
@@ -257,12 +265,22 @@ export class PortAwareWorker extends EventTarget {
       }
 
       this.ports.push(port);
+      const received: unknown[] = [];
+      this.portMessages.push(received);
       port.start();
       port.addEventListener("message", (event) => {
         if (!(event instanceof MessageEvent)) {
           return;
         }
 
+        received.push(event.data);
+        if (
+          Reflect.get(event.data, "type") ===
+          WORKER_DISCONNECT_PORT_MESSAGE_TYPE
+        ) {
+          port.postMessage({ type: WORKER_PORT_DISCONNECTED_MESSAGE_TYPE });
+          return;
+        }
         const request = event.data as WorkerMessage;
         port.postMessage({
           id: request.id,

@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import {
   completeDeviceReset,
   isWorkerStorageWipePending,
@@ -180,6 +181,46 @@ test("bootSQLiteRuntime migrates the local schema before features run", async ()
     () => {},
   );
 
+  expect(
+    statements.some((sql) =>
+      sql.includes('INSERT INTO "local_schema_migrations"'),
+    ),
+  ).toBe(true);
+});
+
+test("bootSQLiteRuntime runs a step again when another tab's transaction held it off", async () => {
+  // The worker refuses a statement that waited out another tab's transaction;
+  // failing the boot would spend its retry budget behind that tab's work.
+  const statements: string[] = [];
+  // The first statement of the readability check and of the migration.
+  const refusalsLeft = { migration: 1, probe: 1 };
+  const runtime = createRuntime(async () => ({ ok: true }));
+  runtime.client.exec = async ({ sql }) => {
+    const step =
+      sql === "SELECT count(*) FROM sqlite_master" ? "probe" : "migration";
+    if (refusalsLeft[step] > 0) {
+      refusalsLeft[step] -= 1;
+      throw new Error(DATABASE_TRANSACTION_BUSY_MESSAGE);
+    }
+    statements.push(sql);
+    return { ok: true, rows: [] };
+  };
+  const logs: string[] = [];
+
+  await bootSQLiteRuntime(
+    runtime,
+    "test-db",
+    "opfs-sahpool",
+    async () => "test-key",
+    (message) => logs.push(message),
+  );
+
+  expect(logs).toContain(
+    "Another tab held a database transaction during the readability check; retrying.",
+  );
+  expect(logs).toContain(
+    "Another tab held a database transaction during the schema migration; retrying.",
+  );
   expect(
     statements.some((sql) =>
       sql.includes('INSERT INTO "local_schema_migrations"'),

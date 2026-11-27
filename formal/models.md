@@ -283,6 +283,15 @@ another, and that a request whose callers all retired neither renews the
 session nor replays. See the
 [mapping and boundaries](./local-trust/SessionRetryIdentity.md).
 
+### Transaction Lease
+
+[`local-trust/TransactionLease.tla`](./local-trust/TransactionLease.tla)
+checks the SQLite worker's transaction lease: no other tab's statement runs
+inside a transaction on the shared handle, a refused statement never runs, a
+dead tab's transaction does not keep the lease, and a waiting statement runs
+or is refused, while a frozen holder is revoked. See the
+[mapping and boundaries](./local-trust/TransactionLease.md).
+
 ### Principal Acknowledgement Race
 
 [`local-trust/PrincipalAcknowledgementRace.tla`](./local-trust/PrincipalAcknowledgementRace.tla)

@@ -10,7 +10,7 @@ import type {
   WorkerMethod,
   WorkerRequestMap,
 } from "./types";
-import { workerCrashErrorFromEvent } from "./workerCrash";
+import { workerCrashErrorFromEvent, workerRefusalError } from "./workerCrash";
 
 export interface DatabaseWorkerClient {
   ping(): Promise<DatabaseWorkerPingResult>;
@@ -93,7 +93,7 @@ function makeMessageHandler(pending: Map<number, PendingRequest>) {
     pending.delete(response.id);
 
     if (!response.result.ok) {
-      callback.reject(new Error(response.result.message));
+      callback.reject(workerRefusalError(response.result.message));
       return;
     }
 

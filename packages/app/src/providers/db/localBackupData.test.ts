@@ -284,3 +284,51 @@ test("restore resets the schema-ensure memo through a locked executor", async ()
     close();
   }
 });
+
+test("backup export commits its snapshot before it reads blob bytes", async () => {
+  const { close, execSql } = await createTestExecSql("backup-commit-first");
+  const events: string[] = [];
+  const recordingExecSql = ((
+    sql: string,
+    bind?: Parameters<ExecSql>[1],
+    options?: { rowMode?: "object" | "array" },
+  ) => {
+    const statement = sql.trim();
+    if (/^(BEGIN|COMMIT|ROLLBACK)/.test(statement)) {
+      events.push(statement);
+    }
+    return execSql(sql, bind, options);
+  }) as ExecSql;
+  const blobStore = new TestBlobStore();
+  const readBytes = blobStore.readBytes.bind(blobStore);
+  blobStore.readBytes = async (storageKey) => {
+    events.push(`read ${storageKey}`);
+    return readBytes(storageKey);
+  };
+
+  try {
+    await seedBackupDatabase(execSql as ExecSql);
+    await blobStore.writeBytes("pending-blob", blobBytes("pending bytes"));
+    await blobStore.writeBytes("stored-blob", blobBytes("stored bytes"));
+
+    const payload = await createBackupPayload({
+      blobStore,
+      databaseId: "source-db",
+      execSql: recordingExecSql,
+      signingFingerprint: null,
+    });
+
+    // A transaction held across blob reads would hold every other tab's
+    // statements, and the worker revokes a holder that idles while one waits.
+    expect(events).toEqual([
+      "BEGIN IMMEDIATE",
+      "COMMIT",
+      "read pending-blob",
+      "read stored-blob",
+    ]);
+    expect(payload.summary.blobCount).toBe(2);
+    expect(payload.summary.rowCount).toBe(5);
+  } finally {
+    close();
+  }
+});

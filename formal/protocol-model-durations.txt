@@ -76,4 +76,5 @@
 0 formal/local-trust/SessionRetryIdentity.tla|formal/local-trust/SessionRetryIdentity.cfg
 0 formal/local-trust/SubtreePurgeScope.tla|formal/local-trust/SubtreePurgeScope.cfg
 0 formal/local-trust/SystemDestination.tla|formal/local-trust/SystemDestination.cfg
+0 formal/local-trust/TransactionLease.tla|formal/local-trust/TransactionLease.cfg
 0 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg
