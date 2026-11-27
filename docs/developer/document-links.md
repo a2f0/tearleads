@@ -76,9 +76,9 @@ needed for verification return the same 403 body for an unknown principal and an
 unreadable one. Candidate container references are only search hints: an
 anchored candidate never suppresses the bounded descendant scan, and a verified
 [readable path](../glossary/access.md#authorizing-container-path) must justify the
-policy read. Stale-policy mutation replies carry at most 16 readable bundles.
-Container creation accepts successive repair pages, with a maximum of 16 rounds
-and no retry for an identical page.
+policy read. Stale-policy mutation replies carry at most 16 compact readable
+principal heads (`principalHeads`). Container creation accepts successive
+repair pages, with a maximum of 16 rounds and no retry for an identical page.
 
 Listing discovery retains candidates durably before advancing watermarks. A
 durable local request sequence orders overlapping listings; untrusted server

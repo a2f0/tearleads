@@ -169,11 +169,15 @@ keyring regardless of target order. Failures for a shared predecessor epoch are
 merged with the same priority across
 [authorizing paths](./glossary/access.md#authorizing-container-path), so an earlier
 unavailable path cannot hide a later integrity failure. Before reporting an
-unavailable epoch, the client decrypts and import-validates every sibling whose
-content key is available. Any poison retains precedence, including an unresolved
-dependency: the wire contract authenticates operation ranges but not an exact
-dependency set, so the client cannot prove that an unavailable sibling carries
-that parent. Every encrypted record is structurally parsed and checked against
+unavailable epoch, the client checks envelope, header, and key integrity and
+decrypts every sibling whose content key is available
+(`validateDecryptableRawHistorySiblings` in
+[`syncResponseResult.ts`](../packages/client-sdk/src/workflows/documents/sync/syncResponseResult.ts)).
+Envelope, header, and key failures retain precedence over unavailability, while
+import and dependency verdicts are skipped because a missing parent may belong
+to an undecryptable sibling (so an unresolved dependency does not outrank
+`DocumentRawHistoryUnavailableError`). Every encrypted record is structurally
+parsed and checked against
 its authenticated header before any missing epoch can be classified as benign
 unavailability. Every historical bundle's target list is also recomputed and
 compared with its committed [target hash](./glossary/keys.md#target-hash), and that
@@ -264,8 +268,9 @@ local history gaps no queued update carries, mixed-page poison precedence,
 atomic checkpoint-gate rollback, a later recovery pruning a settled
 baseline's segments from the tail, same-frontier tail-fork
 rejection, encoding-neutral and binary/string history-identity separation,
-unavailable-record/header poison precedence, unrelated unresolved-dependency
-isolation, stale and same-frontier-forked in-memory checkpoint rejection,
+unavailable-record/header poison precedence, unresolved-dependency
+non-precedence over raw-history availability, stale and same-frontier-forked
+in-memory checkpoint rejection,
 page-two generic validation failure without resubmission,
 caller-supplied and API-cached projection recovery, missing tail-row identity
 rejection, blocked enqueue/save rejection across the recovery-generation fence,

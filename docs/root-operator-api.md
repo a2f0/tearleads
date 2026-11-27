@@ -22,6 +22,7 @@ the client.
 | Report billing maintenance trouble across organizations: failing, overdue or lapsed-lease Stripe seat syncs, failed or overdue trial expiries, overdue or lapsed purges, and trials ending and purges falling due within seven days (each section capped at 50 rows) | `GET /root/reports/ops-health` |
 | Page an organization's stored RevenueCat webhook deliveries newest first by event time, whatever their outcome: those resolved to it (`role: target`) and the `TRANSFER`s that moved a purchase away from it (`role: source`) | `GET /root/organizations/:organizationId/revenuecat-events` |
 | Page RevenueCat deliveries across organizations that resolved to none or that the handler ignored (`disposition`: `unmatched`, `ignored`, or `both`) | `GET /root/reports/revenuecat-events` |
+| Page pending blob deletion lifecycle metadata across organizations, ordered by blob ID (optional filters: `cursor`, `limit` default 50 / max 100, and exact `organizationId`) | `GET /root/blobs/pending-deletion` |
 | Page recorded operator actions newest first, optionally only those involving one identity or organization (`subjectId`) | `GET /root/audit-events` |
 | Suspend a non-root identity: refuse its sign-in and revoke every live session (409 for a root identity) | `PUT /root/identities/:userId/suspension` |
 | Lift a suspension so the identity's devices can sign in again | `DELETE /root/identities/:userId/suspension` |
@@ -42,7 +43,8 @@ Every root handler records a `root_audit_events` row — actor, operation id,
 target identity or [organization](./glossary/principals.md#organization),
 applied filters, and request IP — before it reads or changes anything it serves.
 A listing narrowed by an exact identifier (a user ID, a full signing key
-fingerprint, an organization ID search, or an audit-trail subject) names that
+fingerprint, an organization ID search, a pending-blob-deletion
+`organizationId` filter, or an audit-trail subject) names that
 identity or organization as its target, so it appears in that subject's audit
 trail. A request whose row cannot be written fails with a 500 instead of being answered
 unrecorded, and a suspension it carried is not applied; requests refused by

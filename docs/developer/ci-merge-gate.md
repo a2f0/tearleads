@@ -19,11 +19,10 @@ entry points. `Lint` passes pull-request names to
 applies to pull requests from clones without hooks.
 
 The API, app, client SDK, bob-and-alice, and CLI suites run in `Test (...)`
-jobs of their own, and `Build and test` runs the remaining package tests. The
-API suite runs one backend per job, and every one of these suites splits into
-Bun shards (`--shard=1/3` and so on);
+jobs of their own, and `Build and test` runs the remaining package tests. Every
+one of these suites splits into Bun shards (`--shard=1/3` and so on);
 [`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
-checks that every backend's shards are all present, that a suite's shards
+checks that every sharded suite's shards are all present, that a suite's shards
 share their other arguments, and that each sharded suite's `test` script passes
 `--timings` with a committed table, so its shards split by measured per-file
 durations rather than by file count; see
@@ -158,9 +157,9 @@ on that commit
 needs it, so a commit that fails CI never reaches npm.
 
 `agent-tool pr checks --wait` waits up to `merge.checksTimeoutSeconds`, set to
-3600. Uncached, the app and API `Test (...)` jobs each take about 20 minutes
-and gate `CI gate`, so a whole run outlasts agent-tool's 15-minute default; a
-wait that times out leaves checks pending and is not a CI failure. Pass
+3600. Uncached runs with workspace builds, sharded suites, Windows, and runner
+queue time can outlast agent-tool's 15-minute default before `CI gate` finishes;
+a wait that times out leaves checks pending and is not a CI failure. Pass
 `--timeout <seconds>` only to override the policy for one wait.
 
 When renaming or adding a required check, first verify that a PR reports it

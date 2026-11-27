@@ -43,17 +43,17 @@ const tables: readonly {
         tokens: ["ML-DSA-87"],
         role: "Authenticates signed policies, access events, and content-write headers.",
       },
-      {
-        purpose: "Local key separation",
-        tokens: ["HKDF-SHA256"],
-        role: "Derives each local storage key from the root key for its scope.",
-      },
     ],
   },
   {
     title: "On your device",
     caption: "Cryptographic primitives for local storage and recovery",
     rows: [
+      {
+        purpose: "Local key separation",
+        tokens: ["HKDF-SHA256"],
+        role: "Derives each local storage key from the root key for its scope.",
+      },
       {
         purpose: "Local database",
         tokens: ["ChaCha20", "(SQLite3MultipleCiphers)"],

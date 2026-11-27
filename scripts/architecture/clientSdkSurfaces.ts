@@ -188,6 +188,7 @@ export const containerDataSurface = [
   `${sdk}/data/containers/shared/mutationAcknowledgement.ts`,
   `${sdk}/data/containers/shared/mutationFailures.ts`,
   `${sdk}/data/containers/shared/projection.ts`,
+  `${sdk}/data/containers/shared/systemSlotCreate.ts`,
   `${sdk}/data/containers/shared/types.ts`,
   `${sdk}/workflows/containers/child/create/createSubmission.ts`,
   `${sdk}/workflows/containers/child/mutationSubmit.ts`,

@@ -32,11 +32,15 @@ Signed container mutation routes are:
 - `POST /containers/:containerId/move`
 - `POST /containers/:containerId/recite` (`ContainerReciteRequest`)
 
-Most signed mutations use `ContainerMutationRequest`. The container with
+Create (`POST /containers`) and share use `ContainerMutationRequest`; the three
+rotation routes (`revoke`, `rekey`, `move`) use `ContainerRotationRequest`,
+which adds optional carried descendant `containerRekeys[]` (up to
+`MAX_ROTATION_CONTAINER_REKEYS`, 64). The container with
 metadata document create route wraps a `ContainerMutationRequest` with the
 initial metadata `DocumentCreateRequest`, and an optional
 `initialMetadataSync` seed that follows the
-[document create seed](../document-link-and-sync-protocol.md) rules.
+[document create seed](../document-link-and-sync-protocol.md) rules. Recitation
+uses `ContainerReciteRequest`.
 
 Each signed mutation request carries:
 
@@ -83,9 +87,9 @@ not a trust boundary. A citation whose hash is not stored, or whose
 `containerId` names a different container, is refused with `409`. The previous
 manifest and every path element must also be the container's current head, and
 the signed event's `dependencyManifestHashes` must equal the cited hashes, so a
-stale or uncited head is refused. Only the new manifest the mutation commits
-travels in full; a recitation cites its previous head and current path the same
-way. Container KEK wraps target direct users,
+stale or uncited head is refused. The server derives the new manifest and pins
+it with `expectedManifestHash`; a recitation cites its previous head and current
+path the same way. Container KEK wraps target direct users,
 [managed principals](../glossary/principals.md#managed-principal), or the parent
 container KEK. A child container can inherit access through parent KEK edges without
 rewriting every descendant object when an ancestor grant changes.
@@ -192,13 +196,15 @@ from stored verified manifests. The policy state and the exact container batch
 commit or roll back together; standalone group-grant changes are accepted only
 when they already match the current signed projection.
 
-The API intentionally exposes no historical principal-key envelope endpoint.
-Serving a requester's subset of historical envelopes cannot prove inclusion in
-the full `memberEnvelopesRoot`, while serving the full set would disclose
-membership history. Keeping recovery on current rematerialized grants avoids
-both the unverifiable subset and tenure-scoping problems. Removed users cannot
-read the replacement wraps; users later re-added receive the current principal
-key and recover through the grant's current rematerialization.
+Container access recovery relies on current rematerialized grants rather than
+decrypting historical principal keys. While
+`GET /principals/:principalType/:principalId/policy/member-envelopes` serves a
+live principal's full state envelopes to policy-read-authorized callers for
+verifying historical `memberEnvelopesRoot` commitments (and deleted groups erase
+their envelopes), KEK recovery never depends on unwrapping historical principal
+keys. Removed users cannot read the replacement wraps; users later re-added
+receive the current principal key and recover through the grant's current
+rematerialization.
 
 Document and blob writes may carry signed `container.rekey` requests inline in
 `containerRekeys[]`. The API applies those rekeys inside the same transaction
@@ -267,6 +273,10 @@ create may instead return `409 document_manifest_already_exists`; that conflict
 can roll back the newly created container, so it is terminal unless the client
 independently verifies both remote artifacts. Clients replan or adopt only on
 the exact status and code. Missing, malformed, and unknown tags are terminal.
+A create for a system slot the organization already holds returns an uncoded
+`409` with `systemSlotTaken: true`. It is terminal too: the client never sends
+that create again and folds its copy into the listed container. No conflict
+body carries database statement text.
 
 ## Document Link And Sync Protocol
 

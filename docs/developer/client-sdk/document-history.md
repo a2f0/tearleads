@@ -3,8 +3,10 @@
 `documents.openHistory(localId)` resolves to a `DocumentHistory`: a read-only
 replay of the document's durable local history, or `null` while the database is
 not ready or the document has no history yet. Every device holds a document's
-complete operation log, so this needs no network. Hosts that hold a workflow
-runtime can call the documents facade's `openDocumentHistory` directly.
+complete operation log, so this needs no network. Internal SDK code with a
+workflow runtime uses `openDocumentHistory` in
+[`workflows/documents`](../../../packages/client-sdk/src/workflows/documents/);
+external hosts call `documents.openHistory`.
 
 ## Reading a replay
 
@@ -122,8 +124,9 @@ order, which this device trusts as it does for every sync page.
 `documents.verifyHistory(localId, options?)` checks the document's durable
 local history against the signed updates the server retains. It resolves to a
 `DocumentHistoryVerification`, or to `null` while the database is not ready.
-Hosts that hold a workflow runtime can call the documents facade's
-`verifyDocumentHistory` directly.
+Internal SDK code with a workflow runtime uses `verifyDocumentHistory` in
+[`workflows/documents`](../../../packages/client-sdk/src/workflows/documents/);
+external hosts call `documents.verifyHistory`.
 
 It needs the network. It pulls the document's whole
 [raw history](../../raw-document-history-recovery.md#read-only-consumers) from

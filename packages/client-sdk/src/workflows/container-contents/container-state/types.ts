@@ -174,6 +174,8 @@ export interface ContainerCreateIntentSyncInput {
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerCreateIntentRecord;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;
+  /** Asks for a later pass; without it a held create waits for the next one. */
+  requestSyncAfter?: ((delayMs: number) => void) | undefined;
   state: ContainerCreateIntentSyncState;
 }
 

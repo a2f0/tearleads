@@ -78,6 +78,16 @@ adding an update. The mechanism is the one
   an explicit Refresh, or resuming a paused organization (`resumeSync` in
   `organizationMemberships.ts` runs the same full refresh), still forces
   every registered document.
+- Each launch. The initial document probe lists every lane from no
+  watermark at least once a launch, one request for every 32 lanes. It lists
+  a lane again when that listing failed, and every lane once more when the
+  reconciler stops and starts again. Its rows owe reads as a watermarked
+  listing's do. A watermarked listing is served only
+  the rows that moved, so the probe is what notices a record whose cursor or
+  head fell behind a row it was served before, such as one a local backup
+  restore put back. Its debts are durable before the open store of each owed
+  record is asked to pull; it applies no row and moves no watermark, and a
+  failure to write them leaves the probe's own work as it was.
 - Hints. A store reads hints only once its record has loaded and while a view
   hands it runtimes. The scope remembers which documents the hints it saw
   named, and a store whose document was named before its record loaded probes
@@ -227,8 +237,12 @@ settled: the store is asked for one pull. That pull cites the store's own
 version, because the shared cursor was recorded with a version the store does
 not cover and is withheld, so the server returns what the copy lacks. With
 one tab, a store's document always holds what its record has on disk, and the
-comparison asks for nothing. A local edit another tab has saved and not yet
-submitted cannot be pulled; it arrives with the hint for its accepted write.
+comparison asks for nothing. It is not gated on a sign that another tab wrote:
+with 10,000 open documents a catch-up's checks took about 30 ms and 15
+statements, against SQLite in the same process, nearly all of it comparing
+each document in memory with its frontier, and about 4 ms with 1,000. A local
+edit another tab has saved and not yet submitted cannot be pulled; it arrives
+with the hint for its accepted write.
 The catch-up also forgets debts of records the device no longer holds, or that
 now name another document, and lane requests of containers it does not store.
 [SharedDatabaseListing](../formal/document-sync/SharedDatabaseListing.md)

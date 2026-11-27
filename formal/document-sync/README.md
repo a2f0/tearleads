@@ -187,7 +187,8 @@ an unread access head always survives, through crashes and reads in flight,
 that evidence of an unread edit or an unread head also survives a read a
 lagging replica serves, and that the client eventually holds the server's
 version. A read settles a debt only once it saved the owed head or a later
-one. See the
+one. Once a launch, the initial probe lists the lane from no watermark and owes
+reads the same way, and asks the open store to make them. See the
 [production mapping and negative controls](./DocumentListingConvergence.md).
 
 [`DocumentLanePolling.tla`](./DocumentLanePolling.tla) models the step

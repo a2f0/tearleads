@@ -406,8 +406,7 @@ folder the user can reach, grouped by organization, including one shared from
 beneath an unreachable root. Its folders are the containers whose parent is not
 local, the rule Explorer uses for its top-level rows; an organization with no
 such folder gets one row of its own. Names come from `listLocalOrganizations`,
-which reports a null `rootContainerId` for an organization reached without its
-root.
+whose `rootContainerId` is null for an organization reached without its root.
 
 ## Why first paint is device-first (trace)
 
@@ -439,10 +438,11 @@ An eager system-container create sends its first metadata update the same way;
 once the seed commits, nothing is queued and no metadata sync follows unless a
 peer's metadata hint arrived first: like a replayed create, it registers its
 planned metadata document id until the created state is installed, and a read
-that hint queued is synced then. It runs only for a slot with no local copy: a
-device-first slot made before its root gained an organization is found by root
-and slot and promoted through its own create intent, never created a second
-time.
+that hint queued is synced then. It runs only for a slot with no local copy,
+found by root and slot even when made before its root gained an organization;
+that copy is promoted through its own create intent instead. Once sign-in or a
+restore folds its root into the account root, the create waits for that root's
+listing ([row 26](../sync-edge-cases.md)).
 
 ## Scope boundaries
 
@@ -452,10 +452,10 @@ time.
 - The instant document list relies on summaries being persisted on discovery
   (`upsertDiscoveredDocuments` writes `document_projection`); local-only
   documents land there via the documents store, so the cache is authoritative.
-- Ordinary per-document Loro content stays lazy in the `documents` sync lane.
-  Layer B only primes content that cannot rely on a document window opening it
-  (remote system-container projections), while it reconciles the container tree
-  plus document summaries/links for every known lane.
+- Layer B's reconciler primes only remote system-container projections while
+  reconciling trees and document summaries/links; the scope's
+  [`discoveredDocumentPrimer.ts`](../../packages/client-sdk/src/client/deviceFirst/discoveredDocumentPrimer.ts)
+  opens discovered remote documents in the background when sync-ready and unpaused.
 
 ## Offline contract and coverage
 

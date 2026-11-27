@@ -4,6 +4,8 @@ const DOCUMENT_LISTING_MODULE =
   "formal/document-sync/DocumentListingConvergence.tla";
 const DOCUMENT_LISTING_CONFIG =
   "formal/document-sync/DocumentListingConvergence.cfg";
+const DOCUMENT_LISTING_PROBE_CONFIG =
+  "formal/document-sync/DocumentListingConvergenceProbe.cfg";
 
 const SHARED_DATABASE_MODULE = "formal/document-sync/SharedDatabaseListing.tla";
 const SHARED_DATABASE_CONFIG = "formal/document-sync/SharedDatabaseListing.cfg";
@@ -130,5 +132,13 @@ export const DOCUMENT_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { RelistOnAcknowledge: "FALSE" },
     expect: { kind: "liveness", name: "Converges" },
     why: "An edit whose hint was lost while disconnected or closed is found only by the listing that follows an acknowledged connection.",
+  },
+  {
+    id: "document-listing-probe-debt-unasked",
+    module: DOCUMENT_LISTING_MODULE,
+    config: DOCUMENT_LISTING_PROBE_CONFIG,
+    constants: { ProbeAsksOpenStore: "FALSE" },
+    expect: { kind: "liveness", name: "DebtsSettle" },
+    why: "The launch probe owes a read for a head that moved while the client stayed connected. Its store is already open and no re-list follows, so a debt it does not also ask that store to read waits for the next connection or restart.",
   },
 ];
