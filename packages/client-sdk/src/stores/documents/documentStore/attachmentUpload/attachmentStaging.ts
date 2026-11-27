@@ -12,7 +12,10 @@ import {
   assignLocalAttachmentSlots,
   upsertPendingAttachments,
 } from "../attachments/attachmentPersistence";
-import { noteDocumentStoreWrite } from "../reportWriteFailure";
+import {
+  noteDocumentStoreWrite,
+  retryDocumentStoreWorkWhileBusy,
+} from "../reportWriteFailure";
 import { type DocumentStoreState, setReadySnapshot } from "../state";
 import {
   type DocumentStoreSyncGeneration,
@@ -139,21 +142,17 @@ async function writePendingAttachmentBytes(
     if (!sourceFile) continue;
     // `BlobByteSource` is replayable and `writeByteSource` overwrites by key,
     // so repeating a single refused blob write is idempotent.
-    await retryWhileDatabaseBusy(
+    await retryDocumentStoreWorkWhileBusy(
+      input.state,
       () =>
         input.state.runtime.infra.blobStore.writeByteSource(
           pendingAttachment.storageKey,
           createBlobByteSource(sourceFile.bytes),
         ),
       {
+        busyMessage: "Documents: attachment staging delayed",
         isCurrent: () =>
           isDocumentStoreSyncGenerationCurrent(input.state, input.generation),
-        onBusy: () => {
-          noteDocumentStoreWrite(
-            input.state,
-            "Documents: attachment staging delayed behind another tab's database transaction",
-          );
-        },
       },
     );
   }

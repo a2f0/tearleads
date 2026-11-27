@@ -249,21 +249,6 @@ async function editCreation(
   return id;
 }
 
-async function preparePreviousCreation(
-  attempt: CreationAttempt,
-  store: DocumentStore,
-  authorized: () => boolean,
-): Promise<void> {
-  if (attempt.state.status === "refused") {
-    attempt.state = transitionContactAddressCreation(attempt.state, {
-      type: "retry",
-    });
-    return;
-  }
-  await flushPending(store, authorized);
-  reconcileCreation(attempt, authorized);
-}
-
 export async function addContactAddressRow(
   store: DocumentStore,
   fields: ContactAddressFields,
@@ -288,13 +273,19 @@ export async function addContactAddressRow(
     };
     // Keep the original lifetime even after a confirmed no-effect refusal.
     const authorized = () => current() && attempt.current();
-    if (previous) {
-      await preparePreviousCreation(attempt, store, authorized);
+    if (previous && attempt.state.status !== "refused") {
+      await flushPending(store, authorized);
+      reconcileCreation(attempt, authorized);
       if (attempt.state.status !== "creating")
         return editCreation(attempt, values, authorized);
     }
-    creations.set(intent, attempt);
     writable(store, authorized);
+    if (attempt.state.status === "refused") {
+      attempt.state = transitionContactAddressCreation(attempt.state, {
+        type: "retry",
+      });
+    }
+    creations.set(intent, attempt);
     const id = await store.addRow(
       {
         ...values,

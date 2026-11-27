@@ -1,5 +1,6 @@
 import { mergeVersionVectors } from "@tearleads/loro";
 import {
+  classifyDatabaseFailure,
   isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
   retryWhileDatabaseBusy,
@@ -240,6 +241,7 @@ async function initializeDocumentStoreAttempt(
     persistedState.document?.peerSalt,
   );
   let returnedDoc: DocumentState | null = null;
+  let restoredDoc: DocumentState | null = null;
   try {
     if (state.localWriteGeneration !== initializeGeneration) {
       return null;
@@ -271,6 +273,7 @@ async function initializeDocumentStoreAttempt(
       }
       return null;
     }
+    restoredDoc = restored.doc;
     const result = await healAndCheckInitialDocument(
       state,
       restored,
@@ -282,9 +285,32 @@ async function initializeDocumentStoreAttempt(
     if (nextDoc !== returnedDoc && nextDoc !== state.doc) {
       nextDoc.free();
     }
+    if (
+      restoredDoc &&
+      restoredDoc !== returnedDoc &&
+      restoredDoc !== nextDoc &&
+      restoredDoc !== state.doc
+    ) {
+      restoredDoc.free();
+    }
     if (!returnedDoc && state.localWriteGeneration === initializeGeneration) {
       clearPartialInitialization(state);
     }
+  }
+}
+
+function discardStaleLoadedAttempt(
+  state: DocumentStoreState,
+  loaded: InitializedDocumentStoreAttempt | null,
+  initializeGeneration: number,
+): void {
+  if (!loaded) return;
+  if (state.localWriteGeneration === initializeGeneration) {
+    clearPartialInitialization(state);
+    return;
+  }
+  if (loaded.restored.doc !== state.doc) {
+    loaded.restored.doc.free();
   }
 }
 
@@ -325,18 +351,19 @@ async function initializeDocumentStore(
       },
     );
   } catch (error) {
-    // A reset or database teardown during the busy pause supersedes this
+    // A reset or database teardown during a busy pause supersedes this
     // initialization; return quietly instead of reporting a stale busy error.
-    if (!isCurrent()) {
+    // Non-busy errors (e.g. identity rebase during recovery) still propagate.
+    if (classifyDatabaseFailure(error) === "busy" && !isCurrent()) {
       return;
     }
-    clearPartialInitialization(state);
+    if (state.localWriteGeneration === initializeGeneration) {
+      clearPartialInitialization(state);
+    }
     throw error;
   }
   if (!loaded || !isCurrent()) {
-    if (loaded && state.localWriteGeneration === initializeGeneration) {
-      clearPartialInitialization(state);
-    }
+    discardStaleLoadedAttempt(state, loaded, initializeGeneration);
     return;
   }
 
@@ -374,7 +401,12 @@ export function ensureDocumentStoreInitialized(
     return;
   }
 
-  const initializePromise = initializeDocumentStore(state, scheduleSync).catch(
+  const initializePromise = initializeDocumentStore(state, scheduleSync).then(
+    () => {
+      if (state.initializePromise === initializePromise) {
+        state.initializePromise = null;
+      }
+    },
     (error: unknown) => {
       if (state.initializePromise === initializePromise) {
         state.initializePromise = null;

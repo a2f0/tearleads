@@ -32,7 +32,6 @@ import {
 import {
   ATTACHMENT_FAILURE_MESSAGE,
   persistStagedAttachmentMutation,
-  reportAttachmentMutationFailure,
   restoreFailedAttachmentMutation,
 } from "./attachmentMutationPersistence";
 import {
@@ -300,12 +299,10 @@ export async function attachFilesToDocumentStore(
         attachThenSettle(state, scheduleSync, files, callGeneration),
       )
       .catch((error: unknown) => {
-        reportAttachmentMutationFailure(
+        reportDocumentStoreWriteFailure(
           state,
+          ATTACHMENT_FAILURE_MESSAGE,
           error,
-          (!callGeneration ||
-            isAttachmentWriteGenerationCurrent(state, callGeneration)) &&
-            state.runtime.infra.dbStatus === "ready",
         );
       }),
   );
@@ -339,11 +336,10 @@ export async function replaceAttachmentInDocumentStore(
         persistSlotAttachmentFile(state, slotId, file, writeGeneration),
       )
       .catch((error: unknown) => {
-        reportAttachmentMutationFailure(
+        reportDocumentStoreWriteFailure(
           state,
+          ATTACHMENT_FAILURE_MESSAGE,
           error,
-          isAttachmentWriteGenerationCurrent(state, writeGeneration) &&
-            state.runtime.infra.dbStatus === "ready",
         );
       }),
   );

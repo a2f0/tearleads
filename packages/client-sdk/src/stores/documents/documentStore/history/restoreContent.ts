@@ -4,11 +4,7 @@ import {
   restoreDocumentContent,
 } from "../../../../data/documents/documentRestore";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import {
-  classifyDatabaseFailure,
-  type DocumentRecord,
-  retryWhileDatabaseBusy,
-} from "../../../../workflows/documents";
+import type { DocumentRecord } from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import type { DocumentMutationGuard } from "../../types";
 import { ensureDocumentStoreReady } from "../initialization";
@@ -20,8 +16,8 @@ import {
   persistDocument,
 } from "../persistence";
 import {
-  noteDocumentStoreWrite,
   reportDocumentStoreWriteFailure,
+  retryDocumentStoreWorkWhileBusy,
 } from "../reportWriteFailure";
 import { resolveRowAttribution } from "../rows/rowAttribution";
 import {
@@ -104,19 +100,15 @@ async function persistRestoredContent(
     // The restore commit ran once in `currentDoc` above; repeating only the
     // atomic SQLite persist keeps a single history stop while retrying behind
     // another tab's transaction.
-    retryWhileDatabaseBusy(
+    retryDocumentStoreWorkWhileBusy(
+      state,
       () =>
         persistDocument(state, currentDoc, patch, persistOptions, generation),
       {
+        busyMessage: RESTORE_FAILURE_MESSAGE,
         isCurrent: () =>
           state.localWriteGeneration === expectedLocalWriteGeneration &&
           isDocumentStoreSyncGenerationCurrent(state, generation),
-        onBusy: () => {
-          noteDocumentStoreWrite(
-            state,
-            `${RESTORE_FAILURE_MESSAGE} behind another tab's database transaction`,
-          );
-        },
       },
     );
   if (!pendingUpdate) {
@@ -203,16 +195,6 @@ export async function restoreDocumentStoreContent(
         );
       })
       .catch((error: unknown) => {
-        const stillCurrent =
-          state.localWriteGeneration === writeGeneration &&
-          state.runtime.infra.dbStatus === "ready";
-        if (classifyDatabaseFailure(error) === "busy" && !stillCurrent) {
-          noteDocumentStoreWrite(
-            state,
-            `${RESTORE_FAILURE_MESSAGE} after store state moved on`,
-          );
-          return;
-        }
         reportDocumentStoreWriteFailure(state, RESTORE_FAILURE_MESSAGE, error);
       })
       // Always settle, so the count cannot stick above zero.

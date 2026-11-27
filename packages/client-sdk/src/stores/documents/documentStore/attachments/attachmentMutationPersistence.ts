@@ -1,8 +1,4 @@
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import {
-  classifyDatabaseFailure,
-  retryWhileDatabaseBusy,
-} from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import {
   deleteUnreferencedStagedAttachmentBytes,
@@ -11,10 +7,7 @@ import {
 import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
 import { ensureDocumentStoreInitialized } from "../initialization";
 import { persistDocument } from "../persistence";
-import {
-  noteDocumentStoreWrite,
-  reportDocumentStoreWriteFailure,
-} from "../reportWriteFailure";
+import { retryDocumentStoreWorkWhileBusy } from "../reportWriteFailure";
 import { type DocumentStoreState, resetDocumentStore } from "../state";
 import {
   type captureDocumentStoreSyncGeneration,
@@ -28,25 +21,6 @@ import {
 // Fixed literal: a reported message must never carry file names or slot ids.
 export const ATTACHMENT_FAILURE_MESSAGE =
   "Documents: attachment mutation failed";
-
-/**
- * Reports an attachment write failure, suppressing spurious error diagnostics
- * when a busy retry stopped only because the store reset or tore down.
- */
-export function reportAttachmentMutationFailure(
-  state: DocumentStoreState,
-  error: unknown,
-  stillCurrent: boolean,
-): void {
-  if (classifyDatabaseFailure(error) === "busy" && !stillCurrent) {
-    noteDocumentStoreWrite(
-      state,
-      `${ATTACHMENT_FAILURE_MESSAGE} after store state moved on`,
-    );
-    return;
-  }
-  reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
-}
 
 export async function restoreFailedAttachmentMutation(input: {
   generation: NonNullable<
@@ -93,7 +67,8 @@ export async function persistStagedAttachmentMutation(input: {
     // `persistDocument` commits the attachment rows, history tail, pending
     // update, and document record in one SQLite transaction, so retrying a
     // busy refusal commits all SQLite records together or none at all.
-    return await retryWhileDatabaseBusy(
+    return await retryDocumentStoreWorkWhileBusy(
+      state,
       () =>
         persistDocument(
           state,
@@ -109,15 +84,10 @@ export async function persistStagedAttachmentMutation(input: {
           input.generation,
         ),
       {
+        busyMessage: ATTACHMENT_FAILURE_MESSAGE,
         isCurrent: () =>
           isAttachmentWriteGenerationCurrent(state, input.writeGeneration) &&
           isDocumentStoreSyncGenerationCurrent(state, input.generation),
-        onBusy: () => {
-          noteDocumentStoreWrite(
-            state,
-            `${ATTACHMENT_FAILURE_MESSAGE} behind another tab's database transaction`,
-          );
-        },
       },
     );
   } catch (error) {

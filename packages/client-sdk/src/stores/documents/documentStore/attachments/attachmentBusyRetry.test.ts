@@ -329,6 +329,43 @@ test("exhausted busy remove rolls back the snapshot and reports loss", async () 
   }
 });
 
+test("exhausted attach still reports loss when rollback reload also exhausts busy and resets", async () => {
+  const database = await createTestExecSql("attach-busy-rollback-reset");
+  const reported: unknown[] = [];
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: (_m, e) => reported.push(e) },
+  });
+  try {
+    const persistence: DocumentsPersistence = {
+      ...sqlDocumentsPersistence,
+      async commitDocumentMutation(...args) {
+        if (args[1].attachmentStaging) {
+          throw busyRefusal();
+        }
+        return sqlDocumentsPersistence.commitDocumentMutation(...args);
+      },
+      async loadDocumentWithHistoryRestoreState() {
+        throw busyRefusal();
+      },
+    };
+    const state = await createAttachmentStore({
+      execSql: database.execSql,
+      localId: "rollback-reset-doc",
+      persistence,
+      sdk,
+    });
+
+    await attachFilesToDocumentStore(state, noop, [FILE_A]);
+    // Fallback reset cleared the uncommitted attachment slot and still
+    // reported the exhausted busy failure to diagnostics.
+    expect(state.snapshot.attachments).toEqual([]);
+    expect(reported).toHaveLength(1);
+  } finally {
+    sdk.dispose();
+    database.close();
+  }
+});
+
 test("deferred birth settlement retries busy refusals when releasing the hold", async () => {
   const { close, execSql } = await createTestExecSql("deferred-birth-busy");
   try {

@@ -131,7 +131,7 @@ async function installReloadedDurableDocument(input: {
     installed = true;
     return true;
   } finally {
-    if (!installed) replacementDoc.free();
+    if (!installed && state.doc !== replacementDoc) replacementDoc.free();
   }
 }
 

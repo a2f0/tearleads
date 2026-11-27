@@ -1,5 +1,47 @@
-import { classifyDatabaseFailure } from "../../../workflows/documents";
+import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "../../../workflows/documents";
 import type { DocumentState, DocumentStoreState } from "./state";
+
+// Busy refusals that stopped retrying only because the store moved on (reset,
+// teardown, or superseded generation) are never lost writes and must not reach
+// `logError`, even if a fallback rollback later bumps `localWriteGeneration`.
+class SupersededBusyRetryError extends Error {
+  constructor(cause: unknown) {
+    super("Document store busy retry superseded by state change", { cause });
+    this.name = "SupersededBusyRetryError";
+  }
+}
+
+export function retryDocumentStoreWorkWhileBusy<T>(
+  state: DocumentStoreState,
+  work: () => Promise<T>,
+  options: {
+    readonly busyMessage: string;
+    readonly isCurrent: () => boolean;
+  },
+): Promise<T> {
+  let superseded = false;
+  return retryWhileDatabaseBusy(work, {
+    isCurrent: () => {
+      const current = options.isCurrent();
+      if (!current) superseded = true;
+      return current;
+    },
+    onBusy: () => {
+      noteDocumentStoreWrite(
+        state,
+        `${options.busyMessage} behind another tab's database transaction`,
+      );
+    },
+  }).catch((error: unknown) => {
+    if (superseded && classifyDatabaseFailure(error) === "busy") {
+      throw new SupersededBusyRetryError(error);
+    }
+    throw error;
+  });
+}
 
 const lastWriteFailureByState = new WeakMap<DocumentStoreState, string>();
 
@@ -43,6 +85,12 @@ export function reportDocumentStoreWriteFailure(
   // it. Unfiltered, SQLite-worker teardown would outrank every real failure.
   // A busy refusal still reports here: only `reportOrRetryBusyDocumentWrite`
   // callers queue the write again, and a refusal nothing retries is lost work.
+  if (error instanceof SupersededBusyRetryError) {
+    dispatchToHost(() =>
+      state.runtime.util.log(`${message} after store state moved on`),
+    );
+    return;
+  }
   if (classifyDatabaseFailure(error) === "unavailable") {
     dispatchToHost(() => state.runtime.util.log(message));
     return;

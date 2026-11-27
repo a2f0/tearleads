@@ -7,7 +7,6 @@ import {
   removeDocumentAttachment,
 } from "../../../../data/documents/documentContent";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import { ensureDocumentStoreReady } from "../initialization";
 import { chainQueuedWrite } from "../localWriteQueue";
@@ -18,8 +17,8 @@ import {
   persistDocument,
 } from "../persistence";
 import {
-  noteDocumentStoreWrite,
   reportDocumentStoreWriteFailure,
+  retryDocumentStoreWorkWhileBusy,
 } from "../reportWriteFailure";
 import {
   canWriteDocument,
@@ -32,7 +31,6 @@ import {
 } from "../sync/syncGeneration";
 import {
   ATTACHMENT_FAILURE_MESSAGE,
-  reportAttachmentMutationFailure,
   restoreFailedAttachmentMutation,
 } from "./attachmentMutationPersistence";
 import {
@@ -111,7 +109,8 @@ async function commitAttachmentRemoval(input: {
     // `persistDocument` commits the attachment removal/detach marker, history
     // tail, pending update, and document record in one atomic SQLite
     // transaction, so retrying a busy refusal leaves no partial removal.
-    return await retryWhileDatabaseBusy(
+    return await retryDocumentStoreWorkWhileBusy(
+      state,
       () =>
         persistDocument(
           state,
@@ -138,15 +137,10 @@ async function commitAttachmentRemoval(input: {
           generation,
         ),
       {
+        busyMessage: ATTACHMENT_FAILURE_MESSAGE,
         isCurrent: () =>
           isAttachmentWriteGenerationCurrent(state, writeGeneration) &&
           isDocumentStoreSyncGenerationCurrent(state, generation),
-        onBusy: () => {
-          noteDocumentStoreWrite(
-            state,
-            `${ATTACHMENT_FAILURE_MESSAGE} behind another tab's database transaction`,
-          );
-        },
       },
     );
   } catch (error) {
@@ -264,11 +258,10 @@ export async function removeAttachmentFromDocumentStore(
         persistRemovedAttachment(state, slotId, writeGeneration),
       )
       .catch((error: unknown) => {
-        reportAttachmentMutationFailure(
+        reportDocumentStoreWriteFailure(
           state,
+          ATTACHMENT_FAILURE_MESSAGE,
           error,
-          isAttachmentWriteGenerationCurrent(state, writeGeneration) &&
-            state.runtime.infra.dbStatus === "ready",
         );
       }),
   );
