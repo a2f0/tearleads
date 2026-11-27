@@ -16,6 +16,7 @@ import {
   remoteResetBatches,
   SQLITE_BOUND_VARIABLE_BUDGET,
   sqliteInsertBatchSize,
+  sqliteRowsPerStatement,
 } from "../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,
@@ -38,6 +39,7 @@ import {
 const LINK_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
   documentContainerProjection,
 );
+const LINK_LOOKUP_BATCH_SIZE = sqliteRowsPerStatement(1);
 
 /** Link rows and their tombstone holds leave together on a remote reset. */
 export async function deleteDocumentPlacementRowsByContainerIds(
@@ -316,28 +318,39 @@ export class DocumentContainerProjectionRepository {
     }
 
     const { db } = getClientSQLitePersistenceRuntime(this.execSql);
-    const rows = await db
-      .select({
-        documentId: documentContainerProjection.documentId,
-        containerId: documentContainerProjection.containerId,
-      })
-      .from(documentContainerProjection)
-      .where(inArray(documentContainerProjection.documentId, uniqueDocumentIds))
-      .orderBy(
-        asc(documentContainerProjection.documentId),
-        asc(documentContainerProjection.containerId),
-      );
-
     const linkedContainerIdsByDocumentId = new Map<string, string[]>();
     for (const documentId of uniqueDocumentIds) {
       linkedContainerIdsByDocumentId.set(documentId, []);
     }
 
-    for (const row of rows) {
-      const linkedContainerIds =
-        linkedContainerIdsByDocumentId.get(row.documentId) ?? [];
-      linkedContainerIds.push(row.containerId);
-      linkedContainerIdsByDocumentId.set(row.documentId, linkedContainerIds);
+    for (
+      let offset = 0;
+      offset < uniqueDocumentIds.length;
+      offset += LINK_LOOKUP_BATCH_SIZE
+    ) {
+      const rows = await db
+        .select({
+          documentId: documentContainerProjection.documentId,
+          containerId: documentContainerProjection.containerId,
+        })
+        .from(documentContainerProjection)
+        .where(
+          inArray(
+            documentContainerProjection.documentId,
+            uniqueDocumentIds.slice(offset, offset + LINK_LOOKUP_BATCH_SIZE),
+          ),
+        )
+        .orderBy(
+          asc(documentContainerProjection.documentId),
+          asc(documentContainerProjection.containerId),
+        );
+
+      for (const row of rows) {
+        const linkedContainerIds =
+          linkedContainerIdsByDocumentId.get(row.documentId) ?? [];
+        linkedContainerIds.push(row.containerId);
+        linkedContainerIdsByDocumentId.set(row.documentId, linkedContainerIds);
+      }
     }
 
     return linkedContainerIdsByDocumentId;
@@ -353,15 +366,36 @@ export class DocumentContainerProjectionRepository {
     }
 
     const { db } = getClientSQLitePersistenceRuntime(this.execSql);
-    const rows = await db
-      .selectDistinct({ documentId: documentContainerProjection.documentId })
-      .from(documentContainerProjection)
-      .where(
-        inArray(documentContainerProjection.containerId, uniqueContainerIds),
-      )
-      .orderBy(asc(documentContainerProjection.documentId));
+    if (uniqueContainerIds.length <= LINK_LOOKUP_BATCH_SIZE) {
+      const rows = await db
+        .selectDistinct({ documentId: documentContainerProjection.documentId })
+        .from(documentContainerProjection)
+        .where(
+          inArray(documentContainerProjection.containerId, uniqueContainerIds),
+        )
+        .orderBy(asc(documentContainerProjection.documentId));
 
-    return rows.map((row) => row.documentId);
+      return rows.map((row) => row.documentId);
+    }
+
+    const documentIds = new Set<string>();
+    for (
+      let offset = 0;
+      offset < uniqueContainerIds.length;
+      offset += LINK_LOOKUP_BATCH_SIZE
+    ) {
+      const rows = await db
+        .selectDistinct({ documentId: documentContainerProjection.documentId })
+        .from(documentContainerProjection)
+        .where(
+          inArray(
+            documentContainerProjection.containerId,
+            uniqueContainerIds.slice(offset, offset + LINK_LOOKUP_BATCH_SIZE),
+          ),
+        );
+      for (const row of rows) documentIds.add(row.documentId);
+    }
+    return Array.from(documentIds).sort();
   }
 
   async replaceDocumentLinks(

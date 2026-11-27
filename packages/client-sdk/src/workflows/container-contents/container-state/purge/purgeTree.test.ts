@@ -92,7 +92,11 @@ describe("classifySubtreeDocument", () => {
         linkedContainerIds: ["trashed"],
         subtreeContainerIds,
       }),
-    ).toEqual({ kind: "purge", unlinkContainerIds: [] });
+    ).toEqual({
+      kind: "purge",
+      retainedContainerId: "trashed",
+      unlinkContainerIds: [],
+    });
   });
 
   test("purges a synced document even when linked to several in-subtree folders", () => {
@@ -104,6 +108,7 @@ describe("classifySubtreeDocument", () => {
       }),
     ).toEqual({
       kind: "purge",
+      retainedContainerId: "trashed",
       unlinkContainerIds: ["trashed-child"],
     });
   });

@@ -240,7 +240,7 @@ async function allowsDocumentScope(
   );
 }
 
-async function allowsDocumentUnlinkScope(
+async function allowsDocumentLinkScope(
   input: SubtreePurgeScopeInput,
   verifiedAncestorsById: Map<string, readonly string[]>,
   document: DocumentSummary,
@@ -256,7 +256,7 @@ async function allowsDocumentUnlinkScope(
   )
     return false;
   // Freeze local placement, link membership, and subtree scope together
-  // after remote verification of the unlinked container.
+  // after remote verification of the in-subtree container link.
   return readLocalPurgeScope(
     {
       ...input,
@@ -313,9 +313,9 @@ export function createSubtreePurgeScope(request: SubtreePurgeScopeInput) {
       checkAvailableScope(input, () =>
         allowsDocumentScope(input, verifiedAncestorsById, document),
       ),
-    allowsDocumentUnlink: (document: DocumentSummary, containerId: string) =>
+    allowsDocumentLink: (document: DocumentSummary, containerId: string) =>
       checkAvailableScope(input, () =>
-        allowsDocumentUnlinkScope(
+        allowsDocumentLinkScope(
           input,
           verifiedAncestorsById,
           document,
