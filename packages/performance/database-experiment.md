@@ -6,7 +6,7 @@ the selected API's existing Hyperdrive binding, with query caching disabled.
 It creates no accounts and neither reads nor writes application tables.
 
 The
-[first staging and production results](results/2026-10-26-database-round-trip.md)
+[first staging and production results](results/deployed/2026-10-26-database-round-trip.md)
 show roughly five milliseconds per warm exchange and a 13–20 times faster
 constant-query batch in production.
 

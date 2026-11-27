@@ -47,5 +47,5 @@ The offline phases of `DeviceFirstOfflineRequestVolume` and the
 | `PaneRestartRequestVolume` | settled restart with 8 folders | 10 | 4,286 | 21,766 |
 | `PaneRestartRequestVolume` | restart after a local edit | 13 | 3,759 | 18,072 |
 
-See [Request-volume canaries](../README.md#request-volume-canaries) for what
+See [Request-volume canaries](../../README.md#request-volume-canaries) for what
 the runner measures and how to repeat it.

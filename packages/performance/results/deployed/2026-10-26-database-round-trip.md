@@ -55,7 +55,8 @@ does not establish its size.
 
 ## Reproduction and limitations
 
-See [running and measurement boundaries](../database-experiment.md). The CLI ran
+See [running and measurement boundaries](../../database-experiment.md). The CLI
+ran
 on arm64 macOS with Bun 1.4.3, source base `78074ec586ea07e5534c710c56b7ded34d3fcff7`
 plus the experiment changes in the working tree. Both bundles had SHA-256
 `2304b17e4f9277a71c151a7091cef07757873546e0aaffb356badf7ab034177b`.
