@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { documentCreateSeedRefinement } from "../documentCreateSeedRefinements";
 import {
+  documentLinkSetBaselineSegmentBytesRefinement,
   documentLinkSetPathRefinement,
   documentSyncRequestRotationRefinement,
 } from "../documentSyncRefinements";
@@ -113,6 +114,7 @@ function defineDocumentLinkSetMutationOperation<
     responses: { 200: DocumentLinkSetMutationResponseSchema },
     runtimeRefinements: [
       documentLinkSetPathRefinement,
+      documentLinkSetBaselineSegmentBytesRefinement,
       documentSyncRequestRotationRefinement,
     ],
   });

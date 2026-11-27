@@ -129,7 +129,7 @@ A writer whose history fits one request sends the group inline, where the
 API judges it in one pass (`judgeDocumentBaselineGroup`):
 
 - An unlink's `rotationBaseline` is an array of 1 to 64 segments in index
-  order.
+  order, each at most 16 MiB as sent: an update's bound on every route.
 - A sync sends a group's segments first in `outgoingUpdates`, contiguous and
   in index order. Ordinary updates may follow the group, never precede it or
   sit between its segments, and a request carries at most one group.

@@ -5,8 +5,8 @@ import {
   DocumentCreateRequestSchema,
   DocumentCreateSeedRequestSchema,
   DocumentLinkSetMutationRequestSchema,
-  DocumentOutgoingUpdateSchema,
   DocumentPurgeRequestSchema,
+  DocumentSyncOutgoingUpdateSchema,
   DocumentSyncRequestSchema,
 } from "../request";
 import {
@@ -91,7 +91,7 @@ describeSchema(
 );
 
 describeSchema(
-  DocumentOutgoingUpdateSchema,
+  DocumentSyncOutgoingUpdateSchema,
   "One encrypted Loro update a client uploads, with its signed write header.",
   {
     baselineId:

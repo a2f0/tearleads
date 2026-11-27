@@ -1,6 +1,9 @@
 import type { z } from "zod";
 import { documentCreateSeedRefinement } from "../documentCreateSeedRefinements";
-import { documentLinkSetPathRefinement } from "../documentSyncRefinements";
+import {
+  documentLinkSetBaselineSegmentBytesRefinement,
+  documentLinkSetPathRefinement,
+} from "../documentSyncRefinements";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   arraySchema,
@@ -16,8 +19,10 @@ import {
   MAX_DOCUMENT_BASELINE_SEGMENTS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
+import { serializedJsonBytes } from "../util/serializedJsonBytes";
 import { ContainerMutationRequestSchema } from "./container";
 import {
   DocumentCreateSeedRequestSchema,
@@ -30,7 +35,7 @@ import {
   ContainerManifestRefArrayArraySchema,
   type DocumentContentKeyBundleRequest,
   DocumentContentKeyBundleRequestSchema,
-  DocumentOutgoingUpdateSchema,
+  DocumentSyncOutgoingUpdateSchema,
   type DocumentSyncRequest,
   DocumentSyncRequestSchema,
 } from "./documentSyncSchema";
@@ -44,7 +49,7 @@ export {
   type DocumentContentKeyTargetEnvelope,
   DocumentContentKeyTargetEnvelopeSchema,
   type DocumentOutgoingUpdate,
-  DocumentOutgoingUpdateSchema,
+  DocumentSyncOutgoingUpdateSchema,
   type DocumentSyncRequest,
   DocumentSyncRequestSchema,
 } from "./documentSyncSchema";
@@ -94,6 +99,31 @@ export const DocumentCreateRequestSchema = registerJsonSchemaRuntimeRefinements(
 
 export type DocumentCreateRequest = z.infer<typeof DocumentCreateRequestSchema>;
 
+/**
+ * Each inline segment as a whole, not field by field: two strings each under
+ * the bound could together make a segment no response page serves.
+ */
+function refineRotationBaselineSegmentBytes(
+  rotationBaseline: unknown,
+  context: z.RefinementCtx,
+): void {
+  if (
+    !Array.isArray(rotationBaseline) ||
+    rotationBaseline.length > MAX_DOCUMENT_BASELINE_SEGMENTS
+  ) {
+    return;
+  }
+  for (const [index, segment] of rotationBaseline.entries()) {
+    if (serializedJsonBytes(segment) > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
+      context.addIssue({
+        code: "custom",
+        message: documentLinkSetBaselineSegmentBytesRefinement.description,
+        path: ["rotationBaseline", index],
+      });
+    }
+  }
+}
+
 // The prior link-set manifest is the document's current head. The server
 // resolves it from its own store, while the signed event's previous manifest
 // hash pins freshness, so the writer does not echo the bundle back.
@@ -110,14 +140,19 @@ export const DocumentLinkSetMutationRequestSchema =
       contentKeyBundle: DocumentContentKeyBundleRequestSchema,
       event: plainObjectSchema,
       expectedManifestHash: nonEmptyStringSchema,
+      // An inline segment is one update, held to what a sync request may
+      // carry: the route's own ceiling is the largest a response page can
+      // serve of one update, and would leave no room for what it is served
+      // with.
       rotationBaseline: boundedNonEmptyArraySchema(
-        DocumentOutgoingUpdateSchema,
+        DocumentSyncOutgoingUpdateSchema,
         MAX_DOCUMENT_BASELINE_SEGMENTS,
       ).optional(),
       // A container path (root→leaf chain) must carry at least one manifest
       // reference; an empty path authorizes nothing and is never legitimately built.
       targetContainerPathRefs: ContainerManifestPathSchema,
     }).superRefine((request, context) => {
+      refineRotationBaselineSegmentBytes(request.rotationBaseline, context);
       if (
         !Array.isArray(request.authorizingContainerPathRefs) ||
         !Array.isArray(request.targetContainerPathRefs)
@@ -150,7 +185,10 @@ export const DocumentLinkSetMutationRequestSchema =
         });
       }
     }),
-    [documentLinkSetPathRefinement],
+    [
+      documentLinkSetPathRefinement,
+      documentLinkSetBaselineSegmentBytesRefinement,
+    ],
   );
 
 export type DocumentLinkSetMutationRequest = z.infer<

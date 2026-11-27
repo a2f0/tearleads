@@ -3382,76 +3382,7 @@
           "outgoingUpdates": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "baselineId": {
-                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                  "type": "string"
-                },
-                "baselineSegmentCount": {
-                  "maximum": 4096,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "baselineSegmentIndex": {
-                  "maximum": 4095,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "baselineSegmentsDigest": {
-                  "maxLength": 64,
-                  "minLength": 64,
-                  "pattern": "^[0-9a-f]+$",
-                  "type": "string"
-                },
-                "coversThroughUpdateId": {
-                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                  "type": "string"
-                },
-                "dependencyVersionVector": {
-                  "maxLength": 16777216,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "encryptedData": {
-                  "maxLength": 16777216,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "id": {
-                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                  "type": "string"
-                },
-                "partialEndVersionVector": {
-                  "maxLength": 16777216,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "partialStartVersionVector": {
-                  "maxLength": 16777216,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "plaintextHash": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "writeHeader": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {}
-                }
-              },
-              "required": [
-                "dependencyVersionVector",
-                "encryptedData",
-                "id",
-                "partialEndVersionVector",
-                "partialStartVersionVector",
-                "plaintextHash",
-                "writeHeader"
-              ],
-              "additionalProperties": {}
+              "$ref": "#/components/schemas/DocumentSyncOutgoingUpdate"
             },
             "maxItems": 64
           }
@@ -3693,7 +3624,7 @@
           "rotationBaseline": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DocumentOutgoingUpdate"
+              "$ref": "#/components/schemas/DocumentSyncOutgoingUpdate"
             },
             "maxItems": 64,
             "minItems": 1,
@@ -3853,87 +3784,6 @@
         ],
         "additionalProperties": {},
         "description": "The document does not exist; clients treat only this coded 404 as deletion."
-      },
-      "DocumentOutgoingUpdate": {
-        "type": "object",
-        "properties": {
-          "baselineId": {
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            "type": "string",
-            "description": "The rotation baseline the update is a segment of: an ordered group of updates that together carry the document's whole history at the epoch a rotation opened. Signed in the content-record metadata; absent for an ordinary update."
-          },
-          "baselineSegmentCount": {
-            "maximum": 4096,
-            "minimum": 1,
-            "type": "integer",
-            "description": "On a baseline's final segment only, how many segments the baseline has. Signed in the content-record metadata."
-          },
-          "baselineSegmentIndex": {
-            "maximum": 4095,
-            "minimum": 0,
-            "type": "integer",
-            "description": "The segment's place in its baseline, from zero. Signed in the content-record metadata. A request sends a baseline's segments together, in index order."
-          },
-          "baselineSegmentsDigest": {
-            "maxLength": 64,
-            "minLength": 64,
-            "pattern": "^[0-9a-f]+$",
-            "type": "string",
-            "description": "On a baseline's final segment only, the digest of the segments before it: a hash chain over each one's index, update id, metadata hash and ciphertext hash, started from the document and baseline ids. Signed in the content-record metadata, so a reader that holds every segment can tell none was dropped, replaced or reordered."
-          },
-          "coversThroughUpdateId": {
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            "type": "string",
-            "description": "On a baseline's final segment, its author's processed cursor: every update committed up to this one was imported into the baseline or void for the author, so the segments must cover only later updates. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline that declares no operations, the one empty segment of an author who voided every update through the cursor."
-          },
-          "dependencyVersionVector": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Version vector of the operations the update depends on outside itself: one past each peer's latest such operation, as Loro decodes the payload's start frontiers. Signed in the content-record metadata. The server refuses an update that depends on an operation it has not committed (`document_sync_dependency_uncommitted`), and a reader voids one whose payload depends on other operations. A baseline segment depends only on its baseline's earlier segments."
-          },
-          "encryptedData": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Base64 ciphertext of the update under the document content key."
-          },
-          "id": {
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            "type": "string",
-            "description": "Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical."
-          },
-          "partialEndVersionVector": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on the one segment of an empty baseline, which signs `coversThroughUpdateId`."
-          },
-          "partialStartVersionVector": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Version vector the update starts from."
-          },
-          "plaintextHash": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Hash of the plaintext update, committed by the write header."
-          },
-          "writeHeader": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": {},
-            "description": "Signed write header binding the ciphertext to the document, access manifest, content-key epoch, target hash, and writer."
-          }
-        },
-        "required": [
-          "dependencyVersionVector",
-          "encryptedData",
-          "id",
-          "partialEndVersionVector",
-          "partialStartVersionVector",
-          "plaintextHash",
-          "writeHeader"
-        ],
-        "additionalProperties": {},
-        "description": "One encrypted Loro update a client uploads, with its signed write header."
       },
       "DocumentPeerFrontier": {
         "type": "object",
@@ -4183,6 +4033,91 @@
         ],
         "additionalProperties": {},
         "description": "A refused sync. The code tells the client what to do: rebuild a malformed rotation baseline or one that no longer covers the committed updates, commit rekeys first, replan, recover update ids, move ops off another user's peer or off uncommitted dependencies, or stop."
+      },
+      "DocumentSyncOutgoingUpdate": {
+        "type": "object",
+        "properties": {
+          "baselineId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "The rotation baseline the update is a segment of: an ordered group of updates that together carry the document's whole history at the epoch a rotation opened. Signed in the content-record metadata; absent for an ordinary update."
+          },
+          "baselineSegmentCount": {
+            "maximum": 4096,
+            "minimum": 1,
+            "type": "integer",
+            "description": "On a baseline's final segment only, how many segments the baseline has. Signed in the content-record metadata."
+          },
+          "baselineSegmentIndex": {
+            "maximum": 4095,
+            "minimum": 0,
+            "type": "integer",
+            "description": "The segment's place in its baseline, from zero. Signed in the content-record metadata. A request sends a baseline's segments together, in index order."
+          },
+          "baselineSegmentsDigest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "On a baseline's final segment only, the digest of the segments before it: a hash chain over each one's index, update id, metadata hash and ciphertext hash, started from the document and baseline ids. Signed in the content-record metadata, so a reader that holds every segment can tell none was dropped, replaced or reordered."
+          },
+          "coversThroughUpdateId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "On a baseline's final segment, its author's processed cursor: every update committed up to this one was imported into the baseline or void for the author, so the segments must cover only later updates. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline that declares no operations, the one empty segment of an author who voided every update through the cursor."
+          },
+          "dependencyVersionVector": {
+            "maxLength": 16777216,
+            "minLength": 1,
+            "type": "string",
+            "description": "Version vector of the operations the update depends on outside itself: one past each peer's latest such operation, as Loro decodes the payload's start frontiers. Signed in the content-record metadata. The server refuses an update that depends on an operation it has not committed (`document_sync_dependency_uncommitted`), and a reader voids one whose payload depends on other operations. A baseline segment depends only on its baseline's earlier segments."
+          },
+          "encryptedData": {
+            "maxLength": 16777216,
+            "minLength": 1,
+            "type": "string",
+            "description": "Base64 ciphertext of the update under the document content key."
+          },
+          "id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical."
+          },
+          "partialEndVersionVector": {
+            "maxLength": 16777216,
+            "minLength": 1,
+            "type": "string",
+            "description": "Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on the one segment of an empty baseline, which signs `coversThroughUpdateId`."
+          },
+          "partialStartVersionVector": {
+            "maxLength": 16777216,
+            "minLength": 1,
+            "type": "string",
+            "description": "Version vector the update starts from."
+          },
+          "plaintextHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Hash of the plaintext update, committed by the write header."
+          },
+          "writeHeader": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {},
+            "description": "Signed write header binding the ciphertext to the document, access manifest, content-key epoch, target hash, and writer."
+          }
+        },
+        "required": [
+          "dependencyVersionVector",
+          "encryptedData",
+          "id",
+          "partialEndVersionVector",
+          "partialStartVersionVector",
+          "plaintextHash",
+          "writeHeader"
+        ],
+        "additionalProperties": {},
+        "description": "One encrypted Loro update a client uploads, with its signed write header."
       },
       "DocumentSyncPullPageResponse": {
         "type": "object",
@@ -4451,76 +4386,7 @@
           "outgoingUpdates": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "baselineId": {
-                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                  "type": "string"
-                },
-                "baselineSegmentCount": {
-                  "maximum": 4096,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "baselineSegmentIndex": {
-                  "maximum": 4095,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "baselineSegmentsDigest": {
-                  "maxLength": 64,
-                  "minLength": 64,
-                  "pattern": "^[0-9a-f]+$",
-                  "type": "string"
-                },
-                "coversThroughUpdateId": {
-                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                  "type": "string"
-                },
-                "dependencyVersionVector": {
-                  "maxLength": 16777216,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "encryptedData": {
-                  "maxLength": 16777216,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "id": {
-                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                  "type": "string"
-                },
-                "partialEndVersionVector": {
-                  "maxLength": 16777216,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "partialStartVersionVector": {
-                  "maxLength": 16777216,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "plaintextHash": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "writeHeader": {
-                  "type": "object",
-                  "properties": {},
-                  "additionalProperties": {}
-                }
-              },
-              "required": [
-                "dependencyVersionVector",
-                "encryptedData",
-                "id",
-                "partialEndVersionVector",
-                "partialStartVersionVector",
-                "plaintextHash",
-                "writeHeader"
-              ],
-              "additionalProperties": {}
+              "$ref": "#/components/schemas/DocumentSyncOutgoingUpdate"
             },
             "maxItems": 64,
             "description": "Encrypted updates to upload."
@@ -18358,76 +18224,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "baselineId": {
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                    "type": "string"
-                  },
-                  "baselineSegmentCount": {
-                    "maximum": 4096,
-                    "minimum": 1,
-                    "type": "integer"
-                  },
-                  "baselineSegmentIndex": {
-                    "maximum": 4095,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "baselineSegmentsDigest": {
-                    "maxLength": 64,
-                    "minLength": 64,
-                    "pattern": "^[0-9a-f]+$",
-                    "type": "string"
-                  },
-                  "coversThroughUpdateId": {
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                    "type": "string"
-                  },
-                  "dependencyVersionVector": {
-                    "maxLength": 16777216,
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "encryptedData": {
-                    "maxLength": 16777216,
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "id": {
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                    "type": "string"
-                  },
-                  "partialEndVersionVector": {
-                    "maxLength": 16777216,
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "partialStartVersionVector": {
-                    "maxLength": 16777216,
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "plaintextHash": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "writeHeader": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": {}
-                  }
-                },
-                "required": [
-                  "dependencyVersionVector",
-                  "encryptedData",
-                  "id",
-                  "partialEndVersionVector",
-                  "partialStartVersionVector",
-                  "plaintextHash",
-                  "writeHeader"
-                ],
-                "additionalProperties": {}
+                "$ref": "#/components/schemas/DocumentSyncOutgoingUpdate"
               }
             }
           },
@@ -19071,6 +18868,10 @@
             "id": "request.post-link-authorization-path-total-references"
           },
           {
+            "description": "each rotationBaseline segment may serialize to at most 16777216 bytes, the most a sync request carries",
+            "id": "request.post-link-rotation-baseline-segment-bytes"
+          },
+          {
             "description": "baselineId and baselineSegmentIndex must be absent together or both present; baselineSegmentCount and baselineSegmentsDigest appear only together and only with them, marking a baseline's final segment; only a final segment may carry coversThroughUpdateId",
             "id": "request.rotation-baseline-segment-fields"
           }
@@ -19699,6 +19500,10 @@
           {
             "description": "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 6400 references in total",
             "id": "request.post-link-authorization-path-total-references"
+          },
+          {
+            "description": "each rotationBaseline segment may serialize to at most 16777216 bytes, the most a sync request carries",
+            "id": "request.post-link-rotation-baseline-segment-bytes"
           },
           {
             "description": "baselineId and baselineSegmentIndex must be absent together or both present; baselineSegmentCount and baselineSegmentsDigest appear only together and only with them, marking a baseline's final segment; only a final segment may carry coversThroughUpdateId",
