@@ -103,6 +103,8 @@ async function measure(
       samples: options.samples,
       statements: options.statements,
       paramHash: options.paramHash,
+      payloadAudit: options.payloadAudit,
+      stacks: options.stacks,
     },
     boundary: canaryBoundary,
   } as const;
@@ -128,6 +130,12 @@ async function measure(
           capture: {
             out: resolve(logs, `${name}.statements.jsonl`),
             paramHash: options.paramHash,
+          },
+        }),
+        ...(options.payloadAudit && {
+          payloadAudit: {
+            out: resolve(logs, `${name}.payloads.jsonl`),
+            stacks: options.stacks,
           },
         }),
       });

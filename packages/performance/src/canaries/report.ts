@@ -1,10 +1,20 @@
 import { readFile } from "node:fs/promises";
 import type { PhaseMetrics, TestCounts } from "./output";
+import type { PayloadAuditSummary } from "./payloadAuditSummary";
 import type { RunStatements } from "./runStatements";
 import type { PhaseSummary, Range } from "./summary";
 
 /** `unprofiled`: the file passed but printed no request metrics. */
 export type CanaryRunStatus = "passed" | "failed" | "timed-out" | "unprofiled";
+
+export type RunPayloadAudit =
+  | { readonly status: "off" }
+  | { readonly status: "missing"; readonly capture: string }
+  | {
+      readonly status: "captured";
+      readonly capture: string;
+      readonly summary: PayloadAuditSummary;
+    };
 
 export interface CanaryRun {
   readonly canary: string;
@@ -20,6 +30,7 @@ export interface CanaryRun {
   readonly log: string;
   readonly phases: readonly PhaseMetrics[];
   readonly statements: RunStatements;
+  readonly payloadAudit?: RunPayloadAudit;
 }
 
 export interface CanaryReport {
@@ -42,6 +53,8 @@ export interface CanaryReport {
     readonly samples: number;
     readonly statements: boolean;
     readonly paramHash: boolean;
+    readonly payloadAudit?: boolean;
+    readonly stacks?: boolean;
   };
   readonly boundary: string;
   readonly summary: readonly PhaseSummary[];

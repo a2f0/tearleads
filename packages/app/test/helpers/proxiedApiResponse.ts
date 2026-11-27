@@ -1,5 +1,6 @@
 export interface ProxiedApiRequest {
   authorization: string | null;
+  knownManifestsCount?: number;
   method: string;
   requestBody: string | null;
   requestBodyBytes: number;
@@ -7,6 +8,14 @@ export interface ProxiedApiRequest {
   responseBodyBytes: number;
   status: number;
   url: string;
+}
+
+function countKnownManifests(header: string | null): number {
+  if (!header) return 0;
+  return header
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0).length;
 }
 
 export async function recordProxiedApiResponse(input: {
@@ -19,6 +28,9 @@ export async function recordProxiedApiResponse(input: {
   return {
     record: {
       authorization: input.request.headers.get("authorization"),
+      knownManifestsCount: countKnownManifests(
+        input.request.headers.get("x-known-manifests"),
+      ),
       method: input.request.method,
       requestBody:
         input.requestBody === null ? null : decoder.decode(input.requestBody),

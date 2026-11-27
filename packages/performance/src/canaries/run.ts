@@ -9,7 +9,11 @@ import {
 } from "../testProcess";
 import { appRoot, type Canary } from "./discover";
 import { type CanaryOutput, parseCanaryOutput } from "./output";
-import type { CanaryRun, CanaryRunStatus } from "./report";
+import {
+  parsePayloadAudit,
+  summarizePayloadAudit,
+} from "./payloadAuditSummary";
+import type { CanaryRun, CanaryRunStatus, RunPayloadAudit } from "./report";
 import type { RunStatements } from "./runStatements";
 
 /** A canary file takes under a minute; this stops one that hangs. */
@@ -18,6 +22,10 @@ const canaryTimeoutMs = 10 * 60_000;
 const capturePreload = resolve(
   import.meta.dir,
   "../statements/capturePreload.ts",
+);
+const payloadAuditPreload = resolve(
+  import.meta.dir,
+  "./payloadAuditPreload.ts",
 );
 
 const profileEnvironment = {
@@ -29,6 +37,12 @@ const profileEnvironment = {
 export interface CanaryCapture {
   readonly out: string;
   readonly paramHash: boolean;
+}
+
+/** Record sanitized per-pane field bytes, echoes, redeliveries, and head re-reads. */
+export interface CanaryPayloadAudit {
+  readonly out: string;
+  readonly stacks: boolean;
 }
 
 export function runStatus(
@@ -64,35 +78,57 @@ export interface CanaryRunInput {
   readonly sample: number;
   readonly log: string;
   readonly capture?: CanaryCapture;
+  readonly payloadAudit?: CanaryPayloadAudit;
   /** The app package to run in; `packages/app` unless a test passes one. */
   readonly root?: string;
 }
 
+async function buildCanaryPreloads(
+  root: string,
+  capture?: CanaryCapture,
+  payloadAudit?: CanaryPayloadAudit,
+): Promise<string[]> {
+  const extra = [
+    ...(capture ? [capturePreload] : []),
+    ...(payloadAudit ? [payloadAuditPreload] : []),
+  ];
+  return extra.length > 0 ? [...(await packagePreloads(root)), ...extra] : [];
+}
+
+function buildCanaryEnv(
+  capture?: CanaryCapture,
+  payloadAudit?: CanaryPayloadAudit,
+): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    ...profileEnvironment,
+    ...(capture && {
+      PERF_STATEMENTS_OUT: capture.out,
+      PERF_STATEMENTS_PARAM_HASH: capture.paramHash ? "1" : "0",
+    }),
+    ...(payloadAudit && {
+      PERF_PAYLOAD_AUDIT_OUT: payloadAudit.out,
+      PERF_PAYLOAD_AUDIT_STACKS: payloadAudit.stacks ? "1" : "0",
+    }),
+  };
+}
+
 /**
  * Runs one canary file alone from `packages/app`, as its suite runs, with
- * the request profile on and, when asked, the statement capture. Its output
- * goes to `log`, owner-only.
+ * the request profile on and, when asked, the statement and payload captures.
+ * Its output goes to `log`, owner-only.
  */
 export async function runCanary(input: CanaryRunInput): Promise<CanaryRun> {
   const root = input.root ?? appRoot;
-  const { capture } = input;
-  const preloads = capture
-    ? [...(await packagePreloads(root)), capturePreload]
-    : [];
+  const { capture, payloadAudit } = input;
+  const preloads = await buildCanaryPreloads(root, capture, payloadAudit);
   const result = await runTestProcess({
     cwd: root,
     args: [
       ...preloads.flatMap((preload) => ["--preload", preload]),
       testFileArgument(input.canary.file),
     ],
-    env: {
-      ...process.env,
-      ...profileEnvironment,
-      ...(capture && {
-        PERF_STATEMENTS_OUT: capture.out,
-        PERF_STATEMENTS_PARAM_HASH: capture.paramHash ? "1" : "0",
-      }),
-    },
+    env: buildCanaryEnv(capture, payloadAudit),
     log: input.log,
     timeoutMs: canaryTimeoutMs,
   });
@@ -100,6 +136,7 @@ export async function runCanary(input: CanaryRunInput): Promise<CanaryRun> {
   const status = output
     ? runStatus(result.exitCode, result.timedOut, output)
     : "failed";
+  const passedOutput = output && status === "passed" ? output : null;
   return {
     canary: input.canary.name,
     file: input.canary.file,
@@ -111,10 +148,29 @@ export async function runCanary(input: CanaryRunInput): Promise<CanaryRun> {
     log: input.log,
     phases: output?.phases ?? [],
     statements:
-      output && capture && status === "passed"
-        ? await capturedStatements(output, capture.out)
+      passedOutput && capture
+        ? await capturedStatements(passedOutput, capture.out)
         : { status: "off" },
+    ...(payloadAudit && {
+      payloadAudit: passedOutput
+        ? await capturedPayloadAudit(payloadAudit.out)
+        : { status: "off" },
+    }),
   };
+}
+
+async function capturedPayloadAudit(capture: string): Promise<RunPayloadAudit> {
+  const text = await readCaptureFile(capture).catch(() => null);
+  if (text === null) return { status: "missing", capture };
+  try {
+    return {
+      status: "captured",
+      capture,
+      summary: summarizePayloadAudit(parsePayloadAudit(text)),
+    };
+  } catch {
+    return { status: "missing", capture };
+  }
 }
 
 /**
