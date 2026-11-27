@@ -27,7 +27,7 @@ export interface ReloadOutcome {
 }
 
 /** The browser profile a reload keeps: its database and keyring. */
-interface Profile {
+export interface ReloadProfile {
   readonly origin: string;
   readonly databaseId: string;
   readonly client: ExecSqlClientLike;
@@ -35,7 +35,27 @@ interface Profile {
   readonly historyKey: Uint8Array;
 }
 
-function openSdk(profile: Profile) {
+export interface OpenedReloadSdk {
+  readonly sdk: Tearleads;
+  readonly metrics: ApiRequestMetrics;
+}
+
+/** Injected seams for unit testing registration, grow, and reload cleanup. */
+export interface ReloadAccountServices {
+  readonly openLocalDatabase?: typeof openLocalDatabase;
+  readonly openSdk?: (profile: ReloadProfile) => OpenedReloadSdk;
+  readonly waitIdle?: (sdk: Tearleads, timeoutMs?: number) => Promise<void>;
+  readonly waitQuiet?: (
+    opened: OpenedReloadSdk,
+    quietMs: number,
+    started?: number,
+  ) => {
+    readonly totals: () => ReturnType<typeof requestTotals>;
+    readonly settled: Promise<number>;
+  };
+}
+
+function defaultOpenSdk(profile: ReloadProfile): OpenedReloadSdk {
   const metrics = new ApiRequestMetrics();
   const sdk = createSdkHost(
     profile.origin,
@@ -90,8 +110,12 @@ interface Restored {
   readonly session: SessionContext;
 }
 
-async function register(profile: Profile, local: { close(): void }) {
-  let opened: ReturnType<typeof openSdk> | undefined;
+async function register(
+  profile: ReloadProfile,
+  local: { close(): void },
+  openSdk: (profile: ReloadProfile) => OpenedReloadSdk,
+) {
+  let opened: OpenedReloadSdk | undefined;
   try {
     opened = openSdk(profile);
     const { sdk } = opened;
@@ -131,8 +155,8 @@ async function register(profile: Profile, local: { close(): void }) {
 }
 
 /** Waits until the SDK is idle and its requests have gone quiet. */
-function quiet(
-  { sdk, metrics }: ReturnType<typeof openSdk>,
+function defaultQuiet(
+  { sdk, metrics }: OpenedReloadSdk,
   quietMs: number,
   started = performance.now(),
 ) {
@@ -155,10 +179,11 @@ function quiet(
  * is when the SDK was built.
  */
 async function start(
-  opened: ReturnType<typeof openSdk>,
+  opened: OpenedReloadSdk,
   restored: Restored,
   quietMs: number,
   started: number,
+  waitQuiet: NonNullable<ReloadAccountServices["waitQuiet"]>,
 ): Promise<ReloadOutcome> {
   const { sdk } = opened;
   await sdk.identity.importKeyPackage(restored.keyPackage);
@@ -172,7 +197,7 @@ async function start(
   // binds it again when it renders the new state.
   sdk.events.setConnected(true);
   view.updateRuntime(sdk.containerContents.workflowRuntime());
-  const { totals, settled } = quiet(opened, quietMs, started);
+  const { totals, settled } = waitQuiet(opened, quietMs, started);
   const settledMs = await settled;
   const { total, endpoints } = totals();
   return {
@@ -188,6 +213,7 @@ async function createFolders(
   rootId: string,
   folders: string[],
   count: number,
+  waitIdle: NonNullable<ReloadAccountServices["waitIdle"]>,
 ): Promise<void> {
   const tree = sdk.deviceFirst.open().containerStore;
   while (folders.length < count) {
@@ -202,7 +228,7 @@ async function createFolders(
       if (!folder) throw new Error("Folder creation failed.");
       folders.push(folder.id);
     }
-    await idle(sdk);
+    await waitIdle(sdk);
   }
 }
 
@@ -230,18 +256,26 @@ async function createNote(
  * a new one over the same database, then restores the identity and session
  * the app would restore from its own storage.
  */
-export async function openReloadAccount(origin: string, quietMs: number) {
-  const local = await openLocalDatabase();
-  const profile: Profile = {
+export async function openReloadAccount(
+  origin: string,
+  quietMs: number,
+  services: ReloadAccountServices = {},
+) {
+  const openDb = services.openLocalDatabase ?? openLocalDatabase;
+  const openSdk = services.openSdk ?? defaultOpenSdk;
+  const waitIdle = services.waitIdle ?? idle;
+  const waitQuiet = services.waitQuiet ?? defaultQuiet;
+  const local = await openDb();
+  const profile: ReloadProfile = {
     origin,
     databaseId: crypto.randomUUID(),
     client: local.client,
     historyKey: crypto.getRandomValues(new Uint8Array(32)),
   };
-  const registered = await register(profile, local);
+  const registered = await register(profile, local, openSdk);
   const { restored } = registered;
   // The running SDK; null between disposing one and building the next.
-  let running: ReturnType<typeof openSdk> | null = registered.opened;
+  let running: OpenedReloadSdk | null = registered.opened;
   const folders: string[] = [];
   let documents = 0;
   const current = () => {
@@ -266,6 +300,7 @@ export async function openReloadAccount(origin: string, quietMs: number) {
         restored.rootId,
         folders,
         Math.ceil(count / perFolder),
+        waitIdle,
       );
       while (documents < count) {
         const first = documents;
@@ -279,10 +314,10 @@ export async function openReloadAccount(origin: string, quietMs: number) {
           }),
         );
         documents += batch;
-        await idle(sdk);
+        await waitIdle(sdk);
       }
       // Nothing the creates started may spill into the next reload's counts.
-      await quiet(current(), quietMs).settled;
+      await waitQuiet(current(), quietMs).settled;
     },
     /** Disposes the running SDK and starts a new one, as a page load does. */
     async reload(): Promise<ReloadOutcome> {
@@ -292,7 +327,7 @@ export async function openReloadAccount(origin: string, quietMs: number) {
       const opened = openSdk(profile);
       // Held before startup, so a failed reload's SDK is the one `close` disposes.
       running = opened;
-      return await start(opened, restored, quietMs, started);
+      return await start(opened, restored, quietMs, started, waitQuiet);
     },
     close(): void {
       running?.sdk.dispose();

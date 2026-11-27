@@ -1,5 +1,5 @@
+import { type PostgresTraffic, trafficSince } from "../inProcess/postgresWire";
 import type { LocalSqlAttribution } from "../localDatabase";
-import { type PostgresTraffic, trafficSince } from "../realtime/postgresWire";
 import type { ReloadAccount, ReloadOutcome } from "./reloadAccount";
 
 export interface ReloadMeasurement extends ReloadOutcome {

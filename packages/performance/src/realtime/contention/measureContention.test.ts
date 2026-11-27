@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createRealtimeGateway } from "@tearleads/api/test-runtime";
+import type { InProcessApi } from "../../inProcess/inProcessApi";
+import { emptyTraffic } from "../../inProcess/postgresWire";
 import type { SeededTree } from "../artifacts";
-import type { InProcessApi } from "../inProcessApi";
-import { emptyTraffic } from "../postgresWire";
 import {
   type ContentionMeasurement,
   measureContention,
