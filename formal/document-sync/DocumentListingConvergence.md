@@ -50,7 +50,7 @@ key bundle survive.
 | `ApplyListedRow` | `upsertDiscoveredDocuments` after the debt is durable; `resolvePersistedDocumentRuntimeState` drops the key bundle of a record whose access epoch the row moved |
 | `AdvanceWatermark` | `recordAppliedContainerDocumentListing` after the lane's rows are applied and owed |
 | `OpenStore` | `loadDocumentListingCoverage` when a store's record loads: it reads the debt (`findOwedDocumentListingRead`) and asks `takeHint`, and a record neither names is covered and arms no probe; a record with no key bundle fails `hasPersistedRemoteDocumentSyncState`, so nothing covers it |
-| `ProbeListing` | the initial document probe's listing, `createProbeLaneListing` in `listingCoverageHost.ts`: every lane from no watermark once a launch, whose rows `oweListedRecordReads` checks, then `requestRemoteSyncsOfOwedRecords` asks each owed record's loaded store; it applies no row and saves no watermark |
+| `ProbeListing` | the initial document probe's listing (`createProbeLaneListing`): each lane from no watermark at least once a launch, whose rows `oweListedRecordReads` checks, then `requestRemoteSyncsOfOwedRecords` asks each owed record's loaded store; it applies no row and saves no watermark |
 | `BeginRead` | `findOwedListingReadBeforePull` reading the debt before the pull's request |
 | `BeginLaggingRead` | the same pull (`requestRemoteDocumentSync`) answered by a replica that lags the listing, in its count and its access head |
 | `FinishRead` | `clearConsumedRemoteUpdateSignal`, then `settleOwedListingReadAfterCompletedPull` and `settleCoveredDocumentListingRead`, whose `DocumentListingRevalidationRepository.settle` compares the cursor with the owed count and the saved manifest's epoch with the owed one; the pull's save stores the key bundle of the head it read |
@@ -119,43 +119,44 @@ turns it on, with one peer edit and no other touch: 1,064,126 generated
 states, 239,100 distinct states, and depth 30.
 
 The model has one document in one lane, held by one record, with the client
-holding every update and the current access head at the start. Production
-keeps a debt per record: after an identity recovery or a relink two records can
-name one document, each with its own cursor and bundle, and each owes and
-settles its own read, so the model's record stands for each of them.
-`OtherTouch` changes only the row, never the count or the head, so it owes no
-read. `remoteVer + touches + headMoves` is the row's publication order;
-[DiscoveryPublication.tla](./DiscoveryPublication.tla) checks that ordering.
-No hint is assumed for a head move, so only a listing finds one: the head
+holding every update and the current access head at the start. Production keeps
+a debt per record: after an identity recovery or a relink two records can name
+one document, each with its own cursor and bundle, and each owes and settles
+its own read, so the model's record stands for each of them. `OtherTouch`
+changes only the row, never the count or the head, so it owes no read.
+`remoteVer + touches + headMoves` is the row's publication order;
+[DiscoveryPublication.tla](./DiscoveryPublication.tla) checks that ordering. No
+hint is assumed for a head move, so only a listing finds one: the head
 invariant is a safety property, and a move made while the client stays
-connected waits for the next acknowledged connection, as it did before
-listings owed reads. Production owes a read when the listed head's hash is not
-the bundle's, and settles it once the manifest its pull saved reaches the
-listed epoch; each head of a document has its own epoch, and a move raises it.
-A pull keeps the newer head when a lagging replica answers with an older one,
-because the keying checkpoints (`KeyingCheckpointRepository`) refuse a
-manifest older than one this device verified, so a lagging pull never saves
-an older head than the record holds.
-It leaves the row's apply and the watermark save unordered, where production
-applies first. It takes the launch probe's snapshot and its check in one
-step, where production checks the record when its listing returns. A snapshot
-older than the record owes either a read the record still lacks or one at a
-head it already passed, which its next pull settles. A read that a hint
-forced is assumed to see the hinted write, as it was before listings owed
-reads: the pull's floor is this device's last applied commit position, not the
-hint's, and that gap is not part of this change. Void updates, a withheld
-cursor and resumed pulls behave as in
+connected waits for the next acknowledged connection, as it did before listings
+owed reads. Production owes a read when the listed head's hash is not the
+bundle's, and settles it once the manifest its pull saved reaches the listed
+epoch; each head of a document has its own epoch, and a move raises it. A pull
+keeps the newer head when a lagging replica answers with an older one, because
+the keying checkpoints (`KeyingCheckpointRepository`) refuse a manifest older
+than one this device verified, so a lagging pull never saves an older head than
+the record holds. It leaves the row's apply and the watermark save unordered,
+where production applies first. It takes the launch probe's snapshot and its
+check in one step, where production checks the record when its listing returns,
+and runs it at most once a launch, where production lists a lane again after a
+failed listing or a restart of the reconciler; another listing only owes more
+reads. A snapshot older than the record owes either a read the record still
+lacks or one at a head it already passed, which its next pull settles. A read
+that a hint forced is assumed to see the hinted write, as it was before
+listings owed reads: the pull's floor is this device's last applied commit
+position, not the hint's, and that gap is not part of this change. Void
+updates, a withheld cursor and resumed pulls behave as in
 [MetadataListingConvergence](./MetadataListingConvergence.md), which models the
 same cursor. Outside the model: a lane the client cannot list, whose registered
 documents are probed directly; a lane whose listing never shows its documents
 (a roster profile container), whose stores no listing covers, decided by the
-container: the server binds a roster profile only to a document in its
-profile container and refuses a link set that moves a bound document out, so
-no listing of another container omits one; a
-record whose cursor its next pull withholds, whose store probes until a pull
-leaves one it would send (`isDocumentProcessedCursorWithheld`); a store with
-no listing authority or with no completed pull, which probes as
-[RestartProbeConvergence](./RestartProbeConvergence.md)
-describes; and several documents per lane and lane paging. A second runtime
-that shares the database, whose listing consumes the row for both, is
+container: the server binds a roster profile only to a document in its profile
+container and refuses a link set that moves a bound document out, so no listing
+of another container omits one; a record whose cursor its next pull withholds,
+whose store probes until a pull leaves one it would send
+(`isDocumentProcessedCursorWithheld`); a store with no listing authority or
+with no completed pull, which probes as
+[RestartProbeConvergence](./RestartProbeConvergence.md) describes; and several
+documents per lane and lane paging. A second runtime that shares the database,
+whose listing consumes the row for both, is
 [SharedDatabaseListing](./SharedDatabaseListing.md)'s subject.

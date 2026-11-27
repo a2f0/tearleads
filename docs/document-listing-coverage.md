@@ -80,8 +80,10 @@ adding an update. The mechanism is the one
   `organizationMemberships.ts` runs the same full refresh), still forces
   every registered document.
 - Each launch. The initial document probe lists every lane from no
-  watermark once a launch, one request for every 32 lanes, and its rows owe
-  reads as a watermarked listing's do. A watermarked listing is served only
+  watermark at least once a launch, one request for every 32 lanes. It lists
+  a lane again when that listing failed, and every lane once more when the
+  reconciler stops and starts again. Its rows owe reads as a watermarked
+  listing's do. A watermarked listing is served only
   the rows that moved, so the probe is what notices a record whose cursor or
   head fell behind a row it was served before, such as one a local backup
   restore put back. Its debts are durable before the open store of each owed
