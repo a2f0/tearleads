@@ -15,7 +15,6 @@ import {
 import { getDocumentContentKeyBundle } from "../../access/read/documentContentKeyStore";
 import {
   listMissingDocumentUpdatePage,
-  listMissingDocumentUpdates,
   readDocumentUpdateSequenceUpperBound,
 } from "../../documents/documentUpdateStore";
 import { runDocumentSyncWorkflow } from "../../workflows/documents/mutations/syncDocument";
@@ -24,7 +23,7 @@ import { listMissingSyncUpdatesForResponse } from "../../workflows/documents/mut
 const { API_DATABASE } = process.env;
 const pgTest = test.skipIf(API_DATABASE !== "postgres");
 pgTest(
-  "primary-only direct page and unpaged readers retain committed raw updates",
+  "primary-only direct page and response readers retain committed raw updates",
   async () => {
     const { DATABASE_URL: connectionString } = process.env;
     if (!connectionString) throw new Error("DATABASE_URL is required");
@@ -75,14 +74,14 @@ pgTest(
       const { events, result } = await traceSyncQueries(
         primary.db,
         async (database) => {
-          const unpaged = await listMissingDocumentUpdates(database, input);
+          const upperBoundSequence = await readDocumentUpdateSequenceUpperBound(
+            database,
+            document.id,
+          );
           const page = await listMissingDocumentUpdatePage(database, {
             ...input,
             afterSequence: 0,
-            upperBoundSequence: await readDocumentUpdateSequenceUpperBound(
-              database,
-              document.id,
-            ),
+            upperBoundSequence,
             maxUpdates: 64,
             maxSerializedBytes: 100_000,
           });
@@ -90,18 +89,21 @@ pgTest(
             contentKeyBundle,
             documentId: document.id,
             executor: database,
-            pullPagePlan: null,
+            pullPagePlan: {
+              afterSequence: 0,
+              upperBoundSequence,
+              upperBoundUpdateCount: 1,
+              upperBoundUpdateId: sync.updateId,
+            },
             request: {
               ...sync.request,
               outgoingUpdates: [],
-              minLsn: input.minLsn,
               historyMode: "raw",
             },
           });
-          return { unpaged, page, response };
+          return { page, response };
         },
       );
-      expect(result.unpaged.map(({ id }) => id)).toEqual([sync.updateId]);
       expect(result.page.updates.map(({ id }) => id)).toEqual([sync.updateId]);
       expect(result.response.entries.map(({ update }) => update.id)).toEqual([
         sync.updateId,

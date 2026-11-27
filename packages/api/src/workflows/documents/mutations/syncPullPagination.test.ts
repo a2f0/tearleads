@@ -57,7 +57,6 @@ test("pull cursor retains the first page upper bound", async () => {
     upperBoundUpdateCount: 21,
     upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
   });
-  if (!firstPlan) throw new Error("Expected a paginated pull plan");
 
   const firstPage = createSyncPullPageResponse({
     cursorHmacKey: CURSOR_HMAC_KEY,
@@ -134,7 +133,6 @@ test("pull cursor binds raw-history mode across every page", async () => {
     resolveCursorBounds,
     upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
   });
-  if (!plan) throw new Error("Expected a paginated pull plan");
   const page = createSyncPullPageResponse({
     cursorHmacKey: CURSOR_HMAC_KEY,
     hasMore: true,
@@ -191,7 +189,6 @@ test("pull cursor fails stale when key state rotates", async () => {
     resolveCursorBounds,
     upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
   });
-  if (!plan) throw new Error("Expected a paginated pull plan");
   const page = createSyncPullPageResponse({
     cursorHmacKey: CURSOR_HMAC_KEY,
     hasMore: true,
@@ -286,7 +283,6 @@ test("pull cursor rejects a tampered frozen upper bound", async () => {
     resolveCursorBounds,
     upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
   });
-  if (!plan) throw new Error("Expected a paginated pull plan");
   const page = createSyncPullPageResponse({
     cursorHmacKey: CURSOR_HMAC_KEY,
     hasMore: true,
@@ -327,7 +323,6 @@ test("pull cursor restarts stale when its stored bounds disappear", async () => 
     resolveCursorBounds,
     upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
   });
-  if (!plan) throw new Error("Expected a paginated pull plan");
   const page = createSyncPullPageResponse({
     cursorHmacKey: CURSOR_HMAC_KEY,
     hasMore: true,
@@ -365,7 +360,6 @@ test("pull cursor restarts stale after the deployment key rotates", async () => 
     resolveCursorBounds,
     upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
   });
-  if (!plan) throw new Error("Expected a paginated pull plan");
   const page = createSyncPullPageResponse({
     cursorHmacKey: CURSOR_HMAC_KEY,
     hasMore: true,
@@ -483,4 +477,24 @@ test("pull cursor passes well-formed unsigned tuples on to authentication", asyn
       status: 409,
     });
   }
+});
+
+test("resolveSyncPullPagePlan rejects unpaginated requests with 400", async () => {
+  const unpaginated = {
+    ...request(),
+    supportsPullPagination: false,
+  } as unknown as DocumentSyncRequest;
+  await expect(
+    resolveSyncPullPagePlan({
+      countUpdatesThrough,
+      cursorHmacKey: CURSOR_HMAC_KEY,
+      identity: IDENTITY,
+      request: unpaginated,
+      resolveCursorBounds,
+      upperBound: null,
+    }),
+  ).rejects.toMatchObject({
+    message: "Paginated document pull support is required",
+    status: 400,
+  });
 });

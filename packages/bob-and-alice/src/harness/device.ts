@@ -1,8 +1,10 @@
 import {
   type ContainerContentsStore,
   createMemoryBlobStore,
+  type DeviceFirstContainerContents,
   getOrCreateDomainSyncCoordinator,
   LEGAL_TERMS_VERSION,
+  type SessionContext,
   Tearleads,
 } from "@tearleads/client-sdk";
 import {
@@ -32,6 +34,7 @@ interface DeviceStorage {
   readonly database: DeviceDatabase;
   readonly databaseId: string;
   readonly blobStore: ReturnType<typeof createMemoryBlobStore>;
+  readonly historyKey: Uint8Array;
   readonly transport: DeviceTransport;
   readonly errors: LoggedError[];
   readonly incidents: unknown[];
@@ -45,6 +48,7 @@ interface DeviceStorage {
  * can only do and see what a real host could.
  */
 export class Device {
+  private deviceFirstHandle: DeviceFirstContainerContents | null = null;
   private treeStore: ContainerContentsStore | null = null;
   private retired = false;
 
@@ -96,6 +100,7 @@ export class Device {
       database: await createTestExecSql(`${label}-${crypto.randomUUID()}`),
       databaseId: `${label}-${crypto.randomUUID()}`,
       blobStore: createMemoryBlobStore(),
+      historyKey: crypto.getRandomValues(new Uint8Array(32)),
       transport: new DeviceTransport(origin),
       errors: [],
       incidents: [],
@@ -104,6 +109,7 @@ export class Device {
       apiBaseUrl: storage.transport.origin,
       identityTrustDomain: origin,
       blobStore: storage.blobStore,
+      principalHistoryKeyProvider: async () => storage.historyKey.slice(),
       database: {
         id: storage.databaseId,
         client: {
@@ -141,6 +147,9 @@ export class Device {
     return new Device(label, sdk, storage, origin, keys);
   }
 
+  get apiOrigin(): string {
+    return this.origin;
+  }
   get transport(): DeviceTransport {
     return this.storage.transport;
   }
@@ -159,6 +168,7 @@ export class Device {
   async restart(online = true): Promise<Device> {
     if (this.retired) throw new Error(`${this.label} is already retired`);
     const organizationId = this.organizationId;
+    const twoFactorDeviceToken = this.sdk.session.snapshot.twoFactorDeviceToken;
     this.sdk.dispose();
     this.retired = true;
     let next: Device | undefined;
@@ -170,6 +180,9 @@ export class Device {
         this.storage,
         online,
       );
+      if (twoFactorDeviceToken) {
+        next.sdk.session.setContext({ twoFactorDeviceToken });
+      }
       if (!(await next.sdk.session.login())) {
         throw new Error(`${this.label} could not log in after restart`);
       }
@@ -177,6 +190,45 @@ export class Device {
       return next;
     } catch (error) {
       // Ownership transfers only after login; a failed restart closes storage.
+      next?.sdk.dispose();
+      this.storage.transport.dispose();
+      this.storage.database.close();
+      throw error;
+    }
+  }
+
+  /**
+   * Rebuilds the SDK over the same database, keyring history key, and persisted
+   * session context without logging in again, as a browser page reload does.
+   */
+  async reload(online = true): Promise<Device> {
+    if (this.retired) throw new Error(`${this.label} is already retired`);
+    const snapshot = this.sdk.session.snapshot;
+    const restored: SessionContext = {
+      authToken: snapshot.authToken,
+      containerId: snapshot.containerId,
+      defaultOrganizationId: snapshot.defaultOrganizationId,
+      isAuthenticated: snapshot.isAuthenticated,
+      isRoot: snapshot.isRoot,
+      organizationId: snapshot.organizationId,
+      rootAcknowledgments: snapshot.rootAcknowledgments,
+      twoFactorDeviceToken: snapshot.twoFactorDeviceToken,
+      userId: snapshot.userId,
+    };
+    this.sdk.dispose();
+    this.retired = true;
+    let next: Device | undefined;
+    try {
+      next = await Device.open(
+        this.origin,
+        this.label,
+        this.keys,
+        this.storage,
+        online,
+      );
+      next.sdk.session.setContext(restored);
+      return next;
+    } catch (error) {
       next?.sdk.dispose();
       this.storage.transport.dispose();
       this.storage.database.close();
@@ -205,7 +257,26 @@ export class Device {
   /** Works inside `organizationId`, as a member switching to it would. */
   enterOrganization(organizationId: string): void {
     this.sdk.session.setOrganizationId(organizationId);
-    this.treeStore?.updateRuntime(this.sdk.containerContents.workflowRuntime());
+    const runtime = this.sdk.containerContents.workflowRuntime();
+    if (this.deviceFirstHandle) {
+      this.deviceFirstHandle.view.updateRuntime(runtime);
+    } else {
+      this.treeStore?.updateRuntime(runtime);
+    }
+  }
+
+  async openDeviceFirst(): Promise<DeviceFirstContainerContents> {
+    if (!this.deviceFirstHandle) {
+      const opened = this.sdk.deviceFirst.open();
+      opened.view.updateRuntime(this.sdk.containerContents.workflowRuntime());
+      await until(
+        () => opened.containerStore.getSnapshot().ready,
+        `${this.label} device-first tree`,
+      );
+      this.deviceFirstHandle = opened;
+      this.treeStore = opened.containerStore;
+    }
+    return this.deviceFirstHandle;
   }
 
   async tree(): Promise<ContainerContentsStore> {
@@ -235,7 +306,12 @@ export class Device {
   /** Simulates the host's network mode and updates its held tree runtime. */
   setOnline(online: boolean): void {
     this.sdk.network.setMode(online ? "online" : "offline");
-    this.treeStore?.updateRuntime(this.sdk.containerContents.workflowRuntime());
+    const runtime = this.sdk.containerContents.workflowRuntime();
+    if (this.deviceFirstHandle) {
+      this.deviceFirstHandle.view.updateRuntime(runtime);
+    } else {
+      this.treeStore?.updateRuntime(runtime);
+    }
   }
 
   /**

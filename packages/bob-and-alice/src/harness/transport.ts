@@ -52,11 +52,17 @@ interface BodyRewrite {
   readonly rewrite: (body: unknown) => unknown;
 }
 
+interface ResponseOverride {
+  readonly matches: (request: ObservedRequest) => boolean;
+  readonly respond: (request: ObservedRequest) => Response | null;
+}
+
 /** Device-local HTTP proxy; requests still run through the real API. */
 export class DeviceTransport {
   readonly history: Exchange[] = [];
   private readonly pending: NetworkGate[] = [];
   private readonly gates: NetworkGate[] = [];
+  private readonly overrides: ResponseOverride[] = [];
   private readonly rewrites: BodyRewrite[] = [];
   private readonly requestRewrites: BodyRewrite[] = [];
   private readonly server: ReturnType<typeof Bun.serve>;
@@ -82,6 +88,17 @@ export class DeviceTransport {
     this.pending.push(gate);
     this.gates.push(gate);
     return gate;
+  }
+
+  /**
+   * Answers matching requests directly without forwarding upstream, when
+   * `respond` returns a `Response`. Returning `null` forwards normally.
+   */
+  overrideResponses(
+    matches: ResponseOverride["matches"],
+    respond: ResponseOverride["respond"],
+  ): void {
+    this.overrides.push({ matches, respond });
   }
 
   /**
@@ -144,18 +161,17 @@ export class DeviceTransport {
     return Response.json(body, { status: response.status });
   }
 
+  private matchOverride(exchange: Exchange): Response | null {
+    for (const entry of this.overrides) {
+      if (!entry.matches(exchange)) continue;
+      const synthetic = entry.respond(exchange);
+      if (synthetic) return synthetic;
+    }
+    return null;
+  }
+
   private async forward(request: Request): Promise<Response> {
-    const { pathname } = new URL(request.url);
-    const exchange: Exchange = {
-      method: request.method,
-      path: pathname,
-      body: request.headers.get("content-type")?.includes("application/json")
-        ? await request
-            .clone()
-            .json()
-            .catch(() => null)
-        : null,
-    };
+    const exchange = await observeRequest(request);
     this.history.push(exchange);
     const index = this.pending.findIndex((gate) => gate.matches(exchange));
     const gate = index < 0 ? undefined : this.pending.splice(index, 1)[0];
@@ -167,14 +183,17 @@ export class DeviceTransport {
     ) {
       return new Response("Request dropped by test proxy", { status: 503 });
     }
+    const synthetic = this.matchOverride(exchange);
+    if (synthetic) {
+      await recordResponse(exchange, synthetic);
+      return synthetic;
+    }
     const response = await fetch(
       this.upstreamRequest(exchange, request),
       // Preserve wire bytes alongside content-encoding; the SDK decodes them.
       { decompress: false },
     );
-    exchange.status = response.status;
-    const code = response.ok ? undefined : await errorCode(response);
-    if (code !== undefined) exchange.errorCode = code;
+    await recordResponse(exchange, response);
     if (
       gate?.phase === "after-response" &&
       (await gate.pause(exchange)) === "drop"
@@ -190,6 +209,26 @@ export class DeviceTransport {
     for (const gate of this.gates) gate.drop();
     this.server.stop(true);
   }
+}
+
+async function observeRequest(request: Request): Promise<Exchange> {
+  const { pathname } = new URL(request.url);
+  const body = request.headers.get("content-type")?.includes("application/json")
+    ? await request
+        .clone()
+        .json()
+        .catch(() => null)
+    : null;
+  return { method: request.method, path: pathname, body };
+}
+
+async function recordResponse(
+  exchange: Exchange,
+  response: Response,
+): Promise<void> {
+  exchange.status = response.status;
+  const code = response.ok ? undefined : await errorCode(response);
+  if (code !== undefined) exchange.errorCode = code;
 }
 
 /** The `code` of an uncompressed JSON error body, read from a copy. */

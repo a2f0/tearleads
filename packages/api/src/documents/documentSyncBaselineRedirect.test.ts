@@ -25,7 +25,6 @@ import {
 import {
   loadLatestReadableBaselineCoverage,
   resolveBaselineRedirectAfterSequence,
-  selectServedSyncUpdateEntries,
   selectServedSyncUpdates,
 } from "./documentSyncBaselineRedirect";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
@@ -419,11 +418,15 @@ test("an epoch advance with no current-epoch baseline serves everything", async 
   });
 
   const entries = [entry(1, vv1), entry(2, vv2)];
-  const served = await selectServedSyncUpdateEntries({
-    currentContentKeyEpoch: 2,
+  const baselineCoverage = await loadLatestReadableBaselineCoverage(db, {
+    contentKeyEpoch: 2,
     documentId,
+  });
+  expect(baselineCoverage).toBeNull();
+  const served = selectServedSyncUpdates({
+    baselineCoverage,
+    currentContentKeyEpoch: 2,
     entries,
-    executor: db,
   });
   expect(served).toEqual(entries);
 });
@@ -446,20 +449,18 @@ test("duplicate baselines with one coverage resolve like a single one", async ()
     coverage: vv2,
   });
 
-  expect(
-    await loadLatestReadableBaselineCoverage(db, {
-      documentId,
-      contentKeyEpoch: 2,
-    }),
-  ).toBe(vv2);
+  const baselineCoverage = await loadLatestReadableBaselineCoverage(db, {
+    documentId,
+    contentKeyEpoch: 2,
+  });
+  expect(baselineCoverage).toBe(vv2);
   const olderEntry = entry(1, vv1);
   const currentEntry = entry(2, vv2);
-  await expect(
-    selectServedSyncUpdateEntries({
+  expect(
+    selectServedSyncUpdates({
+      baselineCoverage,
       currentContentKeyEpoch: 2,
-      documentId,
       entries: [olderEntry, currentEntry],
-      executor: db,
     }),
-  ).resolves.toEqual([currentEntry]);
+  ).toEqual([currentEntry]);
 });

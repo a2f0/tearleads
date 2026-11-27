@@ -142,9 +142,7 @@ sweep are not forced. It rests on three bounds:
   here. Only a request that passes the access and billing checks extends
   it, so a rotator that lost either is one whose stage expires.
 - A rotator refused for stale coverage proves its history again and stages
-  the tail after the segments it already staged (`Reprove`). That is the
-  client SDK's part of the protocol, and it has no production seam in the
-  table until the staged writer ships.
+  the tail after the segments it already staged (`Reprove`).
 
 Without `OpenReplacesPriorStage` a restarted rotator would wait for the sweep
 to remove the stage it forgot. The sweep is not forced, so the model counts

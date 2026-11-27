@@ -1,5 +1,8 @@
 import {
+  createIsLiveUserSession,
+  createRealtimeGateway,
   createRouteApp,
+  createWebSocketTicketConsumer,
   getDefaultApiServiceRuntime,
   initializeApiDatabase,
 } from "@tearleads/api/test-runtime";
@@ -20,6 +23,11 @@ interface ScenarioHttpObservation {
   readonly responseBodyBytes: number;
   readonly status: number;
   readonly url: string;
+}
+
+interface WsSocketData {
+  readonly sessionId: string;
+  readonly userId: string;
 }
 
 function activeHttpSink():
@@ -94,23 +102,56 @@ async function serve(
   return response;
 }
 
+async function upgradeEventsWebSocket(
+  request: Request,
+  bunServer: Bun.Server<WsSocketData>,
+  consumeTicket: ReturnType<typeof createWebSocketTicketConsumer>,
+): Promise<Response | undefined> {
+  const url = new URL(request.url);
+  if (url.pathname !== "/events") {
+    return new Response("WebSocket endpoint not found", { status: 404 });
+  }
+  const identity = await consumeTicket(url.searchParams.get("ticket") ?? "");
+  if (!identity) {
+    return new Response("WebSocket ticket required", { status: 401 });
+  }
+  if (bunServer.upgrade(request, { data: identity })) {
+    return undefined;
+  }
+  return new Response("WebSocket upgrade failed", { status: 400 });
+}
+
 /**
- * One real API per test process, over real HTTP: every device talks to it
- * through the SDK's own `ApiClient`, exactly as a deployed client would.
+ * One real API per test process, over real HTTP and WebSocket: every device
+ * talks to it through the SDK's own `ApiClient` and realtime socket, exactly
+ * as a deployed client would.
  */
 export function startApiServer(): Promise<string> {
   origin ??= (async () => {
     await initializeApiDatabase();
-    const server = Bun.serve({
+    const defaultRuntime = getDefaultApiServiceRuntime();
+    const isLiveSession = createIsLiveUserSession(
+      defaultRuntime.keyValueStore.get,
+    );
+    const consumeTicket = createWebSocketTicketConsumer(isLiveSession);
+    const realtimeGateway = createRealtimeGateway({
+      validateSession: isLiveSession,
+    });
+    realtimeGateway.start();
+    const server = Bun.serve<WsSocketData>({
       hostname: "127.0.0.1",
       port: 0,
-      fetch: (request) => serve(routeApp, request),
+      fetch: (request, bunServer) =>
+        request.headers.get("upgrade")?.toLowerCase() === "websocket"
+          ? upgradeEventsWebSocket(request, bunServer, consumeTicket)
+          : serve(routeApp, request),
+      websocket: realtimeGateway.websocket,
     });
     // Proxies retain their per-device login origins, but identities share one
     // stable API domain, just as a deployment with an explicit domain does.
     const routeApp = createRouteApp({
       runtime: {
-        ...getDefaultApiServiceRuntime(),
+        ...defaultRuntime,
         identityTrustDomain: server.url.origin,
       },
     });

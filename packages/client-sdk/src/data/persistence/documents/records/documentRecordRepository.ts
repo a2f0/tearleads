@@ -349,7 +349,7 @@ export class DocumentRecordRepository {
    * one immediate transaction. Every check must hold or nothing changes and
    * the result is null: the document still has the captured document id and
    * recovery generation, and the members are still queued under their ids as
-   * ordinary local rows (no outbox row, no rotation checkpoint) forming one
+   * ordinary local rows (no outbox row) forming one
    * contiguous run in queue order that starts with the first listed member.
    *
    * The first member's row is updated in place, so it keeps its row id,

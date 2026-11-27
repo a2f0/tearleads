@@ -61,23 +61,6 @@ function withPayload(
   return { ...update, encryptedData };
 }
 
-/** Committed updates by id, each with its payload, in no particular order. */
-export async function loadStoredDocumentUpdates(
-  executor: DatabaseSession,
-  ids: readonly string[],
-): Promise<StoredDocumentUpdate[]> {
-  if (ids.length === 0) return [];
-  const rows = await executor
-    .select(storedDocumentUpdateColumns)
-    .from(documentUpdates)
-    .leftJoin(
-      documentBaselineSegments,
-      eq(documentBaselineSegments.updateId, documentUpdates.id),
-    )
-    .where(inArray(documentUpdates.id, [...ids]));
-  return rows.map(withPayload);
-}
-
 /** Only call after selecting the prefix bounded by response byte floors. */
 export async function loadDocumentUpdatePageRows(
   executor: DatabaseSession,

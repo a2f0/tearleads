@@ -5,21 +5,17 @@ import {
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
   MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
 } from "@tearleads/validators/util";
-import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import {
   storedBaselineSegmentFields,
   storedDocumentUpdateMetadataHash,
 } from "../../../documents/documentStoredBaselineGroup";
-import {
-  listMissingDocumentUpdatePage,
-  listMissingDocumentUpdates,
-} from "../../../documents/documentUpdateStore";
+import type {
+  DocumentUpdatePageWriteHeader,
+  StoredDocumentUpdate,
+} from "../../../documents/documentUpdatePageRows";
+import { listMissingDocumentUpdatePage } from "../../../documents/documentUpdateStore";
 import { DocumentMutationError } from "./errors";
 import { writeHeaderRecord } from "./shared/records";
-
-type StoredSyncUpdate = Awaited<
-  ReturnType<typeof listMissingDocumentUpdates>
->[number];
 
 /**
  * A stored update's signed fields are an integrity assertion, never an
@@ -59,7 +55,7 @@ export function authorizationTargetsUnlessHeld(
 }
 
 function toSyncUpdate(
-  update: StoredSyncUpdate,
+  update: StoredDocumentUpdate,
   writeHeader: {
     readonly authorizationTargets: readonly DocumentContentKeyTarget[];
     readonly header: WriteHeader;
@@ -85,13 +81,9 @@ function toSyncUpdate(
   };
 }
 
-type SyncEntryWriteHeaders = Awaited<
-  ReturnType<typeof listDocumentContentWriteHeaders>
->;
-
 async function toSyncResponseEntry(
-  update: StoredSyncUpdate,
-  writeHeaders: SyncEntryWriteHeaders,
+  update: StoredDocumentUpdate,
+  writeHeaders: ReadonlyMap<string, DocumentUpdatePageWriteHeader>,
   expectedTargetHash: string,
 ) {
   const writeHeader = writeHeaders.get(update.id);
@@ -129,9 +121,8 @@ export async function materializeSyncResponseEntriesToBytes<
   const selected: Entry[] = [];
   let serializedBytes = 2; // JSON array brackets.
   for (const item of items) {
-    // Stop at the first entry past the exact wire bound. Callers bound what
-    // `materialize` loads: a page preloads metadata for updates that fit their
-    // byte floors, and an unpaged listing loads one entry's at a time.
+    // Stop at the first entry past the exact wire bound. Callers preload
+    // metadata only for updates that fit their response byte floors.
     const entry = await materialize(item);
     const serializedEntry = JSON.stringify(entry.update);
     const addedBytes =
@@ -160,55 +151,34 @@ export async function listMissingSyncUpdateEntries(input: {
   readonly localVersionVector: string | null;
   /** The client's own page limit; it never raises the server's. */
   readonly maxPageUpdates?: number | undefined;
-  readonly minLsn?: string | undefined;
-  readonly pullPage?:
-    | {
-        readonly afterSequence: number;
-        readonly upperBoundSequence: number;
-      }
-    | undefined;
+  readonly pullPage: {
+    readonly afterSequence: number;
+    readonly upperBoundSequence: number;
+  };
 }) {
-  const page = input.pullPage
-    ? await listMissingDocumentUpdatePage(input.executor, {
-        ...input.pullPage,
-        documentId: input.documentId,
-        localVersionVector: input.localVersionVector,
-        maxSerializedBytes: MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
-        maxUpdates: Math.min(
-          input.maxPageUpdates ?? MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
-          MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
-        ),
-        minLsn: input.minLsn,
-      })
-    : undefined;
-  const updates = page
-    ? page.updates
-    : await listMissingDocumentUpdates(input.executor, {
-        documentId: input.documentId,
-        localVersionVector: input.localVersionVector,
-        minLsn: input.minLsn,
-      });
+  const page = await listMissingDocumentUpdatePage(input.executor, {
+    ...input.pullPage,
+    documentId: input.documentId,
+    localVersionVector: input.localVersionVector,
+    maxSerializedBytes: MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
+    maxUpdates: Math.min(
+      input.maxPageUpdates ?? MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+      MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+    ),
+  });
   // A page already fits its response byte floors, which count each entry's
   // write header and authorization targets, so its write headers load as one
-  // set. An unpaged listing has no such bound. A baseline segment's group
-  // fields ride on its update row.
-  const pageWriteHeaders = page?.writeHeaders;
+  // set. A baseline segment's group fields ride on its update row.
   const entries = await materializeSyncResponseEntriesToBytes(
-    updates,
-    async (update) =>
-      toSyncResponseEntry(
-        update,
-        pageWriteHeaders ??
-          (await listDocumentContentWriteHeaders([update.id], input.executor)),
-        input.expectedTargetHash,
-      ),
+    page.updates,
+    (update) =>
+      toSyncResponseEntry(update, page.writeHeaders, input.expectedTargetHash),
   );
 
-  if (page === undefined) return { entries };
   return {
     entries,
     page: {
-      hasMore: page.hasMore || entries.length < updates.length,
+      hasMore: page.hasMore || entries.length < page.updates.length,
       lastUpdateId: entries.at(-1)?.update.id ?? page.lastUpdateId,
       lastSequence: entries.at(-1)?.sequence ?? page.lastSequence,
     },
