@@ -198,12 +198,14 @@ export interface DiscoverContainerDocumentsOptions
    * owed. It runs before the listed rows are applied, and a lane's watermark
    * may pass a row only after it ran for that row: an opened document is not
    * probed on its own, so the debt is what recovers an edit or an access
-   * change whose hint was lost.
+   * change whose hint was lost. Null when the write was skipped because the
+   * organization paused or the listing was superseded: nothing was owed,
+   * and the listing must not apply.
    */
   oweListedDocumentReads: (
     listed: ReadonlyArray<ListedDocumentHead>,
     stillCurrent: () => Promise<boolean>,
-  ) => Promise<ReadonlyArray<string>>;
+  ) => Promise<ReadonlyArray<string> | null>;
   /** The documents a listing just owed a read, once their debts are durable. */
   onDocumentReadsOwed?:
     | ((documentIds: ReadonlyArray<string>) => void)

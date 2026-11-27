@@ -1,4 +1,4 @@
-import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
+import { withRequestStatementCounter } from "@tearleads/api-shared/postgres";
 import type { MiddlewareHandler } from "hono";
 import { routeTemplate } from "./requestContext";
 
@@ -34,7 +34,7 @@ export function createRequestCostMiddleware(options: {
   return async (c, next) => {
     const counter = { statements: 0, waitMs: 0 };
     const startedAt = performance.now();
-    await withDatabaseStatementCounter(counter, next);
+    await withRequestStatementCounter(counter, next);
     const wallMs = roundMilliseconds(performance.now() - startedAt);
     const dbMs = roundMilliseconds(counter.waitMs);
     c.header(serverTimingHeaderName, `total;dur=${wallMs}, db;dur=${dbMs}`);

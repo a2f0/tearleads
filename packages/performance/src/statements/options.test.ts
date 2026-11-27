@@ -35,9 +35,16 @@ test("summarizes a saved capture without running tests", () => {
     mode: "summarize",
     capture: "c.jsonl",
   });
-  expect(() =>
-    parseStatementOptions(["--summarize", "c.jsonl", "--package", "api"]),
-  ).toThrow(/runs no tests/);
+  for (const flag of [
+    ["--package", "api"],
+    ["--file", "a.test.ts"],
+    ["--name", "budget"],
+    ["--param-hash"],
+    ["--limit", "5"],
+  ])
+    expect(() =>
+      parseStatementOptions(["--summarize", "c.jsonl", ...flag]),
+    ).toThrow(/runs no tests/);
 });
 
 test("rejects a missing or unsafe package, no files, and stray arguments", () => {

@@ -336,6 +336,21 @@ signed paths. Projection reads instead cite
 [manifest](./glossary/access.md#access-manifest) bundles the device already
 holds; see [the incremental evidence contract](projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 
+### Provisioned system container poll
+
+A load polls for the system containers born with its organization (Trash)
+only when its tree lacks one, as a fallback for a store that was not ready when
+registration persisted them. Each poll lists the root lane and the root's child
+lane in one `POST /containers/parent-lanes/query`, one listing at a time and
+only while the device is online. It stops after two listings that do not show
+the slot, logs the slot, and does not poll for that organization again while
+the same container store serves it, which is normally the rest of the load
+([`provisionedPullMachine.ts`](../packages/app/src/providers/system-bootstrap/provisionedPullMachine.ts)).
+The restart and reconnect fixtures above send no poll, because their trees hold
+Trash. An organization registered without Trash (by the CLI's `register`,
+before it provisioned the app's system containers) used to spend the poll's
+whole budget on every load: 40 requests over ten seconds.
+
 ### Current policy before signed mutations
 
 Group creation and membership changes spend most of their requests reading

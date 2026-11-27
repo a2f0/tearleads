@@ -120,8 +120,10 @@ Each record carries `request`, a number for the request it ran in, and the
 summary counts same-key repeats within one request: a per-phase total hides
 one key read twice inside a request. On 2026-11-10 the first auditor to
 group a capture by request found the single-walk and listing-lane repeats.
-The number comes from the request-cost middleware's statement counter, so a
-test that wraps requests in a counter of its own merges them into one.
+The number comes from the scope the request-cost middleware marks, so it
+stays one per request inside a counter a test opens around several requests.
+Outside every request it numbers the outermost counter, such as a budget
+test's around one workflow call.
 `API_REQUEST_COST_LOG=true` also makes the API print one `api.request.cost`
 line per request with its route and statement count (see
 `docs/developer/api-request-cost.md`).

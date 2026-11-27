@@ -89,9 +89,23 @@ export const DOCUMENT_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     id: "document-listing-settles-debt-with-older-read",
     module: DOCUMENT_LISTING_MODULE,
     config: DOCUMENT_LISTING_CONFIG,
-    constants: { SettleOnlyIfUnchanged: "FALSE" },
+    // Without lagging replicas, so the read in flight is the only stale one,
+    // and without the head guard, which refuses that read on its own.
+    constants: {
+      MaxLaggingReads: "0",
+      SettleOnlyIfHeadRead: "FALSE",
+      SettleOnlyIfUnchanged: "FALSE",
+    },
     expect: { kind: "invariant", name: "AccessHeadEvidenceRetained" },
-    why: "A read that started before the access head moved must not settle the debt a later listing owed for that move: its snapshot predates the head, and the watermark already passed the row.",
+    why: "A read that started before the access head moved must not settle the debt a later listing owed for that move: its snapshot predates the head, and the watermark already passed the row. The revision it saw refuses it, and so does the head its bundle carries; with neither, the move is lost.",
+  },
+  {
+    id: "document-listing-settles-lagging-head",
+    module: DOCUMENT_LISTING_MODULE,
+    config: DOCUMENT_LISTING_CONFIG,
+    constants: { SettleOnlyIfHeadRead: "FALSE" },
+    expect: { kind: "invariant", name: "AccessHeadEvidenceRetained" },
+    why: "A replica that lags the listing can answer a pull begun after the debt with the access head from before the move. Its revision is current and its cursor may cover the count, so only the head its bundle carries shows the move was not read.",
   },
   {
     id: "document-listing-drops-closed-store-hint",

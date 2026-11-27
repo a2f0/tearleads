@@ -114,14 +114,30 @@ export function formatCanaryReport(report: CanaryReport): string {
   return `${lines.join("\n")}\n`;
 }
 
+/** A change in the lowest value, beside both ranges when they differ. */
 function delta(before: Range | undefined, after: Range | undefined): string {
   if (!before) return after ? `new: ${formatRange(after)}` : "";
   if (!after) return `${formatRange(before)} → removed`;
   const change = after.min - before.min;
+  if (change === 0)
+    return before.max === after.max
+      ? formatRange(after)
+      : `${formatRange(before)} → ${formatRange(after)}`;
   const sign = change > 0 ? "+" : "";
-  return change === 0 && before.max === after.max
-    ? formatRange(after)
-    : `${formatRange(before)} → ${formatRange(after)} (${sign}${integers.format(change)})`;
+  return `${formatRange(before)} → ${formatRange(after)} (${sign}${integers.format(change)})`;
+}
+
+/**
+ * A phase both reports have compares statements only when both captured
+ * them; otherwise the cell would read as the phase appearing or vanishing.
+ */
+function statementsDelta(change: PhaseChange): string {
+  const { before, after } = change;
+  if (before && after)
+    return before.statements && after.statements
+      ? delta(before.statements, after.statements)
+      : "";
+  return delta(before?.statements ?? undefined, after?.statements ?? undefined);
 }
 
 /** The phases and endpoints that differ between two reports. */
@@ -158,14 +174,7 @@ export function formatComparison(
         delta(change.before?.requests, change.after?.requests),
         delta(change.before?.requestBytes, change.after?.requestBytes),
         delta(change.before?.responseBytes, change.after?.responseBytes),
-        ...(captured
-          ? [
-              delta(
-                change.before?.statements ?? undefined,
-                change.after?.statements ?? undefined,
-              ),
-            ]
-          : []),
+        ...(captured ? [statementsDelta(change)] : []),
       ]),
       [false, false, true, true, true, true],
     ),

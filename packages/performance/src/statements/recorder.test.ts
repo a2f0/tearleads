@@ -102,6 +102,9 @@ test("reads phase ends from canary metrics lines only", () => {
   expect(
     phaseFromConsole(['[dual-pane-request-metrics] {"label":"p"}']),
   ).toBeNull();
+  expect(
+    phaseFromConsole(['[dual-pane-request-metrics] {"label":']),
+  ).toBeNull();
 });
 
 test("requires an output file and a positive limit", () => {

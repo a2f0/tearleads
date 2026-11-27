@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { createDefaultManagedApiDatabase } from "@tearleads/api-shared/postgres";
+import {
+  createDefaultManagedApiDatabase,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
+import { observeDatabaseStatements } from "@tearleads/api-shared/statement-observer";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { createRouteApp } from "../routeApp";
@@ -81,6 +85,36 @@ describe("createRequestCostMiddleware", () => {
     } finally {
       await managed.close();
     }
+  });
+
+  test("marks each request for statement observers, inside a test's own counter", async () => {
+    const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
+    const app = new Hono();
+    app.use("*", createRequestCostMiddleware({ log: false }));
+    app.get("/items", async (c) => {
+      await managed.db.execute(sql`select 1`);
+      await managed.db.execute(sql`select 2`);
+      return c.json({ ok: true });
+    });
+    // Numbered as the performance package's capture numbers `request`.
+    const numbers = new Map<object, number>();
+    const requests: (number | undefined)[] = [];
+    const stop = observeDatabaseStatements(({ scope }) => {
+      if (scope && !numbers.has(scope)) numbers.set(scope, numbers.size + 1);
+      requests.push(scope && numbers.get(scope));
+    });
+    const outer = { statements: 0 };
+    try {
+      await withDatabaseStatementCounter(outer, async () => {
+        expect((await app.request("/items")).status).toBe(200);
+        expect((await app.request("/items")).status).toBe(200);
+      });
+    } finally {
+      stop();
+      await managed.close();
+    }
+    expect(outer.statements).toBe(4);
+    expect(requests).toEqual([1, 1, 2, 2]);
   });
 
   test("records the error handler's status", async () => {

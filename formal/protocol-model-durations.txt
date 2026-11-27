@@ -7,7 +7,7 @@
 211 formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecovery.cfg
 201 formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringReachability.cfg
 191 formal/blob-attachments/StagePromotion.tla|formal/blob-attachments/StagePromotion.cfg
-89 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergence.cfg
+146 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergence.cfg
 81 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg
 74 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDevice.cfg
 45 formal/document-sync/VoidUpdateProgress.tla|formal/document-sync/VoidUpdateProgressKills.cfg

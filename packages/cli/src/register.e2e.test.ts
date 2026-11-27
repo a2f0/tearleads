@@ -7,10 +7,14 @@ import {
   Tearleads,
 } from "@tearleads/client-sdk";
 import { createIdentitySeedPhrase } from "@tearleads/crypto";
+import { PROVISIONED_SYSTEM_CONTAINER_SPECS } from "app/host/provisionedSystemContainers";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
+import { loadFolderTree } from "./folderTree";
 import { LEGAL_TERMS_REQUIRED_MESSAGE } from "./legalTerms";
 import { openLocalDatabase } from "./localDatabase";
+import { registerCliTestAccount } from "./registerCliAccount.testUtils";
+import { withSession } from "./session";
 
 let apiBaseUrl = "";
 
@@ -84,6 +88,30 @@ test("register creates the key's account once and saves the key", async () => {
   );
   // Registration, whoami, and the repeat each revoked what they opened.
   expect(await openSessions(seedPhrase)).toBe(0);
+}, 60_000);
+
+// #3288: an account the CLI registered had no Trash. The app treats Trash as
+// born with the organization and never creates it at sign-in, so it polled
+// the root lane for it on every load.
+test("register provisions the organization's system containers as an app install does", async () => {
+  const { organizationId, rootContainerId, seedPhrase } =
+    await registerCliTestAccount(apiBaseUrl);
+  const nodes = await withSession(
+    { apiBaseUrl, recoveryKey: seedPhrase },
+    async (session) => (await loadFolderTree(session)).nodes,
+  );
+  const provisioned = nodes.filter(
+    (node) =>
+      node.parentId === rootContainerId &&
+      node.organizationId === organizationId &&
+      PROVISIONED_SYSTEM_CONTAINER_SPECS.some(
+        (spec) => spec.name === node.name && spec.icon === node.icon,
+      ),
+  );
+  expect(provisioned.map((node) => node.name)).toEqual(
+    PROVISIONED_SYSTEM_CONTAINER_SPECS.map((spec) => spec.name),
+  );
+  expect(provisioned.every((node) => node.systemSlot != null)).toBe(true);
 }, 60_000);
 
 test("register --api-url uses that API and keeps the key out of the Keychain", async () => {

@@ -58,14 +58,16 @@ export function testFileArgument(file: string): string {
 /**
  * The preloads a package's `bunfig.toml` names for `bun test`. Passing any
  * `--preload` on the command line replaces them, so a caller adding one
- * names these first.
+ * names these first. Only a missing file means none: any other read error
+ * is thrown, since dropping the package's preloads would skew what runs.
  */
 export async function packagePreloads(packageRoot: string): Promise<string[]> {
   let text: string;
   try {
     text = await readFile(resolve(packageRoot, "bunfig.toml"), "utf8");
-  } catch {
-    return [];
+  } catch (error) {
+    if (Reflect.get(Object(error), "code") === "ENOENT") return [];
+    throw error;
   }
   const config: unknown = Bun.TOML.parse(text);
   const test: unknown =

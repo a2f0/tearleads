@@ -20,6 +20,7 @@ sync, or workflow internals directly.
 | `app/App` | The root `App` component |
 | `app/host/AppHostConfig` | `createAppHostConfig`, host profiles (`app`, `demo`, `screenshot`), and the adapter types a host supplies |
 | `app/host/AppDiagnostics` | The diagnostics contract a host implements |
+| `app/host/provisionedSystemContainers` | The system containers an organization is born with (Trash), so the [CLI's `register`](../cli/README.md) creates the account an app install does |
 
 ## Layout
 

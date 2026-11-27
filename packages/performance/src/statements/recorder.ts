@@ -11,9 +11,10 @@ export type CaptureRecord =
       /** A short hash of the bind values, keyed per capture, when asked for. */
       readonly paramHash?: string;
       /**
-       * The statement's outermost counter scope, numbered from 1 in the order
-       * scopes first send a statement: the API request, when the API's
-       * request-cost middleware opened it. Absent outside every scope.
+       * The HTTP request the statement ran in, numbered from 1 in the order
+       * requests first send a statement: the scope the API's request-cost
+       * middleware marks, inside any counter a test opens around it. Outside
+       * every request, the outermost counter; absent outside every counter.
        */
       readonly request?: number;
     }
@@ -100,14 +101,23 @@ export function createStatementRecorder(
 
 const metricsMarker = "[dual-pane-request-metrics] ";
 
-/** The phase a canary's metrics line closes, or null for any other line. */
+/**
+ * The phase a canary's metrics line closes, or null for any other line. A
+ * malformed metrics line is null too: the preload must still log it, so the
+ * profile parser fails that run, rather than throw inside the canary.
+ */
 export function phaseFromConsole(
   args: readonly unknown[],
 ): { label: string; requests: number } | null {
   const [first] = args;
   if (typeof first !== "string" || !first.startsWith(metricsMarker))
     return null;
-  const metrics: unknown = JSON.parse(first.slice(metricsMarker.length));
+  let metrics: unknown;
+  try {
+    metrics = JSON.parse(first.slice(metricsMarker.length));
+  } catch {
+    return null;
+  }
   if (typeof metrics !== "object" || metrics === null) return null;
   const label: unknown = Reflect.get(metrics, "label");
   const requests: unknown = Reflect.get(metrics, "total");

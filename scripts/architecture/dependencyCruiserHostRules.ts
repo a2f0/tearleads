@@ -39,7 +39,7 @@ export const hostDependencyRules = [
     },
   },
   {
-    name: "performance-consumes-public-postgres-transport",
+    name: "performance-consumes-public-api-shared-adapters",
     severity: "error",
     comment:
       "The database probe uses the Workers transport; the statement capture observes the ORM's statements. Neither initializes a database.",
@@ -51,6 +51,21 @@ export const hostDependencyRules = [
       path: packageSourceRoot.apiShared,
       pathNot:
         "^packages/api-shared/src/adapters/(postgresTransport|databaseStatementObserver)\\.ts$",
+    },
+  },
+  {
+    name: "statement-observer-is-for-measurement",
+    severity: "error",
+    comment:
+      "A statement observer sees every statement's raw bind values, so only the performance harness and tests register one; production registers none.",
+    from: {
+      path: allPackageSourceRoots.filter(
+        (root) => root !== packageSourceRoot.performance,
+      ),
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: "^packages/api-shared/src/adapters/databaseStatementObserver\\.ts$",
     },
   },
   {
