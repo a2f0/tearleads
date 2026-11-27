@@ -1,13 +1,18 @@
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
+import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "../../../../workflows/documents";
+import { requestDocumentStoreSync } from "../../registry";
 import {
   deleteUnreferencedStagedAttachmentBytes,
   type stagePendingAttachments,
 } from "../attachmentUpload/attachmentStaging";
 import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
+import { ensureDocumentStoreInitialized } from "../initialization";
 import { persistDocument } from "../persistence";
 import { noteDocumentStoreWrite } from "../reportWriteFailure";
-import type { DocumentStoreState } from "../state";
+import { type DocumentStoreState, resetDocumentStore } from "../state";
 import {
   type captureDocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
@@ -20,12 +25,28 @@ export async function restoreFailedAttachmentMutation(input: {
   rollbackSnapshot: Uint8Array;
   state: DocumentStoreState;
 }): Promise<void> {
-  await reloadDocumentFromDurableHistory({
-    expectedGeneration: input.generation,
-    preserveQueuedWritesWhenIdentityMatches: true,
-    sameIdentitySnapshot: input.rollbackSnapshot,
-    state: input.state,
-  });
+  try {
+    await reloadDocumentFromDurableHistory({
+      expectedGeneration: input.generation,
+      preserveQueuedWritesWhenIdentityMatches: true,
+      sameIdentitySnapshot: input.rollbackSnapshot,
+      state: input.state,
+    });
+  } catch {
+    // If SQLite cannot reload durable history (e.g. still busy after retries
+    // exhausted), never leave uncommitted attachment ops in the live doc for a
+    // later edit or sync pass to leak: reset and reinitialize from durable
+    // history, matching settleDeferredInitialUpdate.
+    if (
+      isDocumentStoreSyncGenerationCurrent(input.state, input.generation) &&
+      input.state.doc
+    ) {
+      resetDocumentStore(input.state);
+      ensureDocumentStoreInitialized(input.state, () =>
+        requestDocumentStoreSync(input.state),
+      );
+    }
+  }
 }
 
 export async function persistStagedAttachmentMutation(input: {
@@ -76,6 +97,12 @@ export async function persistStagedAttachmentMutation(input: {
       pendingAttachments: staged.pendingAttachments,
       state,
     });
+    if (
+      classifyDatabaseFailure(error) === "busy" &&
+      !isDocumentStoreSyncGenerationCurrent(state, input.generation)
+    ) {
+      return null;
+    }
     await restoreFailedAttachmentMutation({
       generation: input.generation,
       rollbackSnapshot: input.rollbackSnapshot,

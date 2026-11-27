@@ -1,6 +1,9 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
+import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import {
   type AttachmentWriteGeneration,
@@ -126,30 +129,41 @@ async function enqueueDeferredTail(
     pendingDeltaSinceBase(state, currentDoc),
   );
   if (!pendingUpdate) return;
-  const persisted = await retryWhileDatabaseBusy(
-    () =>
-      persistDocument(
-        state,
-        currentDoc,
-        { snapshotEndVersion: documentVersion },
-        {
-          pendingUpdate,
-          preserveSnapshotStructuredFields: true,
-          preserveSnapshotText: true,
-        },
-        syncGeneration,
-      ),
-    {
-      isCurrent: () =>
-        isDocumentStoreSyncGenerationCurrent(state, syncGeneration),
-      onBusy: () => {
-        noteDocumentStoreWrite(
+  let persisted: Awaited<ReturnType<typeof persistDocument>>;
+  try {
+    persisted = await retryWhileDatabaseBusy(
+      () =>
+        persistDocument(
           state,
-          `Documents: retrying deferred birth persist for ${state.localId} behind another tab's database transaction`,
-        );
+          currentDoc,
+          { snapshotEndVersion: documentVersion },
+          {
+            pendingUpdate,
+            preserveSnapshotStructuredFields: true,
+            preserveSnapshotText: true,
+          },
+          syncGeneration,
+        ),
+      {
+        isCurrent: () =>
+          isDocumentStoreSyncGenerationCurrent(state, syncGeneration),
+        onBusy: () => {
+          noteDocumentStoreWrite(
+            state,
+            `Documents: retrying deferred birth persist for ${state.localId} behind another tab's database transaction`,
+          );
+        },
       },
-    },
-  );
+    );
+  } catch (error) {
+    if (
+      classifyDatabaseFailure(error) === "busy" &&
+      !isDocumentStoreSyncGenerationCurrent(state, syncGeneration)
+    ) {
+      return;
+    }
+    throw error;
+  }
   if (
     !persisted ||
     !isDocumentStoreSyncGenerationCurrent(state, syncGeneration)

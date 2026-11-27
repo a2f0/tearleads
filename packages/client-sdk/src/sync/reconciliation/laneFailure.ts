@@ -55,13 +55,14 @@ export function rearmFailedSweepContainers(
   failures: ReadonlyArray<FailedForcedContainer>,
   lifecycleGeneration: number,
 ): void {
-  if (failures.length === 0) {
+  if (
+    failures.length === 0 ||
+    !state.active ||
+    state.lifecycleGeneration !== lifecycleGeneration
+  ) {
     return;
   }
   for (const failure of failures) {
-    if (!state.active || state.lifecycleGeneration !== lifecycleGeneration) {
-      continue;
-    }
     if (failure.busy) {
       state.queue.enqueue(failure.containerId, "idle");
       continue;

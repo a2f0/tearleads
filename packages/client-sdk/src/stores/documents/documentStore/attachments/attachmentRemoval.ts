@@ -7,7 +7,10 @@ import {
   removeDocumentAttachment,
 } from "../../../../data/documents/documentContent";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
+import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import { ensureDocumentStoreReady } from "../initialization";
 import { chainQueuedWrite } from "../localWriteQueue";
@@ -111,6 +114,9 @@ async function commitAttachmentRemovalPersist(input: {
     storageKey,
     syncedAttachment,
   } = input;
+  const isCurrent = () =>
+    isAttachmentWriteGenerationCurrent(state, input.writeGeneration) &&
+    isDocumentStoreSyncGenerationCurrent(state, generation);
   try {
     return await retryWhileDatabaseBusy(
       () =>
@@ -139,9 +145,7 @@ async function commitAttachmentRemovalPersist(input: {
           generation,
         ),
       {
-        isCurrent: () =>
-          isAttachmentWriteGenerationCurrent(state, input.writeGeneration) &&
-          isDocumentStoreSyncGenerationCurrent(state, generation),
+        isCurrent,
         onBusy: () => {
           noteDocumentStoreWrite(
             state,
@@ -151,6 +155,9 @@ async function commitAttachmentRemovalPersist(input: {
       },
     );
   } catch (error) {
+    if (classifyDatabaseFailure(error) === "busy" && !isCurrent()) {
+      return null;
+    }
     await restoreFailedAttachmentMutation({
       generation,
       rollbackSnapshot: input.rollbackSnapshot,

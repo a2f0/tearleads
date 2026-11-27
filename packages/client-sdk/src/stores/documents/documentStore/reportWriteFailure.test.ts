@@ -441,3 +441,31 @@ test("a stale-generation busy retry does not block a new-generation guarded writ
   );
   expect(requeued).toEqual(["new-guarded"]);
 });
+
+test("a late-settling stale-generation busy write does not overwrite a current retry", async () => {
+  const state = {
+    doc: null,
+    localWriteGeneration: 2,
+    pendingLocalWrites: 0,
+    runtime: { util: { log: () => undefined } },
+    unsavedLocalEdits: true,
+  } as unknown as DocumentStoreState;
+  const requeued: string[] = [];
+
+  reportOrRetryBusyDocumentWrite(state, MESSAGE, busyRefusal(), {
+    requeue: () => requeued.push("current-guarded"),
+    savesAll: false,
+    writeGeneration: 2,
+  });
+  reportOrRetryBusyDocumentWrite(state, MESSAGE, busyRefusal(), {
+    requeue: () => requeued.push("stale-text"),
+    savesAll: true,
+    writeGeneration: 1,
+  });
+  await waitFor(
+    () => requeued.length > 0,
+    "The current-generation busy retry did not run.",
+    BUSY_WRITE_RETRY_MS * 3,
+  );
+  expect(requeued).toEqual(["current-guarded"]);
+});

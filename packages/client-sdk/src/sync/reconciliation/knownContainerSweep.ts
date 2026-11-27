@@ -415,7 +415,14 @@ export async function sweepKnownContainers(input: {
     });
     if (!batch) return;
     failedForces.push(...batch.failedForces);
-    if (firstError === undefined) firstError = batch.firstError;
+    if (batch.firstError !== undefined) {
+      firstError = pickSweepError(
+        host,
+        firstError,
+        batch.firstError,
+        host.isBusyError?.(batch.firstError) === true,
+      );
+    }
   }
   rearmFailedSweepContainers(state, failedForces, lifecycleGeneration);
   if (firstError !== undefined && !input.stop?.aborted) {

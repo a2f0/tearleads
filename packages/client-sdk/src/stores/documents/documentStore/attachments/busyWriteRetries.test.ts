@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { waitFor } from "../../../../../test/helpers/data/waitFor";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { Tearleads } from "../../../../Tearleads";
 import type {
@@ -13,7 +14,11 @@ import { restoreDocumentStoreContent } from "../history/restoreContent";
 import { ensureDocumentStoreReady } from "../initialization";
 import { setDocumentText } from "../mutations";
 import { addRowToDocumentStore } from "../rows";
-import { createDocumentStoreState, type DocumentStoreState } from "../state";
+import {
+  createDocumentStoreState,
+  type DocumentStoreState,
+  resetDocumentStore,
+} from "../state";
 import { removeAttachmentFromDocumentStore } from "./attachmentRemoval";
 import {
   attachFilesToDocumentStore,
@@ -27,7 +32,10 @@ const busyRefusal = () =>
 
 async function createStoreFixture(
   name: string,
-  options: { readonly initialize?: boolean } = {},
+  options: {
+    readonly deferInitialUpdate?: boolean;
+    readonly initialize?: boolean;
+  } = {},
 ) {
   const database = await createTestExecSql(name);
   const reported: unknown[] = [];
@@ -59,7 +67,11 @@ async function createStoreFixture(
     sqlDocumentsPersistence,
     noopDocumentStorePersistenceEffects,
     null,
+    options.deferInitialUpdate ? "deferred birth content" : "",
   );
+  if (options.deferInitialUpdate) {
+    state.deferInitialUpdate = true;
+  }
   if (options.initialize !== false) {
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
   }
@@ -206,6 +218,176 @@ test("cold store initialization retries busy SQLite refusals so addRow succeeds"
       }),
     ]);
     expect(fixture.reported).toEqual([]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("superseding a busy retry during its pause stops cleanly without logging errors", async () => {
+  const initFixture = await createStoreFixture("doc-busy-superseded-init", {
+    initialize: false,
+  });
+  const attachFixture = await createStoreFixture("doc-busy-superseded-attach");
+  const restoreFixture = await createStoreFixture(
+    "doc-busy-superseded-restore",
+  );
+  try {
+    // Cold init superseded mid-pause.
+    const initDurable = initFixture.state.persistence;
+    initFixture.state.persistence = {
+      ...initDurable,
+      async loadDocument() {
+        resetDocumentStore(initFixture.state);
+        throw busyRefusal();
+      },
+    } satisfies DocumentsPersistence;
+    expect(
+      await ensureDocumentStoreReady(initFixture.state, () => undefined),
+    ).toBe(false);
+    expect(initFixture.reported).toEqual([]);
+
+    // Attach superseded mid-pause.
+    const attachDurable = attachFixture.state.persistence;
+    attachFixture.state.persistence = {
+      ...attachDurable,
+      async commitDocumentMutation() {
+        resetDocumentStore(attachFixture.state);
+        throw busyRefusal();
+      },
+    } satisfies DocumentsPersistence;
+    await attachFilesToDocumentStore(attachFixture.state, () => undefined, [
+      {
+        bytes: new Uint8Array([9, 8, 7]),
+        mimeType: "application/octet-stream",
+        name: "superseded.bin",
+      },
+    ]);
+    expect(attachFixture.reported).toEqual([]);
+
+    // Restore superseded mid-pause.
+    const restoreDurable = restoreFixture.state.persistence;
+    restoreFixture.state.persistence = {
+      ...restoreDurable,
+      async commitDocumentMutation() {
+        resetDocumentStore(restoreFixture.state);
+        throw busyRefusal();
+      },
+    } satisfies DocumentsPersistence;
+    expect(
+      await restoreDocumentStoreContent(restoreFixture.state, () => undefined, {
+        rows: [],
+        structuredFields: {},
+        text: "superseded",
+      }),
+    ).toBe(false);
+    expect(restoreFixture.reported).toEqual([]);
+  } finally {
+    initFixture.close();
+    attachFixture.close();
+    restoreFixture.close();
+  }
+});
+
+test("restore finishes persisting after a busy refusal even if stillCurrent flips false post-admission", async () => {
+  const fixture = await createStoreFixture("doc-busy-restore-post-admission");
+  try {
+    let stillCurrent = true;
+    const durable = fixture.state.persistence;
+    let remainingBusy = 1;
+    fixture.state.persistence = {
+      ...durable,
+      async commitDocumentMutation(...args) {
+        if (remainingBusy > 0) {
+          remainingBusy -= 1;
+          stillCurrent = false;
+          throw busyRefusal();
+        }
+        return durable.commitDocumentMutation(...args);
+      },
+    } satisfies DocumentsPersistence;
+
+    const restored = await restoreDocumentStoreContent(
+      fixture.state,
+      () => undefined,
+      { rows: [], structuredFields: {}, text: "committed-after-flip" },
+      { stillCurrent: () => stillCurrent },
+    );
+    expect(restored).toBe(true);
+    expect(fixture.reported).toEqual([]);
+    expect(
+      (
+        await sqlDocumentsPersistence.loadDocument(
+          fixture.execSql,
+          "busy-write-doc",
+        )
+      )?.text,
+    ).toBe("committed-after-flip");
+  } finally {
+    fixture.close();
+  }
+});
+
+test("exhausted busy attach resets the live doc when rollback reload is also busy", async () => {
+  const fixture = await createStoreFixture("doc-busy-attach-exhausted-reset");
+  try {
+    const durable = fixture.state.persistence;
+    let blockSql = true;
+    fixture.state.persistence = {
+      ...durable,
+      async commitDocumentMutation(...args) {
+        if (blockSql) throw busyRefusal();
+        return durable.commitDocumentMutation(...args);
+      },
+      async loadDocumentWithHistoryRestoreState(execSql, localId) {
+        if (blockSql) throw busyRefusal();
+        return durable.loadDocumentWithHistoryRestoreState(execSql, localId);
+      },
+    } satisfies DocumentsPersistence;
+
+    await attachFilesToDocumentStore(fixture.state, () => undefined, [
+      {
+        bytes: new Uint8Array([1, 2, 3]),
+        mimeType: "application/octet-stream",
+        name: "never-committed.bin",
+      },
+    ]);
+    // Exhausted retries reported the failure and cleared the dirty live doc.
+    expect(fixture.reported).toHaveLength(1);
+    expect(fixture.state.doc).toBeNull();
+
+    // Once SQLite clears, reinitialization restores the clean durable document
+    // with zero ghost attachment slots.
+    blockSql = false;
+    await waitFor(
+      () => fixture.state.initialized && fixture.state.doc !== null,
+      "Expected store to reinitialize after exhausted busy rollback reset",
+      3_000,
+    );
+    expect(fixture.state.snapshot.attachments).toEqual([]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("settleDeferredInitialUpdate retries busy SQLite refusals when enqueuing the birth", async () => {
+  const fixture = await createStoreFixture("doc-busy-deferred-birth", {
+    deferInitialUpdate: true,
+  });
+  try {
+    expect(fixture.state.deferInitialUpdate).toBe(true);
+    const attempts = failCommitsOnce(fixture.state, 2);
+
+    // Passing no files runs settleDeferredInitialUpdate -> enqueueDeferredTail.
+    await attachFilesToDocumentStore(fixture.state, () => undefined, []);
+
+    expect(attempts()).toBe(3);
+    expect(fixture.state.deferInitialUpdate).toBe(false);
+    expect(fixture.reported).toEqual([]);
+    const pending = await sqlDocumentsPersistence.listPendingUpdates(
+      fixture.execSql,
+      "busy-write-doc",
+    );
+    expect(pending.length).toBeGreaterThan(0);
   } finally {
     fixture.close();
   }

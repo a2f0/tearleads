@@ -138,6 +138,9 @@ export function reportOrRetryBusyDocumentWrite(
       `${message} behind another tab's database transaction`,
     ),
   );
+  if (write.writeGeneration !== state.localWriteGeneration) {
+    return;
+  }
   const pending = retriesByState.get(state);
   const pendingIsCurrent =
     pending !== undefined &&

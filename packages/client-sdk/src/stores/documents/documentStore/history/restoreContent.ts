@@ -4,7 +4,10 @@ import {
   restoreDocumentContent,
 } from "../../../../data/documents/documentRestore";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
+import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import type { DocumentMutationGuard } from "../../types";
 import { ensureDocumentStoreReady } from "../initialization";
@@ -93,42 +96,32 @@ async function persistRestoredContent(
     preserveSnapshotStructuredFields: true,
     preserveSnapshotText: true,
   };
-  const retryOptions = {
-    isCurrent: () =>
-      state.localWriteGeneration === expectedLocalWriteGeneration &&
-      isDocumentStoreSyncGenerationCurrent(state, generation) &&
-      options.stillCurrent?.() !== false,
-    onBusy: () => {
-      noteDocumentStoreWrite(
-        state,
-        `Documents: retrying content restore for ${state.localId} behind another tab's database transaction`,
-      );
-    },
-  };
+  const isCurrent = () =>
+    state.localWriteGeneration === expectedLocalWriteGeneration &&
+    isDocumentStoreSyncGenerationCurrent(state, generation);
+  const runPersist = (operation: () => ReturnType<typeof persistDocument>) =>
+    retryRestorePersist(state, isCurrent, operation);
   if (!pendingUpdate) {
     // Already this content: nothing to save, only the identity to revalidate.
     return isPersistedAndCurrent(
       state,
       generation,
-      await retryWhileDatabaseBusy(
-        () => persistDocument(state, currentDoc, {}, saveOptions, generation),
-        retryOptions,
+      await runPersist(() =>
+        persistDocument(state, currentDoc, {}, saveOptions, generation),
       ),
     );
   }
   const coveredVersion = encodeVersionVector(currentDoc);
   // From here until a persist covers it, the doc holds edits SQLite lacks.
   state.unsavedLocalEdits = true;
-  const persisted = await retryWhileDatabaseBusy(
-    () =>
-      persistDocument(
-        state,
-        currentDoc,
-        { snapshotEndVersion: coveredVersion },
-        { ...saveOptions, pendingUpdate },
-        generation,
-      ),
-    retryOptions,
+  const persisted = await runPersist(() =>
+    persistDocument(
+      state,
+      currentDoc,
+      { snapshotEndVersion: coveredVersion },
+      { ...saveOptions, pendingUpdate },
+      generation,
+    ),
   );
   if (!isPersistedAndCurrent(state, generation, persisted)) {
     return false;
@@ -136,6 +129,29 @@ async function persistRestoredContent(
   advancePendingBaseVersion(state, currentDoc);
   requestDocumentStoreSync(state);
   return true;
+}
+
+async function retryRestorePersist(
+  state: DocumentStoreState,
+  isCurrent: () => boolean,
+  operation: () => ReturnType<typeof persistDocument>,
+): Promise<Awaited<ReturnType<typeof persistDocument>>> {
+  try {
+    return await retryWhileDatabaseBusy(operation, {
+      isCurrent,
+      onBusy: () => {
+        noteDocumentStoreWrite(
+          state,
+          `Documents: retrying content restore for ${state.localId} behind another tab's database transaction`,
+        );
+      },
+    });
+  } catch (error) {
+    if (classifyDatabaseFailure(error) === "busy" && !isCurrent()) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**

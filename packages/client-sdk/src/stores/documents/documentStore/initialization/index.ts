@@ -1,6 +1,7 @@
 import { mergeVersionVectors } from "@tearleads/loro";
 import type { DocumentSummary } from "../../../../data/documents/documentSummary";
 import {
+  classifyDatabaseFailure,
   isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
   retryWhileDatabaseBusy,
@@ -288,15 +289,16 @@ export function ensureDocumentStoreInitialized(
   }
 
   const initializeGeneration = state.localWriteGeneration;
+  const isCurrentInitialization = () =>
+    state.localWriteGeneration === initializeGeneration &&
+    state.runtime.infra.dbStatus === "ready";
   // Every SQLite call inside initializeDocumentStore is read-only or idempotent
   // (create-only birth + recovery helpers), so retrying a busy refusal in place
   // avoids dropping the mutation call that triggered initialization (#3373).
   const initializePromise = retryWhileDatabaseBusy(
     () => initializeDocumentStore(state, scheduleSync),
     {
-      isCurrent: () =>
-        state.localWriteGeneration === initializeGeneration &&
-        state.runtime.infra.dbStatus === "ready",
+      isCurrent: isCurrentInitialization,
       onBusy: () => {
         noteDocumentStoreWrite(
           state,
@@ -315,7 +317,10 @@ export function ensureDocumentStoreInitialized(
       state.deferInitialUpdate = false;
     }
 
-    if (isDatabaseUnavailableError(error)) {
+    if (
+      isDatabaseUnavailableError(error) ||
+      (classifyDatabaseFailure(error) === "busy" && !isCurrentInitialization())
+    ) {
       return;
     }
 

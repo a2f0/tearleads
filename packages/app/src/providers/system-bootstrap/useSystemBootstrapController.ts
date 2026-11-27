@@ -118,8 +118,9 @@ export function useSystemBootstrapController(
     }
     const { run } = state.attempt;
     const timer = setTimeout(() => {
+      const before = stateRef.current;
       const next = dispatch({ run, type: "busy-pause-ended" });
-      if (next !== state) void ensureBootstrapped();
+      if (next !== before) void ensureBootstrapped();
     }, BUSY_SYSTEM_BOOTSTRAP_RETRY_MS);
     return () => clearTimeout(timer);
   }, [authority, dispatch, ensureBootstrapped, state, stateRef]);
