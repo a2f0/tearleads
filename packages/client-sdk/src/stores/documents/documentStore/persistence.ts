@@ -37,6 +37,7 @@ import {
   setReadySnapshot,
 } from "./state";
 import { createFreshPeerStoredDocument } from "./storedDocument";
+import { createdRemoteIdentityPersistenceHooks } from "./sync/createdRemoteIdentity";
 import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
@@ -118,6 +119,10 @@ function pendingBaseVersionForSave(
   return pendingBaseVersion;
 }
 
+type PersistDocumentRecordOptions = SaveDocumentRecordOptions & {
+  assignsCreatedRemoteDocumentId?: boolean | undefined;
+};
+
 // Nullable without a generation too: an update-persist refuses (returns
 // null) when the durable row was deleted while the persist was queued — the
 // resurrect guard in persistDocumentState — so callers must stop follow-up
@@ -126,7 +131,7 @@ export async function saveDocumentRecord(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord> = {},
-  options: SaveDocumentRecordOptions = {},
+  options: PersistDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
   commitSideEffect?: (transactionExecSql: ExecSql) => Promise<void>,
 ): Promise<PersistedDocumentRecord | null> {
@@ -141,6 +146,14 @@ export async function saveDocumentRecord(
     acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
     attachmentRemoval: options.attachmentRemoval,
     attachmentStaging: options.attachmentStaging,
+    ...createdRemoteIdentityPersistenceHooks({
+      assignsCreatedRemoteDocumentId:
+        options.assignsCreatedRemoteDocumentId === true,
+      currentDoc,
+      isCurrent,
+      previousDocumentId,
+      state,
+    }),
     clearSyncFailure: options.clearSyncFailure,
     ...(commitSideEffect ? { commitSideEffect } : {}),
     committedVersions: options.committedVersions,
@@ -250,7 +263,7 @@ export async function persistDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord> = {},
-  options: SaveDocumentRecordOptions = {},
+  options: PersistDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
   commitSideEffect?: (transactionExecSql: ExecSql) => Promise<void>,
 ): Promise<PersistedDocumentRecord | null> {

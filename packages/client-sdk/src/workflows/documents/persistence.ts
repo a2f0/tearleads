@@ -93,8 +93,13 @@ export async function ensureDocumentClientProjectionTables(input: {
   await ensurePromise;
 }
 
+interface PersistDocumentStateOptions extends PersistDocumentStateInput {
+  /** Runs synchronously inside the serialized SQL mutation after settlement. */
+  onSettledInMutation?: ((result: PersistedDocumentState) => void) | undefined;
+}
+
 export async function persistDocumentState(
-  input: PersistDocumentStateInput,
+  input: PersistDocumentStateOptions,
 ): Promise<PersistedDocumentState | null> {
   const documentProjectors = resolveDocumentProjectorRegistry(
     input.documentProjectors,
@@ -106,14 +111,18 @@ export async function persistDocumentState(
   if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
     return null;
   }
-  return runSerializedSqlMutation(input.execSql, (lockedExecSql) =>
-    commitPreparedDocumentState({
+  return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
+    const result = await commitPreparedDocumentState({
       documentProjectors,
       lockedExecSql,
       patch: input.patch ?? {},
       persistInput: input,
-    }),
-  );
+    });
+    if (result) {
+      input.onSettledInMutation?.(result);
+    }
+    return result;
+  });
 }
 
 export async function loadPersistedDocumentStoreState(input: {

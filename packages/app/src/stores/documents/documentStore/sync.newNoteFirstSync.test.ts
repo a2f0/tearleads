@@ -140,3 +140,118 @@ test("new note first sync preserves the optimistic text while typing (online)", 
     );
   }
 });
+
+test("new note edit overlapping remote create commit survives and syncs", async () => {
+  const basePersistence = createDocumentsPersistence();
+  let releaseCreateCommit = () => {};
+  const createCommitGate = new Promise<void>((resolve) => {
+    releaseCreateCommit = resolve;
+  });
+  let releaseCreateCompaction = () => {};
+  const createCompactionGate = new Promise<void>((resolve) => {
+    releaseCreateCompaction = resolve;
+  });
+  let createCommitEntered = false;
+  let holdNextHistoryTailRead = false;
+
+  const persistence = {
+    ...basePersistence,
+    commitDocumentMutation: async (
+      ...args: Parameters<typeof basePersistence.commitDocumentMutation>
+    ) => {
+      const mutation = args[1];
+      if (
+        mutation.expectedRecord.documentId === null &&
+        mutation.document.documentId !== null &&
+        !createCommitEntered
+      ) {
+        createCommitEntered = true;
+        holdNextHistoryTailRead = true;
+        await createCommitGate;
+      }
+      return basePersistence.commitDocumentMutation(...args);
+    },
+    readHistoryTailSize: async (
+      ...args: Parameters<typeof basePersistence.readHistoryTailSize>
+    ) => {
+      if (holdNextHistoryTailRead) {
+        holdNextHistoryTailRead = false;
+        await createCompactionGate;
+      }
+      return basePersistence.readHistoryTailSize(...args);
+    },
+  };
+
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "root-container",
+  );
+  const offlineRuntime = cloneDocumentsTestRuntime(runtime, {
+    state: { online: false },
+  });
+
+  const store = createDocumentStore(
+    "create-commit-race-note",
+    offlineRuntime,
+    persistence,
+  );
+  store.updateRuntime(offlineRuntime);
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Create-commit-race document store did not become ready.",
+  );
+
+  const edit1 = "Field log\nFirst line of the field log.";
+  const edit2 =
+    "Field log\nFirst line of the field log.\nA second edit adds another range.";
+  await store.setText(edit1);
+
+  const publishedTexts: string[] = [store.getSnapshot().text];
+  const unsubscribe = store.subscribe(() => {
+    publishedTexts.push(store.getSnapshot().text);
+  });
+
+  try {
+    store.updateRuntime(runtime);
+    store.requestSync();
+    await waitForCondition(
+      () => createCommitEntered,
+      "Remote create did not reach commitDocumentMutation.",
+    );
+
+    const edit2Promise = store.setText(edit2);
+    await Bun.sleep(25);
+    releaseCreateCommit();
+
+    await edit2Promise;
+    releaseCreateCompaction();
+
+    await waitForCondition(
+      () =>
+        store.getSnapshot().documentId !== null &&
+        persistence.getState().pendingUpdates.length === 0 &&
+        !store.getSnapshot().syncing,
+      "New note did not finish creating and syncing the overlapping edit.",
+    );
+    await getOrCreateDomainSyncCoordinator(
+      runtime.state.domainScope,
+    ).waitForIdle({
+      quietMs: 20,
+      timeoutMs: 2_000,
+    });
+  } finally {
+    releaseCreateCommit();
+    releaseCreateCompaction();
+    unsubscribe();
+  }
+
+  expect(store.getSnapshot().documentId).toBeString();
+  expect(store.getSnapshot().text).toBe(edit2);
+  expect(persistence.getState().document?.text).toBe(edit2);
+  for (let index = 1; index < publishedTexts.length; index += 1) {
+    expect(publishedTexts[index]?.length ?? 0).toBeGreaterThanOrEqual(
+      publishedTexts[index - 1]?.length ?? 0,
+    );
+  }
+});

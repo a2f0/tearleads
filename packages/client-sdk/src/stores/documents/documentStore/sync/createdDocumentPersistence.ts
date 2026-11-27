@@ -65,6 +65,11 @@ function committedSeedSettlement(input: {
     seedUpdate.partialEndVersionVector,
   ]);
   const liveFrontier = input.liveRecord?.snapshotEndVersion ?? "";
+  const livePendingBase = input.liveRecord?.pendingBaseVersion ?? "";
+  const pendingBaseVersion = mergeVersionVectors([
+    ...(livePendingBase.length > 0 ? [livePendingBase] : []),
+    baseVersion,
+  ]);
   return {
     baseVersion,
     options: {
@@ -72,7 +77,7 @@ function committedSeedSettlement(input: {
       clearSyncFailure: true,
       // The server committed the seed, so the record has seen its span.
       committedVersions: committedUpdateVersions([seedUpdate]),
-      pendingBaseVersionOverride: baseVersion,
+      pendingBaseVersionOverride: pendingBaseVersion,
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,
     },
@@ -102,6 +107,17 @@ function advancePendingBaseVersion(
   }
 }
 
+function preserveLivePendingBaseVersion(
+  liveRecord: DocumentRecord | null,
+  pendingBaseVersion: string | null,
+): string | undefined {
+  const livePendingBase = liveRecord?.pendingBaseVersion ?? "";
+  if (livePendingBase.length === 0) return undefined;
+  return pendingBaseVersion !== null && pendingBaseVersion.length > 0
+    ? mergeVersionVectors([livePendingBase, pendingBaseVersion])
+    : livePendingBase;
+}
+
 /**
  * Persists a just-created remote identity (documentId and content keys), and
  * settles the create's seed when it committed. Preserves the optimistic
@@ -121,6 +137,9 @@ export async function persistCreatedRemoteDocument(input: {
     pendingBaseVersion: state.pendingBaseVersion,
     seedUpdate: input.seed?.update,
   });
+  const unseededPendingBaseVersion = settlement
+    ? undefined
+    : preserveLivePendingBaseVersion(state.record, state.pendingBaseVersion);
   const createdDocumentId = input.created.persistedState.documentId;
   const seedUpdateId = input.seed?.update.id;
   const persisted = await persistDocument(
@@ -129,6 +148,10 @@ export async function persistCreatedRemoteDocument(input: {
     { ...input.created.persistedState, ...settlement?.patch },
     {
       ...settlement?.options,
+      ...(unseededPendingBaseVersion !== undefined
+        ? { pendingBaseVersionOverride: unseededPendingBaseVersion }
+        : {}),
+      assignsCreatedRemoteDocumentId: true,
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,
     },
