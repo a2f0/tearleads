@@ -428,6 +428,10 @@ breaks the group. Two cases are its writer's doing and void instead: a
 payload that leaves a gap inside its own range, and a segment lacking only
 operations that unapplied segments of its group, served earlier in the pull,
 declare. The run carries those spans, one a peer; a host must pass it on.
+A group whose void segments name more peers than a run lists (8,192) is
+carried as one whose every operation was declared: its later segments that
+cannot join are void, and the pass does not fail on it, since any writing
+member can commit such a group ([limits](./limits.md#document-sync)).
 
 A broken group fails the pass at stage `baseline_group`. It is never a void:
 the reader imports nothing from the page and records no void, which would

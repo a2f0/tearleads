@@ -65,13 +65,81 @@ attempt that signed the same event again would name another manifest, and
 every staged header would be stale. An attempt whose event is otherwise the
 same keeps the signature.
 
+## Where A Key Has Gone
+
+A rotation commits a fresh key so that someone cannot read what is written
+after it: the members a container's key rotation dropped, for a heal, and
+the container an unlink removes. An upload holds its key between attempts,
+so a later attempt could commit a key that an earlier request already
+carried to the party the rotation is meant to keep out:
+
+- A heal wraps its key for every linked container. Its sync is refused for
+  coverage, or gets no answer, and its upload stays. An unlink of one of
+  those containers then finds the upload at the epoch it opens.
+- An unlink of container X is refused, and its upload stays with a key
+  wrapped for every container but X. An unlink of container Y then finds
+  it.
+
+In both the held key is known to the removed container's members, and to
+whoever kept the earlier request, whether the API took that request,
+refused it, or never answered. So an upload records every target its key
+was wrapped for (`StagedBaselineUpload.wrapKeyFor`), and an attempt takes
+the held plan only if its own targets hold every one of them
+(`reusableStagedBaselinePlan`):
+
+- A **target** is one key epoch of one linked container: a content-key
+  bundle envelope's `containerId` and `containerKeyEpochId`. A container's
+  next key epoch is another target, since the members its rotation dropped
+  hold the earlier one. Nothing else in a rotating request gives the key to
+  anyone: the envelopes are the only place it is wrapped, an unlink's event
+  carries no key, its attachment rewraps wrap each attachment's own key and
+  not the document's, and the staged segments are ciphertext.
+- The record only grows, and it is not part of the upload's attempt-tagged
+  state: a request a superseded run sent gave the key away as surely as the
+  current run's. An attempt's targets are recorded when it takes the plan,
+  before any request is built, so a request that is never sent counts too.
+- The rule is "holds every one", not "equals". A retry of the same heal or
+  the same unlink has the same targets and goes on with the upload; so does
+  an attempt with more targets, such as a heal after an unlink was refused,
+  which gives the key to a container that is still linked. Its targets are
+  then recorded, and the unlink's retry no longer qualifies.
+- An attempt that does not qualify plans afresh: a new key, and for an
+  unlink a new event id and signed time. The writer finds the document's
+  upload planned for another key, gives it up, and deletes its stage, whose
+  segments the exposed key encrypts, before it opens its own
+  (`writeOnce`). That is what an unlink does with a heal's upload: the heal
+  finds its upload gone on its next pass and plans again at the epoch after
+  the unlink's.
+- The writer holds the request's own envelopes to the same rule where they
+  are in hand. A key about to be wrapped for fewer targets than it went to
+  is never sent: the upload is given up and the attempt fails.
+
+A process that restarts has no upload and no held key, so it plans afresh.
+
 ## The Upload Machine
 
 The upload is a state machine
-([`stagedBaselineMachine.ts`](../packages/client-sdk/src/workflows/documents/baselineStage/stagedBaselineMachine.ts)).
+([`stagedBaselineState.ts`](../packages/client-sdk/src/workflows/documents/baselineStage/stagedBaselineState.ts),
+[`stagedBaselineMachine.ts`](../packages/client-sdk/src/workflows/documents/baselineStage/stagedBaselineMachine.ts)).
 Every run starts a new attempt, and only an event tagged with the current
 attempt moves it, so a request an earlier run left in flight cannot finish
 for a later one.
+
+Its state holds what the writer remembers of the stage: a record of each
+staged segment (`records`) and what the staged headers were signed for
+(`headersSignedFor`). Both change only through the transition, so the
+attempt tag guards them too: a superseded run's late read of the stage
+cannot shorten the records the live run commits by. A record is kept
+before its segment is sent (`segmentSent`), because the answer may be
+lost. A run that finds a later one has started ends without a word
+(`superseded`): its answer is nobody's failure, and the upload it would
+give up is the later run's.
+
+Runs do overlap. A sync pass holds the document's remote-work lock, and an
+unlink holds it only while it proves its history, so an unlink's upload can
+start while a heal's request is on the wire, and the reverse. A pass that
+is cancelled, or that loses its lane, leaves its request to be answered:
+`stillCurrent` discards the answer and aborts nothing.
 
 | State | The writer |
 | --- | --- |
@@ -92,16 +160,17 @@ Each refusal is an event of the machine:
 | Refusal | The writer |
 | --- | --- |
 | The route's coverage refusal (`document_sync_checkpoint_coverage_conflict`, `document_unlink_rotation_baseline_stale`) | keeps the stage. The attempt that brings a longer proven history reads the stage, confirms it, stages a tail of what the history holds past the staged segments, and commits again. |
-| `headers_stale` | signs every staged header again and commits again: within the unlink leg, and by planning again within the sync pass. The writer also knows what its headers were signed for, and signs them again before it commits when its plan names another manifest, key-target set, or signing key. |
+| `headers_stale` | signs every staged header again and commits again: within the unlink leg, and by planning again within the sync pass. Either goes back through the writer, which reads the stage and confirms what is staged before it signs: one read more than the headers need. The writer also knows what its headers were signed for, and signs them again before it commits when its plan names another manifest, key-target set, or signing key. |
 | `not_found`, `expired` | plans again: a new baseline id, a new stage, every segment uploaded again. While uploading, once within the same run. |
 | `epoch_stale` | deletes the stage. The plan it was built for is stale, so the next attempt plans against a fresh projection. |
 | `id_conflict` | at the open, chooses another id. At a commit, a request committed a baseline under the stage's id since it opened: the writer deletes the stage, which can never commit, and builds the baseline anew under another id. A sync does so within the pass, and an unlink on its next attempt. |
-| `segment_out_of_order` | reads the stage and goes on from the index it expects |
+| `segment_out_of_order` | reads the stage and goes on from the index it expects. A run reads its stage three times at most (`MAX_STAGE_READS_PER_RUN`); a stage that still is not where its own answers put it is deleted and the run fails (`stage_unsettled`). |
 | `segment_conflict`, `segment_invalid`, a group refusal with no stage code | deletes the stage and builds the baseline anew |
-| `limit_reached` at the open | abandons the [orphaned stages](#orphaned-stages) the refusal names and opens once more. If none is an orphan, or the open is refused again, it fails with `DocumentRotationBaselineStageLimitError` and does not retry: the user holds four open stages already. A sync records a failure row with that code, and an unlink reports it. |
+| `limit_reached` at the open | abandons the longest idle [orphaned stage](#orphaned-stages) the refusal names and opens once more. If none is an orphan, or the open is refused again, it fails with `DocumentRotationBaselineStageLimitError` and does not retry: the user holds four open stages already. A sync records a failure row with that code, and an unlink reports it. |
 | `too_large` | deletes the stage and fails with `DocumentRotationBaselineLimitError`: the history needs more bytes or span rows than a stage stores. A header signed again counts by its difference from the one it replaces, so signing again can draw this too. |
-| A stage request, or the rotating request, refused for the writer itself (`402`, `403`, a `413` for a re-signed header over 512 KiB, or any other refusal with no stage code) | gives the upload up and deletes the stage, so it does not hold one of the user's four open stages until it expires. Nothing is retried. A sync records the failure with the refusal's own status as it records a refused submit; an unlink reports it to its caller with that status. |
-| A stage request that got no answer, or a `5xx` | stops, and leaves the stage as it is: the failure says nothing about it. The next run reads the stage and goes on. |
+| A stage request, or the rotating request, refused for the writer itself: access or billing (`403`, `402`), a request the API will not take (`400`, a `413` for a re-signed header over 512 KiB), or the document's own refusal, an uncoded `409`, which a stage route sends when the document is gone or takes no write as it stands | gives the upload up and deletes the stage, so it does not hold one of the user's four open stages until it expires. Nothing is retried. A sync records the failure with the refusal's own status as it records a refused submit; an unlink reports it to its caller with that status. |
+| A stage request that got no answer, a `5xx`, a throttle (`429`), or a timeout (`408`) | stops, and leaves the stage as it is: the failure says nothing about it. The next run reads the stage and goes on. A sync records the failure with its status, as it records any sync request that failed, and the row clears when a later pass commits; an unlink reports it to its caller. |
+| A final segment whose request cannot be made: it is over 16 MiB once an unlink signs it, or a heal's request cannot carry it | gives the upload up and deletes the stage. A commit that was sent and got no answer keeps the stage: the next run reads it. |
 | `document_sync_update_id_conflict` on a sync that commits a stage | keeps the stage: the refusal names an update id, not the stage. The pass settles its queued writes with a read-only pull as for any sync, and the next pass reads the stage and commits it with a final segment under a new id. |
 
 ## Header Bounds
@@ -152,9 +221,11 @@ open stages until it expires or a later upload finds it
 
 A user holds at most four open stages across documents, and the refusal of
 a fifth (`limit_reached`) names the four as `openStages`, each with its
-document, its id, and its expiry. The writer then abandons every listed
-stage that is an orphan and sends the open once more
-(`openPastOrphanedStages`). A stage is an orphan when both hold:
+document, its id, and its expiry. The writer then abandons the orphan
+among them that has been idle longest and sends the open once more
+(`openPastOrphanedStages`). One place is all the open needs, and an abandon
+is not undone, so the other orphans are left to expire or to the next
+upload that is refused. A stage is an orphan when both hold:
 
 - no upload of this database is filling it
   (`StagedBaselineUploads.tracks`); and
@@ -185,9 +256,10 @@ another and sends its segments again.
 - A device whose clock runs ten minutes or more ahead of the API's. The
   expiry is the API's time and is read against the device's clock.
 
-An abandon that fails frees no place, and an abandon that finds the stage
-gone has. If no place was freed the open is not sent again, and it is sent
-again at most once: a limit that still stands is reported as
+An abandon that fails frees no place, and the next longest idle orphan is
+tried; an abandon that finds the stage gone has freed its place. If no
+place was freed the open is not sent again, and it is sent again at most
+once: a limit that still stands is reported as
 `DocumentRotationBaselineStageLimitError`.
 
 ## What A Caller Sees
