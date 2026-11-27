@@ -1,9 +1,14 @@
 import { expect, mock, spyOn, test } from "bun:test";
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import { DATABASE_BUSY_RUN_LIMIT } from "@tearleads/client-sdk/sqlite";
 import { createDatabaseWorkerClient } from "@tearleads/sqlite-worker/client";
-import type { DatabaseWorkerExecOptions } from "@tearleads/sqlite-worker/types";
+import {
+  DATABASE_TRANSACTION_BUSY_MESSAGE,
+  type DatabaseWorkerExecOptions,
+} from "@tearleads/sqlite-worker/types";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { createDeferred } from "../../../test/helpers/databaseRuntimeFactories";
 import { createAppHostConfig } from "../../host/AppHostConfig";
 import * as DatabaseProvider from "../db/DatabaseProvider";
@@ -14,7 +19,22 @@ import * as LogProvider from "../logging/LogProvider";
 import * as TearleadsProvider from "../sdk/TearleadsProvider";
 import { CryptoSessionProvider } from "./CryptoSessionProvider";
 
-async function createBootstrapFixture(authenticated = false) {
+interface BootstrapFixtureOptions {
+  readonly authenticated?: boolean;
+  /** Busy refusals the root bootstrap meets before it runs. */
+  readonly busyRefusals?: number;
+  /** Whether setup waits for the bootstrap's container query. */
+  readonly awaitQuery?: boolean;
+  readonly strictMode?: boolean;
+}
+
+async function createBootstrapFixture({
+  authenticated = false,
+  busyRefusals: refusals = 0,
+  awaitQuery = true,
+  strictMode = false,
+}: BootstrapFixtureOptions = {}) {
+  let busyRefusals = refusals;
   const database = await createTestExecSql("root-bootstrap-cancellation");
   const queryStarted = createDeferred();
   const queryReleased = createDeferred();
@@ -63,6 +83,10 @@ async function createBootstrapFixture(authenticated = false) {
   const spies = [
     spyOn(tearleads.session, "bootstrapLocalRootContainer").mockImplementation(
       async () => {
+        if (busyRefusals > 0) {
+          busyRefusals -= 1;
+          throw new Error(DATABASE_TRANSACTION_BUSY_MESSAGE);
+        }
         try {
           return await bootstrap();
         } finally {
@@ -98,15 +122,20 @@ async function createBootstrapFixture(authenticated = false) {
       isLocked: true,
     } as ReturnType<typeof LocalKeyringLockProvider.useLocalKeyringLock>),
   ];
-  const renderProvider = () => (
-    <CryptoSessionProvider>
-      <span>session</span>
-    </CryptoSessionProvider>
-  );
+  const renderProvider = () => {
+    const provider = (
+      <CryptoSessionProvider>
+        <span>session</span>
+      </CryptoSessionProvider>
+    );
+    return strictMode ? <StrictMode>{provider}</StrictMode> : provider;
+  };
   const view = render(renderProvider());
-  await act(async () => {
-    await queryStarted.promise;
-  });
+  if (awaitQuery) {
+    await act(async () => {
+      await queryStarted.promise;
+    });
+  }
   return {
     client,
     database,
@@ -119,6 +148,10 @@ async function createBootstrapFixture(authenticated = false) {
     },
     rerender() {
       view.rerender(renderProvider());
+    },
+    bootstrapCalls: () => spies[0]?.mock.calls.length ?? 0,
+    unmount() {
+      view.unmount();
     },
     close() {
       cleanup();
@@ -185,7 +218,7 @@ test("root bootstrap still reports a genuine SQLite query failure", async () => 
 });
 
 test("a replacement sign-in can bootstrap its local root while the previous lookup settles", async () => {
-  const fixture = await createBootstrapFixture(true);
+  const fixture = await createBootstrapFixture({ authenticated: true });
   try {
     await act(async () => {
       fixture.tearleads.session.setContext({
@@ -200,6 +233,81 @@ test("a replacement sign-in can bootstrap its local root while the previous look
       () => expect(fixture.tearleads.session.containerId).not.toBeNull(),
       { timeout: 1000 },
     );
+  } finally {
+    fixture.releaseQuery();
+    fixture.close();
+  }
+});
+
+// #3360: nothing the bootstrap effect depends on changes when another tab's
+// transaction ends, so a refusal that outlasted the retry bound used to leave
+// the root container unbootstrapped until an unrelated change.
+test("a root bootstrap refused as busy runs again without a status change", async () => {
+  const fixture = await createBootstrapFixture({
+    busyRefusals: DATABASE_BUSY_RUN_LIMIT,
+  });
+  try {
+    await act(async () => {
+      fixture.releaseQuery();
+      await fixture.settled.promise;
+    });
+    await waitFor(() =>
+      expect(fixture.tearleads.session.containerId).not.toBeNull(),
+    );
+    expect(fixture.logError).not.toHaveBeenCalled();
+  } finally {
+    fixture.releaseQuery();
+    fixture.close();
+  }
+});
+
+test("an unmounted provider stops retrying a busy root bootstrap", async () => {
+  const fixture = await createBootstrapFixture({
+    awaitQuery: false,
+    busyRefusals: Number.POSITIVE_INFINITY,
+  });
+  try {
+    await waitFor(() =>
+      expect(fixture.bootstrapCalls()).toBe(DATABASE_BUSY_RUN_LIMIT),
+    );
+    fixture.unmount();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 1_500)));
+    expect(fixture.bootstrapCalls()).toBe(DATABASE_BUSY_RUN_LIMIT);
+  } finally {
+    fixture.releaseQuery();
+    fixture.close();
+  }
+});
+
+test("a StrictMode remount keeps the running root bootstrap instead of starting another", async () => {
+  const fixture = await createBootstrapFixture({ strictMode: true });
+  try {
+    await act(async () => {
+      fixture.releaseQuery();
+      await fixture.settled.promise;
+    });
+    await waitFor(() =>
+      expect(fixture.tearleads.session.containerId).not.toBeNull(),
+    );
+    expect(fixture.bootstrapCalls()).toBe(1);
+  } finally {
+    fixture.releaseQuery();
+    fixture.close();
+  }
+});
+
+test("a busy root bootstrap stops once a root container exists", async () => {
+  const fixture = await createBootstrapFixture({
+    awaitQuery: false,
+    busyRefusals: Number.POSITIVE_INFINITY,
+  });
+  try {
+    await waitFor(() => expect(fixture.bootstrapCalls()).toBeGreaterThan(0));
+    act(() => fixture.tearleads.session.setContainerId("root-from-elsewhere"));
+    const callsWhenKnown = fixture.bootstrapCalls();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 1_500)));
+    expect(fixture.bootstrapCalls()).toBe(callsWhenKnown);
+    expect(fixture.tearleads.session.containerId).toBe("root-from-elsewhere");
   } finally {
     fixture.releaseQuery();
     fixture.close();

@@ -10,7 +10,10 @@ type Bindings = ReadonlyArray<RosterProfileBinding>;
  * which starts a new load. A device that has not listed the container yet
  * waits for its container listing to change, then pulls. A listing change
  * during a pass is remembered, so a pass that found no container retries at
- * once instead of waiting for another change. Each pass has its own `attempt`.
+ * once instead of waiting for another change. A pass that stops at a profile
+ * the SQLite worker kept refusing behind another tab's transaction waits a
+ * moment, then pulls the profiles it did not reach (#3360). Each pass has its
+ * own `attempt`.
  */
 export type RosterProfileHydration =
   | { readonly status: "disabled" }
@@ -22,6 +25,11 @@ export type RosterProfileHydration =
       readonly bindings: Bindings;
       readonly containersChanged: boolean;
     }
+  | {
+      readonly status: "waitingBusy";
+      readonly attempt: number;
+      readonly bindings: Bindings;
+    }
   | { readonly status: "done" };
 
 export type RosterProfileHydrationEvent =
@@ -32,7 +40,11 @@ export type RosterProfileHydrationEvent =
   /** The pass found no Roster Profiles container on this device. */
   | { readonly type: "containerMissing" }
   /** The pass tried every profile it was given. */
-  | { readonly type: "finished" };
+  | { readonly type: "finished" }
+  /** The pass stopped at a busy refusal; `bindings` are what it did not reach. */
+  | { readonly type: "busy"; readonly bindings: Bindings }
+  /** The pause after a busy refusal ended. */
+  | { readonly type: "busyPauseEnded" };
 
 function running(attempt: number, bindings: Bindings): RosterProfileHydration {
   return { status: "running", attempt, bindings, containersChanged: false };
@@ -50,7 +62,8 @@ function onProfilesMissing(
 ): RosterProfileHydration {
   if (bindings.length === 0) return state;
   if (state.status === "idle") return running(0, bindings);
-  // Keep the latest list: profiles may have arrived while waiting.
+  // Keep the latest list: profiles may have arrived while waiting. A busy
+  // pause keeps what its pass did not reach, so one load stays in its budget.
   return state.status === "awaitingContainer"
     ? { status: "awaitingContainer", bindings }
     : state;
@@ -89,5 +102,17 @@ export function transitionRosterProfileHydration(
       return onContainerMissing(state);
     case "finished":
       return state.status === "running" ? { status: "done" } : state;
+    case "busy":
+      return state.status === "running"
+        ? {
+            status: "waitingBusy",
+            attempt: state.attempt,
+            bindings: event.bindings,
+          }
+        : state;
+    case "busyPauseEnded":
+      return state.status === "waitingBusy"
+        ? running(state.attempt + 1, state.bindings)
+        : state;
   }
 }

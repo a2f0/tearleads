@@ -192,7 +192,10 @@ Document stores report failed local writes through the same callback. The write
 chain swallows its errors so an un-awaited edit cannot reject, which would
 otherwise leave a failed content, row, or attachment persist invisible; the
 store passes the original `Error` to `logError`, suppressing an identical repeat
-per store and treating a vanished database as teardown rather than a fault. The
+per store and treating a vanished database as teardown rather than a fault. A
+text, structured-field, or row persist that the SQLite worker refused behind
+another tab's transaction is logged locally instead and queued again on a
+timer; other write sites still report the refusal. The
 container-contents local refresh and the link/unlink/move/purge choke point
 report the same way, alongside their local log line and without changing their
 failure contract. A thrown container share reports before it rethrows. Hosts

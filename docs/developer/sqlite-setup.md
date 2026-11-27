@@ -64,7 +64,9 @@ While another client holds a transaction, a statement waits up to 5 seconds.
 If it is still waiting then, the worker refuses it without running it. A host
 that supplies its own worker must give the same guarantee. A host that calls
 the SDK's SQLite client directly should treat a refusal that
-`isDatabaseTransactionBusyError` matches as a reason to retry, not a failure.
+`isDatabaseTransactionBusyError` matches as a reason to retry, not a failure:
+`classifyDatabaseFailure` tells it apart from an unavailable database, and
+`retryWhileDatabaseBusy` runs refused work again a bounded number of times.
 A client that sits idle in its transaction while another one waits is rolled
 back and fails as a `DatabaseConnectionLostError`, which the host handles by
 opening the database again.

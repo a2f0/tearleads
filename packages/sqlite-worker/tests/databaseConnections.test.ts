@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { closeInBackground } from "../src/databaseConnectionHelpers";
 import { createDatabaseWorkerConnectionFactory } from "../src/databaseConnections";
 import {
   DATABASE_DELETED_MESSAGE,
@@ -360,6 +361,27 @@ test("a database opens only after every overlapping storage wipe finishes", asyn
     } else {
       Reflect.deleteProperty(globalThis, "navigator");
     }
+  }
+});
+
+test("a close no request waits on logs its failure instead of rejecting unhandled", async () => {
+  const logs: string[] = [];
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    closeInBackground(
+      (message) => logs.push(message),
+      "background.db",
+      Promise.reject(new Error("access handle still locked")),
+    );
+    await Bun.sleep(0);
+    expect(logs).toEqual([
+      "SQLite could not close database background.db: access handle still locked",
+    ]);
+    expect(unhandled).toEqual([]);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
   }
 });
 

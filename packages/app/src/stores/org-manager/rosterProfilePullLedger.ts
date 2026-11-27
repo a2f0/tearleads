@@ -49,17 +49,32 @@ export function selectRosterProfilePulls<Pull extends RosterProfilePull>(
     .map((entry) => entry.pull);
 }
 
-/** Records how one pull ended; a completed pull clears earlier failures. */
+/**
+ * How one pull ended. `busy` is a pull the SQLite worker kept refusing behind
+ * another tab's transaction: that is the other tab's work, not this profile's
+ * failure (#3360).
+ */
+export type RosterProfilePullOutcome = "completed" | "failed" | "busy";
+
+/**
+ * Records how one pull ended: a completed pull clears earlier failures, a
+ * failed one counts, and a busy one leaves the profile where it was.
+ */
 export function recordRosterProfilePull(
   sdk: object,
   pull: RosterProfilePull,
-  completed: boolean,
+  outcome: RosterProfilePullOutcome,
 ): void {
   const failures = failuresFor(sdk);
   const key = pullKey(pull);
-  if (completed) {
-    failures.delete(key);
-  } else {
-    failures.set(key, (failures.get(key) ?? 0) + 1);
+  switch (outcome) {
+    case "completed":
+      failures.delete(key);
+      return;
+    case "failed":
+      failures.set(key, (failures.get(key) ?? 0) + 1);
+      return;
+    case "busy":
+      return;
   }
 }

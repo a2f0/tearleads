@@ -1,12 +1,20 @@
 import type { Sqlite3Static } from "@tearleads/sqlite-instance";
 import { isDatabaseInAutocommit } from "./autocommit";
 import {
+  applyConnectionEvent as apply,
+  CLOSED_BEFORE_INIT_MESSAGE,
+  type ConnectionRecord,
+  closeInBackground,
+  type DatabaseEntry,
+  type DatabaseHandle,
+  type DetachEvent,
+  initOptionsKey,
+  runQueued,
+} from "./databaseConnectionHelpers";
+import {
   canOpenDatabaseConnection,
-  type DatabaseConnectionEvent,
-  type DatabaseConnectionState,
   databaseConnectionDbName,
   databaseConnectionRefusal,
-  transitionDatabaseConnection,
   UNOPENED_DATABASE_CONNECTION,
 } from "./databaseConnectionMachine";
 import {
@@ -39,60 +47,10 @@ import {
 import { wipeOpfsStorage } from "./wipeOpfsStorage";
 import type { RegisterDatabaseWorkerOptions } from "./workerCore";
 
-type DatabaseHandle = Awaited<ReturnType<typeof initDatabase>>;
-
-interface ConnectionRecord {
-  state: DatabaseConnectionState;
-  readonly notify: DatabaseWorkerNotify;
-}
-
-interface DatabaseEntry {
-  readonly dbName: string;
-  readonly db: DatabaseHandle;
-  readonly optionsKey: string;
-  readonly lease: TransactionLease<ConnectionRecord>;
-  refCount: number;
-  queue: Promise<void>;
-}
-
 export interface DatabaseConnectionRegistryOptions {
   readonly leaseBounds?: Partial<TransactionLeaseBounds>;
   /** Where revocations are reported. No SQL text or bind values reach it. */
   readonly log?: (message: string) => void;
-}
-
-const CLOSED_BEFORE_INIT_MESSAGE =
-  "Database connection closed before initialization completed.";
-
-function initOptionsKey(options: DatabaseWorkerInitOptions): string {
-  return [
-    options.dbName,
-    options.persistence ?? "memory",
-    options.cipher,
-    options.key,
-  ].join("\0");
-}
-
-function runQueued<T>(
-  entry: Pick<DatabaseEntry, "queue">,
-  operation: () => Promise<T> | T,
-): Promise<T> {
-  const queued = entry.queue.then(operation, operation);
-  entry.queue = queued.then(
-    () => undefined,
-    () => undefined,
-  );
-  return queued;
-}
-
-// The events that take a connection off its open database.
-type DetachEvent = Extract<
-  DatabaseConnectionEvent,
-  { type: "released" | "databaseClosed" | "transactionRevoked" }
->;
-
-function apply(record: ConnectionRecord, event: DatabaseConnectionEvent): void {
-  record.state = transitionDatabaseConnection(record.state, event);
 }
 
 class DatabaseConnectionRegistry {
@@ -402,7 +360,11 @@ class DatabaseConnectionRegistry {
     if (
       this.detachConnection(holder, { type: "transactionRevoked", refusal })
     ) {
-      void this.releaseDatabase(entry.dbName);
+      closeInBackground(
+        this.log,
+        entry.dbName,
+        this.releaseDatabase(entry.dbName),
+      );
     }
   }
 
@@ -424,8 +386,12 @@ class DatabaseConnectionRegistry {
     entry.refCount = 0;
     this.databasesByName.delete(entry.dbName);
     entry.lease.dispose(() => DATABASE_NOT_INITIALIZED_MESSAGE);
-    void this.runLifecycle(entry.dbName, () =>
-      runQueued(entry, () => closeDatabase(entry.db)),
+    closeInBackground(
+      this.log,
+      entry.dbName,
+      this.runLifecycle(entry.dbName, () =>
+        runQueued(entry, () => closeDatabase(entry.db)),
+      ),
     );
   }
 

@@ -1,5 +1,6 @@
 import { encodeVersionVector } from "@tearleads/loro";
 import {
+  classifyDatabaseFailure,
   type DocumentRecord,
   documentCreateSeedCandidate,
   type PendingUpdateRecord,
@@ -29,15 +30,26 @@ import {
 /**
  * Whether a document without a remote id may be created now: `"defer"` while
  * its container still awaits its own remote create, `"stale"` when the sync
- * generation moved during the check.
+ * generation moved during the check, and `"busy"` when another tab's
+ * transaction kept the check from running. A busy check neither creates
+ * early nor waits on a container create that may already have landed: the
+ * pass asks for another (#3360).
  */
 export async function remoteCreateGate(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
   generation: DocumentStoreSyncGeneration,
-): Promise<"proceed" | "defer" | "stale"> {
+): Promise<"proceed" | "defer" | "stale" | "busy"> {
   if (nextRecord.documentId) return "proceed";
-  const containerAwaitsCreate = await isContainerAwaitingRemoteCreate(state);
+  let containerAwaitsCreate: boolean;
+  try {
+    containerAwaitsCreate = await isContainerAwaitingRemoteCreate(state, () =>
+      isDocumentStoreSyncGenerationCurrent(state, generation),
+    );
+  } catch (error) {
+    if (classifyDatabaseFailure(error) === "busy") return "busy";
+    throw error;
+  }
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return "stale";
   return containerAwaitsCreate ? "defer" : "proceed";
 }

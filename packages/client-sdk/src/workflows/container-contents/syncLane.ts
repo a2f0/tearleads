@@ -6,6 +6,10 @@ import {
 } from "../../data/sync/syncCoordinator";
 import type { PrincipalPolicyOperation } from "../principals/principalPolicyService";
 
+export {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "../../data/sqlite/availability/databaseBusyRetry";
 export { sequenceUnchanged } from "../../data/sync/sequence";
 // Facade re-exports: container-contents stores must reach these shared sync
 // helpers through this workflow boundary, not by importing data/sync directly.

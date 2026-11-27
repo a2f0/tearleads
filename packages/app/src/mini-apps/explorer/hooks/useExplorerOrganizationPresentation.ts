@@ -2,6 +2,10 @@ import {
   deriveOrganizationRosterProfileContainerSystemSlot,
   type OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
+import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "@tearleads/client-sdk/sqlite";
 import { type RefObject, useCallback, useLayoutEffect, useRef } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
@@ -86,6 +90,8 @@ interface ProfileHydrationRequest {
 }
 
 const MAX_PROFILE_HYDRATION_ATTEMPTS = 3;
+/** How long targets refused behind another tab's transaction wait to rerun. */
+const BUSY_PROFILE_HYDRATION_PAUSE_MS = 1_000;
 
 function setTargetReservations(
   targets: ReadonlyArray<ExplorerAttributionProfileHydrationTarget>,
@@ -125,40 +131,57 @@ function getPendingTargets(
   );
 }
 
+/**
+ * `busy` is a target the SQLite worker kept refusing behind another tab's
+ * transaction. That is not the target's failure, so it spends none of its
+ * attempts and gives its reservation back for a later request (#3360).
+ */
+type TargetHydrationOutcome = "hydrated" | "failed" | "busy";
+
 async function hydrateTargetWithRetries(
   input: ProfileHydrationRequest,
   containerId: string,
   target: ExplorerAttributionProfileHydrationTarget,
-): Promise<boolean> {
+): Promise<TargetHydrationOutcome> {
+  const isCurrent = () =>
+    scopesMatch(input.currentScope.current, input.requestScope);
   for (
     let attempt = 0;
     attempt < MAX_PROFILE_HYDRATION_ATTEMPTS;
     attempt += 1
   ) {
-    if (!scopesMatch(input.currentScope.current, input.requestScope)) {
-      return false;
+    if (!isCurrent()) {
+      return "failed";
     }
     try {
-      const completed = await hydrateExplorerAttributionProfileDocument({
-        containerId,
-        documents: input.tearleads.documents,
-        organizationId: input.organizationId,
-        signal: input.abortSignal,
-        target,
-      });
+      const completed = await retryWhileDatabaseBusy(
+        () =>
+          hydrateExplorerAttributionProfileDocument({
+            containerId,
+            documents: input.tearleads.documents,
+            organizationId: input.organizationId,
+            signal: input.abortSignal,
+            target,
+          }),
+        { isCurrent },
+      );
       if (completed) {
-        return true;
+        return "hydrated";
       }
     } catch (error) {
-      input.tearleads.logError(
-        "Failed to hydrate explorer attribution roster profile",
-        error,
-      );
+      const message = "Failed to hydrate explorer attribution roster profile";
+      // A refusal behind another tab's transaction is retried, not reported.
+      if (classifyDatabaseFailure(error) === "busy") {
+        input.tearleads.log(`${message}: the database is busy in another tab`);
+        return "busy";
+      }
+      input.tearleads.logError(message, error);
     }
   }
-  return false;
+  return "failed";
 }
 
+/** The targets to give back, or null when the request was superseded. */
 async function hydratePendingTargets(
   input: ProfileHydrationRequest,
   targets: ReadonlyArray<ExplorerAttributionProfileHydrationTarget>,
@@ -185,7 +208,18 @@ async function hydratePendingTargets(
       hydrateTargetWithRetries(input, containerId, target),
     ),
   );
-  return targets.filter((_target, index) => !results[index]);
+  return targets.filter((_target, index) => results[index] === "busy");
+}
+
+function resumeAfterBusyPause(input: ProfileHydrationRequest): void {
+  const pause = setTimeout(() => {
+    input.abortSignal.removeEventListener("abort", cancel);
+    if (scopesMatch(input.currentScope.current, input.requestScope)) {
+      void requestExplorerAttributionProfileHydration(input);
+    }
+  }, BUSY_PROFILE_HYDRATION_PAUSE_MS);
+  const cancel = () => clearTimeout(pause);
+  input.abortSignal.addEventListener("abort", cancel, { once: true });
 }
 
 async function requestExplorerAttributionProfileHydration(
@@ -198,10 +232,15 @@ async function requestExplorerAttributionProfileHydration(
       return;
     }
     setTargetReservations(targets, input.requestedBindingKeys, true);
-    const failedTargets = await hydratePendingTargets(input, targets);
-    if (failedTargets === null) {
-      setTargetReservations(targets, input.requestedBindingKeys, false);
-    }
+    const busyTargets = await hydratePendingTargets(input, targets);
+    setTargetReservations(
+      busyTargets ?? targets,
+      input.requestedBindingKeys,
+      false,
+    );
+    // Nothing this request watches changes when that transaction ends, so
+    // the request runs again after a pause until its scope moves on.
+    if (busyTargets?.length) resumeAfterBusyPause(input);
   } catch (error) {
     input.tearleads.logError(
       "Failed to hydrate explorer attribution roster profiles",
