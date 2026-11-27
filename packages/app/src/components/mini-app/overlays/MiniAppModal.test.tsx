@@ -148,3 +148,53 @@ test("useModalEscapeAndFocusRestore focuses target and restores opener under Str
   expect(view.queryByRole("dialog")).toBeNull();
   expect(document.activeElement).not.toBe(opener);
 });
+
+test("useModalEscapeAndFocusRestore routes Escape to the focused or topmost modal in LIFO order", () => {
+  const closed: string[] = [];
+
+  function StackedDialog({
+    busy = false,
+    name,
+  }: {
+    busy?: boolean;
+    name: string;
+  }) {
+    const closeRef = useRef<HTMLButtonElement>(null);
+    useModalEscapeAndFocusRestore(() => {
+      if (!busy) {
+        closed.push(name);
+      }
+    }, closeRef);
+    return (
+      <div aria-label={name} role="dialog">
+        <button ref={closeRef} type="button">
+          Close {name}
+        </button>
+      </div>
+    );
+  }
+
+  // An earlier busy/background modal must not swallow Escape from a newer modal.
+  const view = render(
+    <>
+      <StackedDialog busy name="first" />
+      <StackedDialog name="second" />
+    </>,
+  );
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(closed).toEqual(["second"]);
+
+  // Focusing an earlier non-busy modal targets that modal instead of the topmost.
+  view.rerender(
+    <>
+      <StackedDialog name="first" />
+      <StackedDialog name="second" />
+    </>,
+  );
+  act(() => {
+    view.getByRole("button", { name: "Close first" }).focus();
+  });
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(closed).toEqual(["second", "first"]);
+});
