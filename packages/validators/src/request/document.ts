@@ -102,6 +102,11 @@ export type DocumentCreateRequest = z.infer<typeof DocumentCreateRequestSchema>;
 /**
  * Each inline segment as a whole, not field by field: two strings each under
  * the bound could together make a segment no response page serves.
+ *
+ * Weighing a segment serializes it a second time. That work is bounded: a
+ * group of more than `MAX_DOCUMENT_BASELINE_SEGMENTS` segments is refused by
+ * the array's own bound and not weighed, and the segments weighed are part
+ * of a body the route already held to its byte ceiling.
  */
 function refineRotationBaselineSegmentBytes(
   rotationBaseline: unknown,
