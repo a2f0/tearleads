@@ -266,3 +266,164 @@ test("an overtaking create can atomically adopt remote identity as a move", asyn
     close();
   }
 });
+
+test("typed holds honor CAS, stay mutually exclusive with lastError, and clear on reparent or settlement", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-create-intent-holds-sqlite",
+  );
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        effectiveAccessLevel: "admin",
+        icon: null,
+        id: "folder-a",
+        metadataDocumentId: null,
+        name: "Folder A",
+        organizationId: "org-1",
+        parentId: "local-parent",
+      },
+      null,
+      { createIntent: { parentContainerId: "local-parent" } },
+    );
+
+    const [initial] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    if (!initial) throw new Error("Expected initial create intent");
+    expect(initial.hold).toEqual({ status: "none" });
+
+    // Record a real error first, then verify a mismatched CAS hold is ignored.
+    await sqlContainerContentsPersistence.recordCreateIntentRevisionError(
+      execSql,
+      {
+        containerId: initial.containerId,
+        expectedIntentId: initial.id,
+        expectedUpdatedAt: initial.updatedAt,
+        message: "transient 503",
+      },
+    );
+    const [errored] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    if (!errored) throw new Error("Expected errored create intent");
+    expect(errored.lastError).toBe("transient 503");
+
+    await sqlContainerContentsPersistence.recordCreateIntentRevisionHold(
+      execSql,
+      {
+        containerId: errored.containerId,
+        expectedIntentId: "stale-id",
+        expectedUpdatedAt: errored.updatedAt,
+        hold: { status: "slotTaken" },
+      },
+    );
+    const [afterStaleHold] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    expect(afterStaleHold).toMatchObject({
+      hold: { status: "none" },
+      lastError: "transient 503",
+    });
+
+    // Matching CAS hold writes hold_kind/hold_since and clears lastError.
+    const heldSince = "2026-11-27T01:00:00.000Z";
+    await sqlContainerContentsPersistence.recordCreateIntentRevisionHold(
+      execSql,
+      {
+        containerId: errored.containerId,
+        expectedIntentId: errored.id,
+        expectedUpdatedAt: errored.updatedAt,
+        hold: { since: heldSince, status: "awaitingParentListing" },
+      },
+    );
+    const [held] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    if (!held) throw new Error("Expected held create intent");
+    expect(held.hold).toEqual({
+      since: heldSince,
+      status: "awaitingParentListing",
+    });
+    expect(held.lastError).toBeNull();
+    expect(held.lastAttemptedAt).not.toBeNull();
+
+    // A later real error clears the active hold columns.
+    await sqlContainerContentsPersistence.recordCreateIntentRevisionError(
+      execSql,
+      {
+        containerId: held.containerId,
+        expectedIntentId: held.id,
+        expectedUpdatedAt: held.updatedAt,
+        message: "post failed after expiry",
+      },
+    );
+    const [reErrored] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    if (!reErrored) throw new Error("Expected re-errored create intent");
+    expect(reErrored.hold).toEqual({ status: "none" });
+    expect(reErrored.lastError).toBe("post failed after expiry");
+
+    // Re-park as pathTooDeep, then fold local-parent into remote-parent and
+    // verify reparentLocalContainerChildren clears the hold.
+    await sqlContainerContentsPersistence.recordCreateIntentRevisionHold(
+      execSql,
+      {
+        containerId: reErrored.containerId,
+        expectedIntentId: reErrored.id,
+        expectedUpdatedAt: reErrored.updatedAt,
+        hold: { status: "pathTooDeep" },
+      },
+    );
+    await sqlContainerContentsPersistence.reconcileLocalSystemContainer(
+      execSql,
+      {
+        localContainerId: "local-parent",
+        remoteContainerId: "remote-parent",
+        remoteOrganizationId: "org-1",
+      },
+    );
+    const [reparented] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    if (!reparented) throw new Error("Expected reparented create intent");
+    expect(reparented.parentContainerId).toBe("remote-parent");
+    expect(reparented.hold).toEqual({ status: "none" });
+
+    // Hold again and settle: markCreateIntentRevisionSynced clears hold columns.
+    await sqlContainerContentsPersistence.recordCreateIntentRevisionHold(
+      execSql,
+      {
+        containerId: reparented.containerId,
+        expectedIntentId: reparented.id,
+        expectedUpdatedAt: reparented.updatedAt,
+        hold: { since: heldSince, status: "awaitingParentListing" },
+      },
+    );
+    const [heldAgain] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    if (!heldAgain) throw new Error("Expected held create intent");
+    await expect(
+      sqlContainerContentsPersistence.markCreateIntentRevisionSynced(execSql, {
+        containerId: heldAgain.containerId,
+        expectedIntentId: heldAgain.id,
+        expectedUpdatedAt: heldAgain.updatedAt,
+        remoteContainerId: heldAgain.containerId,
+        remoteMetadataAccessStateHash: "hash-1",
+        remoteMetadataDocumentId: "meta-1",
+        stillCurrent: () => true,
+      }),
+    ).resolves.toBe(true);
+    expect(
+      await execSql(
+        `SELECT sync_status, hold_kind, hold_since, last_error
+           FROM local_intents WHERE subject_id = 'folder-a'`,
+      ),
+    ).toEqual([
+      {
+        hold_kind: null,
+        hold_since: null,
+        last_error: null,
+        sync_status: "synced",
+      },
+    ]);
+  } finally {
+    close();
+  }
+});

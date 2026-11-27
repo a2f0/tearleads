@@ -18,6 +18,12 @@ const DOCUMENT_ORGANIZATION_SQL = getContainerOrganizationAttributionSql({
   projectionAlias: "projection",
 });
 
+const KNOWN_CREATE_HOLD_KINDS_SQL = `intent.hold_kind IN (${Object.values(
+  CREATE_INTENT_HOLD_KINDS,
+)
+  .map((kind) => `'${kind}'`)
+  .join(", ")})`;
+
 function parseBlockedReason(
   holdKind: string | null,
 ): PendingWriteQueueOperationBlockedReason | undefined {
@@ -244,8 +250,8 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.created_at AS created_at,
     intent.updated_at AS updated_at,
     intent.target_container_id AS target_container_id,
-    CASE WHEN intent.hold_kind IS NOT NULL THEN 'blocked' ELSE 'pending' END AS operation_status,
-    intent.hold_kind AS hold_kind,
+    CASE WHEN ${KNOWN_CREATE_HOLD_KINDS_SQL} THEN 'blocked' ELSE 'pending' END AS operation_status,
+    CASE WHEN ${KNOWN_CREATE_HOLD_KINDS_SQL} THEN intent.hold_kind ELSE NULL END AS hold_kind,
     intent.last_error AS last_error,
     intent.last_attempted_at AS last_attempted_at,
     'always' AS inclusion

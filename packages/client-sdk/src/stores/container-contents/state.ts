@@ -197,9 +197,18 @@ export function updateContainerContentsSnapshot(
   });
 }
 
-function resetContainerContentsStore(state: ContainerContentsStoreState) {
+function resetContainerContentsStore(
+  state: ContainerContentsStoreState,
+  previousDomainScope?: ContainerContentsStoreRuntime["state"]["domainScope"],
+) {
   state.lifecycleGeneration += 1;
   state.connectAttemptGate.reset();
+  if (
+    previousDomainScope &&
+    previousDomainScope !== state.runtime.state.domainScope
+  ) {
+    getOrCreateCreateIntentHoldListings(previousDomainScope).reset();
+  }
   getOrCreateCreateIntentHoldListings(state.runtime.state.domainScope).reset();
   state.containersById = new ContainerStateMap();
   state.containerParentIdsNeedingHydration = new Set();
@@ -286,7 +295,7 @@ export function updateContainerContentsStoreRuntime(
 
   if (nextRuntime.infra.dbStatus !== "ready") {
     if (hasContainerContentsLoadState(state)) {
-      resetContainerContentsStore(state);
+      resetContainerContentsStore(state, previousRuntime.state.domainScope);
     }
     return;
   }
@@ -295,7 +304,7 @@ export function updateContainerContentsStoreRuntime(
     // The in-memory tree and lane markers belong to the previous executor.
     // Rebuild them from the replacement database before any remote sync can
     // observe or persist the old database's state.
-    resetContainerContentsStore(state);
+    resetContainerContentsStore(state, previousRuntime.state.domainScope);
     syncAgent.ensureInitialized();
     syncAgent.handleRemoteEvents();
     return;

@@ -65,9 +65,31 @@ test("step 17 adds typed hold columns and backfills legacy error-text holds", as
     );
     await insertCreate("create-error", "c-error", "Network unavailable");
     await insertCreate("create-plain", "c-plain", null);
+    await execSql(
+      `INSERT INTO local_intents (
+        id, lane, intent_type, subject_id, target_container_id,
+        sync_status, last_error, created_at, updated_at
+      ) VALUES ('move-deep', 'container.move', 'container.move', 'c-moved', 'root', 'pending',
+        'Container path exceeds maximum depth', ?, ?)`,
+      [T0, T1],
+    );
 
     expect((await migrateLocalSchema(execSql)).status).toBe("behind");
     await sqlContainerContentsPersistence.ensureSchema(execSql);
+
+    // Move-lane rows carrying the same message keep their last_error untouched.
+    expect(
+      await execSql(
+        `SELECT hold_kind, hold_since, last_error
+           FROM local_intents WHERE lane = 'container.move' AND subject_id = 'c-moved'`,
+      ),
+    ).toEqual([
+      {
+        hold_kind: null,
+        hold_since: null,
+        last_error: "Container path exceeds maximum depth",
+      },
+    ]);
 
     const intents =
       await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);

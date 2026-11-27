@@ -20,10 +20,22 @@ test("transitionCreateIntentHold moves cleanly across every hold state", () => {
   });
   expect(held).toEqual({ since: T0, status: "awaitingParentListing" });
 
-  // Older parent listing leaves the hold intact.
+  // Older, equal, or unparseable parent listings leave the hold intact.
   expect(
     transitionCreateIntentHold(held, {
       checkedAt: "2026-11-26T11:59:59.000Z",
+      type: "parentListingObserved",
+    }),
+  ).toBe(held);
+  expect(
+    transitionCreateIntentHold(held, {
+      checkedAt: T0,
+      type: "parentListingObserved",
+    }),
+  ).toBe(held);
+  expect(
+    transitionCreateIntentHold(held, {
+      checkedAt: "not-a-timestamp",
       type: "parentListingObserved",
     }),
   ).toBe(held);
