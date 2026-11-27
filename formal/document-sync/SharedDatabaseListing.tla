@@ -17,19 +17,26 @@
 (* owes a re-list of the lane from the shared watermark, and that catch-  *)
 (* up ends by asking for a read when the shared debt is unsettled, or     *)
 (* when the saved record holds content this runtime's copy lacks: the     *)
-(* other runtime listed the row, read the edit and settled the debt.      *)
+(* other runtime listed the row, read the edit and settled the debt. A    *)
+(* catch-up listing that fails leaves the lane uncovered so the runtime's *)
+(* store probes on its own and still runs the catch-up's owed-read ask.   *)
 (***************************************************************************)
 EXTENDS Naturals
 
 CONSTANTS Tabs,
   MaxEdits,
   MaxDisconnects,
+  MaxFailures,
   \* Production ends a catch-up by reading a record another runtime saved
   \* past this runtime's open copy.
-  PullWhenSavedElsewhere
+  PullWhenSavedElsewhere,
+  \* Production leaves a lane uncovered and still runs the catch-up ask
+  \* when a catch-up listing fails.
+  AskWhenListingFails
 
-ASSUME /\ MaxEdits \in Nat /\ MaxDisconnects \in Nat
+ASSUME /\ MaxEdits \in Nat /\ MaxDisconnects \in Nat /\ MaxFailures \in Nat
        /\ PullWhenSavedElsewhere \in BOOLEAN
+       /\ AskWhenListingFails \in BOOLEAN
 
 VARIABLES
   serverVer,     \* how many updates the server holds for the document
@@ -44,10 +51,11 @@ VARIABLES
   inFlight,      \* a read of the runtime is in flight
   flightVer,     \* the server count that read captured
   flightSawDebt, \* that read found the debt before its request
-  disconnects
+  disconnects,
+  failures
 
 vars == <<serverVer, watermark, debt, diskVer, mem, up, hintList, catchUp,
-          wanted, inFlight, flightVer, flightSawDebt, disconnects>>
+          wanted, inFlight, flightVer, flightSawDebt, disconnects, failures>>
 
 flightVars == <<inFlight, flightVer, flightSawDebt>>
 sharedVars == <<watermark, debt, diskVer>>
@@ -63,7 +71,7 @@ TypeOK ==
   /\ up \in [Tabs -> BOOLEAN] /\ hintList \in [Tabs -> BOOLEAN]
   /\ wanted \in [Tabs -> BOOLEAN] /\ inFlight \in [Tabs -> BOOLEAN]
   /\ flightSawDebt \in [Tabs -> BOOLEAN]
-  /\ disconnects \in 0..MaxDisconnects
+  /\ disconnects \in 0..MaxDisconnects /\ failures \in 0..MaxFailures
 
 Init ==
   \* Both runtimes are connected and hold every update.
@@ -76,7 +84,7 @@ Init ==
   /\ inFlight = [t \in Tabs |-> FALSE]
   /\ flightVer = [t \in Tabs |-> 0]
   /\ flightSawDebt = [t \in Tabs |-> FALSE]
-  /\ disconnects = 0
+  /\ disconnects = 0 /\ failures = 0
 
 \* A peer's accepted write stores one update and hints each connected
 \* runtime, whose hint forces a listing of the lane and a read.
@@ -85,7 +93,7 @@ PeerEdit ==
   /\ serverVer' = serverVer + 1
   /\ hintList' = [t \in Tabs |-> hintList[t] \/ up[t]]
   /\ wanted' = [t \in Tabs |-> wanted[t] \/ up[t]]
-  /\ UNCHANGED <<sharedVars, mem, up, catchUp, flightVars, disconnects>>
+  /\ UNCHANGED <<sharedVars, mem, up, catchUp, flightVars, disconnects, failures>>
 
 \* A runtime's socket drops; hints sent meanwhile are lost to it.
 Disconnect(t) ==
@@ -93,7 +101,7 @@ Disconnect(t) ==
   /\ up' = [up EXCEPT ![t] = FALSE]
   /\ disconnects' = disconnects + 1
   /\ UNCHANGED <<serverVer, sharedVars, mem, hintList, catchUp, wanted,
-                 flightVars>>
+                 flightVars, failures>>
 
 \* The server acknowledges the runtime's interest: a catch-up is owed.
 Acknowledge(t) ==
@@ -101,7 +109,7 @@ Acknowledge(t) ==
   /\ up' = [up EXCEPT ![t] = TRUE]
   /\ catchUp' = [catchUp EXCEPT ![t] = "list"]
   /\ UNCHANGED <<serverVer, sharedVars, mem, hintList, wanted, flightVars,
-                 disconnects>>
+                 disconnects, failures>>
 
 \* One listing of the lane from the shared watermark. A returned row the
 \* saved cursor does not cover owes the document a read, and the listing
@@ -119,7 +127,7 @@ HintListing(t) ==
   /\ ListLane(t)
   /\ hintList' = [hintList EXCEPT ![t] = FALSE]
   /\ UNCHANGED <<serverVer, diskVer, mem, up, catchUp, flightVars,
-                 disconnects>>
+                 disconnects, failures>>
 
 \* The re-list an acknowledged connection owes.
 CatchUpListing(t) ==
@@ -127,6 +135,19 @@ CatchUpListing(t) ==
   /\ ListLane(t)
   /\ catchUp' = [catchUp EXCEPT ![t] = "ask"]
   /\ UNCHANGED <<serverVer, diskVer, mem, up, hintList, flightVars,
+                 disconnects, failures>>
+
+\* The catch-up's listing fails: neither the shared watermark nor the debt
+\* moves. Production probes open stores in unlisted lanes (`probeUnlistedLanes`),
+\* reports the lane unlisted (`reportLaneListed`), and still runs the catch-up
+\* ask (`AskWhenListingFails = TRUE`).
+FailCatchUpListing(t) ==
+  /\ catchUp[t] = "list" /\ failures < MaxFailures
+  /\ failures' = failures + 1
+  /\ catchUp' = [catchUp EXCEPT ![t] =
+       IF AskWhenListingFails THEN "ask" ELSE "idle"]
+  /\ wanted' = [wanted EXCEPT ![t] = @ \/ AskWhenListingFails]
+  /\ UNCHANGED <<serverVer, sharedVars, mem, up, hintList, flightVars,
                  disconnects>>
 
 \* The catch-up ends: the runtime's store is asked to read when the shared
@@ -137,7 +158,7 @@ CatchUpAsk(t) ==
   /\ wanted' = [wanted EXCEPT ![t] =
        @ \/ debt > 0 \/ (PullWhenSavedElsewhere /\ mem[t] < diskVer)]
   /\ UNCHANGED <<serverVer, sharedVars, mem, up, hintList, flightVars,
-                 disconnects>>
+                 disconnects, failures>>
 
 \* The store's pull starts: it reads the debt, then requests by the version
 \* of its own copy, so the server returns every update the copy lacks.
@@ -148,11 +169,13 @@ BeginRead(t) ==
   /\ flightVer' = [flightVer EXCEPT ![t] = serverVer]
   /\ flightSawDebt' = [flightSawDebt EXCEPT ![t] = debt > 0]
   /\ UNCHANGED <<serverVer, sharedVars, mem, up, hintList, catchUp,
-                 disconnects>>
+                 disconnects, failures>>
 
 \* The pull completes: the copy and the saved record hold what it read, and
 \* the debt it saw is settled once the saved cursor covers the owed count.
 \* A save merges into the record's history, so the record never moves back.
+\* Requiring `flightSawDebt[t]` matches production (`findOwedListingReadBeforePull`),
+\* so `DebtsSettle` cannot rely on a read started before the debt to settle it.
 FinishRead(t) ==
   LET held == Max(mem[t], flightVer[t])
       saved == Max(diskVer, held) IN
@@ -162,10 +185,11 @@ FinishRead(t) ==
   /\ diskVer' = saved
   /\ debt' = IF flightSawDebt[t] /\ saved >= debt THEN 0 ELSE debt
   /\ UNCHANGED <<serverVer, watermark, up, hintList, catchUp, wanted,
-                 flightVer, flightSawDebt, disconnects>>
+                 flightVer, flightSawDebt, disconnects, failures>>
 
 RuntimeStep(t) ==
-  \/ Acknowledge(t) \/ HintListing(t) \/ CatchUpListing(t) \/ CatchUpAsk(t)
+  \/ Acknowledge(t) \/ HintListing(t) \/ CatchUpListing(t)
+  \/ FailCatchUpListing(t) \/ CatchUpAsk(t)
   \/ BeginRead(t) \/ FinishRead(t)
 
 Next ==
