@@ -39,6 +39,9 @@
     "reload": {
       "cache": false
     },
+    "rotations": {
+      "cache": false
+    },
     "canaries": {
       "cache": false
     },

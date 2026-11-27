@@ -128,6 +128,7 @@
     "perf:realtime": "bun run --cwd packages/performance realtime",
     "perf:realtime-contention": "bun run --cwd packages/performance realtime:contention",
     "perf:reload": "bun run --cwd packages/performance reload",
+    "perf:rotations": "bun run --cwd packages/performance rotations",
     "perf:canaries": "bun run --cwd packages/performance canaries",
     "perf:scenarios": "bun run --cwd packages/performance scenarios",
     "perf:statements": "bun run --cwd packages/performance statements",

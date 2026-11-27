@@ -40,3 +40,39 @@ Reports are saved under `.test_files/performance/scenarios-<run>.json` and
 `.md`, with per-scenario logs and raw captures under `scenarios-<run>/`.
 Relative paths for `--baseline` and `--compare` resolve from the repository
 root.
+
+## Key rotation, shrink, and revocation scaling (`perf:rotations`)
+
+```sh
+createdb tearleads_rotations_probe
+bun run --filter='@tearleads/client-sdk' build
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_rotations_probe" \
+  bun run perf:rotations --rotations 1,4,8 --depth 3 --samples 1
+```
+
+Measures how multi-party access-control mutations and post-revocation recovery
+scale with accumulated rotation epochs (`--rotations`) and nested folder chain
+depth (`--depth`), against a local PostgreSQL scratch database through both a
+wire-counting PostgreSQL proxy and a wire-counting HTTP proxy.
+
+At each tier, the probe sets up a fresh organization with a nested folder chain
+(`level-1 -> ... -> level-D`), a shared group on `level-1`, a deeper direct
+grantee on `level-D`, and a two-hop roster chain (`Alice -> Bob -> Frank`),
+then measures eight phases:
+
+| Phase | What it exercises |
+| --- | --- |
+| `group-share` | `shareWithGroup` on the chain root plus descendant re-citation |
+| `group-shrink` | `removeUserFromGroup` policy commit and container rekey carry after `R` accumulated rotations |
+| `stale-writer-repair` | Idle pre-rotation writer edits a document, triggering `409` refetch, keyring walk, content-key repair, and commit |
+| `direct-revoke` | `revokeGrant` on `level-1` carrying intermediate levels above the deeper direct grant |
+| `grantee-subtree-repair` | Deeper direct grantee holding a pre-revoke path edits and repairs its own subtree inline (when `--depth >= 2`) |
+| `subtree-move` | `moveContainer` removing inherited group access and rotating the moved folder key |
+| `fresh-reader-hydration` | Brand-new install (empty SQLite DB) discovers and decrypts the document across the accumulated folder keyring |
+| `roster-vouched-share` | Fresh self-anchor admin shares a folder with a transitively enrolled member (`Alice -> Bob -> Frank`) without importing their link |
+
+Each phase records wall time, HTTP requests, `409` conflicts, request/response
+wire bytes, PostgreSQL statements/round trips/rows/bytes, actor local SQLite
+calls/mutation-lock holds/`EXPLAIN QUERY PLAN` flags, and process CPU/memory
+peaks. Reports are saved under `.test_files/performance/rotations-<run>.json`
+and `.md`.
