@@ -3,6 +3,7 @@ export {
   cleanupExpiredDocumentBaselineStages,
 } from "./cleanupExpiredStages";
 export {
+  DocumentBaselineStageBusyError,
   DocumentBaselineStageError,
   DocumentBaselineStageNotFoundError,
 } from "./errors";
