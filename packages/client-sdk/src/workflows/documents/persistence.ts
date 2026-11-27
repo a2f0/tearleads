@@ -93,10 +93,13 @@ export async function ensureDocumentClientProjectionTables(input: {
   await ensurePromise;
 }
 
+interface PersistDocumentStateOptions extends PersistDocumentStateInput {
+  /** Runs synchronously inside the serialized SQL mutation after settlement. */
+  onSettledInMutation?: ((result: PersistedDocumentState) => void) | undefined;
+}
+
 export async function persistDocumentState(
-  input: PersistDocumentStateInput & {
-    onCommitted?: ((result: PersistedDocumentState) => void) | undefined;
-  },
+  input: PersistDocumentStateOptions,
 ): Promise<PersistedDocumentState | null> {
   const documentProjectors = resolveDocumentProjectorRegistry(
     input.documentProjectors,
@@ -116,7 +119,7 @@ export async function persistDocumentState(
       persistInput: input,
     });
     if (result) {
-      input.onCommitted?.(result);
+      input.onSettledInMutation?.(result);
     }
     return result;
   });

@@ -5,6 +5,7 @@ import {
   emptyVersionVector,
   encodeVersionVector,
   exportAllUpdates,
+  exportUpdatesSince,
   satisfiesVersionVector,
   versionVectorsEqual,
 } from "@tearleads/loro";
@@ -81,12 +82,14 @@ async function acknowledge(
 
 interface SeededCreateServer {
   committed: DocumentWriterProjectionResponse | null;
+  readonly execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
   readonly fixture: Fixture;
   /**
    * Delivers an update hint for the document to the store mid-flight and
    * returns the store's signal sequence after it.
    */
   hint: (documentId: string, updateIds: string[]) => number;
+  readonly state: () => DocumentStoreState;
   /** Tears the store down mid-flight, as closing the document does. */
   tearDown: () => void;
 }
@@ -128,13 +131,19 @@ async function runSeededCreate(
 ) {
   const fixture = await createMaterializedSyncFixture();
   let scheduled = 0;
+  const { close, execSql } = await createTestExecSql(name);
+  let liveState: DocumentStoreState | null = null;
   const server: SeededCreateServer = {
     committed: null,
+    execSql,
     fixture,
     hint: () => 0,
+    state: () => {
+      if (!liveState) throw new Error("Expected store state");
+      return liveState;
+    },
     tearDown: () => undefined,
   };
-  const { close, execSql } = await createTestExecSql(name);
   try {
     await defaultDocumentsPersistence.ensureSchema(execSql);
     const document = await createDocument(`${name}-peer`);
@@ -185,6 +194,7 @@ async function runSeededCreate(
       noopDocumentStorePersistenceEffects,
       null,
     );
+    liveState = state;
     state.doc = document;
     state.record = record;
     state.initialized = true;
@@ -223,10 +233,12 @@ async function runSeededCreate(
         : queued,
       state,
     });
+    const storedRecord = await defaultDocumentsPersistence.loadDocument(
+      execSql,
+      record.id,
+    );
     return {
-      committedVersion: (
-        await defaultDocumentsPersistence.loadDocument(execSql, record.id)
-      )?.committedVersion,
+      committedVersion: storedRecord?.committedVersion,
       created,
       documentVersion: encodeVersionVector(document),
       queued,
@@ -237,6 +249,7 @@ async function runSeededCreate(
       requests,
       scheduled,
       state,
+      storedRecord,
     };
   } finally {
     close();
@@ -373,4 +386,62 @@ test("a refused seeded create falls back to the plain create once", async () => 
   );
   expect(result.created.record?.lastCommitLsn ?? null).toBeNull();
   expect(result.state.remoteUpdatePending).toBe(true);
+});
+
+test("a settled seed does not regress a record pendingBaseVersion already advanced by a local write", async () => {
+  let secondEditVersion = "";
+  let secondEditUpdateData = "";
+  const result = await runSeededCreate(
+    "seeded-create-preserve-live-pending-base",
+    async (request, _attempt, server) => {
+      // Simulate a second local write committing to SQLite and updating
+      // state.record.pendingBaseVersion while parked in post-commit compaction
+      // (before advancePendingBaseVersion updates state.pendingBaseVersion).
+      const state = server.state();
+      if (!state.doc || !state.record) throw new Error("Expected live store");
+      const firstVersion = encodeVersionVector(state.doc);
+      state.pendingBaseVersion = firstVersion;
+      state.doc.getText("text").insert(5, " world");
+      state.doc.commit();
+      secondEditVersion = encodeVersionVector(state.doc);
+      const secondFields = createPendingUpdateFields(
+        exportUpdatesSince(state.doc, firstVersion),
+      );
+      if (!secondFields) throw new Error("Expected second edit update");
+      secondEditUpdateData = secondFields.updateData;
+      await defaultDocumentsPersistence.enqueuePendingUpdate(server.execSql, {
+        localId: state.localId,
+        ...secondFields,
+      });
+      const advancedRecord: DocumentRecord = {
+        ...state.record,
+        pendingBaseVersion: secondEditVersion,
+        snapshotEndVersion: secondEditVersion,
+        text: "hello world",
+      };
+      await defaultDocumentsPersistence.saveDocument(
+        server.execSql,
+        advancedRecord,
+      );
+      state.record = advancedRecord;
+      return acknowledge(request);
+    },
+  );
+
+  expect(result.storedRecord?.pendingBaseVersion).toBeTruthy();
+  expect(
+    satisfiesVersionVector(
+      result.storedRecord?.pendingBaseVersion,
+      secondEditVersion,
+    ),
+  ).toBe(true);
+  expect(
+    satisfiesVersionVector(
+      result.storedRecord?.snapshotEndVersion,
+      secondEditVersion,
+    ),
+  ).toBe(true);
+  expect(result.remaining.map((row) => row.updateData)).toEqual([
+    secondEditUpdateData,
+  ]);
 });

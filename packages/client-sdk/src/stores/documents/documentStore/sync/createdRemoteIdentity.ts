@@ -22,7 +22,7 @@ const createdRemoteIdentities = new WeakMap<
  * birth, never a relink). A local mutation that captured `documentId: null`
  * while that create persisted may adopt it instead of discarding the edit.
  */
-export function canAdoptCreatedRemoteDocumentId(
+function canAdoptCreatedRemoteDocumentId(
   state: DocumentStoreState,
   expectedDoc: DocumentState,
   documentId: string,
@@ -53,7 +53,7 @@ export function createdRemoteIdentityPersistenceHooks(input: {
     canAdoptCreatedDocumentId: (documentId: string) =>
       isCurrent() &&
       canAdoptCreatedRemoteDocumentId(state, currentDoc, documentId),
-    onCommitted: (
+    onSettledInMutation: (
       result: Pick<
         PersistedDocumentRecord,
         | "pullContinuationSuperseded"
