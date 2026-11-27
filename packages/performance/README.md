@@ -353,10 +353,10 @@ the label before each test. Labels are global, not async-context scoped:
 work that outlives a test is counted under the next test's label. Bind values
 are never written. `paramHash` is an HMAC under a random key each capture
 makes, so hashes match only within one capture file and cannot confirm a
-guessed value. `request` numbers the outermost statement-counter scope
-a statement ran in, in order of first use. The API's request-cost middleware
-opens one around every request, so unless a test wraps requests in a counter
-of its own, it identifies the request; it is absent outside every scope. Two
+guessed value. `request` numbers the HTTP request a statement ran in, in
+order of first use: the scope the API's request-cost middleware marks, even
+inside a counter a test opens around several requests. Outside every request
+it numbers the outermost counter, and it is absent outside every counter. Two
 statements with the same text and `paramHash` in one request read the same
 key twice; the summary counts those extra sends as same-key repeats, and
 counts the requests under each label.

@@ -11,9 +11,10 @@ export type CaptureRecord =
       /** A short hash of the bind values, keyed per capture, when asked for. */
       readonly paramHash?: string;
       /**
-       * The statement's outermost counter scope, numbered from 1 in the order
-       * scopes first send a statement: the API request, when the API's
-       * request-cost middleware opened it. Absent outside every scope.
+       * The HTTP request the statement ran in, numbered from 1 in the order
+       * requests first send a statement: the scope the API's request-cost
+       * middleware marks, inside any counter a test opens around it. Outside
+       * every request, the outermost counter; absent outside every counter.
        */
       readonly request?: number;
     }
