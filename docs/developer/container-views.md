@@ -42,10 +42,12 @@ Every resolved primary renders through a view in
 [container-views](../../packages/app/src/document-types/container-views/).
 Contact is the only specialized view: `contact/ContactContainerView` reuses
 `ContactDocumentApp`, including its avatar and fields, so changes to the shared
-contact renderer also appear here. Every other kind, including unknown ones,
-falls back to `default/DefaultContainerView`. Both render the container's
-existing notes through the shared `shared/ContainerNotes` partial as read-only
-`NoteDocumentApp` previews, five per page with previous and next navigation.
+contact renderer also appear here, and renders the container's medications
+through `contact/ContactMedications` (paginated at ten per page). Every other
+kind, including unknown ones, falls back to `default/DefaultContainerView`.
+Both render the container's existing notes through the shared
+`shared/ContainerNotes` partial as read-only `NoteDocumentApp` previews, five
+per page with previous and next navigation.
 **Open** routes to the existing note view for editing when permitted. Note
 filtering occurs before SQL counting and pagination; previews never create an
 unbounded set of document stores.

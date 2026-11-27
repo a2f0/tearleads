@@ -44,6 +44,10 @@ export {
 } from "../../data/persistence/documents/records/documentHistoryPersistence";
 export type { DocumentSyncVerdictOutcome } from "../../data/persistence/documents/records/documentSyncVerdictPersistence";
 export { RecordedAttachmentSlotRepository } from "../../data/persistence/documents/records/recordedAttachmentSlotPersistence";
+export {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "../../data/sqlite/availability/databaseBusyRetry";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
 export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 export {
@@ -167,7 +171,9 @@ export {
   type LoadedDocumentRecord,
   listLoadedRecordsSavedElsewhere,
   listOwedDocumentListingReads,
+  type OwedDocumentRecord,
   oweListedDocumentReadsBehindListing,
+  oweListedRecordReads,
   settleCoveredDocumentListingRead,
 } from "./sync/listingRevalidation";
 export {

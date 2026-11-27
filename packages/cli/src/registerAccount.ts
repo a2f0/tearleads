@@ -1,4 +1,5 @@
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import { PROVISIONED_SYSTEM_CONTAINER_SPECS } from "app/host/provisionedSystemContainers";
 import type { LegalTermsAgreement } from "./legalTerms";
 import { openLocalDatabase } from "./localDatabase";
 import { type CliSession, LoginRefusedError, withSession } from "./session";
@@ -31,8 +32,9 @@ async function readAccount({ sdk, userId }: CliSession) {
 
 /**
  * Registers the key's identity with a fresh local root, as a new app install
- * does. Registration answers with a login challenge but issues no session, so
- * nothing here needs revoking.
+ * does: the organization is born with the app's Trash, which the app expects
+ * and never creates itself at sign-in. Registration answers with a login
+ * challenge but issues no session, so nothing here needs revoking.
  */
 async function createAccount(input: RegisterInput): Promise<void> {
   const acceptedLegalTermsVersion = await input.agreeToLegalTerms();
@@ -47,6 +49,7 @@ async function createAccount(input: RegisterInput): Promise<void> {
       log: (message) => tracer.event(`sdk: ${message}`),
       logError: (message) => tracer.event(`sdk error: ${String(message)}`),
     },
+    provisionedSystemContainers: PROVISIONED_SYSTEM_CONTAINER_SPECS,
   });
   try {
     await tracer.span("derive keys from recovery key", () =>

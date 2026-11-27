@@ -1,6 +1,13 @@
 import { expect, test } from "bun:test";
+import { closeInBackground } from "../src/databaseConnectionHelpers";
 import { createDatabaseWorkerConnectionFactory } from "../src/databaseConnections";
-import type { WorkerMethod, WorkerRequest, WorkerResponse } from "../src/types";
+import {
+  DATABASE_DELETED_MESSAGE,
+  WORKER_DATABASE_DELETED_MESSAGE_TYPE,
+  type WorkerMethod,
+  type WorkerRequest,
+  type WorkerResponse,
+} from "../src/types";
 import {
   type DatabaseWorkerScope,
   registerDatabaseWorker,
@@ -234,6 +241,34 @@ test("same database with different init options is rejected", async () => {
   });
 });
 
+test("an open a close overtook gives its database back before the connection opens again", async () => {
+  const createOptions = createDatabaseWorkerConnectionFactory();
+  const connection = createOptions();
+  const dbName = `overtaken-${crypto.randomUUID()}.db`;
+
+  const overtaken = connection.onInit?.(initOptions(dbName));
+  await connection.onClose?.();
+  // Until the overtaken open settles, the connection cannot open again.
+  await expect(connection.onInit?.(initOptions(dbName))).rejects.toThrow(
+    "Database has already been initialized.",
+  );
+  await expect(overtaken).rejects.toThrow(
+    "Database connection closed before initialization completed.",
+  );
+
+  await connection.onInit?.(initOptions(dbName));
+  expect(await connection.onExec?.({ sql: "SELECT 1 AS value" })).toEqual([
+    { value: 1 },
+  ]);
+  await connection.onClose?.();
+
+  // No reference outlived the closes: the database closed, so another key
+  // opens a fresh one instead of meeting the first key's options.
+  const other = createOptions();
+  await other.onInit?.(initOptions(dbName, "another-secret"));
+  await other.onClose?.();
+});
+
 test("a worker that has opened persistent storage refuses to wipe it", async () => {
   installOpfsMemoryShim();
   const scope = connectSharedWorkerPort(
@@ -326,5 +361,112 @@ test("a database opens only after every overlapping storage wipe finishes", asyn
     } else {
       Reflect.deleteProperty(globalThis, "navigator");
     }
+  }
+});
+
+test("a close no request waits on logs its failure instead of rejecting unhandled", async () => {
+  const logs: string[] = [];
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    closeInBackground(
+      (message) => logs.push(message),
+      "background.db",
+      Promise.reject(new Error("access handle still locked")),
+    );
+    await Bun.sleep(0);
+    expect(logs).toEqual([
+      "SQLite could not close database background.db: access handle still locked",
+    ]);
+    expect(unhandled).toEqual([]);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+});
+
+test("an open attaching during another connection's delete either sees the delete or opens cleanly", async () => {
+  let sawDelete = false;
+  let openedFresh = false;
+  for (let ticks = 0; ticks <= 10; ticks += 1) {
+    const createOptions = createDatabaseWorkerConnectionFactory();
+    const notices: unknown[] = [];
+    const first = createOptions();
+    const second = createOptions((notice) => notices.push(notice));
+    const dbName = `attach-delete-${ticks}-${crypto.randomUUID()}.db`;
+
+    await first.onInit?.(initOptions(dbName));
+
+    const secondInit = second.onInit?.(initOptions(dbName));
+    for (let tick = 0; tick < ticks; tick += 1) {
+      await Promise.resolve();
+    }
+    const firstDelete = first.onDelete?.();
+
+    await Promise.all([secondInit, firstDelete]);
+
+    if (notices.length > 0) {
+      sawDelete = true;
+      expect(notices).toEqual([{ type: WORKER_DATABASE_DELETED_MESSAGE_TYPE }]);
+      await expect(second.onExec?.({ sql: "SELECT 1" })).rejects.toThrow(
+        DATABASE_DELETED_MESSAGE,
+      );
+    } else {
+      openedFresh = true;
+      expect(await second.onExec?.({ sql: "SELECT 1 AS value" })).toEqual([
+        { value: 1 },
+      ]);
+      await second.onClose?.();
+    }
+  }
+  expect(sawDelete).toBe(true);
+  expect(openedFresh).toBe(true);
+});
+
+test("concurrent cold opens do not run ahead of the first opener's immediate delete", async () => {
+  installOpfsMemoryShim();
+  const createOptions = createDatabaseWorkerConnectionFactory();
+  const dbName = `/concurrent-delete-${crypto.randomUUID()}.db`;
+  const options = {
+    cipher: "chacha20" as const,
+    dbName,
+    key: "secret",
+    persistence: "opfs-sahpool" as const,
+  };
+  const notices = Array.from({ length: 6 }, () => [] as unknown[]);
+  const connections = notices.map((list) =>
+    createOptions((notice) => list.push(notice)),
+  );
+  try {
+    const [first, ...others] = connections;
+    const firstInit = first?.onInit?.(options);
+    const otherInits = others.map((connection) => connection.onInit?.(options));
+    await firstInit;
+    await first?.onDelete?.();
+    await Promise.all(otherInits);
+
+    for (const [index, connection] of others.entries()) {
+      const connectionNotices = notices[index + 1] ?? [];
+      if (connectionNotices.length > 0) {
+        expect(connectionNotices).toEqual([
+          { type: WORKER_DATABASE_DELETED_MESSAGE_TYPE },
+        ]);
+        await expect(connection.onExec?.({ sql: "SELECT 1" })).rejects.toThrow(
+          DATABASE_DELETED_MESSAGE,
+        );
+      } else {
+        expect(await connection.onExec?.({ sql: "SELECT 1 AS value" })).toEqual(
+          [{ value: 1 }],
+        );
+        await connection.onDelete?.();
+      }
+    }
+  } finally {
+    await Promise.all(
+      connections.map((connection) =>
+        Promise.resolve(connection.onClose?.()).catch(() => undefined),
+      ),
+    );
+    uninstallOpfsMemoryShim();
   }
 });

@@ -1,6 +1,7 @@
 import type { WorkerLike } from "./client";
 import { queryLiveClientIds } from "./crossTabLocks";
 import { requestId, requestMethod, responseId } from "./crossTabProtocol";
+import { disconnectMessagePort } from "./renewedClientTransport";
 import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "./types";
 import {
   DatabaseWorkerCrashError,
@@ -132,7 +133,11 @@ export class CrossTabOwner {
     const channel = new MessageChannel();
     channel.port1.start();
     channel.port1.addEventListener("message", (event) => {
-      this.handleWorkerResponse(clientId, event);
+      // A port `closeClient` retired stays open until the worker acknowledges
+      // the disconnect; what it still carries belongs to no current request.
+      if (this.portsByClientId.get(clientId) === channel.port1) {
+        this.handleWorkerResponse(clientId, event);
+      }
     });
     this.worker.postMessage({ type: WORKER_CONNECT_PORT_MESSAGE_TYPE }, [
       channel.port2,
@@ -217,9 +222,13 @@ export class CrossTabOwner {
   ): void {
     this.activeClientIds.delete(clientId);
     this.trackableClientIds.delete(clientId);
-    const port = this.portsByClientId.get(clientId);
-    port?.close();
+    // Tell the worker the client is gone, so it closes the client's
+    // connection: a transaction a vanished tab left open is rolled back and
+    // its transaction lease freed, instead of blocking every other tab. The
+    // port closes once the worker acknowledges, or after a short bound.
+    const port = this.portsByClientId.get(clientId) ?? null;
     this.portsByClientId.delete(clientId);
+    disconnectMessagePort(port);
     this.methodsByClientRequestId.delete(clientId);
 
     // Only an explicit close/delete tears the owner down when the last client

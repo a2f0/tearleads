@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { DocumentSyncUpdateIsolationError } from "../documents/shared/sync/documentSyncUpdateIsolation";
 import { ProjectionDependencyUnavailableError } from "../shared/dependencyUnavailable";
 import { reportAndRethrowKeyingVerificationError } from "../shared/securityIncidents";
@@ -135,4 +136,25 @@ test("projection boundaries preserve database teardown errors", () => {
       new KeyingVerificationError("invalid_shape", "bad projection"),
     ),
   ).not.toThrow();
+});
+
+test("a statement another tab's transaction held off is never a verification verdict", () => {
+  // The worker answers it with a plain Error, and Drizzle wraps that in its own
+  // error with the refusal as the cause; neither may become invalid_shape.
+  const busy = new Error(DATABASE_TRANSACTION_BUSY_MESSAGE);
+  const wrapped = new Error("Failed query: BEGIN IMMEDIATE", { cause: busy });
+  for (const refusal of [busy, wrapped]) {
+    for (const classify of [
+      () => throwKeyingVerificationShapeFailure(refusal),
+      () => throwKeyingVerificationErrorWithContext(refusal, "Group policy"),
+    ]) {
+      let thrown: unknown;
+      try {
+        classify();
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBe(refusal);
+    }
+  }
 });

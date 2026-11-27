@@ -145,8 +145,9 @@ Scheduling policy (active-first, then idle backfill):
 1. On local hydration, enqueue the active container at active priority, and
    every [owed document lane](#owed-document-lanes) at idle priority unless
    an acknowledged connection's catch-up will list it. On auth-gain /
-   online-regain, also reset the session suppression set and enqueue all
-   other known containers at idle priority.
+   online-regain, also reset the session suppression set and, once the
+   connect attempt in flight settles, enqueue all other known containers at
+   idle priority, behind any catch-up an acknowledgement owes.
 2. The active container reconciles first (background, post-paint). Its results
    `applyReconciled` into Layer A, patching the list in place with no re-blank.
 3. Idle priority drains as the coordinator goes quiet
@@ -214,17 +215,16 @@ connect attempt, with one that never acknowledges, and with one that does.
 
 #### Document content pull policy
 
-The reconciliation service owns discovery scheduling; registered document
-stores own encrypted content sync and attachment hydration. Hint-driven
-reconciliation passes `force` and `documentId` to the content puller, and hints
-merge their targets into one trailing pass that revalidates only the named
-registered stores. A full force without a target, which is an explicit
-Refresh, revalidates every registered store. The catch-up after an
-acknowledged connection (`reconcileAcknowledgedConnection`) lists the owed
-lanes and forces nothing: a listed document the device's processed cursor does
-not cover is owed a read
-([document listing coverage](../document-listing-coverage.md)). Discovery
-itself does not open documents.
+The reconciliation service owns discovery scheduling; registered document stores
+own encrypted content sync and attachment hydration. Hint-driven reconciliation
+passes `force` and `documentId` to the content puller, and hints merge their
+targets into one trailing pass that revalidates only the named registered
+stores. A full force without a target, which is an explicit Refresh, revalidates
+every registered store. The catch-up after an acknowledged connection
+(`reconcileAcknowledgedConnection`) lists the owed lanes and forces nothing: a
+listed document the device's processed cursor does not cover is owed a read
+([document listing coverage](../document-listing-coverage.md)). Discovery itself
+does not open documents.
 
 The device-first scope opens them instead, in the background, whatever the
 host is showing. Its discovered-document primer
@@ -406,8 +406,7 @@ folder the user can reach, grouped by organization, including one shared from
 beneath an unreachable root. Its folders are the containers whose parent is not
 local, the rule Explorer uses for its top-level rows; an organization with no
 such folder gets one row of its own. Names come from `listLocalOrganizations`,
-which reports a null `rootContainerId` for an organization reached without its
-root.
+whose `rootContainerId` is null for an organization reached without its root.
 
 ## Why first paint is device-first (trace)
 
@@ -439,10 +438,11 @@ An eager system-container create sends its first metadata update the same way;
 once the seed commits, nothing is queued and no metadata sync follows unless a
 peer's metadata hint arrived first: like a replayed create, it registers its
 planned metadata document id until the created state is installed, and a read
-that hint queued is synced then. It runs only for a slot with no local copy: a
-device-first slot made before its root gained an organization is found by root
-and slot and promoted through its own create intent, never created a second
-time.
+that hint queued is synced then. It runs only for a slot with no local copy,
+found by root and slot even when made before its root gained an organization;
+that copy is promoted through its own create intent instead. Once sign-in or a
+restore folds its root into the account root, the create waits for that root's
+listing ([row 26](../sync-edge-cases.md)).
 
 ## Scope boundaries
 
@@ -452,10 +452,10 @@ time.
 - The instant document list relies on summaries being persisted on discovery
   (`upsertDiscoveredDocuments` writes `document_projection`); local-only
   documents land there via the documents store, so the cache is authoritative.
-- Ordinary per-document Loro content stays lazy in the `documents` sync lane.
-  Layer B only primes content that cannot rely on a document window opening it
-  (remote system-container projections), while it reconciles the container tree
-  plus document summaries/links for every known lane.
+- Layer B's reconciler primes only remote system-container projections while
+  reconciling trees and document summaries/links; the scope's
+  [`discoveredDocumentPrimer.ts`](../../packages/client-sdk/src/client/deviceFirst/discoveredDocumentPrimer.ts)
+  opens discovered remote documents in the background when sync-ready and unpaused.
 
 ## Offline contract and coverage
 

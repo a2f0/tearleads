@@ -82,9 +82,9 @@ const zanzibarPaperUrl =
           </p>
           <p>
             Unlike Zanzibar, clients do not take the server's answer on trust. The
-            API enforces access, but each relationship is also a signed record
-            that every client verifies for itself before it reads or encrypts,
-            and Tearleads uses a fixed set of relationships rather than
+            API enforces access, while each relationship is a signed record
+            that every client verifies for itself before reading or encrypting.
+            Tearleads also uses a fixed set of relationships rather than
             Zanzibar's configurable rewrite rules. Keys follow the same paths in
             reverse: a container's key opens the keys of the containers,
             documents, and files beneath it.
@@ -166,10 +166,9 @@ const zanzibarPaperUrl =
             <h3>Signed history and checkpoints</h3>
             <p>
               Signatures and hash chains bind policies and access changes to their
-              authors and predecessors. Clients remember identity keys and policy
-              and access checkpoints, and reject later substitutions, conflicting
-              versions of the same history, and rollbacks below the state they
-              have seen.
+              authors and predecessors. Clients remember pinned identity keys along
+              with policy and access checkpoints, rejecting later substitutions,
+              conflicting histories, and rollbacks below the state they have seen.
             </p>
           </div>
           <div>

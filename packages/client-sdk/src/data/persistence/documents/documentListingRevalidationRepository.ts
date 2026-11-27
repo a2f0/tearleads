@@ -10,16 +10,22 @@ import { documentSyncProgress } from "../../sqlite/schema/documentSyncVerdictSch
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
-/** An ordinary document owed a remote read, and the request's revision. */
+/** A record owed a remote read, what the read must reach, and its revision. */
 export interface DocumentListingRevalidation {
+  /** The epoch of the newest access head a listing showed. */
+  readonly advertisedAccessEpoch: number;
   /** The most updates a listing counted; a read must cover at least these. */
   readonly advertisedUpdateCount: number;
   readonly documentId: string;
+  /** The record that owes the read. */
+  readonly localId: string;
   readonly revision: string;
 }
 
 /** A document as a container listing reported it. */
 export interface ListedDocumentHead {
+  /** The epoch of that head; a head move raises it. */
+  readonly accessEpoch: number;
   /** The document's access manifest head. */
   readonly accessStateHash: string;
   readonly documentId: string;
@@ -27,8 +33,19 @@ export interface ListedDocumentHead {
   readonly updateCount: number;
 }
 
-/** A read to owe: the document and the count its pull must cover. */
-type OwedDocumentRead = Pick<ListedDocumentHead, "documentId" | "updateCount">;
+/** A read to owe: the record, its document, and what its pull must reach. */
+export interface OwedDocumentRead {
+  readonly accessEpoch: number;
+  readonly documentId: string;
+  readonly localId: string;
+  readonly updateCount: number;
+}
+
+/** A record that still owes a read. */
+export type OwedDocumentRecord = Pick<
+  DocumentListingRevalidation,
+  "documentId" | "localId"
+>;
 
 const ID_BATCH_SIZE = 400;
 
@@ -40,6 +57,20 @@ function batches<T>(values: readonly T[]): T[][] {
   );
 }
 
+/** What a record holds that a listing's debt is judged against. */
+interface HeldRecordState {
+  readonly documentId: string | null;
+  readonly frontier: string;
+  readonly heldAccessEpoch: number | null;
+  readonly heldAccessHead: string | null;
+  readonly judge: string | null;
+  readonly localId: string;
+  readonly progressDocumentId: string | null;
+  readonly throughUpdateCount: number | null;
+  readonly throughUpdateId: string | null;
+  readonly throughVersion: string | null;
+}
+
 /**
  * Whether a record's processed cursor covers `updateCount`: the running
  * `judge` reached it for the record's server document, the record's persisted
@@ -47,15 +78,7 @@ function batches<T>(values: readonly T[]): T[][] {
  * least that many updates.
  */
 function cursorCovers(
-  row: {
-    readonly documentId: string | null;
-    readonly frontier: string;
-    readonly judge: string | null;
-    readonly progressDocumentId: string | null;
-    readonly throughUpdateCount: number | null;
-    readonly throughUpdateId: string | null;
-    readonly throughVersion: string | null;
-  },
+  row: HeldRecordState,
   judge: string,
   updateCount: number,
 ): boolean {
@@ -84,11 +107,23 @@ const heldAccessHead = sql<
   string | null
 >`json_extract(CASE WHEN json_valid(${documents.contentKeyBundle}) THEN ${documents.contentKeyBundle} END, '$.linkSetManifestHash')`;
 
+/**
+ * The epoch of the access head the record's last pull read: the manifest it
+ * keeps beside its key bundle. The key bundle can name an earlier manifest of
+ * the document's history, which the server still admits and no later read
+ * reissues, so the manifest, not the bundle, says whether a read reached the
+ * head. Null when the record holds no key bundle, as after an apply that
+ * moved its access epoch.
+ */
+const heldAccessEpoch = sql<number | null>`CASE
+  WHEN ${heldAccessHead} IS NOT NULL
+   AND json_valid(${documents.documentManifestBundle})
+  THEN json_extract(${documents.documentManifestBundle}, '$.manifest.epoch')
+END`;
+
 /** Whether a record has not read what the listing shows; see `listBehindListing`. */
 function recordIsBehind(
-  row: Parameters<typeof cursorCovers>[0] & {
-    readonly heldAccessHead: string | null;
-  },
+  row: HeldRecordState,
   judge: string,
   head: ListedDocumentHead,
 ): boolean {
@@ -100,8 +135,66 @@ function recordIsBehind(
 }
 
 /**
- * Reads owed to ordinary documents, bound to one executor and clock. See
- * `document_listing_revalidations` for what a row means.
+ * Whether a record has read what a debt asks for: its cursor covers the
+ * advertised count, and its last pull read the advertised head or a later
+ * one. A document's heads are ordered by epoch, so a pull a replica
+ * answered from before the head moved does not pay the debt.
+ */
+function recordPaysDebt(
+  row: HeldRecordState,
+  judge: string,
+  debt: DocumentListingRevalidation,
+): boolean {
+  return (
+    row.documentId === debt.documentId &&
+    row.heldAccessEpoch !== null &&
+    row.heldAccessEpoch >= debt.advertisedAccessEpoch &&
+    (debt.advertisedUpdateCount === 0 ||
+      cursorCovers(row, judge, debt.advertisedUpdateCount))
+  );
+}
+
+/** The newest head each listed document was shown with, by document id. */
+function newestListedHeads(
+  listed: ReadonlyArray<ListedDocumentHead>,
+): ReadonlyMap<string, ListedDocumentHead> {
+  const advertised = new Map<string, ListedDocumentHead>();
+  for (const document of listed) {
+    const known = advertised.get(document.documentId);
+    advertised.set(
+      document.documentId,
+      known === undefined
+        ? document
+        : {
+            ...(document.accessEpoch > known.accessEpoch ? document : known),
+            updateCount: Math.max(known.updateCount, document.updateCount),
+          },
+    );
+  }
+  return advertised;
+}
+
+const heldRecordSelection = {
+  documentId: documents.documentId,
+  frontier: documents.snapshotEndVersion,
+  heldAccessEpoch,
+  heldAccessHead,
+  judge: documentSyncProgress.judge,
+  localId: documents.localId,
+  progressDocumentId: documentSyncProgress.documentId,
+  throughUpdateCount: documentSyncProgress.throughUpdateCount,
+  throughUpdateId: documentSyncProgress.throughUpdateId,
+  throughVersion: documentSyncProgress.throughVersion,
+};
+
+const progressOfRecord = and(
+  eq(documentSyncProgress.appKind, documents.appKind),
+  eq(documentSyncProgress.localId, documents.localId),
+);
+
+/**
+ * Reads owed to records of ordinary documents, bound to one executor and
+ * clock. See `document_listing_revalidations` for what a row means.
  */
 export class DocumentListingRevalidationRepository {
   constructor(
@@ -115,10 +208,10 @@ export class DocumentListingRevalidationRepository {
   }
 
   /**
-   * The listed documents this device holds that the listing shows moved past
-   * what a record here last read. Run it before the listing is applied: an
-   * apply that moves a record's access epoch drops the key bundle the record
-   * held, and with it the head this compares.
+   * The records of listed documents that the listing shows moved past what
+   * the record last read, one entry per record. Run it before the listing is
+   * applied: an apply that moves a record's access epoch drops the key
+   * bundle the record held, and with it the head this compares.
    *
    * A record is behind when its processed cursor does not cover the count the
    * listing advertised. A cursor counts only when the running `judge` reached
@@ -136,36 +229,15 @@ export class DocumentListingRevalidationRepository {
     listed: ReadonlyArray<ListedDocumentHead>,
     judge: string,
   ): Promise<ReadonlyArray<OwedDocumentRead>> {
-    const advertised = new Map<string, ListedDocumentHead>();
-    for (const document of listed) {
-      const known = advertised.get(document.documentId);
-      if (!known || document.updateCount > known.updateCount) {
-        advertised.set(document.documentId, document);
-      }
-    }
+    const advertised = newestListedHeads(listed);
     if (advertised.size === 0) return [];
     const db = await this.db();
-    const behind = new Set<string>();
+    const behind: OwedDocumentRead[] = [];
     for (const documentIds of batches([...advertised.keys()])) {
       const rows = await db
-        .select({
-          documentId: documents.documentId,
-          frontier: documents.snapshotEndVersion,
-          heldAccessHead,
-          judge: documentSyncProgress.judge,
-          progressDocumentId: documentSyncProgress.documentId,
-          throughUpdateCount: documentSyncProgress.throughUpdateCount,
-          throughUpdateId: documentSyncProgress.throughUpdateId,
-          throughVersion: documentSyncProgress.throughVersion,
-        })
+        .select(heldRecordSelection)
         .from(documents)
-        .leftJoin(
-          documentSyncProgress,
-          and(
-            eq(documentSyncProgress.appKind, documents.appKind),
-            eq(documentSyncProgress.localId, documents.localId),
-          ),
-        )
+        .leftJoin(documentSyncProgress, progressOfRecord)
         .where(
           and(
             eq(documents.appKind, DOCUMENTS_APP_KIND),
@@ -176,41 +248,55 @@ export class DocumentListingRevalidationRepository {
         const head =
           row.documentId === null ? undefined : advertised.get(row.documentId);
         if (head && recordIsBehind(row, judge, head)) {
-          behind.add(head.documentId);
+          behind.push({
+            accessEpoch: head.accessEpoch,
+            documentId: head.documentId,
+            localId: row.localId,
+            updateCount: head.updateCount,
+          });
         }
       }
     }
-    return [...behind].map((documentId) => ({
-      documentId,
-      updateCount: advertised.get(documentId)?.updateCount ?? 0,
-    }));
+    return behind;
   }
 
-  /** Record, or renew, a request that each document be read. */
+  /**
+   * Record, or renew, a request that each record read its document. Repeating
+   * an existing debt for the same document without raising its advertised
+   * epoch or count leaves its revision in place, so a pull already in flight
+   * for that debt can still settle it.
+   */
   async request(requests: ReadonlyArray<OwedDocumentRead>): Promise<void> {
     if (requests.length === 0) return;
     await ensureSqlTables(this.execSql, documentTables);
     const requestedAt = this.now().toISOString();
+    // A listing read from a lagging replica never lowers a debt of the same
+    // document; a record that now names another document owes that one.
+    const sameDocument = sql`${documentListingRevalidations.documentId} = excluded.document_id`;
+    const unchanged = sql`${sameDocument} AND excluded.advertised_access_epoch <= ${documentListingRevalidations.advertisedAccessEpoch} AND excluded.advertised_update_count <= ${documentListingRevalidations.advertisedUpdateCount}`;
     await getClientSQLitePersistenceRuntime(this.execSql).runMutation(
       async (db) => {
         for (const batch of batches(requests)) {
           await db
             .insert(documentListingRevalidations)
             .values(
-              batch.map(({ documentId, updateCount }) => ({
-                advertisedUpdateCount: updateCount,
-                documentId,
+              batch.map((owed) => ({
+                advertisedAccessEpoch: owed.accessEpoch,
+                advertisedUpdateCount: owed.updateCount,
+                documentId: owed.documentId,
+                localId: owed.localId,
                 requestedAt,
                 revision: crypto.randomUUID(),
               })),
             )
             .onConflictDoUpdate({
-              target: documentListingRevalidations.documentId,
+              target: documentListingRevalidations.localId,
               set: {
-                // A listing read from a lagging replica never lowers the debt.
-                advertisedUpdateCount: sql`max(${documentListingRevalidations.advertisedUpdateCount}, excluded.advertised_update_count)`,
-                requestedAt: sql`excluded.requested_at`,
-                revision: sql`excluded.revision`,
+                advertisedAccessEpoch: sql`CASE WHEN ${sameDocument} THEN max(${documentListingRevalidations.advertisedAccessEpoch}, excluded.advertised_access_epoch) ELSE excluded.advertised_access_epoch END`,
+                advertisedUpdateCount: sql`CASE WHEN ${sameDocument} THEN max(${documentListingRevalidations.advertisedUpdateCount}, excluded.advertised_update_count) ELSE excluded.advertised_update_count END`,
+                documentId: sql`excluded.document_id`,
+                requestedAt: sql`CASE WHEN ${unchanged} THEN ${documentListingRevalidations.requestedAt} ELSE excluded.requested_at END`,
+                revision: sql`CASE WHEN ${unchanged} THEN ${documentListingRevalidations.revision} ELSE excluded.revision END`,
               },
             })
             .run();
@@ -219,34 +305,49 @@ export class DocumentListingRevalidationRepository {
     );
   }
 
-  /** The request still owed to `documentId`, if any. */
-  async find(documentId: string): Promise<DocumentListingRevalidation | null> {
+  /** The request a record still owes for `documentId`, if any. */
+  async find(
+    record: OwedDocumentRecord,
+  ): Promise<DocumentListingRevalidation | null> {
     const [row] = await (await this.db())
       .select({
+        advertisedAccessEpoch:
+          documentListingRevalidations.advertisedAccessEpoch,
         advertisedUpdateCount:
           documentListingRevalidations.advertisedUpdateCount,
         documentId: documentListingRevalidations.documentId,
+        localId: documentListingRevalidations.localId,
         revision: documentListingRevalidations.revision,
       })
       .from(documentListingRevalidations)
-      .where(eq(documentListingRevalidations.documentId, documentId))
+      .where(
+        and(
+          eq(documentListingRevalidations.localId, record.localId),
+          eq(documentListingRevalidations.documentId, record.documentId),
+        ),
+      )
       .limit(1);
     return row ?? null;
   }
 
-  /** Every document still owed a read, in document id order. */
-  async listOwedDocumentIds(): Promise<ReadonlyArray<string>> {
-    const rows = await (await this.db())
-      .select({ documentId: documentListingRevalidations.documentId })
+  /** Every record still owed a read, in document and record order. */
+  async listOwed(): Promise<ReadonlyArray<OwedDocumentRecord>> {
+    return (await this.db())
+      .select({
+        documentId: documentListingRevalidations.documentId,
+        localId: documentListingRevalidations.localId,
+      })
       .from(documentListingRevalidations)
-      .orderBy(documentListingRevalidations.documentId);
-    return rows.map(({ documentId }) => documentId);
+      .orderBy(
+        documentListingRevalidations.documentId,
+        documentListingRevalidations.localId,
+      );
   }
 
   /**
-   * Forget the reads owed to documents this device no longer holds a record
-   * of: a purge, a revoked link, or a record pointed at another server
-   * document left them, and no store will ever pay them.
+   * Forget the reads owed by records that no longer hold their document: a
+   * purge or a revoked link removed the record, or it was pointed at another
+   * server document, and nothing will ever pay them.
    */
   async forgetUnheld(): Promise<void> {
     await ensureSqlTables(this.execSql, documentTables);
@@ -257,11 +358,12 @@ export class DocumentListingRevalidationRepository {
           .where(
             notExists(
               db
-                .select({ documentId: documents.documentId })
+                .select({ localId: documents.localId })
                 .from(documents)
                 .where(
                   and(
                     eq(documents.appKind, DOCUMENTS_APP_KIND),
+                    eq(documents.localId, documentListingRevalidations.localId),
                     eq(
                       documents.documentId,
                       documentListingRevalidations.documentId,
@@ -276,25 +378,42 @@ export class DocumentListingRevalidationRepository {
   }
 
   /**
-   * Settle the request a read observed. A newer request, from this tab or
-   * another sharing the database, carries another revision and stays.
+   * Settle the request a read observed, if the record that owes it now pays
+   * it (`recordPaysDebt`), as its record and cursor stand on disk. Returns
+   * whether it was paid. A newer request, from this tab or another sharing
+   * the database, carries another revision and stays.
    */
-  async settle(revalidation: DocumentListingRevalidation): Promise<void> {
+  async settle(
+    revalidation: DocumentListingRevalidation,
+    judge: string,
+  ): Promise<boolean> {
     await ensureSqlTables(this.execSql, documentTables);
-    await getClientSQLitePersistenceRuntime(this.execSql).runMutation(
+    return getClientSQLitePersistenceRuntime(this.execSql).runMutation(
       async (db) => {
+        const [record] = await db
+          .select(heldRecordSelection)
+          .from(documents)
+          .leftJoin(documentSyncProgress, progressOfRecord)
+          .where(
+            and(
+              eq(documents.appKind, DOCUMENTS_APP_KIND),
+              eq(documents.localId, revalidation.localId),
+            ),
+          )
+          .limit(1);
+        if (!record || !recordPaysDebt(record, judge, revalidation)) {
+          return false;
+        }
         await db
           .delete(documentListingRevalidations)
           .where(
             and(
-              eq(
-                documentListingRevalidations.documentId,
-                revalidation.documentId,
-              ),
+              eq(documentListingRevalidations.localId, revalidation.localId),
               eq(documentListingRevalidations.revision, revalidation.revision),
             ),
           )
           .run();
+        return true;
       },
     );
   }

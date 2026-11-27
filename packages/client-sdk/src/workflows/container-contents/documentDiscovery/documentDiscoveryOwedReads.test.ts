@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { encodeVersionVectorCounters } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { SyncWatermark } from "@tearleads/validators/response";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import {
   ContainerSyncWatermarkRepository,
@@ -34,6 +35,7 @@ beforeEach(async () => {
   close = database.close;
   execSql = database.execSql;
   await ensureSqlTables(execSql, documentTables);
+  await storeContainerRows(execSql, [LANE]);
 });
 
 afterEach(() => close());
@@ -87,10 +89,17 @@ function listing(
   };
 }
 
-function owedDocumentIds() {
-  return new DocumentListingRevalidationRepository(
-    execSql,
-  ).listOwedDocumentIds();
+async function owedDocumentIds() {
+  return (
+    await new DocumentListingRevalidationRepository(execSql).listOwed()
+  ).map(({ documentId }) => documentId);
+}
+
+function findOwed(documentId: string) {
+  return new DocumentListingRevalidationRepository(execSql).find({
+    documentId,
+    localId: `local-${documentId}`,
+  });
 }
 
 function savedWatermark() {
@@ -154,10 +163,7 @@ test("a listing owes each read before its watermark passes the row", async () =>
   // then the watermark.
   expect(steps).toEqual(["applied:behind", "asked:behind", "saved:behind"]);
   expect(await savedWatermark()).toEqual(NEXT);
-  expect(
-    (await new DocumentListingRevalidationRepository(execSql).find("behind"))
-      ?.advertisedUpdateCount,
-  ).toBe(2);
+  expect((await findOwed("behind"))?.advertisedUpdateCount).toBe(2);
 });
 
 test("a listing every cursor covers owes nothing and asks no store", async () => {
@@ -182,10 +188,7 @@ test("a listed access head the record's key bundle does not name owes a read bef
   });
 
   expect(steps).toEqual(["applied:moved", "asked:moved", "saved:moved"]);
-  expect(
-    (await new DocumentListingRevalidationRepository(execSql).find("moved"))
-      ?.advertisedUpdateCount,
-  ).toBe(3);
+  expect((await findOwed("moved"))?.advertisedUpdateCount).toBe(3);
 });
 
 test("a debt that cannot be written leaves the lane's watermark behind the row", async () => {

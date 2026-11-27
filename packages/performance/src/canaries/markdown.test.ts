@@ -147,3 +147,36 @@ test("an unchanged lowest value prints both ranges without a delta", () => {
   );
   expect(comparison).not.toContain("(0)");
 });
+
+test("renders ceiling drift and websocket hint tables when present", () => {
+  const base = report([4]);
+  const firstRun = base.runs[0];
+  const firstPhase = firstRun?.phases[0];
+  if (!firstRun || !firstPhase) throw new Error("missing fixture");
+  const enriched: CanaryReport = {
+    ...base,
+    runs: [
+      {
+        ...firstRun,
+        phases: [
+          {
+            ...firstPhase,
+            budget: { measuredTotal: 4, ceilingTotal: 10 },
+            ws: {
+              total: 2,
+              bytes: 240,
+              byType: { container_mutation_created: { count: 2, bytes: 240 } },
+            },
+          },
+        ],
+      },
+    ],
+  };
+  const markdown = formatCanaryReport(enriched);
+  expect(markdown).toContain("## Ceiling drift");
+  expect(markdown).toContain("| Upload | upload | 4 | 10 | 6 | 40% |");
+  expect(markdown).toContain("## WebSocket hints");
+  expect(markdown).toContain(
+    "| Upload | upload | 2 | 240 | 2.0 | `container_mutation_created`: 2 |",
+  );
+});

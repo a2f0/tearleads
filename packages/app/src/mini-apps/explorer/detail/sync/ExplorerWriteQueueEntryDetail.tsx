@@ -10,6 +10,7 @@ import {
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import {
+  getBlockedReasonLabel,
   getObjectTypeLabel,
   getOperationLabel,
   getStatusLabel,
@@ -59,6 +60,18 @@ function getWriteQueueEntryBlockerReasons(params: {
   return reasons;
 }
 
+function getWriteQueueEntryBlockedReasons(
+  item: PendingWriteQueueItem,
+): string[] {
+  const reasons = new Set<string>();
+  for (const operation of item.operations) {
+    if (operation.blockedReason !== undefined) {
+      reasons.add(getBlockedReasonLabel(operation.blockedReason));
+    }
+  }
+  return Array.from(reasons);
+}
+
 function getWriteQueueEntryErrorReasons(item: PendingWriteQueueItem): string[] {
   const errors = new Set<string>();
   for (const operation of item.operations) {
@@ -97,6 +110,7 @@ function getWriteQueueEntryReasons(params: {
 }): ReadonlyArray<string> {
   const reasons = [
     ...getWriteQueueEntryBlockerReasons(params),
+    ...getWriteQueueEntryBlockedReasons(params.item),
     ...getWriteQueueEntryErrorReasons(params.item),
   ];
   if (reasons.length === 0) {
@@ -211,6 +225,13 @@ function ExplorerWriteQueueEntryOperationsSection(params: {
           >
             {getStatusLabel(operation.status)}
           </MiniAppKeyValueRow>
+          {operation.blockedReason !== undefined ? (
+            <MiniAppKeyValueRow
+              label={EXPLORER_LABELS.writeQueueEntryBlockedReasonRow}
+            >
+              {getBlockedReasonLabel(operation.blockedReason)}
+            </MiniAppKeyValueRow>
+          ) : null}
           <MiniAppKeyValueRow
             label={EXPLORER_LABELS.writeQueueEntryLastErrorRow}
             title={operation.lastError}

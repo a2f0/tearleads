@@ -105,18 +105,39 @@ function load(state: DocumentStoreState) {
 
 function owe(updateCount: number) {
   return new DocumentListingRevalidationRepository(execSql).request([
-    { documentId: DOCUMENT_ID, updateCount },
+    {
+      accessEpoch: 1,
+      documentId: DOCUMENT_ID,
+      localId: "local-1",
+      updateCount,
+    },
   ]);
 }
 
-/** The record and the cursor a completed pull left through `count` updates. */
+function findDebt() {
+  return new DocumentListingRevalidationRepository(execSql).find({
+    documentId: DOCUMENT_ID,
+    localId: "local-1",
+  });
+}
+
+/**
+ * The record, with the key bundle of the head at epoch 1, and the cursor a
+ * completed pull left through `count` updates.
+ */
 async function saveCursor(count: number, judge = documentVerdictJudge()) {
   await execSql(
     `INSERT INTO documents (app_kind, local_id, document_id,
-       snapshot_end_version, updated_at)
-     VALUES ('documents', 'local-1', ?, ?, '2026-11-25T00:00:00.000Z')
+       snapshot_end_version, content_key_bundle, document_manifest_bundle,
+       updated_at)
+     VALUES ('documents', 'local-1', ?, ?, ?, ?, '2026-11-25T00:00:00.000Z')
      ON CONFLICT (app_kind, local_id) DO NOTHING`,
-    [DOCUMENT_ID, FRONTIER],
+    [
+      DOCUMENT_ID,
+      FRONTIER,
+      JSON.stringify({ linkSetManifestHash: "head" }),
+      JSON.stringify({ manifest: { epoch: 1 }, manifestHash: "head" }),
+    ],
   );
   await execSql(
     `INSERT INTO document_sync_progress (app_kind, local_id, document_id,
@@ -321,14 +342,14 @@ test("a read a listing owes uncovers the store until a pull pays it", async () =
     pull: COMPLETE_PULL,
   });
   expect(isDocumentStoreCoveredByListing(state)).toBe(true);
-  expect(
-    await new DocumentListingRevalidationRepository(execSql).find(DOCUMENT_ID),
-  ).toBeNull();
+  expect(await findDebt()).toBeNull();
 });
 
 test("a debt owed for a moved access head alone is paid by a completed pull", async () => {
-  // The listing counted no update, so no cursor exists to cover the debt.
+  // The listing counted no update, so no cursor need cover the debt; the
+  // pull saves the key bundle of the head it read.
   await owe(0);
+  await saveCursor(0);
   const { delayedSyncs, state } = await createLoadedStore();
   expect(await load(state)).toBe(false);
   const generation = generationOf(state);
@@ -353,9 +374,7 @@ test("a debt owed for a moved access head alone is paid by a completed pull", as
   });
   expect(isDocumentStoreCoveredByListing(state)).toBe(true);
   expect(delayedSyncs).toHaveLength(0);
-  expect(
-    await new DocumentListingRevalidationRepository(execSql).find(DOCUMENT_ID),
-  ).toBeNull();
+  expect(await findDebt()).toBeNull();
 });
 
 test("a pass reads the debt only for a probe or a store that knows of one", async () => {

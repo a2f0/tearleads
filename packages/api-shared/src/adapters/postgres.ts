@@ -34,7 +34,11 @@ export {
   databaseReadConsistency,
   type PostgresReadRouting,
 } from "./databaseReadConsistency";
-export { withDatabaseStatementCounter } from "./databaseStatementCounter";
+export {
+  recordRequestScopeMetadata,
+  withDatabaseStatementCounter,
+  withRequestStatementCounter,
+} from "./databaseStatementCounter";
 export { gatherWithExecutor, isDatabaseTransaction } from "./executor";
 export { createPostgresPoolConfig } from "./postgresConfig";
 export { databaseTransactionCompletion } from "./transactionCompletion";

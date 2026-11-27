@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { readCaptureFile } from "../statements/captureFile";
+import {
+  parseClientSqlCapture,
+  summarizeClientSqlCapture,
+} from "../statements/clientSqlSummary";
 import { parseCapture, summarizeCapture } from "../statements/summary";
 import {
   packagePreloads,
@@ -9,7 +13,16 @@ import {
 } from "../testProcess";
 import { appRoot, type Canary } from "./discover";
 import { type CanaryOutput, parseCanaryOutput } from "./output";
-import type { CanaryRun, CanaryRunStatus } from "./report";
+import {
+  parsePayloadAudit,
+  summarizePayloadAudit,
+} from "./payloadAuditSummary";
+import type {
+  CanaryRun,
+  CanaryRunStatus,
+  RunClientSql,
+  RunPayloadAudit,
+} from "./report";
 import type { RunStatements } from "./runStatements";
 
 /** A canary file takes under a minute; this stops one that hangs. */
@@ -18,6 +31,14 @@ const canaryTimeoutMs = 10 * 60_000;
 const capturePreload = resolve(
   import.meta.dir,
   "../statements/capturePreload.ts",
+);
+const clientSqlPreload = resolve(
+  import.meta.dir,
+  "../statements/clientSqlPreload.ts",
+);
+const payloadAuditPreload = resolve(
+  import.meta.dir,
+  "./payloadAuditPreload.ts",
 );
 
 const profileEnvironment = {
@@ -29,6 +50,12 @@ const profileEnvironment = {
 export interface CanaryCapture {
   readonly out: string;
   readonly paramHash: boolean;
+}
+
+/** Record sanitized per-pane field bytes, echoes, redeliveries, and head re-reads. */
+export interface CanaryPayloadAudit {
+  readonly out: string;
+  readonly stacks: boolean;
 }
 
 export function runStatus(
@@ -64,35 +91,60 @@ export interface CanaryRunInput {
   readonly sample: number;
   readonly log: string;
   readonly capture?: CanaryCapture;
+  readonly clientSql?: { readonly out: string };
+  readonly payloadAudit?: CanaryPayloadAudit;
   /** The app package to run in; `packages/app` unless a test passes one. */
   readonly root?: string;
 }
 
+async function buildCanaryPreloads(
+  root: string,
+  input: Pick<CanaryRunInput, "capture" | "clientSql" | "payloadAudit">,
+): Promise<string[]> {
+  const extra = [
+    ...(input.capture ? [capturePreload] : []),
+    ...(input.clientSql ? [clientSqlPreload] : []),
+    ...(input.payloadAudit ? [payloadAuditPreload] : []),
+  ];
+  return extra.length > 0 ? [...(await packagePreloads(root)), ...extra] : [];
+}
+
+function buildCanaryEnv(
+  input: Pick<CanaryRunInput, "capture" | "clientSql" | "payloadAudit">,
+): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    ...profileEnvironment,
+    ...(input.capture && {
+      PERF_STATEMENTS_OUT: input.capture.out,
+      PERF_STATEMENTS_PARAM_HASH: input.capture.paramHash ? "1" : "0",
+    }),
+    ...(input.clientSql && {
+      PERF_CLIENT_SQL_OUT: input.clientSql.out,
+    }),
+    ...(input.payloadAudit && {
+      PERF_PAYLOAD_AUDIT_OUT: input.payloadAudit.out,
+      PERF_PAYLOAD_AUDIT_STACKS: input.payloadAudit.stacks ? "1" : "0",
+    }),
+  };
+}
+
 /**
  * Runs one canary file alone from `packages/app`, as its suite runs, with
- * the request profile on and, when asked, the statement capture. Its output
- * goes to `log`, owner-only.
+ * the request profile on and, when asked, the statement and payload captures.
+ * Its output goes to `log`, owner-only.
  */
 export async function runCanary(input: CanaryRunInput): Promise<CanaryRun> {
   const root = input.root ?? appRoot;
-  const { capture } = input;
-  const preloads = capture
-    ? [...(await packagePreloads(root)), capturePreload]
-    : [];
+  const { capture, clientSql, payloadAudit } = input;
+  const preloads = await buildCanaryPreloads(root, input);
   const result = await runTestProcess({
     cwd: root,
     args: [
       ...preloads.flatMap((preload) => ["--preload", preload]),
       testFileArgument(input.canary.file),
     ],
-    env: {
-      ...process.env,
-      ...profileEnvironment,
-      ...(capture && {
-        PERF_STATEMENTS_OUT: capture.out,
-        PERF_STATEMENTS_PARAM_HASH: capture.paramHash ? "1" : "0",
-      }),
-    },
+    env: buildCanaryEnv(input),
     log: input.log,
     timeoutMs: canaryTimeoutMs,
   });
@@ -100,6 +152,7 @@ export async function runCanary(input: CanaryRunInput): Promise<CanaryRun> {
   const status = output
     ? runStatus(result.exitCode, result.timedOut, output)
     : "failed";
+  const passedOutput = output && status === "passed" ? output : null;
   return {
     canary: input.canary.name,
     file: input.canary.file,
@@ -111,10 +164,48 @@ export async function runCanary(input: CanaryRunInput): Promise<CanaryRun> {
     log: input.log,
     phases: output?.phases ?? [],
     statements:
-      output && capture && status === "passed"
-        ? await capturedStatements(output, capture.out)
+      passedOutput && capture
+        ? await capturedStatements(passedOutput, capture.out)
         : { status: "off" },
+    ...(clientSql && {
+      clientSql: passedOutput
+        ? await capturedClientSql(clientSql.out)
+        : { status: "off" },
+    }),
+    ...(payloadAudit && {
+      payloadAudit: passedOutput
+        ? await capturedPayloadAudit(payloadAudit.out)
+        : { status: "off" },
+    }),
   };
+}
+
+async function capturedClientSql(capture: string): Promise<RunClientSql> {
+  const text = await readCaptureFile(capture).catch(() => null);
+  if (text === null) return { status: "missing", capture };
+  try {
+    return {
+      status: "captured",
+      capture,
+      summary: summarizeClientSqlCapture(parseClientSqlCapture(text)),
+    };
+  } catch {
+    return { status: "missing", capture };
+  }
+}
+
+async function capturedPayloadAudit(capture: string): Promise<RunPayloadAudit> {
+  const text = await readCaptureFile(capture).catch(() => null);
+  if (text === null) return { status: "missing", capture };
+  try {
+    return {
+      status: "captured",
+      capture,
+      summary: summarizePayloadAudit(parsePayloadAudit(text)),
+    };
+  } catch {
+    return { status: "missing", capture };
+  }
 }
 
 /**

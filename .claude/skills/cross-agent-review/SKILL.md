@@ -1,6 +1,6 @@
 ---
 name: cross-agent-review
-description: Review committed branch changes with an independent Claude Code, Codex, or OpenCode reviewer, and repair actionable findings when requested.
+description: Review committed branch changes with an independent Antigravity CLI (agy), Claude Code, Codex, or OpenCode reviewer, and repair actionable findings when requested.
 ---
 
 # Cross-Agent Review
@@ -11,10 +11,12 @@ and release rules in the repository; do not assume Bun, a workspace layout, or
 particular CI job names.
 
 Select an independent reviewer using a different model/provider from the author
-when possible, not merely a different CLI: Hermes and OpenCode can use the same
-model as another harness. Hermes can coordinate this skill but is not a `review`
-adapter. Honor a requested reviewer or effort; otherwise use an available
-independent reviewer.
+when possible, not merely a different CLI: Hermes, OpenCode, and `agy` can use
+the same model as another harness (`agy` selects a model through
+`review.agyModel`, so it can run a Claude model when authoring with Gemini or a
+Gemini model when authoring with Claude). Hermes can coordinate this skill but
+is not a `review` adapter. Honor a requested reviewer or effort; otherwise use
+an available independent reviewer.
 Run `agent-tool doctor` if CLI compatibility is uncertain.
 
 Run noisy validation or repair checks through
@@ -24,9 +26,10 @@ Keep `agent-tool review` direct: it retains reviewer stderr in a private local
 log and displays the complete final review. Never hide, truncate, or substitute
 a command success receipt for findings and the final verdict.
 
-Review committed changes with `agent-tool review claude`, `agent-tool review codex`,
-or `agent-tool review opencode`. Optional effort is `low`, `medium`, `high`,
-`xhigh`, or `max`. For a local or non-GitHub repository, add `--base <commit-or-ref>`.
+Review committed changes with `agent-tool review agy`, `agent-tool review claude`,
+`agent-tool review codex`, or `agent-tool review opencode`. Optional effort is
+`low`, `medium`, `high`, `xhigh`, or `max`. For a local or non-GitHub repository,
+add `--base <commit-or-ref>`.
 For a coordinated GitHub review, pin the fetched base using
 `AGENT_TOOL_REVIEW_BASE_REF`, the base branch name such as `main` (not a
 remote-tracking ref like `origin/main`), and `AGENT_TOOL_REVIEW_BASE_OID`, its
@@ -40,10 +43,15 @@ returned; it does not mean the findings are non-blocking. Read the final
 `VERDICT: BLOCKER|MAJOR|MINOR|SUGGESTION|CLEAN` and the findings. A reviewer
 that labels findings `[P0]` through `[P3]` uses the same scale: `[P0]` and
 `[P1]` are BLOCKER and MAJOR, `[P2]` and `[P3]` are MINOR and SUGGESTION.
+Observations under `Upstream (agent-tool):` concern files agent-tool generated
+in the repository; they carry no severity and do not block. Report them for
+agent-tool instead of editing those files.
 
-If a CLI is unavailable, out of credits, or returns an unusable review, try another
-available reviewer and disclose the fallback. Do not silently convert a failed
-review into CLEAN or call an in-session review independent.
+If a CLI is unavailable, out of credits, or returns an unusable review, try
+another available reviewer (including `agy`, `claude`, `codex`, or `opencode`,
+picking a different model/provider from the author) and disclose the fallback.
+Do not silently convert a failed review into CLEAN or call an in-session review
+independent.
 
 For report-only requests, report findings without changing files or history.
 When repairs are authorized, address actionable BLOCKER and MAJOR findings,

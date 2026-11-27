@@ -11,16 +11,33 @@ export type CaptureRecord =
       /** A short hash of the bind values, keyed per capture, when asked for. */
       readonly paramHash?: string;
       /**
-       * The statement's outermost counter scope, numbered from 1 in the order
-       * scopes first send a statement: the API request, when the API's
-       * request-cost middleware opened it. Absent outside every scope.
+       * The HTTP request the statement ran in, numbered from 1 in the order
+       * requests first send a statement: the scope the API's request-cost
+       * middleware marks, inside any counter a test opens around it. Outside
+       * every request, the outermost counter; absent outside every counter.
        */
       readonly request?: number;
+      /**
+       * Managed database transaction number within this capture, numbered
+       * from 1 in order of first statement. Omitted outside transactions.
+       */
+      readonly tx?: number;
+    }
+  | {
+      /** A canary phase started: statements from here to `phaseEnd` belong to it. */
+      readonly phaseStart: string;
     }
   | {
       /** A canary phase ended: its `[dual-pane-request-metrics]` label. */
       readonly phaseEnd: string;
       readonly requests: number;
+    }
+  | {
+      /** Route template for one HTTP request scope, emitted when it completes. */
+      readonly requestScope: number;
+      readonly method: string;
+      readonly route: string;
+      readonly status: number;
     }
   | { readonly truncated: number };
 
@@ -40,7 +57,17 @@ export interface StatementRecorder {
     sql: string,
     parameters: readonly unknown[],
     scope: object | undefined,
+    transaction?: object | undefined,
   ): void;
+  requestScope(
+    scope: object,
+    meta: {
+      readonly method: string;
+      readonly route: string;
+      readonly status: number;
+    },
+  ): void;
+  phaseStart(label: string): void;
   phaseEnd(label: string, requests: number): void;
 }
 
@@ -70,6 +97,15 @@ export function createStatementRecorder(
     requests.set(scope, requestCount);
     return requestCount;
   };
+  const transactions = new WeakMap<object, number>();
+  let transactionCount = 0;
+  const transactionNumber = (transaction: object): number => {
+    const known = transactions.get(transaction);
+    if (known !== undefined) return known;
+    transactionCount += 1;
+    transactions.set(transaction, transactionCount);
+    return transactionCount;
+  };
   const record = (entry: CaptureRecord) => {
     if (written > options.limit) return;
     written += 1;
@@ -81,7 +117,7 @@ export function createStatementRecorder(
     startTest() {
       testNumber += 1;
     },
-    statement(sql, parameters, scope) {
+    statement(sql, parameters, scope, transaction) {
       record({
         label: options.label() ?? `test-${testNumber}`,
         sql,
@@ -90,7 +126,21 @@ export function createStatementRecorder(
           ? { paramHash: hashParameters(hashKey, parameters) }
           : {}),
         ...(scope === undefined ? {} : { request: requestNumber(scope) }),
+        ...(transaction === undefined
+          ? {}
+          : { tx: transactionNumber(transaction) }),
       });
+    },
+    requestScope(scope, meta) {
+      record({
+        requestScope: requestNumber(scope),
+        method: meta.method,
+        route: meta.route,
+        status: meta.status,
+      });
+    },
+    phaseStart(label) {
+      record({ phaseStart: label });
     },
     phaseEnd(label, requests) {
       record({ phaseEnd: label, requests });
@@ -99,6 +149,23 @@ export function createStatementRecorder(
 }
 
 const metricsMarker = "[dual-pane-request-metrics] ";
+const phaseStartMarker = "[dual-pane-request-phase-start] ";
+
+/** The phase label a `[dual-pane-request-phase-start]` line opens, or null. */
+export function phaseStartFromConsole(args: readonly unknown[]): string | null {
+  const [first] = args;
+  if (typeof first !== "string" || !first.startsWith(phaseStartMarker))
+    return null;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(first.slice(phaseStartMarker.length));
+  } catch {
+    return null;
+  }
+  if (typeof payload !== "object" || payload === null) return null;
+  const label: unknown = Reflect.get(payload, "label");
+  return typeof label === "string" ? label : null;
+}
 
 /**
  * The phase a canary's metrics line closes, or null for any other line. A

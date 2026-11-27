@@ -34,22 +34,41 @@ adding an update. The mechanism is the one
   refreshes it after a peer's link change or rotation whose hint was lost. A
   record with no key bundle has completed no pull and is not covered.
 - Durability. The debt is written to `document_listing_revalidations`, at the
-  listed count, before the listed row is applied and before the lane's
-  watermark advances past it. Applying a row whose access epoch moved drops
-  the key bundle the record held, which would hide that move from a later
-  check. A listing read from a lagging replica never lowers a debt.
+  listed count and the listed head's access epoch, before the listed row is
+  applied and before the lane's watermark advances past it. Applying a row
+  whose access epoch moved drops the key bundle the record held, which would
+  hide that move from a later check. A listing read from a lagging replica
+  never lowers a debt. A pause or a newer sweep that skips any of the
+  listing's writes stops the listing, even once the pause is lifted: none of
+  its later writes apply and its watermark stays.
+- One debt per record. After an identity recovery or a relink, two records
+  can name one server document, each with its own cursor and key bundle. Each
+  record the listing shows behind owes its own read, and a store reads and
+  settles only its own record's. A record whose store is displaced and never
+  opens keeps its debt, and no other store waits on it: no listing can show
+  that record caught up without a read. The listing that writes a debt and
+  the catch-up both ask only a loaded store whose own record owes, so the
+  debt costs the document's other store nothing. The displaced record's
+  store pays the debt when it opens, and the debt is forgotten once the
+  record is gone or names another document.
 - Who reads. Once the debt is durable and the listing's rows have applied,
-  the document's registered store is asked to probe. A listing superseded
-  before it applied asks nobody: the debt stays, and the catch-up that ends
-  the sweep asks every store a debt names. A store that opens later reads its
-  document's debt when its record loads, and a store that knows of a debt is
-  not covered until it settles.
+  each loaded store whose own record the listing owed is asked to probe. A
+  listing superseded before it applied asks nobody: the debt stays, and the
+  catch-up that ends the sweep asks every store a debt names. A store that
+  opens later reads its document's debt when its record loads, and a store
+  that knows of a debt is not covered until it settles.
 - Settling. A completed pull settles the debt it saw before its request, and
   only once the cursor that pull saved counts as many updates as the listing
-  advertised. A replica lagging the listing can answer without the edit; the
-  store then asks for one more pull two seconds later, and the debt otherwise
-  waits for the next pull, reconnect or restart. A debt at a count of 0 is
-  owed for the access head alone, and any completed pull settles it.
+  advertised and the manifest it saved beside the record's key bundle is the
+  listed head or a later one. Each head of a document has its own manifest
+  epoch, and a head move raises it, so a manifest at the listed epoch or past
+  it read that move, and a debt is not owed forever when the head moves
+  again. The key bundle itself can name an earlier manifest that the server
+  still admits and no read would reissue, so it is not what settles. A replica
+  lagging the listing can answer without the edit, or with the head from
+  before the move; the store then asks for one more pull two seconds later,
+  and the debt otherwise waits for the next pull, reconnect or restart. A
+  debt at a count of 0 is owed for the access head alone.
 - Coverage. Every write that changes what a pull or an attachment listing
   returns touches the document row, so the row is published past each of its
   lanes' watermarks. The same write republishes each container the document
@@ -59,6 +78,16 @@ adding an update. The mechanism is the one
   an explicit Refresh, or resuming a paused organization (`resumeSync` in
   `organizationMemberships.ts` runs the same full refresh), still forces
   every registered document.
+- Each launch. The initial document probe lists every lane from no
+  watermark at least once a launch, one request for every 32 lanes. It lists
+  a lane again when that listing failed, and every lane once more when the
+  reconciler stops and starts again. Its rows owe reads as a watermarked
+  listing's do. A watermarked listing is served only
+  the rows that moved, so the probe is what notices a record whose cursor or
+  head fell behind a row it was served before, such as one a local backup
+  restore put back. Its debts are durable before the open store of each owed
+  record is asked to pull; it applies no row and moves no watermark, and a
+  failure to write them leaves the probe's own work as it was.
 - Hints. A store reads hints only once its record has loaded and while a view
   hands it runtimes. The scope remembers which documents the hints it saw
   named, and a store whose document was named before its record loaded probes
@@ -74,14 +103,21 @@ adding an update. The mechanism is the one
   document in any listing: profiles carry member data kept to an
   organization's administrators, and reach a device by id from the roster. A
   listing of the roster profile container therefore vouches for nothing, and
-  a store of a roster profile probes as before.
+  a store of a roster profile probes as before. Coverage is decided by the
+  container, not the document, because a bound profile lives in that
+  container alone: the roster binds a profile only to a document in its
+  organization's profile container, and the server refuses a link set that
+  moves a bound document out of it, so no listing of another container omits
+  one.
 - Withheld cursors. A listing owes a read only to a row it is served, and a
   row behind its lane's watermark is not served again. A record that holds a
   [processed cursor its next pull withholds](./advisory-op-spans.md#the-processed-cursor)
   (the device now runs another judge, or its content was restored to an
   older version) owes the pull that judges its updates again, so its store
   probes when it loads and after each acknowledged connection until a pull
-  leaves a cursor the next one would send.
+  leaves a cursor the next one would send. A store reads the cursor again
+  each time its record loads, so a store reset and reloaded over a cursor
+  another runtime has since made sendable is covered again.
 - Attachments. Attachment bytes download after a sync response, so a document
   that names an attachment whose bytes the device does not hold also probes.
 - No-brick. The read is this device's own pull, with its stored commit
@@ -118,40 +154,63 @@ crawl that the same acknowledgement starts already says which folders moved.
   known while that record is read was not tested, so it is neither listed
   nor counted as reconciled, and the next listing of it finds it owed.
 - While it waits. Nothing says yet whether a lane that was known at the
-  acknowledgement moved, so unforced work on those lanes is deferred, not
-  sent: one queued for an idle listing stays queued for the catch-up's sweep,
-  and a root refresh (Explorer opening, a share hint) lists the root lane and
-  leaves them to the catch-up. Listed at once all the same: a hint's lane, a
-  folder the user opens during the wait, a lane that was already owed a
-  listing when the acknowledgement arrived, and a lane found since, which no
-  crawl can vouch for (a new device's folders become known while it boots,
-  after its connection was acknowledged). The wait takes no turn among the
-  sweeps, so a root or full refresh runs beside it and does not end it. The
-  deferral lasts until the catch-up's sweep takes its turn, so a root sweep
-  ahead of it in line lists none of its lanes either. An acknowledgement that
-  arrives during the wait shares it. One that arrives after the crawl settled
+  acknowledgement moved, so unforced work on those lanes is deferred, not sent:
+  one queued for an idle listing stays queued for the catch-up's sweep, and a
+  root refresh (Explorer opening, a share hint) lists the root lane and leaves
+  them to the catch-up. Listed at once all the same: a hint's lane, a folder the
+  user opens during the wait, a lane that was already owed a listing when the
+  acknowledgement arrived, and a lane found since, which no crawl can vouch for
+  (a new device's folders become known while it boots, after its connection was
+  acknowledged). The wait takes no turn among the sweeps, so a root or full
+  refresh runs beside it and does not end it. The deferral lasts until the
+  catch-up's sweep has read its plan and taken the queue entries the plan
+  covers, so a root sweep ahead of it in line lists none of its lanes either,
+  and the lane lists none the sweep is about to list. A turn that has not come
+  15 seconds after the crawl settled (a sweep ahead of it is stuck on its tree
+  listing) ends the deferral early; the sweep still runs when its turn comes. A
+  turn that has come keeps the deferral while the plan is read, however slow the
+  read. An acknowledgement that arrives during the wait shares it, and a listing
+  sent before it no longer counts for the fallback below: it may have missed a
+  write made while the socket was down. One that arrives after the crawl settled
   supersedes the catch-up and waits on a crawl of its own: the earlier sweep
-  then lists nothing and counts nothing as reconciled.
+  then lists nothing, counts nothing as reconciled and wakes no lane, and a lane
+  listed at once for it waits for the new crawl.
 - Settling. A listing reads its lane's request before it is sent and settles
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been
-  answered before the write behind it, so each listing is a request of its
-  own: it carries lane ids no other request has, and the API client never
-  answers it from an identical request still in flight. A request whose
-  settling fails stays owed, and the listing still counts as applied.
+  answered before the write behind it, so each listing says it is a request
+  of its own (`ownRequest`): it carries lane ids no other request has, and
+  the API client never answers it from an identical request still in
+  flight. Only a listing that settles nothing may share one (`mayJoin`). A
+  request whose settling fails stays owed, and the listing still counts as
+  applied. A lane's row is written only while its container is stored, so a
+  listing in flight across the container's delete settles nothing after the
+  cascade cleared the row.
 - Fallback. When the crawl did not list every lane it queued, did not settle
-  within 15 seconds (it cannot start while the store is not ready or after
-  the socket dropped again), the host reports no crawl, or the crawl's
-  outcome or the owed record cannot be read, nothing vouches for the lanes
-  it was not served, and the catch-up lists every known lane, as it did
-  before lanes were owed listings.
+  within 15 seconds (it cannot start while the store is not ready or after the
+  socket dropped again), the host reports no crawl, or the crawl's outcome or
+  the owed record cannot be read, nothing vouches for the lanes it was not
+  served, and the catch-up lists every known lane, as it did before lanes were
+  owed listings, except one a listing sent after the latest acknowledgement
+  already listed with no candidate left pending (a full refresh beside the
+  wait, or a hint's lane) and no hint has forced since. A row the client
+  refuses each time it is served leaves every reconnect crawl incomplete, so
+  while that row stays, every catch-up takes this fallback. When the database
+  closes under the wait, the catch-up lists nothing.
 - Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's
   owes lanes the same way and lists nothing for them at once. The request is
   durable, so the next catch-up lists the lane, as does the owed-lane resume
   of a start that never connects, and a listing of that lane sent for any
   other reason settles it. That is when a lost hint was recovered before
-  lanes were owed listings: at the next acknowledged connection. A hint that
-  arrives still forces its own lanes.
+  lanes were owed listings: at the next acknowledged connection. A row this
+  device's own write republished owes its lane the same way, so that listing
+  is paid at the next acknowledged connection or start, where it finds
+  nothing new. A hint that arrives still forces its own lanes.
+- Another tab's listings. A catch-up reloads no rows for a lane the crawl
+  vouched for, so folder contents another tab sharing the database listed
+  and saved reach this tab only when it next lists or reloads that lane.
+  Before lanes were owed listings, every catch-up reloaded every lane's rows
+  from disk.
 - Not covered, before or after. Access gained or lost through a principal
   policy changes a row's effective access level without republishing
   anything, so neither a listing from a watermark nor this mechanism sees it;
@@ -179,10 +238,14 @@ settled: the store is asked for one pull. That pull cites the store's own
 version, because the shared cursor was recorded with a version the store does
 not cover and is withheld, so the server returns what the copy lacks. With
 one tab, a store's document always holds what its record has on disk, and the
-comparison asks for nothing. A local edit another tab has saved and not yet
-submitted cannot be pulled; it arrives with the hint for its accepted write.
-The catch-up also forgets debts of documents the device no longer holds a
-record of, and lane requests of containers it does not store.
+comparison asks for nothing. It is not gated on a sign that another tab wrote:
+with 10,000 open documents a catch-up's checks took about 30 ms and 15
+statements, against SQLite in the same process, nearly all of it comparing
+each document in memory with its frontier, and about 4 ms with 1,000. A local
+edit another tab has saved and not yet submitted cannot be pulled; it arrives
+with the hint for its accepted write.
+The catch-up also forgets debts of records the device no longer holds, or that
+now name another document, and lane requests of containers it does not store.
 [SharedDatabaseListing](../formal/document-sync/SharedDatabaseListing.md)
 models the two tabs.
 

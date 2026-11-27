@@ -93,6 +93,7 @@ export {
   type PendingWriteQueueItemStatus,
   type PendingWriteQueueObjectKind,
   type PendingWriteQueueOperation,
+  type PendingWriteQueueOperationBlockedReason,
   type PendingWriteQueueOperationKind,
   type PendingWriteQueueOperationStatus,
 } from "./pendingWrites";

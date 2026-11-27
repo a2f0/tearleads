@@ -34,8 +34,10 @@ import { STAGED_BASELINE_NEGATIVE_CONTROLS } from "./protocolStagedBaselineNegat
 import { STAGE_PROMOTION_NEGATIVE_CONTROLS } from "./protocolStagePromotionNegativeControls";
 import { SYNC_LANE_NEGATIVE_CONTROLS } from "./protocolSyncLaneNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
+import { SYSTEM_SLOT_FOLD_NEGATIVE_CONTROLS } from "./protocolSystemSlotFoldNegativeControls";
 import { TERMINAL_ANCHOR_NEGATIVE_CONTROLS } from "./protocolTerminalAnchorNegativeControls";
 import { TOMBSTONE_NEGATIVE_CONTROLS } from "./protocolTombstoneNegativeControls";
+import { TRANSACTION_LEASE_NEGATIVE_CONTROLS } from "./protocolTransactionLeaseNegativeControls";
 import { VOID_UPDATE_NEGATIVE_CONTROLS } from "./protocolVoidUpdateNegativeControls";
 
 /**
@@ -49,6 +51,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ANCESTOR_RECOVERY_NEGATIVE_CONTROLS,
   ...PURGE_SCOPE_NEGATIVE_CONTROLS,
   ...SESSION_RETRY_NEGATIVE_CONTROLS,
+  ...TRANSACTION_LEASE_NEGATIVE_CONTROLS,
   ...STAGE_PROMOTION_NEGATIVE_CONTROLS,
   ...SYNC_LANE_NEGATIVE_CONTROLS,
   ...HISTORY_NEGATIVE_CONTROLS,
@@ -209,6 +212,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A writable parent in another organization cannot authorize container creation or movement (#2266).",
   },
   ...SYSTEM_DESTINATION_NEGATIVE_CONTROLS,
+  ...SYSTEM_SLOT_FOLD_NEGATIVE_CONTROLS,
   ...TERMINAL_ANCHOR_NEGATIVE_CONTROLS,
   {
     id: "container-delete-without-live-row-check",

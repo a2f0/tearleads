@@ -98,25 +98,26 @@ export async function loadDocumentListingCoverage(
     applyOwedReadEvent(state, { read: null, type: "observed" });
     return false;
   }
-  const owed = await findOwedDocumentListingRead(
-    state.runtime.infra.execSql,
-    record.documentId,
-  );
+  const { execSql } = state.runtime.infra;
+  const owed = await findOwedDocumentListingRead(execSql, {
+    documentId: record.documentId,
+    localId: state.localId,
+  });
   if (!isCurrent()) return false;
   applyOwedReadEvent(state, { read: owed, type: "observed" });
   // A listing owes a read only to a row it is served. A record whose cursor
   // stopped counting since its last pull owes one no listing will ask for.
+  // The load reads the cursor as it stands, so a store reset and reloaded
+  // over a cursor its next pull would send again is no longer withheld. A
+  // record with no completed pull is not covered whatever its cursor says.
   if (owed === null && hasPersistedRemoteDocumentSyncState(record)) {
-    const withheld = await isDocumentProcessedCursorWithheld(
-      state.runtime.infra.execSql,
-      {
-        documentId: record.documentId,
-        frontier: record.snapshotEndVersion,
-        localId: state.localId,
-      },
-    );
+    const withheld = await isDocumentProcessedCursorWithheld(execSql, {
+      documentId: record.documentId,
+      frontier: record.snapshotEndVersion,
+      localId: state.localId,
+    });
     if (!isCurrent()) return false;
-    if (withheld) applyOwedReadEvent(state, { type: "cursorWithheld" });
+    applyOwedReadEvent(state, { type: "cursorRead", withheld });
   }
   observeDocumentListingHints(state);
   const hinted = coverage(state).takeHint(record.documentId);
@@ -126,8 +127,8 @@ export async function loadDocumentListingCoverage(
 /**
  * The debt a pull is about to answer, read before its request so a newer
  * request made meanwhile survives. Only a remote probe or a store that
- * already knows of a debt reads it: a listing that owes a read asks the
- * registered store to probe.
+ * already knows of a debt reads it: a listing that owes a read asks each
+ * owed record's loaded store to probe.
  */
 export async function findOwedListingReadBeforePull(
   state: DocumentStoreState,
@@ -135,10 +136,10 @@ export async function findOwedListingReadBeforePull(
   input: { readonly documentId: string; readonly remoteProbe: boolean },
 ): Promise<DocumentListingRevalidation | null> {
   if (!input.remoteProbe && !owedReadStates.has(state)) return null;
-  const owed = await findOwedDocumentListingRead(
-    generation.execSql,
-    input.documentId,
-  );
+  const owed = await findOwedDocumentListingRead(generation.execSql, {
+    documentId: input.documentId,
+    localId: state.localId,
+  });
   // A pass that was superseded while it read says nothing about the store.
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return owed;
   applyOwedReadEvent(state, { read: owed, type: "observed" });
@@ -171,10 +172,7 @@ export async function settleOwedListingReadAfterCompletedPull(
   await settleWithheldCursorAfterPull(state, generation, input.frontier);
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return;
   if (input.owed === null) return;
-  await settleOwedListingReadAfterPull(state, generation, {
-    frontier: input.frontier,
-    owed: input.owed,
-  });
+  await settleOwedListingReadAfterPull(state, generation, input.owed);
 }
 
 /**
@@ -198,37 +196,35 @@ async function settleWithheldCursorAfterPull(
   if (withheld || !isDocumentStoreSyncGenerationCurrent(state, generation)) {
     return;
   }
-  applyOwedReadEvent(state, { type: "pullCompleted" });
+  applyOwedReadEvent(state, { type: "cursorRead", withheld: false });
 }
 
 /**
- * Settles the debt a completed pull observed, once the processed cursor the
- * pull saved covers the count the listing advertised. A replica that lags the
- * listing can answer without the edit: the debt then stays, the store asks
- * for one later pull, and until it settles no listing covers the store.
+ * Settles the debt a completed pull observed, once the record pays it: the
+ * processed cursor the pull saved covers the count the listing advertised,
+ * and the manifest it saved is the head the listing showed or a later one.
+ * A replica that lags the listing can answer without the edit or the head:
+ * the debt then stays, the store asks for one later pull, and until it
+ * settles no listing covers the store.
  */
 async function settleOwedListingReadAfterPull(
   state: DocumentStoreState,
   generation: DocumentStoreSyncGeneration,
-  input: {
-    readonly frontier: string;
-    readonly owed: DocumentListingRevalidation;
-  },
+  owed: DocumentListingRevalidation,
 ): Promise<void> {
-  const settled = await settleCoveredDocumentListingRead(generation.execSql, {
-    frontier: input.frontier,
-    localId: state.localId,
-    owed: input.owed,
-  });
+  const settled = await settleCoveredDocumentListingRead(
+    generation.execSql,
+    owed,
+  );
   // A superseded pass leaves the store's own state to the pass after it,
   // which reads the debt again.
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return;
   if (settled) {
-    applyOwedReadEvent(state, { read: input.owed, type: "paid" });
+    applyOwedReadEvent(state, { read: owed, type: "paid" });
     return;
   }
   const { next, previous } = applyOwedReadEvent(state, {
-    read: input.owed,
+    read: owed,
     type: "unpaid",
   });
   // One later pull per debt revision; a renewed debt's listing asked for

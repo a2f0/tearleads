@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
+import type { DatabaseConnectionRegistryOptions } from "@tearleads/sqlite-worker/database-connections";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
+import { createSharedWorkerSqliteConnections } from "../../../../test/helpers/data/sharedWorkerSqliteConnections";
+import { isDatabaseTransactionBusyError } from "../../sqlite/availability/databaseUnavailable";
 import {
   type ClientSQLitePersistenceRuntime,
   createClientSQLitePersistenceRuntime,
@@ -26,62 +29,32 @@ async function openTestConnection(input: {
   };
 }
 
-async function openCoordinatedConnections(key: string) {
-  const db = await initTestSqliteDatabase({
-    cipher: "chacha20",
-    dbName: `/${crypto.randomUUID()}.db`,
-    key,
-  });
-  let transactionOwner: symbol | null = null;
-  let transactionReleased: Promise<void> = Promise.resolve();
-  let releaseTransaction = () => {};
+async function openCoordinatedConnections(
+  key: string,
+  options: {
+    readonly leaseBounds?:
+      | DatabaseConnectionRegistryOptions["leaseBounds"]
+      | undefined;
+  } = {},
+) {
   const beginStatements: string[] = [];
-  const createRuntime = (): ClientSQLitePersistenceRuntime => {
-    const owner = Symbol("pane-executor");
-    return createClientSQLitePersistenceRuntime({
-      exec: async (options) => {
-        const command = options.sql.trim().toUpperCase();
-        const beginsTransaction = command.startsWith("BEGIN");
-        const endsTransaction =
-          command.startsWith("COMMIT") || command.startsWith("ROLLBACK");
-        if (beginsTransaction) {
-          beginStatements.push(command);
-          while (transactionOwner !== null && transactionOwner !== owner) {
-            await transactionReleased;
-          }
-          if (transactionOwner === null) {
-            transactionOwner = owner;
-            transactionReleased = new Promise<void>((resolve) => {
-              releaseTransaction = resolve;
-            });
-          }
-        } else {
-          while (transactionOwner !== null && transactionOwner !== owner) {
-            await transactionReleased;
-          }
-        }
-        try {
-          return {
-            rows: execDatabaseStatement(db, options) as Array<
-              SqlRow | SqlArrayRow
-            >,
-          };
-        } finally {
-          if (endsTransaction && transactionOwner === owner) {
-            transactionOwner = null;
-            releaseTransaction();
-          }
-        }
-      },
-    });
-  };
-  const first = createRuntime();
+  const shared = createSharedWorkerSqliteConnections({
+    beforeExec: ({ command }) => {
+      if (command.startsWith("BEGIN")) {
+        beginStatements.push(command.trimEnd());
+      }
+    },
+    key,
+    leaseBounds: options.leaseBounds,
+  });
+  const first = await shared.connect("first");
   await sqlContainerContentsPersistence.ensureSchema(first.execSql);
+  const second = await shared.connect("second");
   return {
     beginStatements,
-    close: () => db.close(),
+    close: () => shared.close(),
     first,
-    second: createRuntime(),
+    second,
   };
 }
 
@@ -178,51 +151,59 @@ test("a stale metadata mutation cannot erase a hydrated creation timestamp", asy
   }
 });
 
+async function seedMetadataState(
+  execSql: ClientSQLitePersistenceRuntime["execSql"],
+  id: string,
+  metadataDocumentId: string,
+) {
+  await sqlContainerContentsPersistence.saveContainer(
+    execSql,
+    {
+      effectiveAccessLevel: "write",
+      icon: null,
+      id,
+      metadataDocumentId,
+      name: "Base",
+      organizationId: "organization-1",
+      parentId: null,
+    },
+    {
+      accessEpoch: 1,
+      accessStateHash: "access-1",
+      documentId: metadataDocumentId,
+      id,
+      metadataUpdates: "base",
+      snapshotEndVersion: "base-version",
+    },
+    { localUpdatedAt: T1 },
+  );
+  const expected =
+    await sqlContainerContentsPersistence.loadContainerMetadataState(
+      execSql,
+      id,
+    );
+  if (!expected?.record) throw new Error("Expected initial metadata state");
+  return { container: expected.container, record: expected.record };
+}
+
 test("overlapping metadata CAS writes return one conflict without busy-snapshot", async () => {
   const { beginStatements, close, first, second } =
     await openCoordinatedConnections("metadata-cas-overlap");
   try {
-    const container = {
-      effectiveAccessLevel: "write" as const,
-      icon: null,
-      id: "container-overlap",
-      metadataDocumentId: "metadata-overlap",
-      name: "Base",
-      organizationId: "organization-1",
-      parentId: null,
-    };
-    const record = {
-      accessEpoch: 1,
-      accessStateHash: "access-1",
-      documentId: "metadata-overlap",
-      id: container.id,
-      metadataUpdates: "base",
-      snapshotEndVersion: "base-version",
-    };
-    await sqlContainerContentsPersistence.saveContainer(
+    const expected = await seedMetadataState(
       first.execSql,
-      container,
-      record,
-      { localUpdatedAt: T1 },
+      "container-overlap",
+      "metadata-overlap",
     );
-    const expected =
-      await sqlContainerContentsPersistence.loadContainerMetadataState(
-        first.execSql,
-        container.id,
-      );
-    const expectedRecord = expected?.record;
-    if (!expected || !expectedRecord) {
-      throw new Error("Expected initial metadata state");
-    }
     beginStatements.length = 0;
     const mutate = (execSql: typeof first.execSql, suffix: string) =>
       sqlContainerContentsPersistence.commitMetadataMutation(execSql, {
         acceptedPendingUpdateIds: [],
         container: { ...expected.container, name: suffix },
         expectedContainer: expected.container,
-        expectedRecord,
+        expectedRecord: expected.record,
         record: {
-          ...expectedRecord,
+          ...expected.record,
           metadataUpdates: suffix,
           snapshotEndVersion: `${suffix}-version`,
         },
@@ -239,7 +220,48 @@ test("overlapping metadata CAS writes return one conflict without busy-snapshot"
     expect(results.filter(({ committed }) => !committed)).toHaveLength(1);
     expect(beginStatements).toEqual(["BEGIN IMMEDIATE", "BEGIN IMMEDIATE"]);
   } finally {
-    close();
+    await close();
+  }
+});
+
+test("a metadata CAS write refused busy is not a conflict verdict and retries cleanly", async () => {
+  const { close, first, second } = await openCoordinatedConnections(
+    "metadata-cas-busy",
+    { leaseBounds: { idleMs: 60_000, waitMs: 50 } },
+  );
+  try {
+    const expected = await seedMetadataState(
+      first.execSql,
+      "container-busy",
+      "metadata-busy",
+    );
+    const rename = () =>
+      sqlContainerContentsPersistence.commitMetadataMutation(second.execSql, {
+        acceptedPendingUpdateIds: [],
+        container: { ...expected.container, name: "Renamed" },
+        expectedContainer: expected.container,
+        expectedRecord: expected.record,
+        record: {
+          ...expected.record,
+          metadataUpdates: "renamed",
+          snapshotEndVersion: "renamed-version",
+        },
+        saveOptions: { localUpdatedAt: T2 },
+        settleAcceptedPendingOnConflict: false,
+      });
+
+    await first.execSql("BEGIN IMMEDIATE");
+    const refused = await rename().then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(isDatabaseTransactionBusyError(refused)).toBe(true);
+
+    await first.execSql("ROLLBACK");
+    await expect(rename()).resolves.toMatchObject({ committed: true });
+  } finally {
+    await first.execSql("ROLLBACK").catch(() => undefined);
+    await close();
   }
 });
 

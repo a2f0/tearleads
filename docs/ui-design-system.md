@@ -309,8 +309,9 @@ it. Every confirmation, prompt, and detail view renders through the primitives
 in
 [`MiniAppModal.tsx`](../packages/app/src/components/mini-app/overlays/MiniAppModal.tsx):
 `MiniAppModalBackdrop`, `MiniAppModalPanel`, and `MiniAppModalForm`, with
-`MiniAppModalBusyOverlay` while an action runs and `MiniAppDetailModal` for a
-read-only drill-down. Do not hand-roll a backdrop or re-declare a panel's
+`MiniAppModalBusyOverlay` while an action runs, and `MiniAppDetailModal` in
+[`MiniAppDetailModal.tsx`](../packages/app/src/components/mini-app/overlays/MiniAppDetailModal.tsx)
+for a read-only drill-down. Do not hand-roll a backdrop or re-declare a panel's
 size in feature CSS.
 
 - The backdrop paints an opaque surface over its region, and the panel fills

@@ -8,6 +8,7 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
 import { openExplorer } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import {
+  delayInterestAcknowledgements,
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/msw/server";
@@ -32,6 +33,9 @@ import type { ProxiedApiRequestBudget } from "../../../../test/helpers/proxiedAp
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
+
+/** The measured restart's interest acknowledgement latency. */
+const ACKNOWLEDGEMENT_LATENCY_MS = 300;
 
 test("restart storage survives a closed and terminated worker", async () => {
   const storage = createPersistedPaneStorage();
@@ -91,9 +95,29 @@ async function measureRestart(input: {
   // Holds one tree request, the next one sent: the measured restart's crawl.
   let crawlAnswers: Promise<void> | undefined;
   let crawlHeld = false;
+  let restarted: ReturnType<typeof renderLifecyclePane> | undefined;
+  // Document listings and syncs the measured restart sent before its
+  // connection was acknowledged: the acknowledgement's catch-up decides which
+  // lanes to list and which opened documents to read.
+  const sentBeforeAcknowledgement: string[] = [];
+  const measuredConnectionGeneration = () => {
+    try {
+      return restarted?.sdk().events.connectionGeneration;
+    } catch {
+      return 0;
+    }
+  };
   useTestApiAppHandlers({
     holdRequest: (request) => {
-      if (new URL(request.url).pathname !== "/containers/parent-lanes/query") {
+      const { pathname } = new URL(request.url);
+      if (
+        (pathname === "/containers/documents/query" ||
+          /^\/documents\/[^/]+\/sync$/u.test(pathname)) &&
+        measuredConnectionGeneration() === 0
+      ) {
+        sentBeforeAcknowledgement.push(`${request.method} ${pathname}`);
+      }
+      if (pathname !== "/containers/parent-lanes/query") {
         return undefined;
       }
       const held = crawlAnswers;
@@ -151,7 +175,6 @@ async function measureRestart(input: {
     await expectWorkersClosed(1 + restart);
   }
 
-  let restarted: ReturnType<typeof renderLifecyclePane> | undefined;
   const requests = await measureWorkflowRequests({
     label: input.label,
     budget: input.budget,
@@ -161,6 +184,10 @@ async function measureRestart(input: {
       if (input.rootRefreshBeforeCrawl) {
         crawlAnswers = rootRefreshRequested.promise;
       }
+      // A hub acknowledges a round trip after the declaration, and the tree
+      // loads first: whatever the restart lists before the acknowledgement
+      // reaches the server inside this window.
+      delayInterestAcknowledgements(ACKNOWLEDGEMENT_LATENCY_MS);
       const second = renderLifecyclePane(hostConfig);
       restarted = second;
       await waitForSinglePaneProvisioning(second.pane);
@@ -202,6 +229,8 @@ async function measureRestart(input: {
           .listPendingWrites(),
       ).toEqual([]);
       await waitForLifecycleTreeCrawl(second.sdk());
+      // The catch-up's sweep and the initial probe list after the crawl.
+      await waitForLifecycleQuiet();
       // Every row these lanes listed is this device's own write, which its
       // cursor already counts and whose access head its record names.
       expect(
@@ -216,6 +245,7 @@ async function measureRestart(input: {
   });
   expectLifecycleReads(requests);
   await expectNoLateLifecycleRequests();
+  expect(sentBeforeAcknowledgement).toEqual([]);
   expect(storage.initializedDatabaseNames).toHaveLength(2 + settledRestarts);
   expect(new Set(storage.initializedDatabaseNames).size).toBe(1);
   invariant(restarted, "Expected restarted pane");
@@ -227,12 +257,12 @@ async function measureRestart(input: {
 
 test("a pane restart reconciles its persisted tree without replaying writes", async () => {
   // The first restart after the notes were created: their lanes list the
-  // rows those creates published, and each listed row's head is verified
-  // with one document writer-projection read. No note is synced: the cursor
-  // each create left covers the count its row lists.
+  // rows those creates published. No listed row's head is read back: each
+  // create saved the head it authored to the discovery head cache. No note
+  // is synced: the cursor each create left covers the count its row lists.
   await measureRestart({
     budget: {
-      total: 19,
+      total: 16,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
@@ -243,7 +273,7 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 1,
         "GET /containers/:containerId/writer-projection": 3,
-        "GET /documents/:documentId/writer-projection": 3,
+        "GET /documents/:documentId/writer-projection": 0,
         "POST /documents/:documentId/sync": 3,
       },
     },
@@ -256,12 +286,15 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
 // every restart after the first. The server holds nothing the device lacks,
 // so the tree crawl is served no folder's row and the catch-up after the
 // acknowledgement lists no document lane: no note is synced or has its head
-// read, and the cost is the same with two notes and with eight. The syncs
-// left are system-container documents. The two listings are one batch of
-// queued lanes and one unwatermarked batch for the initial probe. The tree
-// crawl is one request: it lists up to 32 parent lanes at once.
+// read, and the cost is the same with two notes and with eight. Nothing lists
+// before the acknowledgement: the lanes a regain queues and the startup probes
+// of the documents it opens wait for it, and its catch-up covers them. The
+// two listings are the lane of the container Explorer opens, which lists at
+// once, and one unwatermarked batch for the initial probe; the one sync is a
+// document no listing names. The tree crawl is one request: it lists up to 32
+// parent lanes at once.
 const SETTLED_RESTART_BUDGET: ProxiedApiRequestBudget = {
-  total: 11,
+  total: 10,
   byRequest: {
     "POST /auth/ws-ticket": 1,
     "GET /organization-memberships": 1,
@@ -273,7 +306,7 @@ const SETTLED_RESTART_BUDGET: ProxiedApiRequestBudget = {
     "GET /principals/history": 0,
     "GET /containers/:containerId/writer-projection": 2,
     "GET /documents/:documentId/writer-projection": 0,
-    "POST /documents/:documentId/sync": 2,
+    "POST /documents/:documentId/sync": 1,
   },
 };
 
@@ -307,13 +340,15 @@ test("a root refresh before the crawl answers costs a settled restart no listing
   // A root refresh arrives while the catch-up waits on the tree crawl. It
   // lists the root lane, which is one more tree request and policy read,
   // and leaves the document lanes to the catch-up, which the crawl then
-  // tells that nothing moved: no more document listings than without it.
+  // tells that nothing moved. Explorer opens once the probe has listed the
+  // lane it shows, so the probe is the one document listing.
   await measureRestart({
     budget: {
-      total: 13,
+      total: 11,
       byRequest: {
         ...SETTLED_RESTART_BUDGET.byRequest,
         "POST /containers/parent-lanes/query": 2,
+        "POST /containers/documents/query": 1,
         "GET /principals/organization/:organizationId/policy": 2,
       },
     },
@@ -333,7 +368,7 @@ test("the first restart after a local edit owes that note no read", async () => 
   // synced nor has its head read.
   await measureRestart({
     budget: {
-      total: 13,
+      total: 12,
       byRequest: {
         ...SETTLED_RESTART_BUDGET.byRequest,
         "POST /containers/documents/query": 3,

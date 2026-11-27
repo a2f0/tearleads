@@ -82,3 +82,51 @@ for (const intentType of ["create", "move"] as const) {
     }
   });
 }
+
+test("create intent holds roll back after generation expiry", async () => {
+  const database = await createTestExecSql(
+    "container-create-intent-hold-generation",
+  );
+  let transactionStarted = false;
+  const guardedExecSql = (async (...args: Parameters<ExecSql>) => {
+    const rows = await database.execSql(...args);
+    if (args[0].trim().toUpperCase().startsWith("BEGIN")) {
+      transactionStarted = true;
+    }
+    return rows;
+  }) as ExecSql;
+
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(database.execSql);
+    await database.execSql(
+      `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, intent_type, sync_status,
+        last_error, created_at, updated_at
+      ) VALUES ('intent-1', 'container.create', 'container-1', 'root', 'container.create',
+        'pending', 'previous error', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
+    );
+    await sqlContainerContentsPersistence.recordCreateIntentRevisionHold(
+      guardedExecSql,
+      {
+        containerId: "container-1",
+        expectedIntentId: "intent-1",
+        expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
+        hold: { status: "slotTaken" },
+        stillCurrent: () => !transactionStarted,
+      },
+    );
+    const [intent] =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(
+        database.execSql,
+      );
+    expect(intent).toMatchObject({
+      hold: { status: "none" },
+      lastAttemptedAt: null,
+      lastError: "previous error",
+      syncStatus: "pending",
+    });
+    expect(transactionStarted).toBe(true);
+  } finally {
+    database.close();
+  }
+});

@@ -1,4 +1,7 @@
-import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
+import {
+  recordRequestScopeMetadata,
+  withRequestStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import type { MiddlewareHandler } from "hono";
 import { routeTemplate } from "./requestContext";
 
@@ -17,6 +20,16 @@ function roundMilliseconds(milliseconds: number): number {
   return Math.round(milliseconds * 10) / 10;
 }
 
+function headerByteLength(
+  value: string | undefined | null,
+): number | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!/^\d+$/u.test(trimmed)) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
 /**
  * Time each request and the database work it issues, report both in a
  * `Server-Timing` header, and, when enabled, log one JSON line per request for
@@ -32,13 +45,25 @@ export function createRequestCostMiddleware(options: {
   readonly log: boolean;
 }): MiddlewareHandler {
   return async (c, next) => {
-    const counter = { statements: 0, waitMs: 0 };
+    const counter = { statements: 0, txStatements: 0, waitMs: 0 };
     const startedAt = performance.now();
-    await withDatabaseStatementCounter(counter, next);
+    await withRequestStatementCounter(counter, async () => {
+      try {
+        await next();
+      } finally {
+        recordRequestScopeMetadata(() => ({
+          method: c.req.method,
+          route: routeTemplate(c),
+          status: c.res.status,
+        }));
+      }
+    });
     const wallMs = roundMilliseconds(performance.now() - startedAt);
     const dbMs = roundMilliseconds(counter.waitMs);
     c.header(serverTimingHeaderName, `total;dur=${wallMs}, db;dur=${dbMs}`);
     if (options.log) {
+      const reqBytes = headerByteLength(c.req.header("content-length"));
+      const resBytes = headerByteLength(c.res.headers.get("content-length"));
       console.log(
         JSON.stringify({
           event: REQUEST_COST_EVENT,
@@ -46,8 +71,11 @@ export function createRequestCostMiddleware(options: {
           route: routeTemplate(c),
           status: c.res.status,
           statements: counter.statements,
+          txStatements: counter.txStatements,
           wallMs,
           dbMs,
+          ...(reqBytes !== undefined ? { reqBytes } : {}),
+          ...(resBytes !== undefined ? { resBytes } : {}),
         }),
       );
     }

@@ -18,10 +18,12 @@ export interface InitialDocumentProbeHost {
   /**
    * Each container's authoritative current document ids, read from no
    * watermark in one batched listing. A lane that could not be listed maps
-   * to `null` or is absent.
+   * to `null` or is absent. The device-first host's listing also owes reads
+   * to the records its rows show behind (`createProbeLaneListing`).
    */
   readonly listContainerDocumentIds: (
     containerIds: ReadonlyArray<string>,
+    options?: { readonly stillCurrent?: () => boolean },
   ) => Promise<ReadonlyMap<string, ReadonlyArray<string> | null>>;
   readonly probeUndiscoveredDocumentsBatch: (
     input: InitialDocumentProbeBatchInput,
@@ -303,7 +305,9 @@ async function listNextEligibleContainers(input: {
 
   let listed: ReadonlyMap<string, ReadonlyArray<string> | null>;
   try {
-    listed = await host.listContainerDocumentIds(containerIds);
+    listed = await host.listContainerDocumentIds(containerIds, {
+      stillCurrent: () => state.generation === runGeneration,
+    });
   } catch {
     listed = new Map();
   }

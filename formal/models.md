@@ -177,6 +177,12 @@ acknowledgments. See the [mapping and boundaries](./local-trust/UnacknowledgedIn
 models adopting a listed pending container create and the move it owes. See
 the [mapping](./local-trust/ContainerCreateAdoption.md).
 
+[`local-trust/SystemSlotFold.tla`](./local-trust/SystemSlotFold.tla) models a
+queued device-first system-container create that a sign-in or restore re-homes
+onto an account root that may already hold its slot: it waits for that root's
+listing or a bound, a taken slot is never posted twice, and the create settles.
+See the [mapping](./local-trust/SystemSlotFold.md).
+
 [`local-trust/ContainerMoveReplay.tla`](./local-trust/ContainerMoveReplay.tla)
 models a queued folder move whose accepted result is lost: the replay settles
 from the verified head without a second rotation, and the lost result schedules
@@ -282,6 +288,15 @@ checks that a delayed 401 for one identity never replays its request as
 another, and that a request whose callers all retired neither renews the
 session nor replays. See the
 [mapping and boundaries](./local-trust/SessionRetryIdentity.md).
+
+### Transaction Lease
+
+[`local-trust/TransactionLease.tla`](./local-trust/TransactionLease.tla)
+checks the SQLite worker's transaction lease: no other tab's statement runs
+inside a transaction on the shared handle, a refused statement never runs, a
+dead tab's transaction does not keep the lease, and a waiting statement runs
+or is refused, while a frozen holder is revoked. See the
+[mapping and boundaries](./local-trust/TransactionLease.md).
 
 ### Principal Acknowledgement Race
 

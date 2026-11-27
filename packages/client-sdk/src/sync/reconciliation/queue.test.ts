@@ -42,3 +42,19 @@ test("a filtered dequeue leaves what it rejects queued, in order", () => {
   expect(queue.dequeue()).toBe("active-1");
   expect(queue.dequeue()).toBe("idle-1");
 });
+
+test("a filtered drain takes what it accepts and leaves the rest queued", () => {
+  const queue = createReconcileQueue();
+  queue.enqueue("idle-1", "idle");
+  queue.enqueue("active-2", "active");
+  queue.enqueue("idle-2", "idle");
+
+  expect(queue.drain((id) => id.endsWith("-2"))).toEqual([
+    ["active-2", "active"],
+    ["idle-2", "idle"],
+  ]);
+  expect(queue.has("idle-1")).toBe(true);
+  expect(queue.has("idle-2")).toBe(false);
+  expect(queue.drain()).toEqual([["idle-1", "idle"]]);
+  expect(queue.size).toBe(0);
+});

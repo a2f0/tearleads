@@ -4,9 +4,12 @@ import type {
 } from "../../../workflows/container-contents/remoteHydration";
 import type { RemoteContainerHydrationState } from "../../../workflows/container-contents/remoteHydration/types";
 import type { LocalContainerRefreshState } from "../localRefresh";
+import type { ConnectAttemptGate } from "./connectAttemptGate";
 
 export type RemoteHydrationRequestState = RemoteContainerHydrationState &
   LocalContainerRefreshState & {
+    /** Holds the crawl that yields to the reconnect crawl; absent in bare states. */
+    connectAttemptGate?: ConnectAttemptGate | undefined;
     containerParentIdsNeedingHydration: Set<string | null>;
     initializePromise: Promise<void> | null;
     lifecycleGeneration: number;
@@ -26,13 +29,11 @@ export interface RemoteHydrationRequestInput {
   /**
    * Set for the crawl that regained sync prerequisites start. It lists what
    * the crawl after an acknowledged connection lists, so it does not start
-   * until a connect attempt in flight settles (`connectAttemptGate.ts`), and
-   * it is neither started nor retried while that crawl is owed. Returns
-   * whether it is.
+   * until a connect attempt in flight settles, and a superseded one is not
+   * retried while that crawl is owed: it waits behind it instead
+   * (`connectAttemptGate.ts`). Returns whether it is owed.
    */
   yieldsToReconnectCrawl?: (() => boolean) | undefined;
-  /** Set once the request has waited for its connect attempt. */
-  connectAttemptSettled?: true | undefined;
   ownsTreeReset?: () => boolean;
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;

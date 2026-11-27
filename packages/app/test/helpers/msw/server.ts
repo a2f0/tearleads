@@ -5,6 +5,8 @@ import { rootConsoleHandlers } from "../rootConsoleHandlers";
 import { recordUnhandledRequest } from "../unhandledRequests";
 import { authHandlers, resetMockAuth } from "./authHandlers";
 import {
+  clearDeliveredSocketEvents,
+  delayInterestAcknowledgements,
   drainSocketClients,
   eventRouter,
   eventsSocketHandler,
@@ -22,7 +24,11 @@ import { forgetTestApiApp, resetTestApiDatabase } from "./testApiApp";
 
 // The suite's MSW entry point: importing it starts the server, so tests and
 // helpers read the proxied-request log and the socket URL through it.
-export { wsUrl } from "./eventsSocket";
+export {
+  delayInterestAcknowledgements,
+  listDeliveredSocketEvents,
+  wsUrl,
+} from "./eventsSocket";
 export {
   getProxiedApiNetworkActivitySnapshot,
   listProxiedApiRequests,
@@ -78,6 +84,8 @@ export async function resetMockServer(
   forgetTestApiApp();
   resetMockAuth();
   eventRouter.clear();
+  clearDeliveredSocketEvents();
+  delayInterestAcknowledgements(0);
   clearProxiedApiRequests();
   server.resetHandlers();
 }

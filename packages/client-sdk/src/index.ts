@@ -159,6 +159,7 @@ export type {
   PendingWriteQueueItemStatus,
   PendingWriteQueueObjectKind,
   PendingWriteQueueOperation,
+  PendingWriteQueueOperationBlockedReason,
   PendingWriteQueueOperationKind,
   PendingWriteQueueOperationStatus,
   // Persistence notifications distinguish placement changes from content saves.

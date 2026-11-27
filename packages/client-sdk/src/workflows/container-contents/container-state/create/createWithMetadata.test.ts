@@ -251,7 +251,7 @@ test("container-with-metadata replans after the parent head advances", async () 
       runtime,
     });
 
-    if (created === CONTAINER_ALREADY_COMMITTED) {
+    if (typeof created === "symbol") {
       throw new Error("Expected a fresh container create, not an adoption");
     }
     expect(created?.containerId).toBe(containerId);

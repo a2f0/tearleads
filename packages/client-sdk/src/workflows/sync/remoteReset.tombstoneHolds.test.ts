@@ -83,8 +83,10 @@ test("remote reset clears tombstone holds with the link rows they hide", async (
     expect(await store.pending(["child"], 32)).toEqual([]);
     expect(await store.pending(["other-org"], 32)).toHaveLength(1);
     expect(await db.select().from(documentDiscoveryHeads)).toEqual([]);
+    // Each eviction takes an ordinal of its own so the eviction mark rises
+    // strictly past every earlier mark even with no `begin()` in between.
     expect(await db.select().from(documentDiscoverySequence)).toMatchObject([
-      { generation, invalidatedThrough: generation },
+      { generation: generation + 1, invalidatedThrough: generation + 1 },
     ]);
     expect(await store.stage([candidate], generation)).toBe(false);
     expect(await store.saveHead(candidate.documentId, head, generation)).toBe(

@@ -14,30 +14,47 @@
  * A hint's forced entry is not deferred. Neither is a container the user
  * opens meanwhile, whose documents are on screen, nor a lane that was already
  * owed a listing when the acknowledgement arrived: the crawl cannot vouch
- * for that one, so waiting for it would only delay the listing. The wait takes no turn among
- * the sweeps, so a root or full refresh runs beside it. Once the crawl has
- * settled the catch-up asks for a turn, and when the turn comes its sweep
- * takes the queue over and lists the owed lanes, or every known lane when
- * nothing vouched for the rest. Work stays deferred until that turn: a sweep
- * ahead of it in line would otherwise list lanes it is about to vouch for.
+ * for that one, so waiting for it would only delay the listing. The wait
+ * takes no turn among the sweeps, so a root or full refresh runs beside it.
+ * Once the crawl has settled the catch-up asks for a turn, and when the turn
+ * comes its sweep takes the queue over and lists the owed lanes, or every
+ * known lane when nothing vouched for the rest. Work stays deferred until
+ * that turn: a sweep ahead of it in line would otherwise list lanes it is
+ * about to vouch for. A turn that does not come within a bound (a sweep
+ * ahead of it is stuck on its tree listing) makes the catch-up overdue, and
+ * nothing waits for it from then on; its sweep still runs when its turn
+ * comes.
+ *
+ * A lane whose listing was sent after the acknowledgement and left no
+ * candidate pending read everything the crawl could say about it, so the
+ * catch-up keeps those lanes: when nothing vouches for the rest, its sweep
+ * lists every known lane but them. A later listing that leaves a candidate
+ * pending, or its retry timer firing, removes the lane from that set so the
+ * fallback does not swallow its retry. An acknowledgement the wait shares
+ * starts that record again: a listing sent before it may have missed a write
+ * made while the socket was down, so it counts only when no acknowledgement
+ * arrived after it was sent.
  *
  * | State | Event | Next |
  * | --- | --- | --- |
- * | idle | acknowledged | awaitingCrawl, with that wait and nothing opened |
- * | awaitingCrawl | acknowledged | unchanged: the wait in progress serves both |
- * | awaitingTurn | acknowledged | awaitingCrawl, with the new wait |
+ * | idle | acknowledged | awaitingCrawl, with that wait and nothing listed |
+ * | awaitingCrawl | acknowledged | the same wait, serving both, with nothing listed since |
+ * | awaitingTurn, overdue | acknowledged | awaitingCrawl, with the new wait and nothing listed |
  * | awaitingCrawl | crawlSettled, the same wait | awaitingTurn |
+ * | awaitingTurn | turnOverdue, the same wait | overdue |
  * | awaitingCrawl, awaitingTurn | opened | the same, with that container listed now |
  * | awaitingCrawl, awaitingTurn | alreadyOwed, the same wait | the same, with those lanes listed now |
- * | awaitingCrawl, awaitingTurn | turnTaken, the same wait | idle |
+ * | awaitingCrawl, awaitingTurn, overdue | listed, the same wait, acknowledgement and pending generation | the same, with those lanes listed since |
+ * | awaitingCrawl, awaitingTurn, overdue | pendingDiscovery | the same, without that lane in listed since and with its pending generation raised |
+ * | awaitingCrawl, awaitingTurn, overdue | turnTaken, the same wait | idle |
  * | any | stopped | idle |
  *
  * Every other pair leaves the state unchanged. An acknowledgement while a
  * catch-up awaits its turn starts a wait of its own: that catch-up's crawl
  * settled before this acknowledgement, so it says nothing about what moved
- * since. The caller cancels the earlier wait, whose sweep then lists and
- * vouches for nothing; its `turnTaken` names an older wait and changes
- * nothing here.
+ * since, and neither does what it listed at once. The caller cancels the
+ * earlier wait, whose sweep then lists and vouches for nothing; its
+ * `turnTaken` names an older wait and changes nothing here.
  */
 export interface CatchUpWait {
   /** Ends the wait at once, as when the service stops. */
@@ -48,9 +65,30 @@ export interface CatchUpWait {
   readonly promise: Promise<void>;
 }
 
+interface CatchUpListings {
+  /**
+   * How many acknowledgements the wait serves. A listing counts for the
+   * catch-up only when it was sent after the latest of them.
+   */
+  readonly acknowledgements: number;
+  /**
+   * Containers whose document lane a listing sent after the acknowledgement
+   * listed with no candidate left pending. Nothing a crawl could say about
+   * them is newer than that listing.
+   */
+  readonly listedSinceContainerIds: ReadonlySet<string>;
+  /**
+   * Per-container invalidation count bumped on `pendingDiscovery`. A listing
+   * that started before a container's pending retry carries an older count
+   * and cannot re-add that container when it finishes later.
+   */
+  readonly pendingGenerations: ReadonlyMap<string, number>;
+  readonly wait: CatchUpWait;
+}
+
 export type CatchUpState =
   | { readonly status: "idle" }
-  | {
+  | (CatchUpListings & {
       /**
        * Containers whose unforced listing does not wait: the user opened
        * them since the acknowledgement, or their lane was already owed a
@@ -58,18 +96,32 @@ export type CatchUpState =
        */
       readonly listedNowContainerIds: ReadonlySet<string>;
       readonly status: "awaitingCrawl" | "awaitingTurn";
-      readonly wait: CatchUpWait;
-    };
+    })
+  | (CatchUpListings & {
+      /** The crawl settled and the turn is overdue: nothing waits for it. */
+      readonly status: "overdue";
+    });
 
 export type CatchUpEvent =
   | { readonly type: "acknowledged"; readonly wait: CatchUpWait }
   | { readonly type: "crawlSettled"; readonly wait: CatchUpWait }
+  | { readonly type: "turnOverdue"; readonly wait: CatchUpWait }
   | { readonly containerId: string; readonly type: "opened" }
   | {
       readonly containerIds: ReadonlyArray<string>;
       readonly type: "alreadyOwed";
       readonly wait: CatchUpWait;
     }
+  | {
+      /** The wait's acknowledgements when the listing was sent. */
+      readonly acknowledgements: number;
+      readonly containerIds: ReadonlyArray<string>;
+      /** The wait's `pendingGenerations` when the listing was sent. */
+      readonly pendingGenerations: ReadonlyMap<string, number>;
+      readonly type: "listed";
+      readonly wait: CatchUpWait;
+    }
+  | { readonly containerId: string; readonly type: "pendingDiscovery" }
   | { readonly type: "turnTaken"; readonly wait: CatchUpWait }
   | { readonly type: "stopped" };
 
@@ -79,31 +131,125 @@ function afterAcknowledged(
   state: CatchUpState,
   wait: CatchUpWait,
 ): CatchUpState {
-  if (state.status === "awaitingCrawl") return state;
+  if (state.status === "awaitingCrawl") {
+    return {
+      ...state,
+      acknowledgements: state.acknowledgements + 1,
+      listedSinceContainerIds: new Set(),
+      pendingGenerations: new Map(),
+    };
+  }
   return {
-    listedNowContainerIds:
-      state.status === "idle" ? new Set() : state.listedNowContainerIds,
+    acknowledgements: 1,
+    listedNowContainerIds: new Set(),
+    listedSinceContainerIds: new Set(),
+    pendingGenerations: new Map(),
     status: "awaitingCrawl",
     wait,
   };
 }
 
-type PendingCatchUp = Exclude<CatchUpState, { readonly status: "idle" }>;
+/** Adds `containerIds` to `existing`, or keeps it when it holds them all. */
+function withAll(
+  existing: ReadonlySet<string>,
+  containerIds: ReadonlyArray<string>,
+): ReadonlySet<string> {
+  return containerIds.every((id) => existing.has(id))
+    ? existing
+    : new Set([...existing, ...containerIds]);
+}
+
+type ListingCatchUp = Exclude<CatchUpState, { readonly status: "idle" }>;
+
+function listedSince(
+  state: ListingCatchUp,
+  containerIds: ReadonlyArray<string>,
+  atRequest: ReadonlyMap<string, number>,
+): CatchUpState {
+  const eligible = containerIds.filter(
+    (id) =>
+      (state.pendingGenerations.get(id) ?? 0) === (atRequest.get(id) ?? 0),
+  );
+  const listed = withAll(state.listedSinceContainerIds, eligible);
+  return listed === state.listedSinceContainerIds
+    ? state
+    : { ...state, listedSinceContainerIds: listed };
+}
+
+function withoutListed(
+  state: ListingCatchUp,
+  containerId: string,
+): CatchUpState {
+  let listed = state.listedSinceContainerIds;
+  if (listed.has(containerId)) {
+    const next = new Set(listed);
+    next.delete(containerId);
+    listed = next;
+  }
+  const pendingGenerations = new Map(state.pendingGenerations);
+  pendingGenerations.set(
+    containerId,
+    (pendingGenerations.get(containerId) ?? 0) + 1,
+  );
+  return {
+    ...state,
+    listedSinceContainerIds: listed,
+    pendingGenerations,
+  };
+}
+
+type PendingCatchUp = Extract<
+  CatchUpState,
+  { readonly status: "awaitingCrawl" | "awaitingTurn" }
+>;
 
 function listingNow(
   state: PendingCatchUp,
   containerIds: ReadonlyArray<string>,
 ): PendingCatchUp {
-  if (containerIds.every((id) => state.listedNowContainerIds.has(id))) {
-    return state;
+  const listed = withAll(state.listedNowContainerIds, containerIds);
+  return listed === state.listedNowContainerIds
+    ? state
+    : { ...state, listedNowContainerIds: listed };
+}
+
+/** A wait in progress: what its crawl, its turn and the user do to it. */
+function transitionPending(
+  state: PendingCatchUp,
+  event: Exclude<
+    CatchUpEvent,
+    {
+      readonly type:
+        | "acknowledged"
+        | "listed"
+        | "pendingDiscovery"
+        | "stopped"
+        | "turnTaken";
+    }
+  >,
+): CatchUpState {
+  switch (event.type) {
+    case "crawlSettled":
+      return state.status === "awaitingCrawl" && state.wait === event.wait
+        ? { ...state, status: "awaitingTurn" }
+        : state;
+    case "turnOverdue":
+      return state.status === "awaitingTurn" && state.wait === event.wait
+        ? {
+            acknowledgements: state.acknowledgements,
+            listedSinceContainerIds: state.listedSinceContainerIds,
+            pendingGenerations: state.pendingGenerations,
+            status: "overdue",
+            wait: state.wait,
+          }
+        : state;
+    case "opened":
+      return listingNow(state, [event.containerId]);
+    case "alreadyOwed":
+      return state.wait === event.wait
+        ? listingNow(state, event.containerIds)
+        : state;
   }
-  return {
-    ...state,
-    listedNowContainerIds: new Set([
-      ...state.listedNowContainerIds,
-      ...containerIds,
-    ]),
-  };
 }
 
 export function transitionCatchUp(
@@ -115,20 +261,43 @@ export function transitionCatchUp(
     return afterAcknowledged(state, event.wait);
   }
   if (state.status === "idle") return state;
-  switch (event.type) {
-    case "crawlSettled":
-      return state.status === "awaitingCrawl" && state.wait === event.wait
-        ? { ...state, status: "awaitingTurn" }
-        : state;
-    case "opened":
-      return listingNow(state, [event.containerId]);
-    case "alreadyOwed":
-      return state.wait === event.wait
-        ? listingNow(state, event.containerIds)
-        : state;
-    case "turnTaken":
-      return state.wait === event.wait ? IDLE_CATCH_UP : state;
+  if (event.type === "turnTaken") {
+    return state.wait === event.wait ? IDLE_CATCH_UP : state;
   }
+  if (event.type === "listed") {
+    return state.wait === event.wait &&
+      state.acknowledgements === event.acknowledgements
+      ? listedSince(state, event.containerIds, event.pendingGenerations)
+      : state;
+  }
+  if (event.type === "pendingDiscovery") {
+    return withoutListed(state, event.containerId);
+  }
+  // Nothing waits for an overdue catch-up: only its turn, a listing, a
+  // pending retry, an acknowledgement or a stop moves it.
+  if (state.status === "overdue") return state;
+  return transitionPending(state, event);
+}
+
+/** The one place the catch-up's state is written. */
+export function dispatchCatchUp(
+  state: { catchUp: CatchUpState },
+  event: CatchUpEvent,
+): void {
+  state.catchUp = transitionCatchUp(state.catchUp, event);
+}
+
+/**
+ * The containers listed since `wait`'s acknowledgement, while `wait` is the
+ * current catch-up's.
+ */
+export function listedSinceAcknowledgement(
+  state: CatchUpState,
+  wait: CatchUpWait,
+): ReadonlySet<string> {
+  return state.status !== "idle" && state.wait === wait
+    ? state.listedSinceContainerIds
+    : new Set();
 }
 
 /**
@@ -136,14 +305,15 @@ export function transitionCatchUp(
  * the lane's queue or in a root sweep. Only a lane that was known at the
  * acknowledgement waits: the crawl is what says whether such a lane moved. A
  * lane found since was never listed, so no crawl can vouch for it, and it is
- * listed at once, as a new device's folders are while it boots.
+ * listed at once, as a new device's folders are while it boots. Nothing
+ * waits for a catch-up whose turn is overdue.
  */
 export function defersToCatchUp(
   state: CatchUpState,
   containerId: string,
 ): boolean {
   return (
-    state.status !== "idle" &&
+    (state.status === "awaitingCrawl" || state.status === "awaitingTurn") &&
     !state.listedNowContainerIds.has(containerId) &&
     state.wait.knownContainerIds.has(containerId)
   );

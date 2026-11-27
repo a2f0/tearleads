@@ -59,20 +59,22 @@ reference.
 | Document container projection | `DocumentContainerProjectionRepository(execSql, now)` | Built from the caller's executor (the transaction or locked handle inside a commit) at each call | None |
 | Organization read models | `OrganizationReadModelRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Document records | `DocumentRecordRepository(execSql, now)` | Built from the caller's executor (the locked handle inside a mutation) at each call | None |
-| Organization sync pauses | `OrganizationSyncPauseRepository(execSql)` | Built from the caller's executor at each call | None |
+| Organization sync pauses | `OrganizationSyncPauseRepository(execSql)` and `getOrCreateOrganizationSyncPauses(domainScope)` | Repository built per call; one pause cache per domain scope | None |
+| Document lane revalidations | `DocumentLaneRevalidationRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Recorded attachment slots | `RecordedAttachmentSlotRepository(execSql)` | Built from the caller's executor at each call | None |
+| Container tree catch-up | `getOrCreateTreeCatchUp(domainScope)` | One catch-up state per domain scope | None |
+| Create-intent hold listings | `getOrCreateCreateIntentHoldListings(domainScope)` | One hold-listing tracker per domain scope, reset when the container contents store resets | None |
 
 ## Where code goes
 
 [`data/`](../../packages/client-sdk/src/data/),
 [`workflows/`](../../packages/client-sdk/src/workflows/), and
-[`client/`](../../packages/client-sdk/src/client/) hold folders, not loose
-modules, and each folder maps to a [subsystem](../subsystems.md) in
+[`client/`](../../packages/client-sdk/src/client/) hold folders (not loose
+modules) mapped to [subsystems](../subsystems.md) in
 [`scripts/architecture/subsystems.ts`](../../scripts/architecture/subsystems.ts)
-or names one shared role.
-
-In [`data/`](../../packages/client-sdk/src/data/), the root holds only its
-[`README`](../../packages/client-sdk/src/data/README.md); `bun run lint:files`
-rejects any other file there.
+or one shared role. In [`data/`](../../packages/client-sdk/src/data/), the root
+holds only its [`README`](../../packages/client-sdk/src/data/README.md)
+(`bun run lint:files` rejects any other file there):
 
 - Domain folders ([`blobs/`](../../packages/client-sdk/src/data/blobs/),
   [`containers/`](../../packages/client-sdk/src/data/containers/),
@@ -81,35 +83,26 @@ rejects any other file there.
   [`principalContracts/`](../../packages/client-sdk/src/data/principalContracts/),
   [`sync/`](../../packages/client-sdk/src/data/sync/),
   [`trustedUserIdentity/`](../../packages/client-sdk/src/data/trustedUserIdentity/))
-  hold that domain's contracts and helpers.
-- [`keyingProjectionVerification/`](../../packages/client-sdk/src/data/keyingProjectionVerification/)
-  is entered through its
-  [`index.ts`](../../packages/client-sdk/src/data/keyingProjectionVerification/index.ts)
-  facade; [`keying/`](../../packages/client-sdk/src/data/keying/) holds the
-  [keying primitives](../keying-design.md) it shares with persistence and
-  workflows.
-- [`shared/`](../../packages/client-sdk/src/data/shared/) holds only contracts
-  and helpers every layer uses with no subsystem of their own: `DomainScope`,
-  the `SecurityIncidentReporter` port, `errorMessage`, record readers, and User
-  Timing marks. A helper one subsystem uses goes in that subsystem's folder
-  instead.
+  hold contracts and helpers; [`keyingProjectionVerification/`](../../packages/client-sdk/src/data/keyingProjectionVerification/)
+  is entered via [`index.ts`](../../packages/client-sdk/src/data/keyingProjectionVerification/index.ts),
+  and [`keying/`](../../packages/client-sdk/src/data/keying/) holds shared
+  [keying primitives](../keying-design.md).
+- [`shared/`](../../packages/client-sdk/src/data/shared/) holds cross-layer
+  helpers (`DomainScope`, `SecurityIncidentReporter`, `errorMessage`, record
+  readers, User Timing marks); single-subsystem helpers stay in their folder.
 - [`blobs/`](../../packages/client-sdk/src/data/blobs/),
   [`persistence/`](../../packages/client-sdk/src/data/persistence/),
   [`sqlite/`](../../packages/client-sdk/src/data/sqlite/), and
-  [`sync/`](../../packages/client-sdk/src/data/sync/) are internal to stores. A
-  store reaches a module there through the matching workflow facade, such as
+  [`sync/`](../../packages/client-sdk/src/data/sync/) are internal to stores,
+  reached through workflow facades like
   [`workflows/blobs`](../../packages/client-sdk/src/workflows/blobs/) or
   [`workflows/sync/coordination.ts`](../../packages/client-sdk/src/workflows/sync/coordination.ts).
 
 In [`workflows/`](../../packages/client-sdk/src/workflows/), the root holds only
-its [`README`](../../packages/client-sdk/src/workflows/README.md). Each folder
-is a workflow facade except
-[`shared/`](../../packages/client-sdk/src/workflows/shared/), which holds the
-runtime input contract that the per-domain workflow runtimes build on.
-
-In [`client/`](../../packages/client-sdk/src/client/), the root holds only the
-[`index.ts`](../../packages/client-sdk/src/client/index.ts) facade barrel;
-`bun run lint:files` rejects any other file there.
+its [`README`](../../packages/client-sdk/src/workflows/README.md); each folder
+is a workflow facade except [`shared/`](../../packages/client-sdk/src/workflows/shared/)
+(runtime input contracts). In [`client/`](../../packages/client-sdk/src/client/),
+the root holds only [`index.ts`](../../packages/client-sdk/src/client/index.ts):
 
 - Each `tearleads.*` facade with its own subsystem has a folder whose `index.ts`
   is the facade: [`blobs/`](../../packages/client-sdk/src/client/blobs/),
@@ -120,7 +113,8 @@ In [`client/`](../../packages/client-sdk/src/client/), the root holds only the
   [`organizations/`](../../packages/client-sdk/src/client/organizations/),
   [`root/`](../../packages/client-sdk/src/client/root/),
   [`securityIncidents/`](../../packages/client-sdk/src/client/securityIncidents/),
-  and [`session/`](../../packages/client-sdk/src/client/session/). Helpers that
+  [`session/`](../../packages/client-sdk/src/client/session/), and
+  [`twoFactor/`](../../packages/client-sdk/src/client/twoFactor/). Helpers that
   only one facade uses sit beside it.
 - [`runtime/`](../../packages/client-sdk/src/client/runtime/) holds live client
   state (`Database`, `Events`, `Network`, `ApiVersion`, `SyncBillingGate`) and

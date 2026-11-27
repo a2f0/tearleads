@@ -9,7 +9,10 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../../../data/containers/shared/mutationAcknowledgement";
-import { isContainerManifestAlreadyExistsConflict } from "../../../../data/containers/shared/mutationFailures";
+import {
+  isContainerManifestAlreadyExistsConflict,
+  isContainerSystemSlotTakenFailure,
+} from "../../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../../data/documents/shared/projection";
 import {
@@ -54,6 +57,14 @@ import {
  */
 export const CONTAINER_ALREADY_COMMITTED = Symbol("containerAlreadyCommitted");
 export type ContainerAlreadyCommitted = typeof CONTAINER_ALREADY_COMMITTED;
+/** The organization already holds the create's system slot. */
+export const CONTAINER_SYSTEM_SLOT_TAKEN = Symbol("containerSystemSlotTaken");
+/** A remote create's outcome; `null` when it was refused or not sent. */
+export type RemoteContainerCreateResult =
+  | CreatedRemoteContainerState
+  | ContainerAlreadyCommitted
+  | typeof CONTAINER_SYSTEM_SLOT_TAKEN
+  | null;
 
 async function submitContainerWithMetadataDocument(input: {
   readonly organizationId: string;
@@ -341,11 +352,13 @@ async function createRemoteContainerWithMetadataDocumentAttempt(
   // A seed only saves the first metadata sync: a refused seeded create falls
   // back to the plain create once, so the row syncs as before, and its failures
   // take the ordinary repair path. A lost response is adopted directly, as a
-  // plain create's would be.
+  // plain create's would be, and a taken system slot refuses both alike.
   const seeded = submitted?.ok === true;
   if (
     !submitted ||
-    (!submitted.ok && !isContainerManifestAlreadyExistsConflict(submitted))
+    (!submitted.ok &&
+      !isContainerManifestAlreadyExistsConflict(submitted) &&
+      !isContainerSystemSlotTakenFailure(submitted))
   ) {
     submitted = await submitRequest(request);
   }
@@ -370,7 +383,7 @@ async function createContainerWithMetadataWithRepairs(
   >[0] & {
     readonly parentContainerId: string;
   },
-): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
+): Promise<RemoteContainerCreateResult> {
   const { apiClient } = input.runtime;
   let parentProjection = input.parentProjection;
   const repairState = {
@@ -403,10 +416,9 @@ async function createContainerWithMetadataWithRepairs(
       continue;
     }
     if (repair.kind === "unavailable") return null;
-    return settleTerminalCreateFailure(submitted, input.stillCurrent) ===
-      "committed"
-      ? CONTAINER_ALREADY_COMMITTED
-      : null;
+    const settled = settleTerminalCreateFailure(submitted, input.stillCurrent);
+    if (settled === "committed") return CONTAINER_ALREADY_COMMITTED;
+    return settled === "slot-taken" ? CONTAINER_SYSTEM_SLOT_TAKEN : null;
   }
 }
 
@@ -419,7 +431,7 @@ export async function createRemoteContainerWithMetadataDocument(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
-}): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
+}): Promise<RemoteContainerCreateResult> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
   const parentSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;

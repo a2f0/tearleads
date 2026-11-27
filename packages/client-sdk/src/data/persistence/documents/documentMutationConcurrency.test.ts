@@ -6,6 +6,7 @@ import {
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
 import { openSharedDocumentPersistenceConnections } from "../../../../test/helpers/data/sharedDocumentPersistence";
+import { isDatabaseTransactionBusyError } from "../../sqlite/availability/databaseUnavailable";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 import { loadStoredDocumentWithHistoryRestoreState } from "./internal/documentHistoryStatePersistence";
 import { loadStoredDocumentStoreState } from "./internal/documentStoreStatePersistence";
@@ -68,7 +69,7 @@ test("two pane document mutations settle as commit and CAS loss", async () => {
     expect(results.filter(({ committed }) => committed)).toHaveLength(1);
     expect(results.filter(({ committed }) => !committed)).toHaveLength(1);
   } finally {
-    close();
+    await close();
   }
 });
 
@@ -99,7 +100,7 @@ test("two pane document creators return one winner and one null", async () => {
     expect(results.filter((result) => result !== null)).toHaveLength(1);
     expect(results.filter((result) => result === null)).toHaveLength(1);
   } finally {
-    close();
+    await close();
   }
 });
 
@@ -188,7 +189,7 @@ test("record and history reads cannot tear across a replacement commit", async (
     });
   } finally {
     await replacement.catch(() => undefined);
-    close();
+    await close();
   }
 });
 
@@ -324,7 +325,7 @@ test("startup record, history, and attachments share one database snapshot", asy
     });
   } finally {
     await replacement.catch(() => undefined);
-    close();
+    await close();
   }
 });
 
@@ -416,6 +417,82 @@ test("pull invalidation returns one identity-aligned record and history snapshot
       ]).has(identityAndSnapshot),
     ).toBe(true);
   } finally {
-    close();
+    await close();
+  }
+});
+
+test("a busy refusal leaves the holder intact so the waiting mutation retries cleanly", async () => {
+  const { close, first, second } =
+    await openSharedDocumentPersistenceConnections("document-busy-refusal", {
+      leaseBounds: { idleMs: 60_000, waitMs: 50 },
+    });
+  const base = {
+    accessEpoch: 1,
+    containerId: "container",
+    documentId: "document",
+    id: "local-document",
+    snapshotEndVersion: "base-version",
+    text: "base",
+  };
+  let releaseFirst = () => {};
+  const firstReleased = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  let signalFirstLocked = () => {};
+  const firstLocked = new Promise<void>((resolve) => {
+    signalFirstLocked = resolve;
+  });
+  let firstMutation: Promise<unknown> = Promise.resolve();
+  try {
+    await sqlDocumentsPersistence.saveDocument(first.runtime.execSql, base);
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      first.runtime.execSql,
+      base.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the base document");
+    const commit = (
+      execSql: typeof first.runtime.execSql,
+      text: string,
+      onLock: () => Promise<void> = async () => undefined,
+    ) =>
+      sqlDocumentsPersistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: {
+            ...expectedRecord,
+            snapshotEndVersion: `${text}-version`,
+            text,
+          },
+          expectedRecord,
+          settleAcceptedPendingOnConflict: false,
+        },
+        onLock,
+      );
+
+    firstMutation = commit(first.runtime.execSql, "first", async () => {
+      signalFirstLocked();
+      await firstReleased;
+    });
+    await firstLocked;
+
+    const refused = await commit(second.runtime.execSql, "second").then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(isDatabaseTransactionBusyError(refused)).toBe(true);
+
+    releaseFirst();
+    await expect(firstMutation).resolves.toMatchObject({ committed: true });
+    await expect(
+      commit(second.runtime.execSql, "second"),
+    ).resolves.toMatchObject({
+      committed: false,
+      currentRecord: { text: "first" },
+    });
+  } finally {
+    releaseFirst();
+    await firstMutation.catch(() => undefined);
+    await close();
   }
 });

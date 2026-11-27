@@ -18,7 +18,6 @@ import type {
   CreatedChildContainerState,
 } from "../types";
 import { withRegisteredMetadataSeed } from "./createIntentSeed";
-import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 
 const SYSTEM_CONTAINER_ID_NAMESPACE_BYTES = new Uint8Array([
   0xc5, 0x5e, 0x8f, 0x2e, 0x3d, 0x82, 0x4b, 0x4d, 0x8d, 0xbd, 0x0d, 0xd2, 0xd3,
@@ -121,11 +120,13 @@ async function buildRemoteContainerContentsChildContainerState(input: {
       }),
   );
 
-  if (!created || created === CONTAINER_ALREADY_COMMITTED) {
+  if (!created || typeof created === "symbol") {
     // A benign manifest-exists conflict means the container is already committed
     // remotely (a lost create response). This eager path cannot rebuild its
     // committed metadata state, so leave the create intent to reconcile it via
     // hydration rather than fabricating a local record from a missing response.
+    // A taken system slot leaves it too: the intent's pass records the refusal
+    // and asks for the listing that folds this copy.
     return null;
   }
 

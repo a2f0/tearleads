@@ -24,6 +24,10 @@ document. Document create and link-set mutation routes use signed document
   which declares its epoch's
   [content-key commitment](./glossary/keys.md#content-key-commitment): a new
   epoch's commitment is stored, and a bundle at a stored epoch must repeat it
+- on `document.unlink` only, `rotationBaseline` (required when the document has
+  committed updates) and optional `baselineStageId` alongside a final-segment
+  `rotationBaseline` when committing a staged baseline (`document.link` rejects
+  both)
 
 The API verifies the event, verifies
 [container path](./glossary/access.md#authorizing-container-path)
@@ -147,6 +151,8 @@ Encrypted [Loro sync](./loro-e2ee-sync-protocol.md) uses
 - optional opaque `pullCursor`
 - optional `maxPageUpdates`, from 1 to the server's page limit
 - optional read-only `historyMode: "raw"`
+- optional `processedThroughUpdateId`
+- optional `baselineStageId`
 - `inlineRekeyCommitId`, present exactly when `containerRekeys[]` is non-empty
 - `outgoingUpdates[]`
 

@@ -7,7 +7,7 @@
 211 formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecovery.cfg
 201 formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringReachability.cfg
 191 formal/blob-attachments/StagePromotion.tla|formal/blob-attachments/StagePromotion.cfg
-89 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergence.cfg
+146 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergence.cfg
 81 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg
 74 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDevice.cfg
 45 formal/document-sync/VoidUpdateProgress.tla|formal/document-sync/VoidUpdateProgressKills.cfg
@@ -16,6 +16,7 @@
 30 formal/document-sync/OutgoingQueueMerge.tla|formal/document-sync/OutgoingQueueMerge.cfg
 23 formal/container-keying/PrincipalRecoveryReuse.tla|formal/container-keying/PrincipalRecoveryReuse.cfg
 18 formal/backup-restore/TerminalAnchors.tla|formal/backup-restore/TerminalAnchors.cfg
+18 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergenceProbe.cfg
 17 formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecoveryProgress.cfg
 16 formal/document-sync/SharedDatabaseListing.tla|formal/document-sync/SharedDatabaseListing.cfg
 16 formal/document-sync/SyncLaneConcurrency.tla|formal/document-sync/SyncLaneConcurrency.cfg
@@ -76,4 +77,5 @@
 0 formal/local-trust/SessionRetryIdentity.tla|formal/local-trust/SessionRetryIdentity.cfg
 0 formal/local-trust/SubtreePurgeScope.tla|formal/local-trust/SubtreePurgeScope.cfg
 0 formal/local-trust/SystemDestination.tla|formal/local-trust/SystemDestination.cfg
+0 formal/local-trust/TransactionLease.tla|formal/local-trust/TransactionLease.cfg
 0 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg

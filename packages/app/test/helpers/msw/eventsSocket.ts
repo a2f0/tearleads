@@ -25,6 +25,83 @@ export const eventRouter = createMswEventRouter({
   },
 });
 
+export interface DeliveredMswSocketEvent {
+  readonly bytes: number;
+  readonly type: string;
+}
+
+const deliveredSocketEvents: DeliveredMswSocketEvent[] = [];
+
+export function listDeliveredSocketEvents(): readonly DeliveredMswSocketEvent[] {
+  return [...deliveredSocketEvents];
+}
+
+export function clearDeliveredSocketEvents(): void {
+  deliveredSocketEvents.length = 0;
+}
+
+function recordDeliveredSocketFrame(data: string): void {
+  let type = "unknown";
+  try {
+    const parsed: unknown = JSON.parse(data);
+    if (typeof parsed === "object" && parsed !== null) {
+      const rawType: unknown = Reflect.get(parsed, "type");
+      if (typeof rawType === "string" && rawType.length > 0) type = rawType;
+    }
+  } catch {
+    // Keep "unknown" for non-JSON frames.
+  }
+  deliveredSocketEvents.push({
+    type,
+    bytes: Buffer.byteLength(data, "utf8"),
+  });
+}
+
+function recordingDeliveredEvents(client: MswSocketClient): MswSocketClient {
+  const recorded: MswSocketClient = {
+    send: (data: string) => {
+      client.send(data);
+      recordDeliveredSocketFrame(data);
+    },
+  };
+  if (client.addEventListener) {
+    recorded.addEventListener = client.addEventListener.bind(client);
+  }
+  if (client.url) recorded.url = client.url;
+  return recorded;
+}
+
+// The in-process router acknowledges an interest declaration at once, while
+// a remote hub answers a round trip later. A canary that orders work against
+// the acknowledgement delays it to the latency it models.
+let interestAcknowledgementDelayMs = 0;
+
+/** Delays the container-interest acknowledgements of sockets opened next. */
+export function delayInterestAcknowledgements(delayMs: number): void {
+  interestAcknowledgementDelayMs = delayMs;
+}
+
+function delayingAcknowledgements(client: MswSocketClient): MswSocketClient {
+  const delayMs = interestAcknowledgementDelayMs;
+  if (delayMs === 0) return client;
+  const send = (data: string) => {
+    if (!data.includes('"known_containers_ack"')) return client.send(data);
+    setTimeout(() => {
+      try {
+        client.send(data);
+      } catch {
+        // The socket closed meanwhile: nothing is waiting for the answer.
+      }
+    }, delayMs);
+  };
+  const delaying: MswSocketClient = { send };
+  if (client.addEventListener) {
+    delaying.addEventListener = client.addEventListener.bind(client);
+  }
+  if (client.url) delaying.url = client.url;
+  return delaying;
+}
+
 interface ClosableConnection {
   close: (code?: number, reason?: string) => void;
 }
@@ -75,6 +152,10 @@ export async function drainSocketClients(): Promise<void> {
 export const eventsSocketHandler = eventsSocket.addEventListener(
   "connection",
   ({ client }) => {
-    eventRouter.handleConnection(client as MswSocketClient);
+    eventRouter.handleConnection(
+      recordingDeliveredEvents(
+        delayingAcknowledgements(client as MswSocketClient),
+      ),
+    );
   },
 );

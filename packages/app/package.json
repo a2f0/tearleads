@@ -7,6 +7,7 @@
   "exports": {
     "./continuity": "./src/document-types/continuity/index.ts",
     "./passcode": "./src/document-types/passcode/index.ts",
+    "./host/provisionedSystemContainers": "./src/host/provisionedSystemContainers.ts",
     "./host/AppDiagnostics": "./src/host/AppDiagnostics.ts",
     "./App": "./src/App.tsx",
     "./client": "./src/client.tsx",

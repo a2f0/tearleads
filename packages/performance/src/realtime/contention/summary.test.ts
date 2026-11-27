@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { emptyTraffic } from "../postgresWire";
+import { emptyTraffic } from "../../inProcess/postgresWire";
 import type { ContentionMeasurement } from "./measureContention";
 import { formatContention, summarizeContention } from "./summary";
 

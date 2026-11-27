@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { createDefaultManagedApiDatabase } from "@tearleads/api-shared/postgres";
+import {
+  createDefaultManagedApiDatabase,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
+import {
+  observeDatabaseRequestScopes,
+  observeDatabaseStatements,
+} from "@tearleads/api-shared/statement-observer";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { createRouteApp } from "../routeApp";
@@ -72,6 +79,7 @@ describe("createRequestCostMiddleware", () => {
           route: "/items/{itemId}/children/{childId}",
           status: 200,
           statements: 2,
+          txStatements: 0,
           wallMs: timing.total,
           dbMs: timing.db,
         },
@@ -79,6 +87,99 @@ describe("createRequestCostMiddleware", () => {
       const logged = consoleLog.mock.calls.flat().join("\n");
       expect(logged).not.toContain("secret");
     } finally {
+      await managed.close();
+    }
+  });
+
+  test("marks each request for statement observers, inside a test's own counter", async () => {
+    const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
+    const app = new Hono();
+    app.use("*", createRequestCostMiddleware({ log: false }));
+    app.get("/items", async (c) => {
+      await managed.db.execute(sql`select 1`);
+      await managed.db.execute(sql`select 2`);
+      return c.json({ ok: true });
+    });
+    // Numbered as the performance package's capture numbers `request`.
+    const numbers = new Map<object, number>();
+    const requests: (number | undefined)[] = [];
+    const stop = observeDatabaseStatements(({ scope }) => {
+      if (scope && !numbers.has(scope)) numbers.set(scope, numbers.size + 1);
+      requests.push(scope && numbers.get(scope));
+    });
+    const outer = { statements: 0 };
+    try {
+      await withDatabaseStatementCounter(outer, async () => {
+        expect((await app.request("/items")).status).toBe(200);
+        expect((await app.request("/items")).status).toBe(200);
+      });
+    } finally {
+      stop();
+      await managed.close();
+    }
+    expect(outer.statements).toBe(4);
+    expect(requests).toEqual([1, 1, 2, 2]);
+  });
+
+  test("counts transaction statements, request bytes, and notifies route scope observers", async () => {
+    const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
+    const app = new Hono();
+    app.use("*", createRequestCostMiddleware({ log: true }));
+    app.post("/items/:itemId/sync", async (c) => {
+      await managed.db.execute(sql`select 1`);
+      await managed.db.transaction(async (tx) => {
+        await tx.execute(sql`select 2`);
+      });
+      return c.json({ ok: true });
+    });
+    const statementScopes: (object | undefined)[] = [];
+    const routeScopes: {
+      scope: object;
+      method: string;
+      route: string;
+      status: number;
+    }[] = [];
+    const stopStmts = observeDatabaseStatements(({ scope }) => {
+      statementScopes.push(scope);
+    });
+    const stopScopes = observeDatabaseRequestScopes((meta) => {
+      routeScopes.push(meta);
+    });
+    try {
+      const payload = JSON.stringify({ hello: "world" });
+      const response = await app.request("/items/secret-id/sync", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "content-length": `${payload.length}`,
+        },
+        body: payload,
+      });
+      expect(response.status).toBe(200);
+      expect(costLines()).toMatchObject([
+        {
+          event: "api.request.cost",
+          method: "POST",
+          route: "/items/{itemId}/sync",
+          status: 200,
+          statements: 2,
+          txStatements: 1,
+          reqBytes: payload.length,
+        },
+      ]);
+      const requestScope = statementScopes[0];
+      if (!requestScope) throw new Error("expected statement scope");
+      expect(routeScopes).toEqual([
+        {
+          scope: requestScope,
+          method: "POST",
+          route: "/items/{itemId}/sync",
+          status: 200,
+        },
+      ]);
+    } finally {
+      stopStmts();
+      stopScopes();
       await managed.close();
     }
   });

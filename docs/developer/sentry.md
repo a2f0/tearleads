@@ -284,8 +284,10 @@ client, in-flight requests reject instead of hanging, and the app reports it
 once and retires the runtime so the retry surface appears. A tab whose open
 database went away with the tab that owned it opens the database again
 instead: closing a tab is ordinary, so that loss is logged rather than
-reported. Callers whose requests it rejected treat it as the database going
-away and stay local. The crash `Error` is constructed in
+reported. So is a tab whose transaction the worker rolled back after it sat
+idle while another tab waited; the log names the database, the idle time, and
+how many statements waited. Callers whose requests it rejected treat it as the
+database going away and stay local. The crash `Error` is constructed in
 application code, never from the worker's own event, so its stack maps to an
 allowlisted bundle frame.
 
@@ -349,7 +351,7 @@ Mobile events use `tearleads-android@<git-sha>` or `tearleads-ios@<git-sha>` and
 `staging-app` / `production-app`. Vite emits hidden maps; uploads use
 `app:///assets/` URLs matching the packaged JavaScript frames. Maps are removed
 from `dist` after the upload attempt, including failures. The pinned CLI
-[associates matching JavaScript and hidden map filenames](https://github.com/getsentry/sentry-cli/blob/3.8.1/src/utils/sourcemaps.rs#L105)
+[associates matching JavaScript and hidden map filenames](https://github.com/getsentry/sentry-cli/blob/3.8.2/src/utils/sourcemaps.rs#L105)
 and adds references to uploaded artifacts; matching release, dist, and canonical
 URLs provide symbolication without transmitting debug metadata.
 
@@ -366,7 +368,8 @@ reports nothing. Release from the repository root with
 [`uploadMacosRelease.sh`](../../scripts/release/uploadMacosRelease.sh),
 [`uploadMacosStagingRelease.sh`](../../scripts/release/uploadMacosStagingRelease.sh),
 [`uploadLinuxRelease.sh`](../../scripts/release/uploadLinuxRelease.sh),
-[`uploadLinuxStagingRelease.sh`](../../scripts/release/uploadLinuxStagingRelease.sh).
+[`uploadLinuxStagingRelease.sh`](../../scripts/release/uploadLinuxStagingRelease.sh),
+and [`windowsRelease.sh`](../../scripts/release/windowsRelease.sh).
 [`packages/app-electrobun/scripts/withSentryReleaseEnv.ts`](../../packages/app-electrobun/scripts/withSentryReleaseEnv.ts)
 resolves that tier's DSN and full commit into the public
 `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for the Electrobun build and its
@@ -403,14 +406,20 @@ so uploads pass `--no-rewrite`, once each staged map embeds every source at a
 repository-relative path (no `sourceRoot`, sections, URLs or `..`) and each
 script names only its own map.
 
-The Linux container (no `.git` or token) sets
-`TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`: it stages and sweeps maps
-without uploading; a checkout refuses the flag. `releaseLinux.sh upload` applies
-the same checkout, `BUN_*` and token rules, copies staging to a private host
-directory and, before publishing, uploads it via
+The Linux container (no `.git` or token) and the Windows GitHub Actions build
+([`electrobun-windows.yml`](../../.github/workflows/electrobun-windows.yml),
+reading `vars.SENTRY_ELECTROBUN_STAGING_DSN` or
+`vars.SENTRY_ELECTROBUN_PRODUCTION_DSN`) both set
+`TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`: they stage and sweep maps
+without uploading; a local checkout refuses the flag. `releaseLinux.sh upload`
+applies the same checkout, `BUN_*` and token rules, copies staging to a private
+host directory and, before publishing, uploads it via
 [`uploadDeferredSourceMaps.ts`](../../packages/app-electrobun/scripts/uploadDeferredSourceMaps.ts)
 (`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
-the `linux-x64` dist).
+the `linux-x64` dist). Windows uploads its staged maps as the
+`tearleads-windows-maps-<tier>-<sha>` workflow artifact, and
+[`windowsRelease.sh`](../../scripts/release/windowsRelease.sh) downloads and
+uploads them through the same deferred uploader for `win-x64` before publishing.
 
 Before changing this integration, run the tests in
 [`packages/diagnostics/src`](../../packages/diagnostics/src/), the `diagnostics`

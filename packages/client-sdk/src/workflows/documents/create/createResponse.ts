@@ -19,7 +19,13 @@ import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVe
 import { nullOnProjectionVerificationCancellation } from "../../../data/keyingProjectionVerification/types";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import { adoptExistingRemoteDocument } from "./createAdoption";
+import {
+  createdDocumentHead,
+  primeCreatedDocumentDiscoveryHead,
+  readCreatedDocumentHeadFence,
+} from "./createDiscoveryHead";
 import { documentWriterProjectionFromCreateResponse } from "./createProjection";
 import type { DocumentSubmissionRequest } from "./remoteDocumentCreateRequest";
 
@@ -43,6 +49,7 @@ export async function acknowledgeRemoteDocumentCreate(
     readonly author: DocumentCreateAuthor;
     readonly containerProjection: ContainerWriterProjectionResponse;
     readonly execSql: ExecSql;
+    readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
     readonly materializedPlan: MaterializedDocumentCreatePlan;
     readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
     readonly response: DocumentCreateResponse;
@@ -56,6 +63,12 @@ export async function acknowledgeRemoteDocumentCreate(
   );
   const persistedState =
     persistedDocumentStateFromAcknowledgement(acknowledged);
+  // Before the acknowledgement's first write, so a reset that evicts the
+  // head cache while it is applied keeps the head out.
+  const headFence = await readCreatedDocumentHeadFence(
+    input.execSql,
+    input.logError,
+  );
   await acknowledgeDocumentMutation({
     bundleDigest: response.bundleDigest,
     execSql: input.execSql,
@@ -90,6 +103,14 @@ export async function acknowledgeRemoteDocumentCreate(
       ? { ...recovered, response }
       : recovered;
   }
+  await primeCreatedDocumentDiscoveryHead({
+    execSql: input.execSql,
+    fence: headFence,
+    head: createdDocumentHead(materializedPlan.plan),
+    logError: input.logError,
+    stillCurrent: input.stillCurrent,
+  });
+  if (input.stillCurrent?.() === false) return null;
   input.apiClient.primeDocumentWriterProjection(response.id, writerProjection);
   return {
     contentKey: materializedPlan.contentKey,

@@ -333,8 +333,8 @@ length, content-key epoch, content record id, nonce-domain hash, metadata hash,
 IV, suite, and ciphertext. The
 [blob content-key bundle](../glossary/keys.md#blob-content-key-bundle) lives in
 `blob_content_key_epochs` and `blob_content_key_targets`, and attachment
-listing/bind responses return that bundle alongside server-visible binding
-metadata.
+listing responses return that bundle alongside server-visible binding metadata
+(bind responses acknowledge by hash).
 
 Before promotion, the API hashes the [staged](../glossary/content.md#blob-stage)
 object stream and validates it with the same binary-envelope parser SDK readers

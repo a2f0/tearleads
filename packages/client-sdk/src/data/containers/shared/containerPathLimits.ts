@@ -1,8 +1,7 @@
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 
-export const CONTAINER_PATH_TOO_DEEP_MESSAGE =
-  "Container path exceeds maximum depth";
+const CONTAINER_PATH_TOO_DEEP_MESSAGE = "Container path exceeds maximum depth";
 
 /**
  * A create or move would leave a path longer than readers accept. The same

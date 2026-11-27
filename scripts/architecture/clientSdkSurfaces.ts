@@ -185,6 +185,7 @@ export const containerDataSurface = [
   `${sdk}/workflows/containers/rematerialization/index.ts`,
   `${sdk}/data/containers/shared/authorAccess.ts`,
   `${sdk}/data/containers/shared/containerPathLimits.ts`,
+  `${sdk}/data/containers/shared/createIntentHoldMachine.ts`,
   `${sdk}/data/containers/shared/mutationAcknowledgement.ts`,
   `${sdk}/data/containers/shared/mutationFailures.ts`,
   `${sdk}/data/containers/shared/projection.ts`,

@@ -72,11 +72,16 @@ export function connectReconciliationTriggers(input: {
         // may have changed remotely while this client was offline, and the
         // enqueue calls below are otherwise suppressed for already-discovered
         // containers. Resetting makes the active container and every backfill
-        // target re-validate against the server exactly once.
+        // target re-validate against the server exactly once. The backfill
+        // follows as its own signal, once a connect attempt in flight settles.
         service.resetDiscovered();
         if (signal.activeContainerId) {
           service.enqueueContainer(signal.activeContainerId, "active");
         }
+        break;
+      case "idle-backfill":
+        // The regain's backfill of every known lane. Raised after the
+        // catch-up an acknowledgement owes, which takes those lanes over.
         service.enqueueIdleBackfill();
         break;
     }

@@ -4,6 +4,8 @@ const DOCUMENT_LISTING_MODULE =
   "formal/document-sync/DocumentListingConvergence.tla";
 const DOCUMENT_LISTING_CONFIG =
   "formal/document-sync/DocumentListingConvergence.cfg";
+const DOCUMENT_LISTING_PROBE_CONFIG =
+  "formal/document-sync/DocumentListingConvergenceProbe.cfg";
 
 const SHARED_DATABASE_MODULE = "formal/document-sync/SharedDatabaseListing.tla";
 const SHARED_DATABASE_CONFIG = "formal/document-sync/SharedDatabaseListing.cfg";
@@ -89,9 +91,23 @@ export const DOCUMENT_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     id: "document-listing-settles-debt-with-older-read",
     module: DOCUMENT_LISTING_MODULE,
     config: DOCUMENT_LISTING_CONFIG,
-    constants: { SettleOnlyIfUnchanged: "FALSE" },
+    // Without lagging replicas, so the read in flight is the only stale one,
+    // and without the head guard, which refuses that read on its own.
+    constants: {
+      MaxLaggingReads: "0",
+      SettleOnlyIfHeadRead: "FALSE",
+      SettleOnlyIfUnchanged: "FALSE",
+    },
     expect: { kind: "invariant", name: "AccessHeadEvidenceRetained" },
-    why: "A read that started before the access head moved must not settle the debt a later listing owed for that move: its snapshot predates the head, and the watermark already passed the row.",
+    why: "A read that started before the access head moved must not settle the debt a later listing owed for that move: its snapshot predates the head, and the watermark already passed the row. The revision it saw refuses it, and so does the head its bundle carries; with neither, the move is lost.",
+  },
+  {
+    id: "document-listing-settles-lagging-head",
+    module: DOCUMENT_LISTING_MODULE,
+    config: DOCUMENT_LISTING_CONFIG,
+    constants: { SettleOnlyIfHeadRead: "FALSE" },
+    expect: { kind: "invariant", name: "AccessHeadEvidenceRetained" },
+    why: "A replica that lags the listing can answer a pull begun after the debt with the access head from before the move. Its revision is current and its cursor may cover the count, so only the head its bundle carries shows the move was not read.",
   },
   {
     id: "document-listing-drops-closed-store-hint",
@@ -116,5 +132,13 @@ export const DOCUMENT_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { RelistOnAcknowledge: "FALSE" },
     expect: { kind: "liveness", name: "Converges" },
     why: "An edit whose hint was lost while disconnected or closed is found only by the listing that follows an acknowledged connection.",
+  },
+  {
+    id: "document-listing-probe-debt-unasked",
+    module: DOCUMENT_LISTING_MODULE,
+    config: DOCUMENT_LISTING_PROBE_CONFIG,
+    constants: { ProbeAsksOpenStore: "FALSE" },
+    expect: { kind: "liveness", name: "DebtsSettle" },
+    why: "The launch probe owes a read for a head that moved while the client stayed connected. Its store is already open and no re-list follows, so a debt it does not also ask that store to read waits for the next connection or restart.",
   },
 ];

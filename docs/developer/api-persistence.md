@@ -92,7 +92,11 @@ The stored shapes enforce:
 - [Content write headers](../glossary/content.md#signed-write-header) carry
   `dependencyManifestHashes`; a header without that citation is refused on read
   and never re-served.
-- Container manifests carry `systemSlot`.
+- Container manifests carry `systemSlot`. A create whose slot the organization
+  already holds trips `containers_org_system_slot_idx` and returns an uncoded
+  409 with `systemSlotTaken: true`; other unique and serialization failures in
+  a container mutation return 409 `container_mutation_state_stale` with a fixed
+  message, never the driver's statement text.
 - [Container path](../glossary/access.md#authorizing-container-path) references
   resolve against live `containers` rows; a path through a missing container
   fails with 409 `container_unavailable`.

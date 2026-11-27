@@ -241,7 +241,6 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/utils/databaseErrors.ts`,
       `${api}/utils/postgresSql.ts`,
       `${api}/utils/publishBestEffort.ts`,
-      `${api}/utils/record.ts`,
       `${api}/utils/serverSecrets.ts`,
       `${api}/utils/sha256.ts`,
       `${api}/utils/storedAccessEventVerification.ts`,

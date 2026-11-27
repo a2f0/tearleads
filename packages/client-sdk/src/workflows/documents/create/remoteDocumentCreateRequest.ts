@@ -9,6 +9,7 @@ import type {
 } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
 
 /** What one `RemoteDocumentService.createRemoteDocument` call varies. */
@@ -55,5 +56,6 @@ export type RemoteDocumentCreateInput = DocumentSubmissionRequest & {
   apiClient: DocumentCreateApi;
   execSql: ExecSql;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+  logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
   targetSecretKey: Uint8Array;
 };

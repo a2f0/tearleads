@@ -1,4 +1,5 @@
 import type { Tearleads } from "@tearleads/client-sdk";
+import { retryWhileDatabaseBusy } from "@tearleads/client-sdk/sqlite";
 import {
   createIdentitySeedPhrase,
   generateIdentityKeyPairsFromSeedPhrase,
@@ -50,7 +51,13 @@ async function installGeneratedIdentity(
     seedPhrase,
     signingKeyPair,
   });
-  await tearleads.session.bootstrapLocalRootContainer();
+  // Another tab's transaction can hold the statements off; they did not run,
+  // so they run again rather than fail an automatic generation that is not
+  // retried until reload (#3360).
+  await retryWhileDatabaseBusy(
+    () => tearleads.session.bootstrapLocalRootContainer(),
+    { isCurrent },
+  );
   if (!isCurrent()) {
     return false;
   }

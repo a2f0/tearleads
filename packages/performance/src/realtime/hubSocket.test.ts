@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { createRealtimeGateway } from "@tearleads/api/test-runtime";
+import type { InProcessApi } from "../inProcess/inProcessApi";
 import { openHubSocket, productionBudgetMs } from "./hubSocket";
-import type { InProcessApi } from "./inProcessApi";
 
 const ids: string[] = [
   crypto.randomUUID(),

@@ -3,6 +3,8 @@ import {
   type DatabasePersistenceMode,
   type ExecSqlClientLike,
   ensureLocalSchemaMigrated,
+  isDatabaseTransactionBusyError,
+  isLocalSchemaMigrationLockTimeoutError,
   requestPersistentStorage,
   type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
@@ -92,6 +94,97 @@ async function assertDatabaseReadable(
   await execSql("SELECT count(*) FROM sqlite_master");
 }
 
+const BUSY_RETRY_PAUSE_MS = 100;
+
+export interface BootSQLiteRuntimeOptions {
+  /** Whether this boot attempt still owns the active runtime. */
+  readonly isCurrent?: (() => boolean) | undefined;
+  /** Override for tests; production uses the SDK's default lock wait bound. */
+  readonly lockWaitTimeoutMs?: number | undefined;
+  /** Surfaces a visible retrying state while another tab holds the database. */
+  readonly onWaitingForAnotherTab?: ((waiting: boolean) => void) | undefined;
+}
+
+function isBootContentionError(error: unknown): boolean {
+  return (
+    isDatabaseTransactionBusyError(error) ||
+    isLocalSchemaMigrationLockTimeoutError(error)
+  );
+}
+
+function bootContentionMessage(error: unknown, label: string): string {
+  return isLocalSchemaMigrationLockTimeoutError(error)
+    ? `Another tab holds the local schema migration lock during ${label}; retrying.`
+    : `Another tab held a database transaction during ${label}; retrying.`;
+}
+
+function isBootStillCurrent(
+  options?: Pick<BootSQLiteRuntimeOptions, "isCurrent">,
+): boolean {
+  return options?.isCurrent ? options.isCurrent() : true;
+}
+
+async function pauseBeforeContentionRetry(
+  error: unknown,
+  label: string,
+  log: (message: string) => void,
+  options?: Pick<BootSQLiteRuntimeOptions, "isCurrent">,
+): Promise<void> {
+  log(bootContentionMessage(error, label));
+  // The SDK's worker and migration lock each wait out their own bound; a
+  // host worker or mock that refuses at once must not spin in a tight loop.
+  await new Promise((resolve) => setTimeout(resolve, BUSY_RETRY_PAUSE_MS));
+  if (!isBootStillCurrent(options)) {
+    throw error;
+  }
+}
+
+/**
+ * Run a boot step again each time another tab's transaction or migration lock
+ * holds it off.
+ *
+ * The worker refuses a statement that waited its transaction lease's bound
+ * while another connection held a transaction, and the local schema migration
+ * check aborts its Web Lock wait at its bound when another tab holds the lock
+ * (for example, during a backup restore). Neither ran this connection's step,
+ * so the step can simply run again while surfacing a visible retrying state
+ * instead of failing boot onto an error screen.
+ */
+async function retryWhileAnotherTabHoldsDatabase<T>(
+  step: () => Promise<T>,
+  label: string,
+  log: (message: string) => void,
+  options?: Pick<
+    BootSQLiteRuntimeOptions,
+    "isCurrent" | "onWaitingForAnotherTab"
+  >,
+): Promise<T> {
+  let waiting = false;
+  try {
+    for (;;) {
+      if (!isBootStillCurrent(options)) {
+        throw new Error(`SQLite boot superseded before ${label}.`);
+      }
+      try {
+        return await step();
+      } catch (error) {
+        if (!isBootContentionError(error) || !isBootStillCurrent(options)) {
+          throw error;
+        }
+        if (!waiting) {
+          waiting = true;
+          options?.onWaitingForAnotherTab?.(true);
+        }
+        await pauseBeforeContentionRetry(error, label, log, options);
+      }
+    }
+  } finally {
+    if (waiting) {
+      options?.onWaitingForAnotherTab?.(false);
+    }
+  }
+}
+
 function describeBootError(
   error: unknown,
   visited = new Set<unknown>(),
@@ -163,6 +256,7 @@ export async function bootSQLiteRuntime(
   persistence: DatabasePersistenceMode,
   resolveCipherKey: ResolveSqliteCipherKey,
   log: (message: string) => void,
+  options?: BootSQLiteRuntimeOptions,
 ) {
   const backend = persistence === "memory" ? "in-memory" : "persistent OPFS";
   log("Loading SQLite3 WASM module...");
@@ -219,9 +313,15 @@ export async function bootSQLiteRuntime(
   // freshly created and cannot be key-mismatched, so skip the probe.
   if (persistence !== "memory") {
     try {
-      await withBootRoundTripTimeout(
-        assertDatabaseReadable(runtime.client),
-        "database readability check",
+      await retryWhileAnotherTabHoldsDatabase(
+        () =>
+          withBootRoundTripTimeout(
+            assertDatabaseReadable(runtime.client),
+            "database readability check",
+          ),
+        "the readability check",
+        log,
+        options,
       );
     } catch (error) {
       log(`Failed to verify SQLite database: ${describeBootError(error)}`);
@@ -233,7 +333,20 @@ export async function bootSQLiteRuntime(
   // contain the migration: the SDK's cross-tab migration lock ends when the
   // migration commits, which inside an open transaction is not yet durable.
   try {
-    await ensureLocalSchemaMigrated(createExecSql(runtime.client));
+    // A refusal or migration-lock timeout can only reach this check before it
+    // holds a transaction, so the whole migration runs again; it records itself
+    // only once it commits.
+    await retryWhileAnotherTabHoldsDatabase(
+      () =>
+        ensureLocalSchemaMigrated(
+          createExecSql(runtime.client),
+          async () => {},
+          { lockWaitTimeoutMs: options?.lockWaitTimeoutMs },
+        ),
+      "the schema migration",
+      log,
+      options,
+    );
   } catch (error) {
     log(`Failed to migrate the local database: ${describeBootError(error)}`);
     throw error;

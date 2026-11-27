@@ -37,6 +37,13 @@ export {
   type WipeOpfsStorageResult,
   wipeOpfsStorage,
 } from "@tearleads/sqlite-worker/wipe-opfs-storage";
+export {
+  classifyDatabaseFailure,
+  DATABASE_BUSY_RUN_LIMIT,
+  type DatabaseFailureKind,
+  retryWhileDatabaseBusy,
+} from "../data/sqlite/availability/databaseBusyRetry";
+export { isDatabaseTransactionBusyError } from "../data/sqlite/availability/databaseUnavailable";
 export { clientSQLiteSchema } from "../data/sqlite/schema";
 export {
   type ClientSQLiteDatabase as SQLiteDatabase,
@@ -46,14 +53,24 @@ export {
 } from "../data/sqlite/sqlitePersistenceRuntime";
 export {
   assertRestorableLocalSchemaLedger,
+  type ClientSqlMutationObserver,
+  type ClientSqlStatementObserver,
   createExecSql,
   defineSqlTableSchema,
   type ExecSql,
   type ExecSqlClientLike,
   ensureLocalSchemaMigrated,
   ensureSqlTables,
+  isLocalSchemaMigrationLockTimeoutError,
+  LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MESSAGE,
+  LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MS,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
+  LocalSchemaMigrationLockTimeoutError,
   migrateLocalSchema,
+  type ObservedClientSqlMutation,
+  type ObservedClientSqlStatement,
+  observeClientSqlMutations,
+  observeClientSqlStatements,
   resetConnectionSchemaMemo,
   runSerializedSqlMutation,
   type SqlArrayRow,

@@ -2,23 +2,23 @@ import type {
   ContainerContentsStore,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { type MutableRefObject, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { findExplorerSystemNode } from "../../stores/explorer/ExplorerSystemContainers";
 import type { UserSystemContainer } from "../../stores/systemContainers";
+import {
+  INITIAL_PROVISIONED_PULL_STATE,
+  PROVISIONED_PULL_INTERVAL_MS,
+  type ProvisionedPullEvent,
+  type ProvisionedPullState,
+  type ProvisionedPullTag,
+  transitionProvisionedPull,
+} from "./provisionedPullMachine";
 
 // The two post-auth sync passes SystemBootstrapProvider runs alongside the main
 // device-first bootstrap: one promotes locally-created system containers to
 // remote sync, the other pulls in the containers born server-side with the
 // organization. Kept out of the provider so it stays within the source-shape
 // budget and each pass reads on its own.
-
-// Bounded root-lane pulls per polling sequence for the eagerly-provisioned system
-// containers, so ones the server never returns cannot poll forever. The budget is
-// reset each time a new sequence starts (see the effect), and polling stops the
-// moment every provisioned slot surfaces in the tree, so a healthy session spends
-// only a pull or two; the limit only bites the pathological never-returns case.
-const PROVISIONED_SYSTEM_CONTAINER_PULL_LIMIT = 40;
-const PROVISIONED_SYSTEM_CONTAINER_PULL_INTERVAL_MS = 250;
 
 // Promote device-first (local-only) system containers into remote sync once the
 // runtime is authenticated.
@@ -111,148 +111,171 @@ export function usePromoteLocalSystemContainers(input: {
   ]);
 }
 
-// Surface the provisioned system containers from local SQLite, then poll the root
-// lane as a fallback only if the local read did not yield every slot. Extracted from
-// the hook effect so each stays within the source-shape line budget. Returns the
-// effect cleanup, which cancels a pending surface→poll handoff and clears the timer.
-function surfaceThenPollProvisionedContainers(input: {
-  attemptsRef: MutableRefObject<number>;
-  inFlightRef: MutableRefObject<boolean>;
-  listMissingSlots: () => string[];
-  logError: (message: string | Error, cause?: unknown) => void;
-  store: ContainerContentsStore;
-  timerRef: MutableRefObject<ReturnType<typeof setInterval> | null>;
+// Runs one effect run (sequence) of the provisioned-container poll against the
+// organization's machine in `machines`, and returns its cleanup. Every state
+// change goes through `send`, and the effects (pull, timer, log) run on
+// entering a state. The machine's `sequence` and `pull` tags are what keep a
+// cleaned-up run from finishing a newer one.
+function runProvisionedPullSequence(input: {
+  readonly describeMissing: (missingSlots: ReadonlyArray<string>) => string;
+  readonly key: string;
+  readonly listMissingSlots: () => string[];
+  readonly log: (message: string) => void;
+  readonly logError: (message: string | Error, cause?: unknown) => void;
+  readonly machines: Map<string, ProvisionedPullState>;
+  readonly online: boolean;
+  readonly store: ContainerContentsStore;
 }): () => void {
-  const {
-    attemptsRef,
-    inFlightRef,
-    listMissingSlots,
-    logError,
-    store,
-    timerRef,
-  } = input;
-
-  // Fresh sequence: reset the attempt budget and the in-flight guard. The provider
-  // is not remounted across org switches or a logout/login, so these refs outlive
-  // any single session; without the reset a prior sequence's spent attempts would
-  // accumulate and eventually starve every later session's pull once the lifetime
-  // total crossed the limit.
-  attemptsRef.current = 0;
-  inFlightRef.current = false;
-  let cancelled = false;
-
-  const stopPolling = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+  const { key, listMissingSlots, machines, store } = input;
+  const sequence: ProvisionedPullTag = {};
+  let active = true;
+  let timer: ReturnType<typeof setInterval> | null = null;
+  const stopTimer = () => {
+    if (timer) clearInterval(timer);
+    timer = null;
   };
+  const tickNow = () =>
+    send({
+      missingSlots: listMissingSlots(),
+      pull: {},
+      sequence,
+      type: "tick",
+    });
 
-  const pullRootLane = () => {
-    if (
-      listMissingSlots().length === 0 ||
-      attemptsRef.current >= PROVISIONED_SYSTEM_CONTAINER_PULL_LIMIT
-    ) {
-      stopPolling();
-      return;
-    }
-    // Keep pulls sequential: skip this tick if the previous root-lane pull has not
-    // settled yet. Firing every interval regardless would pile up concurrent
-    // requests under a slow network and burn the whole attempt budget before the
-    // server answered even the first — spending against the limit only on completed
-    // round-trips is what makes it a retry budget.
-    if (inFlightRef.current) {
-      return;
-    }
-    inFlightRef.current = true;
-    attemptsRef.current += 1;
-    void store
-      .refreshRootLane({ includeActiveRootChildLane: true })
-      .catch((error: unknown) => {
-        // Skip a failure from a torn-down sequence (org switch / logout): the pull
-        // belongs to the old scope and its error is not actionable here.
-        if (!cancelled) {
-          logError("Failed to pull provisioned system container", error);
+  const pullRootLane = (pull: ProvisionedPullTag) => {
+    void store.refreshRootLane({ includeActiveRootChildLane: true }).then(
+      (listed) => send({ listed, pull, type: "pull-settled" }),
+      (error: unknown) => {
+        // A failure from a cleaned-up run belongs to the old scope.
+        if (active) {
+          input.logError("Failed to pull provisioned system container", error);
         }
-      })
-      .finally(() => {
-        // Only the owning (uncancelled) sequence may clear the guard. inFlightRef
-        // persists across sequences, so a cancelled sequence's late-resolving pull
-        // must not reset a fresh sequence's guard — that would let the fresh
-        // sequence fire a concurrent pull and burn its attempt budget.
-        if (!cancelled) {
-          inFlightRef.current = false;
-        }
-      });
-  };
-
-  const startRemotePollingIfStillMissing = () => {
-    // The local surface may have already converged, or this effect run may have
-    // been torn down (org switch / logout) while the local read was in flight. In
-    // either case do not open a network poll — checking cancelled here (set by the
-    // returned cleanup) is what prevents a leaked stale interval.
-    if (cancelled || timerRef.current || listMissingSlots().length === 0) {
-      return;
-    }
-    pullRootLane();
-    timerRef.current = setInterval(
-      pullRootLane,
-      PROVISIONED_SYSTEM_CONTAINER_PULL_INTERVAL_MS,
+        send({ listed: true, pull, type: "pull-settled" });
+      },
     );
   };
 
-  // Surface from LOCAL SQLite first: registration / createOrganization already
-  // persisted the provisioned containers in the same flow (persistRegistrationBootstrap),
-  // so a local re-read shows them instantly with no server round-trip — parity with
-  // the device-first Contacts. Fall back to the remote poll only for a slot the
-  // local read did not yield.
-  void store
-    .refreshLocalContainers()
-    .catch((error: unknown) => {
-      // Skip a rejection from a torn-down sequence (unmount / org switch): the
-      // store/db may be gone, so logging it would be a false positive. Mirrors the
-      // pullRootLane guard.
-      if (!cancelled) {
-        logError(
-          "Failed to surface provisioned system container from local state",
-          error,
-        );
-      }
-    })
-    .finally(startRemotePollingIfStillMissing);
+  const enterPolling = (
+    previous: ProvisionedPullState,
+    next: Extract<ProvisionedPullState, { status: "polling" }>,
+  ) => {
+    const previousPull =
+      previous.status === "settled" || previous.status === "abandoned"
+        ? null
+        : previous.pull;
+    if (next.pull && next.pull !== previousPull) pullRootLane(next.pull);
+    if (previous.status === "surfacing") {
+      timer = setInterval(tickNow, PROVISIONED_PULL_INTERVAL_MS);
+      tickNow();
+    }
+  };
+
+  const enter = (
+    previous: ProvisionedPullState,
+    next: ProvisionedPullState,
+  ) => {
+    if (next.status === "polling") return enterPolling(previous, next);
+    if (next.status === "surfacing") return;
+    stopTimer();
+    if (next.status === "abandoned" && previous.status !== "abandoned") {
+      input.log(
+        `System bootstrap: ${input.describeMissing(next.missingSlots)} did not appear after ${next.listings} root-lane listing(s); stopped polling for it.`,
+      );
+    }
+  };
+
+  // A pull from a cleaned-up run still settles here: the listing it sent
+  // counts against the organization's budget, and its tag keeps it from
+  // clearing the in-flight guard of the pull that replaced it.
+  function send(event: ProvisionedPullEvent): void {
+    const previous = machines.get(key) ?? INITIAL_PROVISIONED_PULL_STATE;
+    const next = transitionProvisionedPull(previous, event);
+    if (next === previous) return;
+    machines.set(key, next);
+    enter(previous, next);
+  }
+
+  send({ sequence, type: "start" });
+  // Surface from local SQLite first: registration and createOrganization
+  // persist the provisioned containers in the same flow
+  // (persistRegistrationBootstrap), so a local re-read shows them with no
+  // server round-trip. Poll only for a slot it did not yield.
+  if (machines.get(key)?.status === "surfacing") {
+    store
+      .refreshLocalContainers()
+      .catch((error: unknown) => {
+        if (active) {
+          input.logError(
+            "Failed to surface provisioned system container from local state",
+            error,
+          );
+        }
+      })
+      .finally(() => {
+        if (!active) return;
+        const missingSlots = listMissingSlots();
+        // Offline, only the local surface runs. The remote poll waits for the
+        // runtime to come back, which re-runs the effect.
+        if (missingSlots.length > 0 && !input.online) return;
+        send({ missingSlots, sequence, type: "surfaced" });
+      });
+  }
 
   return () => {
-    cancelled = true;
-    stopPolling();
+    active = false;
+    stopTimer();
+    send({ sequence, type: "cancel" });
   };
 }
 
-// Surface the containers created in the organization's provisioning transaction.
-// This runs on the bare auth transition (it is NOT gated on the bootstrap's
-// canProvisionSystemContainers, which can stay false while the local root still
-// carries its pre-registration organization id).
+function storeMachines(
+  machinesByStore: WeakMap<
+    ContainerContentsStore,
+    Map<string, ProvisionedPullState>
+  >,
+  store: ContainerContentsStore,
+): Map<string, ProvisionedPullState> {
+  const existing = machinesByStore.get(store);
+  if (existing) return existing;
+  const machines = new Map<string, ProvisionedPullState>();
+  machinesByStore.set(store, machines);
+  return machines;
+}
+
+// Surface the containers created in the organization's provisioning transaction
+// (Trash). This runs on the bare auth transition (it is NOT gated on the
+// bootstrap's canProvisionSystemContainers, which can stay false while the
+// local root still carries its pre-registration organization id).
 //
 // Surface locally first, poll remotely only as a fallback: registration and
-// createOrganization persist the provisioned container to local SQLite in the same
-// flow, so a local re-read (store.refreshLocalContainers) shows it instantly with
-// no server round-trip — matching the device-first Contacts' immediacy. The remote
-// poll remains as a safety net for the cases the local read cannot satisfy (store
-// not yet initialized, or the freshly created org is not the active context yet).
+// createOrganization persist the provisioned container to local SQLite in the
+// same flow, so a local re-read (store.refreshLocalContainers) shows it with no
+// server round-trip. The remote poll is a safety net for the cases the local
+// read cannot satisfy (store not yet initialized, or the freshly created org is
+// not the active context yet): a single root-lane pull can race the store
+// coming online right after registration, and that path has no user nudge to
+// try again. A session whose tree already holds the slot never surfaces or
+// polls.
 //
-// Why poll rather than pull once (fallback): a single root-lane pull can race the
-// store coming online right after registration and return nothing, and — unlike the
-// Explorer's manual refresh button, which re-pulls on every click — the
-// autopilot/registration path has no user nudge to try again. So pull on an
-// interval until every provisioned slot surfaces (checking the live store
-// snapshot, not the render's), then stop. A returning session that already loaded
-// the slot from SQLite finds it present up front and never surfaces or polls; the
-// attempt budget only bounds the pathological slot the server never returns.
+// The poll is bounded per organization for the whole page load (see
+// provisionedPullMachine): at most two root-lane listings, then it stops and
+// logs the missing slot. An account registered without the slot (an SDK host
+// that passed no provisioned system containers) would otherwise poll for ten
+// seconds on every load.
+//
+// It polls remotely only while the live runtime is online with its database
+// ready; the local surface runs either way. The store defers a pull made
+// otherwise until it can list, and resolves it as listed without a request,
+// which would spend the budget on nothing.
 export function useProvisionedSystemContainerPull(input: {
   readonly currentOrganizationId: string | null | undefined;
   readonly currentRootContainerId: string | null | undefined;
   readonly enabled: boolean;
   readonly isAuthenticated: boolean;
+  readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
+  /** The live runtime is online and its database is ready. */
+  readonly online: boolean;
   readonly snapshotReady: boolean;
   readonly store: ContainerContentsStore;
   readonly systemContainers: ReadonlyArray<UserSystemContainer>;
@@ -262,16 +285,18 @@ export function useProvisionedSystemContainerPull(input: {
     currentOrganizationId,
     currentRootContainerId,
     isAuthenticated,
+    log,
     logError,
+    online,
     snapshotReady,
     store,
     systemContainers,
   } = input;
-  const provisionedPullTimerRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
+  // One machine per store, organization and slot set, for the provider's
+  // lifetime: a store that replaces a superseded one starts a fresh budget.
+  const machinesRef = useRef(
+    new WeakMap<ContainerContentsStore, Map<string, ProvisionedPullState>>(),
   );
-  const provisionedPullAttemptsRef = useRef(0);
-  const provisionedPullInFlightRef = useRef(false);
   useEffect(() => {
     if (!enabled || !isAuthenticated || !snapshotReady) {
       return;
@@ -283,15 +308,16 @@ export function useProvisionedSystemContainerPull(input: {
       return;
     }
 
+    const findRootId = (nodes: ReadonlyArray<ContainerNode>) =>
+      nodes.find(
+        (node) =>
+          node.organizationId === currentOrganizationId &&
+          node.parentId === null &&
+          !node.systemSlot,
+      )?.id ?? currentRootContainerId;
     const listMissingSlots = (): string[] => {
       const nodes = store.getSnapshot().nodes;
-      const rootId =
-        nodes.find(
-          (node) =>
-            node.organizationId === currentOrganizationId &&
-            node.parentId === null &&
-            !node.systemSlot,
-        )?.id ?? currentRootContainerId;
+      const rootId = findRootId(nodes);
       return provisionedContainers.flatMap((container) =>
         nodes.some(
           (node) =>
@@ -304,28 +330,40 @@ export function useProvisionedSystemContainerPull(input: {
       );
     };
 
-    // Already whole (synced in, or loaded from SQLite on a returning session), or
-    // a poll is already running for this scope: nothing to start.
-    if (listMissingSlots().length === 0 || provisionedPullTimerRef.current) {
+    // Already whole: synced in, or loaded from SQLite on a returning session.
+    if (listMissingSlots().length === 0) {
       return;
     }
 
-    return surfaceThenPollProvisionedContainers({
-      attemptsRef: provisionedPullAttemptsRef,
-      inFlightRef: provisionedPullInFlightRef,
+    return runProvisionedPullSequence({
+      describeMissing: (missingSlots) =>
+        `${provisionedContainers
+          .filter((container) => missingSlots.includes(container.systemSlot))
+          .map((container) => `${container.name} (${container.systemSlot})`)
+          .join(", ")} under root ${
+          findRootId(store.getSnapshot().nodes) ?? "(none)"
+        }`,
+      key: [
+        currentOrganizationId ?? "",
+        ...provisionedContainers.map((container) => container.systemSlot),
+      ].join("\u0000"),
       listMissingSlots,
+      log,
       logError,
+      machines: storeMachines(machinesRef.current, store),
+      online,
       store,
-      timerRef: provisionedPullTimerRef,
     });
   }, [
     enabled,
     currentOrganizationId,
     currentRootContainerId,
     isAuthenticated,
+    online,
     snapshotReady,
     systemContainers,
     store,
+    log,
     logError,
   ]);
 }

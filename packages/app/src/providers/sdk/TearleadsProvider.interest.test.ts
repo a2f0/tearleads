@@ -216,6 +216,8 @@ test("waits for the ready local tree before the initial declaration", () => {
   );
 
   expect(sent).toEqual([]);
+  // The socket's connect attempt keeps waiting for the acknowledgement.
+  expect(handle.awaitingInitialAcknowledgement()).toBe(true);
   fakeStore.setNodes(["a", "b"]);
   expect(sent).toEqual([]);
   fakeStore.setReady(true);
@@ -224,7 +226,9 @@ test("waits for the ready local tree before the initial declaration", () => {
     containerIds: ["a", "b"],
     declarationId: expect.any(String),
   });
+  expect(handle.awaitingInitialAcknowledgement()).toBe(true);
   acknowledgeInitialDeclaration(handle, sent);
+  expect(handle.awaitingInitialAcknowledgement()).toBe(false);
 });
 
 test("skips interest when the container tree cannot be opened", () => {
@@ -238,6 +242,8 @@ test("skips interest when the container tree cannot be opened", () => {
   );
 
   expect(sent).toEqual([]);
+  // No declaration: the socket's attempt will never be acknowledged.
+  expect(handle.awaitingInitialAcknowledgement()).toBe(false);
   expect(() => handle.stop()).not.toThrow();
   expect(() => handle.invalidate("anything")).not.toThrow();
 });

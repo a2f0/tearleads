@@ -1,8 +1,8 @@
+import type { InProcessApi } from "../inProcess/inProcessApi";
+import type { PostgresTraffic } from "../inProcess/postgresWire";
 import { runInProcessProbe } from "../inProcessProbe";
 import { saveJson } from "../reportFiles";
 import { loadSeededTree, type SeededTree, seedFileName } from "./artifacts";
-import type { InProcessApi } from "./inProcessApi";
-import type { PostgresTraffic } from "./postgresWire";
 import { seedTree } from "./run";
 
 /** The seeding choices every realtime probe accepts. */
