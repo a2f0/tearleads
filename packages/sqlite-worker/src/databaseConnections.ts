@@ -1,12 +1,20 @@
 import type { Sqlite3Static } from "@tearleads/sqlite-instance";
 import { isDatabaseInAutocommit } from "./autocommit";
 import {
+  applyConnectionEvent as apply,
+  CLOSED_BEFORE_INIT_MESSAGE,
+  type ConnectionRecord,
+  closeInBackground,
+  type DatabaseEntry,
+  type DatabaseHandle,
+  type DetachEvent,
+  initOptionsKey,
+  runQueued,
+} from "./databaseConnectionHelpers";
+import {
   canOpenDatabaseConnection,
-  type DatabaseConnectionEvent,
-  type DatabaseConnectionState,
   databaseConnectionDbName,
   databaseConnectionRefusal,
-  transitionDatabaseConnection,
   UNOPENED_DATABASE_CONNECTION,
 } from "./databaseConnectionMachine";
 import {
@@ -39,73 +47,10 @@ import {
 import { wipeOpfsStorage } from "./wipeOpfsStorage";
 import type { RegisterDatabaseWorkerOptions } from "./workerCore";
 
-type DatabaseHandle = Awaited<ReturnType<typeof initDatabase>>;
-
-interface ConnectionRecord {
-  state: DatabaseConnectionState;
-  readonly notify: DatabaseWorkerNotify;
-}
-
-interface DatabaseEntry {
-  readonly dbName: string;
-  readonly db: DatabaseHandle;
-  readonly optionsKey: string;
-  readonly lease: TransactionLease<ConnectionRecord>;
-  refCount: number;
-  queue: Promise<void>;
-}
-
 export interface DatabaseConnectionRegistryOptions {
   readonly leaseBounds?: Partial<TransactionLeaseBounds>;
   /** Where revocations are reported. No SQL text or bind values reach it. */
   readonly log?: (message: string) => void;
-}
-
-/**
- * Runs a close no request waits on, reporting its failure through `log`
- * rather than leaving it as an unhandled rejection in the worker.
- */
-export function closeInBackground(
-  log: (message: string) => void,
-  dbName: string,
-  closing: Promise<void>,
-): void {
-  closing.catch((error: unknown) => {
-    log(
-      `SQLite could not close database ${dbName}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  });
-}
-
-function initOptionsKey(options: DatabaseWorkerInitOptions): string {
-  return [
-    options.dbName,
-    options.persistence ?? "memory",
-    options.cipher,
-    options.key,
-  ].join("\0");
-}
-
-function runQueued<T>(
-  entry: Pick<DatabaseEntry, "queue">,
-  operation: () => Promise<T> | T,
-): Promise<T> {
-  const queued = entry.queue.then(operation, operation);
-  entry.queue = queued.then(
-    () => undefined,
-    () => undefined,
-  );
-  return queued;
-}
-
-// The events that take a connection off its open database.
-type DetachEvent = Extract<
-  DatabaseConnectionEvent,
-  { type: "released" | "databaseClosed" | "transactionRevoked" }
->;
-
-function apply(record: ConnectionRecord, event: DatabaseConnectionEvent): void {
-  record.state = transitionDatabaseConnection(record.state, event);
 }
 
 class DatabaseConnectionRegistry {
@@ -162,23 +107,7 @@ class DatabaseConnectionRegistry {
     this.initializingConnections += 1;
 
     try {
-      const entry = await this.acquireDatabase(options);
-      // A close or delete overtook the open. Give back what it acquired
-      // while the connection is still opening, so no second init starts
-      // before the release finishes.
-      if (
-        record.state.status !== "opening" ||
-        record.state.attempt !== attempt ||
-        record.state.released
-      ) {
-        await this.releaseDatabase(entry.dbName);
-        throw new Error(
-          "Database connection closed before initialization completed.",
-        );
-      }
-
-      apply(record, { type: "openSucceeded", attempt, dbName: entry.dbName });
-      this.addConnection(entry.dbName, record);
+      await this.acquireAndOpenConnection(record, attempt, options);
     } catch (error) {
       apply(record, { type: "openFailed", attempt });
       throw error;
@@ -235,36 +164,65 @@ class DatabaseConnectionRegistry {
     await wipe;
   }
 
-  private async acquireDatabase(
+  private isOpenOvertaken(record: ConnectionRecord, attempt: number): boolean {
+    return (
+      record.state.status !== "opening" ||
+      record.state.attempt !== attempt ||
+      record.state.released
+    );
+  }
+
+  private async acquireAndOpenConnection(
+    record: ConnectionRecord,
+    attempt: number,
     options: DatabaseWorkerInitOptions,
-  ): Promise<DatabaseEntry> {
+  ): Promise<void> {
     const { dbName } = options;
     const optionsKey = initOptionsKey(options);
 
     await this.storageWipe;
 
-    await this.waitForLifecycle(dbName);
+    // Only one opener enters runLifecycle at a time so concurrent openers wait
+    // outside the lifecycle queue instead of running ahead of a delete or close.
+    for (;;) {
+      await this.waitForLifecycle(dbName);
 
-    const existing = this.databasesByName.get(dbName);
-    if (existing) {
-      return this.attachDatabase(existing, optionsKey);
+      const existing = this.databasesByName.get(dbName);
+      if (existing) {
+        // Attach, mark open, and register in one synchronous turn so another
+        // port's delete cannot land between attaching and registration.
+        this.attachConnection(record, attempt, existing, optionsKey);
+        return;
+      }
+
+      if (!this.lifecycleByName.has(dbName)) {
+        break;
+      }
     }
 
-    const entry = await this.runLifecycle(dbName, async () => {
-      const openedByEarlierWaiter = this.databasesByName.get(dbName);
-      if (openedByEarlierWaiter) {
-        return openedByEarlierWaiter;
+    await this.runLifecycle(dbName, async () => {
+      const opened = this.databasesByName.get(dbName);
+      if (opened) {
+        this.attachConnection(record, attempt, opened, optionsKey);
+        return;
+      }
+
+      if (this.isOpenOvertaken(record, attempt)) {
+        throw new Error(CLOSED_BEFORE_INIT_MESSAGE);
       }
 
       const db = await initDatabase(options);
       // Opening loaded SQLite, so this resolves to the loaded module at once.
       const { capi } = await loadSqlite3();
+      if (this.isOpenOvertaken(record, attempt)) {
+        await closeDatabase(db);
+        throw new Error(CLOSED_BEFORE_INIT_MESSAGE);
+      }
+
       const created = this.createEntry(dbName, db, optionsKey, capi);
       this.databasesByName.set(dbName, created);
-      return created;
+      this.attachConnection(record, attempt, created, optionsKey);
     });
-
-    return this.attachDatabase(entry, optionsKey);
   }
 
   private createEntry(
@@ -297,10 +255,15 @@ class DatabaseConnectionRegistry {
     return entry;
   }
 
-  private attachDatabase(
+  private attachConnection(
+    record: ConnectionRecord,
+    attempt: number,
     entry: DatabaseEntry,
     optionsKey: string,
-  ): DatabaseEntry {
+  ): void {
+    if (this.isOpenOvertaken(record, attempt)) {
+      throw new Error(CLOSED_BEFORE_INIT_MESSAGE);
+    }
     if (entry.optionsKey !== optionsKey) {
       throw new Error(
         "Database is already initialized with different options.",
@@ -308,7 +271,8 @@ class DatabaseConnectionRegistry {
     }
 
     entry.refCount += 1;
-    return entry;
+    apply(record, { type: "openSucceeded", attempt, dbName: entry.dbName });
+    this.addConnection(entry.dbName, record);
   }
 
   private async closeConnection(record: ConnectionRecord): Promise<void> {
@@ -466,7 +430,9 @@ class DatabaseConnectionRegistry {
   }
 
   private async waitForLifecycle(dbName: string): Promise<void> {
-    await this.lifecycleByName.get(dbName);
+    while (this.lifecycleByName.has(dbName)) {
+      await this.lifecycleByName.get(dbName);
+    }
   }
 
   private async runLifecycle<T>(

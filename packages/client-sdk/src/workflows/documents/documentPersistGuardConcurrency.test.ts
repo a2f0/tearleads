@@ -1,22 +1,19 @@
 import { expect, test } from "bun:test";
-import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
-import { initTestSqliteDatabase } from "@tearleads/test-utils";
+import type { DatabaseConnectionRegistryOptions } from "@tearleads/sqlite-worker/database-connections";
+import { createSharedWorkerSqliteConnections } from "../../../test/helpers/data/sharedWorkerSqliteConnections";
 import { createDocumentProjectorRegistry } from "../../data/documents";
 import { deleteDocumentPlacements } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { createClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
-import type { SqlArrayRow, SqlRow } from "../../data/sqlite/sqlSchema";
+import { isDatabaseTransactionBusyError } from "../../data/sqlite/availability/databaseUnavailable";
 import { refuseDeletedDocumentPersist } from "./documentPersistGuards";
 
-async function openDocumentRaceConnections() {
-  const db = await initTestSqliteDatabase({
-    cipher: "chacha20",
-    dbName: `/${crypto.randomUUID()}.db`,
-    key: "document-delete-create-race",
-  });
-  let transactionOwner: symbol | null = null;
-  let transactionReleased: Promise<void> = Promise.resolve();
-  let releaseTransaction = () => {};
+async function openDocumentRaceConnections(
+  options: {
+    readonly leaseBounds?:
+      | DatabaseConnectionRegistryOptions["leaseBounds"]
+      | undefined;
+  } = {},
+) {
   let releaseAbsentRead = () => {};
   const absentReadReleased = new Promise<void>((resolve) => {
     releaseAbsentRead = resolve;
@@ -29,63 +26,38 @@ async function openDocumentRaceConnections() {
   const createBegin = new Promise<void>((resolve) => {
     signalCreateBegin = resolve;
   });
+  let didPauseAbsentRead = false;
 
-  const createRuntime = (role: "cleanup" | "create") => {
-    const owner = Symbol(role);
-    let didPauseAbsentRead = false;
-    return createClientSQLitePersistenceRuntime({
-      exec: async (options) => {
-        const command = options.sql.trimStart().toUpperCase();
-        const beginsTransaction = command.startsWith("BEGIN");
-        const endsTransaction =
-          command.startsWith("COMMIT") || command.startsWith("ROLLBACK");
-        if (beginsTransaction) {
-          if (role === "create") signalCreateBegin();
-          while (transactionOwner !== null && transactionOwner !== owner) {
-            await transactionReleased;
-          }
-          if (transactionOwner === null) {
-            transactionOwner = owner;
-            transactionReleased = new Promise<void>((resolve) => {
-              releaseTransaction = resolve;
-            });
-          }
-        } else {
-          while (transactionOwner !== null && transactionOwner !== owner) {
-            await transactionReleased;
-          }
-        }
-        try {
-          const rows = execDatabaseStatement(db, options) as Array<
-            SqlRow | SqlArrayRow
-          >;
-          if (
-            role === "cleanup" &&
-            !didPauseAbsentRead &&
-            command.startsWith("SELECT") &&
-            command.includes('FROM "DOCUMENTS"')
-          ) {
-            didPauseAbsentRead = true;
-            signalAbsentRead();
-            await absentReadReleased;
-          }
-          return { rows };
-        } finally {
-          if (endsTransaction && transactionOwner === owner) {
-            transactionOwner = null;
-            releaseTransaction();
-          }
-        }
-      },
-    });
-  };
-  const cleanup = createRuntime("cleanup");
+  const shared = createSharedWorkerSqliteConnections({
+    afterExec: async ({ command, role }) => {
+      if (
+        role === "cleanup" &&
+        !didPauseAbsentRead &&
+        command.startsWith("SELECT") &&
+        command.includes('FROM "DOCUMENTS"')
+      ) {
+        didPauseAbsentRead = true;
+        signalAbsentRead();
+        await absentReadReleased;
+      }
+    },
+    beforeExec: ({ command, role }) => {
+      if (role === "create" && command.startsWith("BEGIN")) {
+        signalCreateBegin();
+      }
+    },
+    key: "document-delete-create-race",
+    leaseBounds: options.leaseBounds,
+  });
+
+  const cleanup = await shared.connect("cleanup");
   await sqlDocumentsPersistence.ensureSchema(cleanup.execSql);
+  const create = await shared.connect("create");
   return {
     absentRead,
     cleanup,
-    close: () => db.close(),
-    create: createRuntime("create"),
+    close: () => shared.close(),
+    create,
     createBegin,
     releaseAbsentRead,
   };
@@ -151,6 +123,95 @@ test("an initializer racing absent-row cleanup keeps its new document", async ()
     ).toMatchObject({ documentId: "fresh-document", text: "fresh" });
   } finally {
     race.releaseAbsentRead();
-    race.close();
+    await race.close();
+  }
+});
+
+test("a create refused busy behind absent-row cleanup is not treated as an existing row and retries cleanly", async () => {
+  const race = await openDocumentRaceConnections({
+    leaseBounds: { idleMs: 60_000, waitMs: 50 },
+  });
+  const localId = "busy-racing-document";
+  let clientProjectionDeletes = 0;
+  const documentProjectors = createDocumentProjectorRegistry([
+    {
+      clientProjection: {
+        delete: () => {
+          clientProjectionDeletes += 1;
+        },
+        save: () => undefined,
+        tables: [],
+      },
+      kind: "contact",
+    },
+  ]);
+  let cleanup: Promise<unknown> = Promise.resolve();
+  try {
+    cleanup = refuseDeletedDocumentPersist({
+      currentRecord: {
+        accessEpoch: 1,
+        containerId: "stale-container",
+        documentId: "stale-document",
+        documentKind: "contact",
+        id: localId,
+        snapshotEndVersion: "stale-version",
+        text: "stale",
+      },
+      deleteDocumentPlacements,
+      documentProjectors,
+      execSql: race.cleanup.execSql,
+      localId,
+      persistence: sqlDocumentsPersistence,
+    });
+    await race.absentRead;
+
+    const refused = await sqlDocumentsPersistence
+      .createDocumentWithHistoryCheckpoint(
+        race.create.execSql,
+        {
+          accessEpoch: 1,
+          containerId: "fresh-container",
+          documentId: "fresh-document",
+          id: localId,
+          snapshotEndVersion: "fresh-version",
+          text: "fresh",
+        },
+        { endVersionVector: "fresh-version", snapshot: "fresh-snapshot" },
+        undefined,
+        async () => undefined,
+      )
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+    expect(isDatabaseTransactionBusyError(refused)).toBe(true);
+
+    race.releaseAbsentRead();
+    expect(await cleanup).toBe(true);
+    expect(clientProjectionDeletes).toBe(1);
+
+    const retried =
+      await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+        race.create.execSql,
+        {
+          accessEpoch: 1,
+          containerId: "fresh-container",
+          documentId: "fresh-document",
+          id: localId,
+          snapshotEndVersion: "fresh-version",
+          text: "fresh",
+        },
+        { endVersionVector: "fresh-version", snapshot: "fresh-snapshot" },
+        undefined,
+        async () => undefined,
+      );
+    expect(retried).not.toBeNull();
+    expect(
+      await sqlDocumentsPersistence.loadDocument(race.create.execSql, localId),
+    ).toMatchObject({ documentId: "fresh-document", text: "fresh" });
+  } finally {
+    race.releaseAbsentRead();
+    await cleanup.catch(() => undefined);
+    await race.close();
   }
 });
