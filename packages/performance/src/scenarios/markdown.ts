@@ -257,7 +257,8 @@ export function formatScenarioReport(report: ScenarioReport): string {
     (run) =>
       run.http?.truncated ||
       (run.statements.status === "captured" &&
-        run.statements.summary.truncated),
+        run.statements.summary.truncated) ||
+      (run.clientSql?.status === "captured" && run.clientSql.summary.truncated),
   );
   if (truncatedRuns.length > 0) {
     lines.push(

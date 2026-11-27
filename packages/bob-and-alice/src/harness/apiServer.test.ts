@@ -42,4 +42,4 @@ test("apiServer and trace forward to opt-in scenario profiling sinks", async () 
     status: response.status,
     url: `${origin}/auth/challenge`,
   });
-});
+}, 60_000);

@@ -73,7 +73,9 @@ function describeRun(run: ScenarioRun): string {
         ]
       : []),
     ...(run.clientSql?.status === "captured"
-      ? [`${run.clientSql.summary.statements} client SQL`]
+      ? [
+          `${run.clientSql.summary.statements} client SQL${run.clientSql.summary.truncated ? " (truncated)" : ""}`,
+        ]
       : []),
   ];
   return `${base} (${parts.join(", ")})`;

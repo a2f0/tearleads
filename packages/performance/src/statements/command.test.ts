@@ -171,13 +171,21 @@ test("captures client SQLite statements and defaults bob-and-alice to memory DB"
 });
 
 test("succeeds when only client SQLite statements are recorded", async () => {
-  const fake = await fakeHost({ clientCapture: clientRecord });
+  const fake = await fakeHost({
+    clientCapture: clientRecord,
+    env: {
+      API_DATABASE: "postgres",
+      PERF_STATEMENTS_LIMIT: "99",
+    },
+  });
   expect(
     await runStatementCommand(
       ["--package", "app", ...run("--client-statements")],
       fake.host,
     ),
   ).toBe(0);
+  expect(fake.runs[0]?.env).toMatchObject({ API_DATABASE: "postgres" });
+  expect(fake.runs[0]?.env).not.toHaveProperty("PERF_STATEMENTS_LIMIT");
   expect(fake.printed.join("\n")).toContain("No API ORM statements");
   expect(fake.printed.join("\n")).toContain("Client SQLite statements");
 });

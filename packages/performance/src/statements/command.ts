@@ -76,7 +76,6 @@ function buildCaptureEnv(
   clientOut: string | null,
 ): Record<string, string | undefined> {
   const {
-    API_DATABASE: apiDatabase,
     PERF_CLIENT_SQL_LIMIT: _clientLimit,
     PERF_CLIENT_SQL_OUT: _clientOut,
     PERF_STATEMENTS_LIMIT: _stmtLimit,
@@ -84,6 +83,7 @@ function buildCaptureEnv(
     PERF_STATEMENTS_PARAM_HASH: _stmtParamHash,
     ...cleanEnv
   } = env;
+  const { API_DATABASE: apiDatabase } = env;
   return {
     ...cleanEnv,
     ...(memoryApiPackages.has(options.package) && {
