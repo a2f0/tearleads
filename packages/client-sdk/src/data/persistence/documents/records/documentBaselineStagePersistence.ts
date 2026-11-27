@@ -1,4 +1,4 @@
-import type { AccessEvent } from "@tearleads/crypto";
+import { type AccessEvent, readKeyingCanonicalJson } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { and, eq, inArray } from "drizzle-orm";
 import {
@@ -8,13 +8,53 @@ import {
 import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import {
+  afterClientSQLiteScopeCommit,
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../../sqlite/sqlSchema";
+import {
+  type ExecSql,
+  ensureSqlTables,
+  resolveCanonicalExecSql,
+} from "../../../sqlite/sqlSchema";
 
 const DOCUMENT_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 0);
+const SCOPE_LOCAL_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 1);
 const CONTENT_KEY_BYTES = 32;
+
+type StagedBaselineEvictionListener = (documentIds: readonly string[]) => void;
+
+const evictionListenersByDatabase = new WeakMap<
+  ExecSql,
+  Set<StagedBaselineEvictionListener>
+>();
+
+/** Subscribe to committed document-row evictions on `execSql`. */
+export function onDocumentStagedBaselineUploadsEvicted(
+  execSql: ExecSql,
+  listener: StagedBaselineEvictionListener,
+): () => void {
+  const canonical = resolveCanonicalExecSql(execSql);
+  let listeners = evictionListenersByDatabase.get(canonical);
+  if (!listeners) {
+    listeners = new Set();
+    evictionListenersByDatabase.set(canonical, listeners);
+  }
+  listeners.add(listener);
+  return () => {
+    listeners?.delete(listener);
+  };
+}
+
+function notifyDocumentStagedBaselineUploadsEvicted(
+  canonicalExecSql: ExecSql,
+  documentIds: readonly string[],
+): void {
+  if (documentIds.length === 0) return;
+  const listeners = evictionListenersByDatabase.get(canonicalExecSql);
+  if (!listeners) return;
+  for (const listener of listeners) listener(documentIds);
+}
 
 /**
  * Persisted record of one staged segment: enough to confirm a re-proven
@@ -130,14 +170,16 @@ function parseKeyTargets(
   } catch {
     return null;
   }
-  if (!Array.isArray(parsed)) return null;
+  if (!Array.isArray(parsed) || parsed.length === 0) return null;
   const targets: PersistedRotationKeyTarget[] = [];
   for (const item of parsed) {
     if (
       !Array.isArray(item) ||
       item.length !== 2 ||
       typeof item[0] !== "string" ||
-      typeof item[1] !== "string"
+      typeof item[1] !== "string" ||
+      item[0].length === 0 ||
+      item[1].length === 0
     ) {
       return null;
     }
@@ -160,11 +202,16 @@ function parseLinkSetEvent(
     return null;
   }
   const event = parsed as Record<string, unknown>;
-  if (
-    readStringField(event, "eventId") === null ||
-    readStringField(event, "signedAt") === null ||
-    readStringField(event, "signature") === null
-  ) {
+  const eventId = readStringField(event, "eventId");
+  const signedAt = readStringField(event, "signedAt");
+  const signature = readStringField(event, "signature");
+  if (!eventId || !signedAt || !signature) {
+    return null;
+  }
+  const { signature: _signature, ...fields } = event;
+  try {
+    readKeyingCanonicalJson(fields, "Persisted link-set event");
+  } catch {
     return null;
   }
   return parsed as AccessEvent;
@@ -227,6 +274,9 @@ export function ensureDocumentBaselineStageTables(
  */
 export async function loadDocumentStagedBaselineUploads(
   execSql: ExecSql,
+  isValidUpload: (
+    upload: PersistedStagedBaselineUpload,
+  ) => Promise<boolean> | boolean,
 ): Promise<Map<string, PersistedStagedBaselineUpload>> {
   await ensureDocumentBaselineStageTables(execSql);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
@@ -235,11 +285,11 @@ export async function loadDocumentStagedBaselineUploads(
   const invalidIds: string[] = [];
   for (const row of rows) {
     const parsed = deserializeRow(row);
-    if (parsed) {
-      uploads.set(parsed.documentId, parsed);
-    } else {
+    if (!parsed || !(await isValidUpload(parsed))) {
       invalidIds.push(row.documentId);
+      continue;
     }
+    uploads.set(parsed.documentId, parsed);
   }
   if (invalidIds.length > 0) {
     await getClientSQLitePersistenceRuntime(execSql).runMutation((tx) =>
@@ -307,7 +357,8 @@ export async function deleteDocumentStagedBaselineUploadsInTransaction(
   tx: Pick<ClientSQLiteTransactionScope, "delete">,
   documentIds: readonly string[],
 ): Promise<void> {
-  const unique = [...new Set(documentIds.filter((id) => id.length > 0))];
+  const unique = [...new Set(documentIds)];
+  if (unique.length === 0) return;
   for (
     let offset = 0;
     offset < unique.length;
@@ -323,6 +374,9 @@ export async function deleteDocumentStagedBaselineUploadsInTransaction(
       )
       .run();
   }
+  afterClientSQLiteScopeCommit(tx, (canonical) => {
+    notifyDocumentStagedBaselineUploadsEvicted(canonical, unique);
+  });
 }
 
 /**
@@ -336,13 +390,30 @@ export async function deleteDocumentStagedBaselineUploadsForScopesInTransaction(
 ): Promise<void> {
   const ids = [...new Set(localIds)];
   if (ids.length === 0) return;
-  const rows = await tx
-    .select({ documentId: documents.documentId })
-    .from(documents)
-    .where(and(eq(documents.appKind, appKind), inArray(documents.localId, ids)))
-    .all();
-  const documentIds = rows
-    .map((row) => row.documentId)
-    .filter((id): id is string => id !== null);
+  const documentIds: string[] = [];
+  for (
+    let offset = 0;
+    offset < ids.length;
+    offset += SCOPE_LOCAL_IDS_PER_STATEMENT
+  ) {
+    const rows = await tx
+      .select({ documentId: documents.documentId })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.appKind, appKind),
+          inArray(
+            documents.localId,
+            ids.slice(offset, offset + SCOPE_LOCAL_IDS_PER_STATEMENT),
+          ),
+        ),
+      )
+      .all();
+    for (const row of rows) {
+      if (row.documentId !== null && row.documentId.length > 0) {
+        documentIds.push(row.documentId);
+      }
+    }
+  }
   await deleteDocumentStagedBaselineUploadsInTransaction(tx, documentIds);
 }

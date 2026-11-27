@@ -9,6 +9,7 @@ import {
   setDefaultTimeout,
   test,
 } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   DOCUMENT_SYNC_ERROR_CODES,
@@ -20,10 +21,13 @@ import {
   STAGED_BASELINE_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/workflows/stagedBaselineHeal";
 import { createStagedUnlinkHarness } from "../../../../test/helpers/workflows/stagedBaselineUnlink";
+import { deriveDocumentContentKeyCommitment } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import {
   DocumentRecordRepository,
   ensureDocumentTables,
 } from "../../../data/persistence/documents/records";
+import { deleteDocumentStagedBaselineUploadsInTransaction } from "../../../data/persistence/documents/records/documentBaselineStagePersistence";
+import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { openPastOrphanedStages } from "../baselineStage/stagedBaselineOrphans";
 import { getOrCreateStagedBaselineUploads } from "../baselineStage/stagedBaselineUploads";
@@ -220,11 +224,20 @@ test("restart after headers_stale re-signs staged headers without re-uploading s
   expect(await persistedUploadRows(restarted)).toEqual([]);
 });
 
-test("a corrupt persisted upload row fails closed and never bricks rotation", async () => {
+test("corrupt persisted upload rows fail closed and never brick rotation", async () => {
   const harness = await createStagedHealHarness();
   const { documentId } = harness;
   const document = await createLongHistoryDocument("resume-corrupt");
+  const zeroKey = new Uint8Array(32);
+  const zeroKeyCommitment = await deriveDocumentContentKeyCommitment({
+    contentKey: zeroKey,
+    contentKeyEpoch: 2,
+    documentId,
+  });
 
+  // Insert an empty-id corrupt row AND a row with a valid 32-byte key whose
+  // commitment does not match: load must delete both and rotate onto a fresh
+  // key (never adopting the corrupted zero key).
   await execSql(
     `INSERT INTO document_staged_baseline_uploads (
       document_id, baseline_id, content_key_base64, content_key_commitment,
@@ -232,8 +245,8 @@ test("a corrupt persisted upload row fails closed and never bricks rotation", as
       headers_signed_for, records_json, updated_at
     ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, NULL, ?, ?)`,
     [
-      documentId,
-      "corrupt-baseline",
+      "",
+      "empty-id-baseline",
       "not-32-bytes",
       "0".repeat(64),
       2,
@@ -243,11 +256,80 @@ test("a corrupt persisted upload row fails closed and never bricks rotation", as
       "2026-07-26T00:00:00.000Z",
     ],
   );
+  await execSql(
+    `INSERT INTO document_staged_baseline_uploads (
+      document_id, baseline_id, content_key_base64, content_key_commitment,
+      content_key_epoch, link_set_event_json, signed_at, key_targets_json,
+      headers_signed_for, records_json, updated_at
+    ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, NULL, ?, ?)`,
+    [
+      documentId,
+      "mismatched-key-baseline",
+      bytesToBase64(zeroKey),
+      "f".repeat(64),
+      2,
+      "2026-07-26T00:00:00.000Z",
+      JSON.stringify([["container-1", "epoch-1"]]),
+      "[]",
+      "2026-07-26T00:00:00.000Z",
+    ],
+  );
 
   const restarted = restartProcess(execSql);
   const synced = await harness.heal(document, restarted);
   expect(synced?.acceptedRecoveryBaseline).toBe(true);
+  const committedKey =
+    harness.requests[0]?.contentKeyBundle?.contentKeyCommitment;
+  expect(committedKey).toBeDefined();
+  expect(committedKey).not.toBe(zeroKeyCommitment);
   expect(await persistedUploadRows(restarted)).toEqual([]);
+
+  // Non-canonical link_set_event_json (float 1.5) must also be discarded on
+  // load so unlink never throws before reaching the baseline writer.
+  const db2 = await createTestExecSql("document-sync-staged-corrupt-unlink");
+  try {
+    await ensureDocumentTables(db2.execSql);
+    const unlinkHarness = await createStagedUnlinkHarness();
+    const unlinkDoc = await createLongHistoryDocument("resume-corrupt-unlink");
+    const validKey = new Uint8Array(32).fill(7);
+    const validCommitment = await deriveDocumentContentKeyCommitment({
+      contentKey: validKey,
+      contentKeyEpoch: 2,
+      documentId: unlinkHarness.documentId,
+    });
+    await db2.execSql(
+      `INSERT INTO document_staged_baseline_uploads (
+        document_id, baseline_id, content_key_base64, content_key_commitment,
+        content_key_epoch, link_set_event_json, signed_at, key_targets_json,
+        headers_signed_for, records_json, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+      [
+        unlinkHarness.documentId,
+        "bad-link-event",
+        bytesToBase64(validKey),
+        validCommitment,
+        2,
+        JSON.stringify({
+          badFloat: 1.5,
+          eventId: "evt-1",
+          signature: "sig-1",
+          signedAt: "2026-07-26T00:00:00.000Z",
+        }),
+        "2026-07-26T00:00:00.000Z",
+        JSON.stringify([["container-1", "epoch-1"]]),
+        "[]",
+        "2026-07-26T00:00:00.000Z",
+      ],
+    );
+    const unlinked = await unlinkHarness.unlink(
+      unlinkDoc,
+      restartProcess(db2.execSql),
+    );
+    expect(unlinked?.contentKeyRotated).toBe(true);
+    expect(await persistedUploadRows(db2.execSql)).toEqual([]);
+  } finally {
+    db2.close();
+  }
 });
 
 test("a failed durable save before open prevents opening an untracked server stage", async () => {
@@ -311,7 +393,16 @@ test("a restarted process still tracks persisted uploads as live and deletes the
   expect(opened.ok).toBe(false);
   expect(server.calls.slice(callsBefore)).toEqual([]);
 
-  // Deleting the document record cleans up the persisted staged upload row.
+  // A rolled-back delete must NOT evict the in-memory upload cache.
+  await expect(
+    getClientSQLitePersistenceRuntime(restarted).transaction(async (tx) => {
+      await deleteDocumentStagedBaselineUploadsInTransaction(tx, [documentId]);
+      throw new Error("force rollback");
+    }),
+  ).rejects.toThrow("force rollback");
+  expect(uploads.tracks(documentId, stage.baselineId)).toBe(true);
+
+  // Deleting the document record cleans up BOTH SQLite and the in-memory cache.
   await restarted(
     `INSERT INTO documents (
       app_kind, local_id, document_id, access_epoch, effective_access_level,
@@ -323,5 +414,40 @@ test("a restarted process still tracks persisted uploads as live and deletes the
     appKind: "documents",
     localId: "local-doc-1",
   });
+  expect(uploads.tracks(documentId, stage.baselineId)).toBe(false);
+  expect(uploads.get(documentId)).toBeNull();
   expect(await persistedUploadRows(restarted)).toEqual([]);
+});
+
+test("forget still deletes the prior SQLite row when another upload begins before the queued delete runs", async () => {
+  const harness = await createStagedHealHarness();
+  const { documentId, server } = harness;
+  const document = await createLongHistoryDocument("forget-race");
+
+  server.loseNextAnswer("stage:2");
+  expect(await harness.heal(document, execSql)).toBeNull();
+  const uploads = getOrCreateStagedBaselineUploads(execSql);
+  const upload1 = uploads.get(documentId);
+  if (!upload1) throw new Error("Expected active staged upload");
+  expect(await persistedUploadRows(execSql)).toHaveLength(1);
+
+  // Start forgetting upload1, and before its queued SQLite delete resolves,
+  // simulate an overlapping run beginning upload2 (not yet persisted) and then
+  // abandoning it via end(). SQLite must not retain upload1's stale row.
+  const forgetting = uploads.forget(upload1);
+  const upload2 = uploads.begin(
+    documentId,
+    {
+      contentKey: new Uint8Array(32).fill(9),
+      contentKeyCommitment: "a".repeat(64),
+      contentKeyEpoch: 3,
+      linkSetEvent: undefined,
+      signedAt: "2026-07-26T00:00:01.000Z",
+    },
+    [{ containerId: "c1", containerKeyEpochId: "e1" }],
+  );
+  uploads.end(upload2);
+  await forgetting;
+
+  expect(await persistedUploadRows(execSql)).toEqual([]);
 });

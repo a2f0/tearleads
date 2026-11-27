@@ -1,8 +1,10 @@
 import type { AccessEvent } from "@tearleads/crypto";
 import type { DocumentBaselineStageApi } from "../../../data/documents/shared/sync/baselineStageApi";
+import { deriveDocumentContentKeyCommitment } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import {
   deleteDocumentStagedBaselineUpload,
   loadDocumentStagedBaselineUploads,
+  onDocumentStagedBaselineUploadsEvicted,
   type PersistedStagedBaselineUpload,
   saveDocumentStagedBaselineUpload,
 } from "../../../data/persistence/documents/records/documentBaselineStagePersistence";
@@ -212,6 +214,15 @@ function createStagedBaselineUploads(execSql?: ExecSql): StagedBaselineUploads {
   const writeQueueByDocument = new Map<string, Promise<void>>();
   let loadPromise: Promise<void> | null = null;
 
+  if (execSql) {
+    onDocumentStagedBaselineUploadsEvicted(execSql, (documentIds) => {
+      for (const documentId of documentIds) {
+        touched.add(documentId);
+        uploads.delete(documentId);
+      }
+    });
+  }
+
   function serializeDocumentWrite(
     documentId: string,
     operation: () => Promise<void>,
@@ -233,7 +244,12 @@ function createStagedBaselineUploads(execSql?: ExecSql): StagedBaselineUploads {
     async ensureLoaded() {
       if (!execSql) return;
       if (!loadPromise) {
-        loadPromise = loadDocumentStagedBaselineUploads(execSql)
+        loadPromise = loadDocumentStagedBaselineUploads(
+          execSql,
+          async (upload) =>
+            (await deriveDocumentContentKeyCommitment(upload)) ===
+            upload.contentKeyCommitment,
+        )
           .then((persisted) => {
             for (const [documentId, record] of persisted) {
               if (!uploads.has(documentId) && !touched.has(documentId)) {
@@ -275,7 +291,6 @@ function createStagedBaselineUploads(execSql?: ExecSql): StagedBaselineUploads {
       if (owned) uploads.delete(upload.documentId);
       if (!execSql || !owned) return;
       await serializeDocumentWrite(upload.documentId, async () => {
-        if (uploads.has(upload.documentId)) return;
         await deleteDocumentStagedBaselineUpload(execSql, upload.documentId);
       });
     },

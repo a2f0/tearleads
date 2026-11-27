@@ -134,7 +134,8 @@ sweep are not forced. It rests on three bounds:
 - Writers commit at most `MaxOps` updates. A writer that always commits
   another update before the rotator stages its tail starves the rotation, and
   a finite model cannot show that case.
-- Expiries, abandons and rotator restarts together number at most `MaxFaults`.
+- Expiries, abandons, crashes, and rotator restarts together number at most
+  `MaxFaults`.
   A stage that expires every time before its rotator commits never commits.
   Production extends a stage's expiry on every staged segment to keep an
   active upload alive; the model has no clock, so that rule is an assumption

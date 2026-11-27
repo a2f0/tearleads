@@ -21,6 +21,7 @@ import {
 } from "../../../sqlite/sqlSchema";
 import type { DocumentPlacementCleanup } from "../documentDeletionPort";
 import { DocumentRecordRepository } from "../records";
+import { deleteDocumentStagedBaselineUploadsInTransaction } from "../records/documentBaselineStagePersistence";
 import type { StoredDocumentRecord } from "../types";
 import { sameCanonicalDocumentSecurityIdentity } from "./documentRecordIdentity";
 import { getDocumentScope } from "./documentRows";
@@ -57,6 +58,9 @@ async function deleteStoredDocumentRows(input: {
     .run();
   if (existingDocumentId) {
     await input.deleteDocumentPlacements(tx, existingDocumentId);
+    await deleteDocumentStagedBaselineUploadsInTransaction(tx, [
+      existingDocumentId,
+    ]);
   }
   const scope = getDocumentScope(localId);
   const records = new DocumentRecordRepository(lockedExecSql);

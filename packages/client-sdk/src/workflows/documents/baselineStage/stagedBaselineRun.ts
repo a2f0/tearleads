@@ -281,7 +281,14 @@ async function confirmStaged(
     return;
   }
   const signedFor = context.signer.identity;
-  upload.dispatch({ attempt, signedFor, type: "stagedHistoryConfirmed" });
+  const next = upload.dispatch({
+    attempt,
+    signedFor,
+    type: "stagedHistoryConfirmed",
+  });
+  if (isCurrent(run) && next.status === "resigningHeaders") {
+    await context.uploads.persist(upload);
+  }
 }
 
 async function resignHeader(
@@ -309,7 +316,7 @@ async function resignHeader(
     signedFor: signer.identity,
     type: "headerResigned",
   });
-  if (next.status === "staging") {
+  if (isCurrent(run) && next.status === "staging") {
     await run.context.uploads.persist(run.upload);
   }
 }
