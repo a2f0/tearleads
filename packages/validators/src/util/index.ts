@@ -120,6 +120,7 @@ export {
   isAuthChallengeHexString,
   isCanonicalBase64OfLength,
   isSha256HexString,
+  MAX_ACCESS_EVENT_NAME_LENGTH,
   ML_DSA87_PUBLIC_KEY_BYTES,
   ML_DSA87_SIGNATURE_BYTES,
   ML_KEM1024_PUBLIC_KEY_BYTES,
