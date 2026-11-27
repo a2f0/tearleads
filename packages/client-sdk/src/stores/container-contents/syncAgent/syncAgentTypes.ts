@@ -8,6 +8,7 @@ import type {
 import type { ContainerContentsStoreWorkflowRuntime } from "../../../workflows/container-contents/runtime";
 import type { ContainerContentsSyncLane } from "../../../workflows/container-contents/syncLane";
 
+import type { ConnectAttemptGate } from "../hydration/connectAttemptGate";
 import type { ReconnectRefresh } from "../hydration/reconnectRefresh";
 
 export type ContainerContentsStoreRuntime =
@@ -52,6 +53,8 @@ export interface ContainerContentsStoreSyncAgent {
 }
 
 export interface ContainerContentsStoreSyncState {
+  /** Holds the crawl regaining sync prerequisites starts: `connectAttemptGate.ts`. */
+  connectAttemptGate: ConnectAttemptGate;
   trackHydration?: (request: Promise<unknown>) => void;
   readonly parentLaneRequestPrefix?: string;
   /** Container listing requests that failed or timed out in a current crawl. */
