@@ -167,6 +167,7 @@ export {
   type LoadedDocumentRecord,
   listLoadedRecordsSavedElsewhere,
   listOwedDocumentListingReads,
+  type OwedDocumentRecord,
   oweListedDocumentReadsBehindListing,
   settleCoveredDocumentListingRead,
 } from "./sync/listingRevalidation";

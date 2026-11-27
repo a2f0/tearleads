@@ -13,8 +13,8 @@ import type { DocumentListingRevalidation } from "../../../../workflows/document
  * | withheld  | observed       | no debt                    | withheld  |
  * | owed, retried | paid       | the same debt              | none      |
  * | none, owed, withheld | unpaid | the same debt, or none known | retried |
- * | none      | cursorWithheld |                            | withheld  |
- * | withheld  | pullCompleted  |                            | none      |
+ * | none      | cursorRead     | withheld                   | withheld  |
+ * | withheld  | cursorRead     | sendable                   | none      |
  *
  * Every other pair leaves the state unchanged.
  */
@@ -40,10 +40,12 @@ export type OwedListingReadEvent =
   | { readonly read: DocumentListingRevalidation; readonly type: "paid" }
   /** A completed pull did not cover `read`. */
   | { readonly read: DocumentListingRevalidation; readonly type: "unpaid" }
-  /** The loaded record holds a cursor its next pull withholds. */
-  | { readonly type: "cursorWithheld" }
-  /** A pull reached its bound and left a cursor the next pull would send. */
-  | { readonly type: "pullCompleted" };
+  /**
+   * The store read its record's processed cursor from disk: when its record
+   * loaded with no debt, or after a pull that reached its bound. `withheld`
+   * says whether the next pull would withhold it.
+   */
+  | { readonly type: "cursorRead"; readonly withheld: boolean };
 
 /**
  * A debt renewed by a later listing carries a new revision, which is owed
@@ -56,19 +58,15 @@ export function transitionOwedListingRead(
   event: OwedListingReadEvent,
 ): OwedListingReadState | null {
   switch (event.type) {
-    case "cursorWithheld":
-      return state ?? { status: "withheld" };
-    case "pullCompleted":
+    case "cursorRead":
+      if (event.withheld) return state ?? { status: "withheld" };
       return state?.status === "withheld" ? null : state;
     default:
       return transitionForDebt(state, event);
   }
 }
 
-type DebtEvent = Exclude<
-  OwedListingReadEvent,
-  { readonly type: "cursorWithheld" | "pullCompleted" }
->;
+type DebtEvent = Exclude<OwedListingReadEvent, { readonly type: "cursorRead" }>;
 
 type KnownDebt = Exclude<OwedListingReadState, { readonly status: "withheld" }>;
 

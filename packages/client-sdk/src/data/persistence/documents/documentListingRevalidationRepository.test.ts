@@ -4,14 +4,16 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { documentTables } from "../../sqlite/schema/documentRecordSchema";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { ensureSqlTables } from "../../sqlite/sqlSchema";
+import {
+  HELD_FRONTIER as FRONTIER,
+  type HeldCursor,
+  heldHead as head,
+  holdListedRecord,
+  LISTING_JUDGE as JUDGE,
+} from "./documentListingRevalidation.testUtils";
 import { DocumentListingRevalidationRepository } from "./documentListingRevalidationRepository";
 
-const JUDGE = "void-rules-1:loro-crdt@1.0.0";
-const FRONTIER = encodeVersionVectorCounters({ "7": 4 });
 const BEHIND_FRONTIER = encodeVersionVectorCounters({ "7": 2 });
-
-/** The access head a held record's key bundle names unless a test says otherwise. */
-const head = (documentId: string) => `head:${documentId}`;
 
 let close: () => void = () => undefined;
 let execSql: ExecSql;
@@ -27,49 +29,14 @@ beforeEach(async () => {
 
 afterEach(() => close());
 
-/** A held record, and the cursor its last completed pull left, if any. */
-async function holdDocument(input: {
-  readonly cursor?: {
-    readonly count: number | null;
-    readonly documentId?: string;
-    readonly judge?: string;
-    readonly version?: string;
-  };
+function holdDocument(input: {
+  readonly cursor?: HeldCursor;
   readonly documentId: string;
   readonly frontier?: string;
-  /** The head the record's key bundle names; `null` for a record with no bundle. */
   readonly head?: string | null;
   readonly localId?: string;
 }) {
-  const localId = input.localId ?? `local-${input.documentId}`;
-  await execSql(
-    `INSERT INTO documents (app_kind, local_id, document_id,
-       snapshot_end_version, content_key_bundle, updated_at)
-     VALUES ('documents', ?, ?, ?, ?, '2026-11-25T00:00:00.000Z')`,
-    [
-      localId,
-      input.documentId,
-      input.frontier ?? FRONTIER,
-      input.head === null
-        ? null
-        : JSON.stringify({
-            linkSetManifestHash: input.head ?? head(input.documentId),
-          }),
-    ],
-  );
-  if (!input.cursor) return;
-  await execSql(
-    `INSERT INTO document_sync_progress (app_kind, local_id, document_id,
-       through_update_id, through_update_count, through_version, judge)
-     VALUES ('documents', ?, ?, 'update', ?, ?, ?)`,
-    [
-      localId,
-      input.cursor.documentId ?? input.documentId,
-      input.cursor.count,
-      input.cursor.version ?? FRONTIER,
-      input.cursor.judge ?? JUDGE,
-    ],
-  );
+  return holdListedRecord(execSql, input);
 }
 
 async function behind(
@@ -79,7 +46,7 @@ async function behind(
 ) {
   return (
     await repository.listBehindListing(
-      [{ accessStateHash, documentId, updateCount }],
+      [{ accessEpoch: 1, accessStateHash, documentId, updateCount }],
       JUDGE,
     )
   ).map((document) => document.documentId);
@@ -146,14 +113,29 @@ test("a record whose key bundle names another access head is behind at any count
   expect(await behind("unpulled", 3, "head:moved")).toEqual([]);
 });
 
-test("every record holding the document must be covered", async () => {
+test("each record a listing shows behind owes its own read", async () => {
+  // An identity recovery or a relink can leave two records of one document.
   await holdDocument({ cursor: { count: 3 }, documentId: "doc" });
   await holdDocument({ documentId: "doc", localId: "displaced" });
 
-  expect(await behind("doc", 3)).toEqual(["doc"]);
+  expect(
+    await repository.listBehindListing(
+      [
+        {
+          accessEpoch: 1,
+          accessStateHash: head("doc"),
+          documentId: "doc",
+          updateCount: 3,
+        },
+      ],
+      JUDGE,
+    ),
+  ).toEqual([
+    { accessEpoch: 1, documentId: "doc", localId: "displaced", updateCount: 3 },
+  ]);
 });
 
-test("a batch reports each behind document once with its largest count", async () => {
+test("a batch reports each behind record once with the newest it listed", async () => {
   await holdDocument({ cursor: { count: 1 }, documentId: "behind" });
   await holdDocument({ cursor: { count: 5 }, documentId: "covered" });
 
@@ -161,70 +143,94 @@ test("a batch reports each behind document once with its largest count", async (
     await repository.listBehindListing(
       [
         {
+          accessEpoch: 2,
           accessStateHash: head("behind"),
           documentId: "behind",
           updateCount: 2,
         },
         {
+          accessEpoch: 1,
           accessStateHash: head("covered"),
           documentId: "covered",
           updateCount: 5,
         },
         {
-          accessStateHash: head("behind"),
+          accessEpoch: 1,
+          accessStateHash: "head:older",
           documentId: "behind",
           updateCount: 4,
         },
       ],
       JUDGE,
     ),
-  ).toEqual([{ documentId: "behind", updateCount: 4 }]);
+  ).toEqual([
+    {
+      accessEpoch: 2,
+      documentId: "behind",
+      localId: "local-behind",
+      updateCount: 4,
+    },
+  ]);
 });
 
-test("a request keeps the largest advertised count and renews its revision", async () => {
-  await repository.request([{ documentId: "doc", updateCount: 4 }]);
-  const first = await repository.find("doc");
+const owe = (
+  documentId: string,
+  updateCount: number,
+  input: { readonly accessEpoch?: number; readonly localId?: string } = {},
+) => ({
+  accessEpoch: input.accessEpoch ?? 1,
+  documentId,
+  localId: input.localId ?? `local-${documentId}`,
+  updateCount,
+});
+
+const record = (documentId: string, localId = `local-${documentId}`) => ({
+  documentId,
+  localId,
+});
+
+test("a request keeps the newest advertised count and head and renews its revision", async () => {
+  await repository.request([owe("doc", 4, { accessEpoch: 3 })]);
+  const first = await repository.find(record("doc"));
   // A listing served by a lagging replica never lowers the debt.
-  await repository.request([{ documentId: "doc", updateCount: 2 }]);
-  const second = await repository.find("doc");
+  await repository.request([owe("doc", 2, { accessEpoch: 2 })]);
+  const second = await repository.find(record("doc"));
 
   expect(first?.advertisedUpdateCount).toBe(4);
   expect(second?.advertisedUpdateCount).toBe(4);
+  expect(second?.advertisedAccessEpoch).toBe(3);
   expect(second?.revision).not.toBe(first?.revision);
-  expect(await repository.listOwedDocumentIds()).toEqual(["doc"]);
+  expect(await repository.listOwed()).toEqual([record("doc")]);
 });
 
-test("a read settles only the request it saw", async () => {
-  await repository.request([{ documentId: "doc", updateCount: 1 }]);
-  const seen = await repository.find("doc");
-  if (!seen) throw new Error("Expected the request");
-  await repository.request([{ documentId: "doc", updateCount: 2 }]);
+test("a record that now names another document owes that one alone", async () => {
+  await repository.request([owe("old", 9, { accessEpoch: 9, localId: "l" })]);
+  await repository.request([owe("new", 1, { accessEpoch: 1, localId: "l" })]);
 
-  await repository.settle(seen);
-  expect((await repository.find("doc"))?.advertisedUpdateCount).toBe(2);
-
-  const newer = await repository.find("doc");
-  if (!newer) throw new Error("Expected the newer request");
-  await repository.settle(newer);
-  expect(await repository.find("doc")).toBeNull();
-  expect(await repository.listOwedDocumentIds()).toEqual([]);
+  expect(await repository.find(record("old", "l"))).toBeNull();
+  expect(await repository.find(record("new", "l"))).toMatchObject({
+    advertisedAccessEpoch: 1,
+    advertisedUpdateCount: 1,
+  });
 });
 
-test("debts of documents no record holds are forgotten, and held ones stay", async () => {
+test("debts of records that no longer hold their document are forgotten", async () => {
   await holdDocument({ documentId: "held" });
+  await holdDocument({ documentId: "repointed", localId: "moved" });
   // A container metadata record of the same id holds no ordinary document.
   await execSql(
     `INSERT INTO documents (app_kind, local_id, document_id,
        snapshot_end_version, updated_at)
-     VALUES ('container-metadata', 'meta', 'purged', ?, '2026-11-25T00:00:00.000Z')`,
+     VALUES ('container-metadata', 'local-purged', 'purged', ?, '2026-11-25T00:00:00.000Z')`,
     [FRONTIER],
   );
   await repository.request([
-    { documentId: "held", updateCount: 2 },
-    { documentId: "purged", updateCount: 2 },
+    owe("held", 2),
+    owe("purged", 2),
+    owe("other", 2, { localId: "moved" }),
   ]);
 
   await repository.forgetUnheld();
 
-  expect(await repository.listOwedDocumentIds()).toEqual(["held"]);
+  expect(await repository.listOwed()).toEqual([record("held")]);
 });
