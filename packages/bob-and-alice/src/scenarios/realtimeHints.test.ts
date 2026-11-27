@@ -18,6 +18,13 @@ interface WsFrame {
   readonly documentId?: unknown;
 }
 
+function parseWsFrame(raw: unknown): WsFrame | null {
+  const parsed: unknown = JSON.parse(String(raw));
+  return typeof parsed === "object" && parsed !== null
+    ? (parsed as WsFrame)
+    : null;
+}
+
 /**
  * Opens a real authenticated server-events WebSocket for `device` through the
  * SDK's public `requestWebSocketTicket` + `openServerEventsSocket` surface.
@@ -32,8 +39,16 @@ async function connectRealtime(
   const ws = device.sdk.openServerEventsSocket(wsOrigin, ticket);
   const frames: WsFrame[] = [];
   let closed: { readonly code: number; readonly reason: string } | null = null;
+  ws.addEventListener("message", (event) => {
+    const parsed = parseWsFrame(event.data);
+    if (!parsed) return;
+    frames.push(parsed);
+    onFrame?.(parsed);
+  });
   await new Promise<void>((resolve, reject) => {
+    let opened = false;
     const onOpen = () => {
+      opened = true;
       cleanup();
       resolve();
     };
@@ -41,20 +56,24 @@ async function connectRealtime(
       cleanup();
       reject(new Error(`${device.label} WebSocket failed to open`));
     };
+    const onEarlyClose = (event: CloseEvent) => {
+      closed = { code: event.code, reason: event.reason };
+      if (!opened) {
+        cleanup();
+        reject(
+          new Error(
+            `${device.label} WebSocket closed before open (${event.code}: ${event.reason})`,
+          ),
+        );
+      }
+    };
     const cleanup = () => {
       ws.removeEventListener("open", onOpen);
       ws.removeEventListener("error", onError);
     };
     ws.addEventListener("open", onOpen);
     ws.addEventListener("error", onError);
-  });
-  ws.addEventListener("message", (event) => {
-    const parsed: WsFrame = JSON.parse(String(event.data));
-    frames.push(parsed);
-    onFrame?.(parsed);
-  });
-  ws.addEventListener("close", (event) => {
-    closed = { code: event.code, reason: event.reason };
+    ws.addEventListener("close", onEarlyClose);
   });
 
   return {

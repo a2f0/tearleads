@@ -157,6 +157,7 @@ test("organization two-factor enforcement holds queued edits until TOTP enrollme
   const freshDb = await createTestExecSql(
     `bob-2fa-fresh-${crypto.randomUUID()}`,
   );
+  const freshIncidents: unknown[] = [];
   const freshSdk = new Tearleads({
     apiBaseUrl: restartedBob.apiOrigin,
     identityTrustDomain: restartedBob.apiOrigin,
@@ -176,6 +177,9 @@ test("organization two-factor enforcement holds queued edits until TOTP enrollme
       },
     },
     logger: { log: () => undefined, logError: () => undefined },
+    onSecurityIncident: (incident) => {
+      freshIncidents.push(incident);
+    },
   });
   try {
     await freshSdk.identity.setKeyPairs(bob.keys);
@@ -198,6 +202,7 @@ test("organization two-factor enforcement holds queued edits until TOTP enrollme
     expect(status.enabled).toBe(true);
     expect(status.sessionVerified).toBe(true);
     expect(status.recoveryCodesRemaining).toBe(recoveryCodes.length - 1);
+    expect(freshIncidents).toEqual([]);
   } finally {
     freshSdk.dispose();
     freshDb.close();

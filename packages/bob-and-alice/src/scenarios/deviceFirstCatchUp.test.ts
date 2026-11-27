@@ -180,8 +180,20 @@ test("a cut-short boot leaves an owed shared folder lane that converges after re
         ? new Response("Cut short before document listing", { status: 503 })
         : null,
   );
-  // The tree holds the shared folder, but its document lane never applied.
+  // The tree holds the shared folder, but its document lane is cut short with
+  // 503 before applying any documents.
+  await fresh.openDeviceFirst();
   await fresh.holdFolder(folder.id);
+  await until(
+    () =>
+      fresh.transport.history.some(
+        ({ method, path, status }) =>
+          method === "POST" &&
+          path === "/containers/documents/query" &&
+          status === 503,
+      ),
+    "fresh boot to hit blocked document listing",
+  );
   await fresh.idle();
   expect(
     await fresh.sdk.documents.findLocalIdByDocumentId(doc.documentId),

@@ -69,7 +69,7 @@ export function startApiServer(): Promise<string> {
       hostname: "127.0.0.1",
       port: 0,
       fetch: (request, bunServer) =>
-        request.headers.get("upgrade") === "websocket"
+        request.headers.get("upgrade")?.toLowerCase() === "websocket"
           ? upgradeEventsWebSocket(request, bunServer, consumeTicket)
           : serve(routeApp, request),
       websocket: realtimeGateway.websocket,
