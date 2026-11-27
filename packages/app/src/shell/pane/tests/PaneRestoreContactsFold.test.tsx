@@ -33,7 +33,12 @@ import { createPersistedPaneStorage } from "../../../../test/helpers/persistedPa
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 
-afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
+// A failure before the reload must not leave held listings into cleanup.
+let releaseHeldListings = () => {};
+afterEach(async () => {
+  releaseHeldListings();
+  await cleanupPaneTestEnvironment();
+}, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 const PARENT_LANES_PATH = "/containers/parent-lanes/query";
 const CREATE_WITH_METADATA_PATH = "/containers/with-metadata-document";
@@ -70,6 +75,10 @@ test(
     // reload right after the restore boot's root fold leaves that listing.
     let heldParentId: string | null = null;
     const heldListings = Promise.withResolvers<void>();
+    releaseHeldListings = () => {
+      heldParentId = null;
+      heldListings.resolve();
+    };
     useTestApiAppHandlers({
       holdRequest: (request) => {
         const parentId = heldParentId;
@@ -138,8 +147,7 @@ test(
     // Reload before the held listing reaches the restore boot.
     restoring.view.unmount();
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
-    heldParentId = null;
-    heldListings.resolve();
+    releaseHeldListings();
     await waitForPaneRuntimeToSettle();
 
     const reloaded = renderLifecyclePane(hostConfig);

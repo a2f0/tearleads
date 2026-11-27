@@ -1,10 +1,12 @@
 import { expect, test } from "bun:test";
+import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   type CreateResult,
   failure,
   runReplayedSeededCreate,
   runSeededContainerCreate,
 } from "../../../../../test/helpers/workflows/seededContainerCreate";
+import { CONTAINER_PATH_TOO_DEEP_MESSAGE } from "../../../../data/containers/shared/containerPathLimits";
 import { CONTAINER_SYSTEM_SLOT_TAKEN_MESSAGE } from "../../../../data/containers/shared/systemSlotCreate";
 import { CONTAINER_SYSTEM_SLOT_TAKEN } from "./createWithMetadata";
 
@@ -35,3 +37,31 @@ test("a queued create refused for a taken system slot records it and asks for it
   expect(result.recordedErrors).toEqual([CONTAINER_SYSTEM_SLOT_TAKEN_MESSAGE]);
   expect(result.reconciliationRequests).toHaveLength(1);
 });
+
+// A sibling that settles reruns the pass; a refused create must not be sent
+// again from the intent as the pass first listed it.
+test.each([
+  ["a taken system slot", slotTaken, 1, CONTAINER_SYSTEM_SLOT_TAKEN_MESSAGE],
+  [
+    "a path that is too deep",
+    () =>
+      Promise.resolve(failure(409, CONTAINER_MUTATION_ERROR_CODES.pathTooDeep)),
+    // The seeded create and its plain fallback.
+    2,
+    CONTAINER_PATH_TOO_DEEP_MESSAGE,
+  ],
+] as const)(
+  "a create refused for %s is not sent again in the same pass",
+  async (_label, refuse, requestCount, recordedError) => {
+    const result = await runReplayedSeededCreate(
+      "container-refused-with-sibling",
+      refuse,
+      false,
+      () => false,
+      true,
+    );
+    expect(result.created).toBe(1);
+    expect(result.childRequests).toHaveLength(requestCount);
+    expect(result.recordedErrors).toEqual([recordedError]);
+  },
+);

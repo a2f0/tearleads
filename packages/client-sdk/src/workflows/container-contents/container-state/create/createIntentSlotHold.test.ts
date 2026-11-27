@@ -103,6 +103,7 @@ test("a held create's remaining time is what it waits for", () => {
 function heldCreatePass(input: {
   readonly execSql: ExecSql;
   readonly intent: () => ContainerCreateIntentRecord;
+  readonly onListingRequest?: (parentContainerId: string | null) => void;
   readonly onPostAttempt: () => void;
   readonly onSyncAfter: (delayMs: number) => void;
 }) {
@@ -173,7 +174,8 @@ function heldCreatePass(input: {
     },
     isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
-    requestRemoteReconciliation: () => {},
+    requestRemoteReconciliation: (parentContainerId) =>
+      input.onListingRequest?.(parentContainerId),
     requestSyncAfter: input.onSyncAfter,
     state,
   });
@@ -205,11 +207,14 @@ test("a create a root fold held waits for its parent's listing, then posts", asy
     const heldAt = new Date(Date.now() - 1_000).toISOString();
     let postAttempts = 0;
     const delays: number[] = [];
+    const listings: Array<string | null> = [];
     const pass = () =>
       heldCreatePass({
         execSql,
         intent: () =>
           contactsIntent(CONTAINER_CREATE_AWAITS_PARENT_LISTING, heldAt),
+        onListingRequest: (parentContainerId) =>
+          listings.push(parentContainerId),
         onPostAttempt: () => {
           postAttempts += 1;
         },
@@ -217,8 +222,11 @@ test("a create a root fold held waits for its parent's listing, then posts", asy
       });
 
     await expect(pass()).resolves.toBe(0);
+    await expect(pass()).resolves.toBe(0);
     expect(postAttempts).toBe(0);
-    expect(delays).toHaveLength(1);
+    // One listing for the hold, however many passes it waits through.
+    expect(listings).toEqual(["root"]);
+    expect(delays).toHaveLength(2);
     expect(delays[0]).toBeGreaterThan(SYSTEM_SLOT_CREATE_HOLD_MS - 60_000);
     expect(delays[0]).toBeLessThanOrEqual(SYSTEM_SLOT_CREATE_HOLD_MS);
 
@@ -227,7 +235,7 @@ test("a create a root fold held waits for its parent's listing, then posts", asy
     );
     await pass();
     expect(postAttempts).toBe(1);
-    expect(delays).toHaveLength(1);
+    expect(delays).toHaveLength(2);
   } finally {
     close();
   }

@@ -1,3 +1,7 @@
+import {
+  CONTAINER_CREATE_AWAITS_PARENT_LISTING,
+  CONTAINER_SYSTEM_SLOT_TAKEN_MESSAGE,
+} from "../../../data/containers/shared/systemSlotCreate";
 import { LOCAL_INTENT_LANES } from "../../../data/sqlite/schema";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -15,6 +19,15 @@ const DOCUMENT_ORGANIZATION_SQL = getContainerOrganizationAttributionSql({
   containerAlias: "container",
   projectionAlias: "projection",
 });
+
+// A system-slot create waiting for its parent's listing is blocked, not
+// failed: the listing folds it, or the hold's bound posts it.
+const CREATE_WAITS_FOR_LISTING_SQL = `intent.last_error IN (${[
+  CONTAINER_CREATE_AWAITS_PARENT_LISTING,
+  CONTAINER_SYSTEM_SLOT_TAKEN_MESSAGE,
+]
+  .map((message) => `'${message.replaceAll("'", "''")}'`)
+  .join(", ")})`;
 
 const PENDING_WRITE_SOURCE_SQL = `
   WITH pending_update_groups AS (
@@ -221,8 +234,8 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.created_at AS created_at,
     intent.updated_at AS updated_at,
     intent.target_container_id AS target_container_id,
-    'pending' AS operation_status,
-    intent.last_error AS last_error,
+    CASE WHEN ${CREATE_WAITS_FOR_LISTING_SQL} THEN 'blocked' ELSE 'pending' END AS operation_status,
+    CASE WHEN ${CREATE_WAITS_FOR_LISTING_SQL} THEN NULL ELSE intent.last_error END AS last_error,
     intent.last_attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM local_intents intent

@@ -21,6 +21,14 @@ export const SYSTEM_SLOT_FOLD_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A create refused for a taken system slot must not be retried as a stale parent (#3290).",
   },
   {
+    id: "refused-create-reposted-in-same-pass",
+    module: MODULE,
+    config: CONFIG,
+    constants: { ParkRefused: "FALSE" },
+    expect: { kind: "invariant", name: "AtMostOnePost" },
+    why: "A create pass reruns the intents it first listed, so a create refused for a taken slot must leave the pass, or a sibling that settles sends it again (#3290).",
+  },
+  {
     id: "system-create-hold-without-bound",
     module: MODULE,
     config: CONFIG,

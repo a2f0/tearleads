@@ -40,7 +40,17 @@ import {
   CONTAINER_SYSTEM_SLOT_TAKEN,
 } from "./createWithMetadata";
 
-type CreateIntentSyncResult = "abandoned" | "blocked" | "created" | "failed";
+/**
+ * `blocked` waits and is retried in a later round of the pass; `parked` was
+ * refused for good, so the pass leaves it, like `failed`, until a listing or
+ * local move re-arms it.
+ */
+type CreateIntentSyncResult =
+  | "abandoned"
+  | "blocked"
+  | "created"
+  | "failed"
+  | "parked";
 
 function currentCreateResult<
   Result extends Exclude<CreateIntentSyncResult, "abandoned">,
@@ -380,7 +390,11 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   );
 }
 
-/** A blocked create stays for a later round; only a created one settles. */
+/**
+ * A blocked create stays for a later round. Any other result leaves the
+ * round, since the pass reruns the intent as it listed it; only a created one
+ * settles.
+ */
 function settleCreateIntentResult(
   result: CreateIntentSyncResult,
   containerId: string,

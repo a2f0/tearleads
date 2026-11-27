@@ -6,6 +6,7 @@ import {
   ContainerSyncWatermarkRepository,
   containerParentSyncLane,
 } from "../../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
+import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import type { ContainerCreateIntentSyncInput } from "../types";
 
 /**
@@ -14,6 +15,24 @@ import type { ContainerCreateIntentSyncInput } from "../types";
  * crawl lists that parent, so the bound matters only while listings fail.
  */
 export const SYSTEM_SLOT_CREATE_HOLD_MS = 120_000;
+
+/** Holds whose parent listing this database's runtime already asked for. */
+const requestedHoldListings = new WeakMap<ExecSql, Set<string>>();
+
+/**
+ * A hold asks once for its parent's listing, so it does not wait on a crawl
+ * that may have listed that parent before the fold. A reload asks again.
+ */
+function requestHoldListingOnce(input: ContainerCreateIntentSyncInput): void {
+  const { intent, state } = input;
+  const execSql = state.runtime.infra.execSql;
+  const requested = requestedHoldListings.get(execSql) ?? new Set<string>();
+  requestedHoldListings.set(execSql, requested);
+  const hold = `${intent.id}@${intent.updatedAt}`;
+  if (requested.has(hold)) return;
+  requested.add(hold);
+  input.requestRemoteReconciliation(intent.parentContainerId);
+}
 
 /** Whether a queued system-slot create may post, and if not, why. */
 export type SystemSlotCreateGate =
@@ -50,8 +69,9 @@ export function systemSlotCreateGate(input: {
 }
 
 /**
- * Returns whether the create waits, sending nothing. A held create asks for a
- * pass when its hold expires, so it does not wait on an unrelated one.
+ * Returns whether the create waits, sending nothing. A held create asks for
+ * its parent's listing, and for a pass when its hold expires so it does not
+ * wait on an unrelated one.
  */
 export async function deferSystemSlotCreate(
   input: ContainerCreateIntentSyncInput,
@@ -73,6 +93,7 @@ export async function deferSystemSlotCreate(
     parentCheckedAt: check?.checkedAt ?? null,
   });
   if (gate.status === "awaiting-listing") {
+    requestHoldListingOnce(input);
     input.requestSyncAfter?.(gate.remainingMs);
   }
   return gate.status !== "post";
@@ -85,7 +106,7 @@ export async function deferSystemSlotCreate(
  */
 export async function recordTakenSystemSlotCreate(
   input: ContainerCreateIntentSyncInput,
-): Promise<"abandoned" | "blocked"> {
+): Promise<"abandoned" | "parked"> {
   const { intent, state } = input;
   await state.persistence.recordCreateIntentRevisionError(
     state.runtime.infra.execSql,
@@ -102,5 +123,5 @@ export async function recordTakenSystemSlotCreate(
     `Container contents: deferred create intent for ${intent.containerId}; its system slot is taken remotely, awaiting its parent's listing.`,
   );
   input.requestRemoteReconciliation(intent.parentContainerId);
-  return "blocked";
+  return "parked";
 }

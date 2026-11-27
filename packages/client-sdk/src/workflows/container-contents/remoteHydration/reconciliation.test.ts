@@ -273,6 +273,34 @@ test("a root fold re-homes a child the hydration pass's index missed", async () 
   expect(fixture.localSystem.container.parentId).toBe("remote-root");
 });
 
+test("a system fold re-homes a child the hydration pass's index missed", async () => {
+  const fixture = await reconciliationFixture();
+  await reconcileLocalOnlyRootContainers({
+    remoteRootState: fixture.remoteRoot,
+    state: fixture.state,
+  });
+  const child = await containerState({
+    id: "local-contacts-child",
+    organizationId: ORGANIZATION_ID,
+    parentId: fixture.localSystem.container.id,
+    remote: false,
+  });
+  fixture.state.containersById.set(child.container.id, child);
+  fixture.state.containersById.set(
+    fixture.remoteSystem.container.id,
+    fixture.remoteSystem,
+  );
+
+  await reconcileLocalOnlySystemContainers({
+    childIdsByParentId: new Map(),
+    remoteSystemState: fixture.remoteSystem,
+    state: fixture.state,
+  });
+
+  expect(fixture.systemReconciliations).toHaveLength(1);
+  expect(child.container.parentId).toBe("remote-contacts");
+});
+
 test("root reconciliation requests priming after known system twins converge", async () => {
   const fixture = await reconciliationFixture();
   fixture.state.containersById.set(

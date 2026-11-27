@@ -163,6 +163,37 @@ export async function runSeededContainerCreate(
   }
 }
 
+function requestContainerId(
+  request: ContainerCreateWithMetadataDocumentRequest,
+): unknown {
+  return Reflect.get(request.container.event, "objectId");
+}
+
+async function siblingCreate(parentContainerId: string) {
+  const id = crypto.randomUUID();
+  const state = createTestContainerState({
+    id,
+    parentId: parentContainerId,
+    synced: false,
+  });
+  state.doc = (await metadataSeed(id)).doc;
+  const intent: ContainerCreateIntentRecord = {
+    containerId: id,
+    createdAt: "2026-10-19T00:00:01.000Z",
+    id: "create-sibling",
+    intentType: "container.create",
+    lastAttemptedAt: null,
+    lastError: null,
+    parentContainerId,
+    remoteContainerId: null,
+    remoteMetadataAccessStateHash: null,
+    remoteMetadataDocumentId: null,
+    syncStatus: "pending",
+    updatedAt: "2026-10-19T00:00:01.000Z",
+  };
+  return { intent, state };
+}
+
 /** Classifies one metadata update hint as the store's event handler does. */
 export type MetadataHint = (
   documentId: string,
@@ -178,6 +209,8 @@ export async function runReplayedSeededCreate(
   ) => Promise<CreateResult>,
   tearDownOnSeedEncrypt = false,
   isRemoteSyncBlocked: (organizationId: string) => boolean = () => false,
+  /** Queues an ordinary create after it, which the server acknowledges. */
+  acknowledgedSibling = false,
 ) {
   const parent = await createParentProjection();
   const parentContainerId = parent.projection.containerId;
@@ -199,6 +232,9 @@ export async function runReplayedSeededCreate(
     synced: true,
   });
   parentState.container.organizationId = parent.projection.organizationId;
+  const sibling = acknowledgedSibling
+    ? await siblingCreate(parentContainerId)
+    : null;
   const intent: ContainerCreateIntentRecord = {
     containerId: childContainerId,
     createdAt: "2026-10-19T00:00:00.000Z",
@@ -231,10 +267,14 @@ export async function runReplayedSeededCreate(
     containersById: new Map([
       [childContainerId, childState],
       [parentContainerId, parentState],
+      ...(sibling
+        ? [[sibling.state.container.id, sibling.state] as const]
+        : []),
     ]),
     persistence: {
       ...defaultContainerContentsPersistence,
-      listPendingCreateIntents: async () => [intent],
+      listPendingCreateIntents: async () =>
+        sibling ? [intent, sibling.intent] : [intent],
       listPendingUpdates: async (_execSql, containerId) =>
         containerId === childContainerId ? [queuedSeed] : [],
       recordCreateIntentRevisionError: async (_execSql, error) => {
@@ -249,21 +289,23 @@ export async function runReplayedSeededCreate(
       parent,
       requests,
       respond: (request, attempt) =>
-        respond(request, attempt, (documentId, updateIds) =>
-          listContainerMetadataDocumentUpdateIds(
-            [
-              {
-                containerIds: [childContainerId],
-                documentId,
-                type: "document_update_created",
-                updateIds,
-              },
-            ],
-            state.containersById.values(),
-            locallyAcceptedMetadataUpdateIds,
-            plannedMetadataDocumentIds,
-          ),
-        ),
+        sibling && requestContainerId(request) === sibling.state.container.id
+          ? acknowledge(request)
+          : respond(request, attempt, (documentId, updateIds) =>
+              listContainerMetadataDocumentUpdateIds(
+                [
+                  {
+                    containerIds: [childContainerId],
+                    documentId,
+                    type: "document_update_created",
+                    updateIds,
+                  },
+                ],
+                state.containersById.values(),
+                locallyAcceptedMetadataUpdateIds,
+                plannedMetadataDocumentIds,
+              ),
+            ),
     }),
   };
   try {
@@ -304,6 +346,10 @@ export async function runReplayedSeededCreate(
       reconciliationRequests,
       recordedErrors,
       requests,
+      /** The child's own requests, without its sibling's. */
+      childRequests: requests.filter(
+        (request) => requestContainerId(request) === childContainerId,
+      ),
       seed,
     };
   } finally {

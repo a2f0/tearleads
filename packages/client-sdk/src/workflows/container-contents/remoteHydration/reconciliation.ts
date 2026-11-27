@@ -308,13 +308,14 @@ function applyLocalSystemContainerChildReparents(input: {
   const { childIdsByParentId, localSystemState, remoteSystemState, state } =
     input;
   const localContainerId = localSystemState.container.id;
-  const childContainerIds = childIdsByParentId
-    ? Array.from(childIdsByParentId.get(localContainerId) ?? [])
-    : Array.from(state.containersById.values()).flatMap((containerState) =>
-        containerState.container.parentId === localContainerId
-          ? [containerState.container.id]
-          : [],
-      );
+  // Read from the map, not the pass's child index, which misses a child
+  // created while the pass runs.
+  const childContainerIds = Array.from(state.containersById.values()).flatMap(
+    (containerState) =>
+      containerState.container.parentId === localContainerId
+        ? [containerState.container.id]
+        : [],
+  );
 
   for (const childContainerId of childContainerIds) {
     const childState = state.containersById.get(childContainerId);

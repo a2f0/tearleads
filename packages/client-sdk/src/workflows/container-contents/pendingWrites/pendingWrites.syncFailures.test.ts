@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  CONTAINER_CREATE_AWAITS_PARENT_LISTING,
+  CONTAINER_SYSTEM_SLOT_TAKEN_MESSAGE,
+} from "../../../data/containers/shared/systemSlotCreate";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -334,3 +338,38 @@ test("retry keeps a failure-only row and clears it with queued work", async () =
     close();
   }
 });
+
+test.each([
+  CONTAINER_CREATE_AWAITS_PARENT_LISTING,
+  CONTAINER_SYSTEM_SLOT_TAKEN_MESSAGE,
+])(
+  "a system create waiting on its parent's listing is blocked, not failed: %s",
+  async (reason) => {
+    const { close, execSql } = await createTestExecSql(
+      "pending-writes-held-system-create",
+    );
+    try {
+      await ensurePendingWriteSchema(execSql);
+      await execSql(
+        `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, intent_type, sync_status,
+        last_error, created_at, updated_at
+      ) VALUES (?, 'container.create', ?, ?, 'container.create', 'pending', ?, ?, ?)`,
+        ["create-contacts", "local-contacts", "account-root", reason, T0, T1],
+      );
+
+      const items = await listPendingWrites(execSql);
+      const contacts = items.find((item) => item.localId === "local-contacts");
+      expect(contacts).toMatchObject({ status: "blocked" });
+      expect(contacts?.operations).toEqual([
+        expect.objectContaining({
+          kind: "create",
+          lastError: null,
+          status: "blocked",
+        }),
+      ]);
+    } finally {
+      close();
+    }
+  },
+);
