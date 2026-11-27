@@ -9,6 +9,7 @@ for (const operation of ["add", "update", "remove"] as const) {
     try {
       expect(await f.store.ensureInitialized()).toBe(true);
       const rowId = await f.store.addRow({ value: "original" });
+      if (!rowId) throw new Error("Expected added row id");
       const originalRows = [...f.store.getSnapshot().rows];
       const hold = f.holdCommit();
       const blocker = f.store.setText("held predecessor");
@@ -26,7 +27,7 @@ for (const operation of ["add", "update", "remove"] as const) {
       current = false;
       hold.release();
       const [, result] = await Promise.all([blocker, write]);
-      if (operation === "add") expect(result).toEqual(expect.any(String));
+      if (operation === "add") expect(result).toBeNull();
       expect(f.store.hasQueuedWrites()).toBe(false);
       expect(f.store.hasUnsavedLocalEdits()).toBe(false);
       expect(f.store.getSnapshot().rows).toEqual(originalRows);

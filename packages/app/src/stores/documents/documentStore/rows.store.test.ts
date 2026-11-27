@@ -32,6 +32,7 @@ test("blood pressure store adds, updates, and removes readings via the row axis"
     measuredAt: "2026-07-16T08:30",
     notes: "Before coffee",
   });
+  if (!readingId) throw new Error("Expected added reading id");
   await waitForCondition(
     () => store.getSnapshot().rows.length === 1,
     "Reading was not added.",
@@ -101,6 +102,7 @@ test("row mutations are no-ops without write access", async () => {
     measuredAt: "",
     notes: "",
   });
+  if (!readingId) throw new Error("Expected added reading id");
   await waitForCondition(
     () => writableStore.getSnapshot().rows.length === 1,
     "Reading was not persisted.",
@@ -141,13 +143,15 @@ test("row mutations are no-ops without write access", async () => {
 
   const pendingUpdatesBefore = persistence.getState().pendingUpdates.length;
 
-  await readOnlyStore.addRow({
-    systolic: "200",
-    diastolic: "100",
-    pulse: "",
-    measuredAt: "",
-    notes: "",
-  });
+  expect(
+    await readOnlyStore.addRow({
+      systolic: "200",
+      diastolic: "100",
+      pulse: "",
+      measuredAt: "",
+      notes: "",
+    }),
+  ).toBeNull();
   await readOnlyStore.updateRowFields(readingId, { systolic: "200" });
   await readOnlyStore.removeRow(readingId);
 

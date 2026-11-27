@@ -39,6 +39,7 @@ async function persistRowMutation(
   expectedLocalWriteGeneration: number,
   mutate: (doc: DocumentState) => boolean,
   options: DocumentMutationGuard,
+  onPersistRefused?: () => void,
 ): Promise<void> {
   if (state.localWriteGeneration !== expectedLocalWriteGeneration) {
     return;
@@ -94,8 +95,10 @@ async function persistRowMutation(
     persisted.syncIdentitySuperseded ||
     !isDocumentStoreSyncGenerationCurrent(state, generation)
   ) {
-    // Refused: the document was deleted while this persist was queued
-    // and the store is cleared — no state advance, no sync request.
+    // Refused: the document was deleted or superseded while this persist was
+    // queued and the store cleared or reloaded durable history — no state
+    // advance, no sync request, and no added row remains.
+    onPersistRefused?.();
     return;
   }
   advancePendingBaseVersion(state, currentDoc);
@@ -106,6 +109,7 @@ function queueRowMutation(
   state: DocumentStoreState,
   mutate: (doc: DocumentState) => boolean,
   options: DocumentMutationGuard,
+  onPersistRefused?: () => void,
 ): Promise<void> {
   const writeGeneration = state.localWriteGeneration;
   // Unlike text/structured-field writes, row writes intentionally do NOT bump
@@ -117,7 +121,15 @@ function queueRowMutation(
     state,
     state.writeChain
       .catch(() => undefined)
-      .then(() => persistRowMutation(state, writeGeneration, mutate, options))
+      .then(() =>
+        persistRowMutation(
+          state,
+          writeGeneration,
+          mutate,
+          options,
+          onPersistRefused,
+        ),
+      )
       .catch((error: unknown) => {
         // The row change is already in the document; an empty mutation
         // persists its unsaved delta with this write's own guard.
@@ -135,30 +147,36 @@ export async function addRowToDocumentStore(
   scheduleSync: () => void,
   fields: Readonly<Record<string, string>>,
   options: DocumentMutationGuard = {},
-): Promise<string> {
-  const id = createDocumentRowId();
+): Promise<string | null> {
   let ready: boolean;
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
     if (options.stillCurrent?.() === false) ready = false;
   } catch (error) {
     reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
-    return id;
+    return null;
   }
 
   if (!ready || !state.doc || !canWriteDocument(state)) {
-    return id;
+    return null;
   }
 
+  const id = createDocumentRowId();
+  let applied = false;
+  let refused = false;
   await queueRowMutation(
     state,
     (doc) => {
       addDocumentRow(doc, id, fields, resolveRowAttribution(state));
+      applied = true;
       return true;
     },
     options,
+    () => {
+      refused = true;
+    },
   );
-  return id;
+  return applied && !refused ? id : null;
 }
 
 export async function updateRowInDocumentStore(

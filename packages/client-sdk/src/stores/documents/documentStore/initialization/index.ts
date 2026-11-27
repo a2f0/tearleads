@@ -1,26 +1,9 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  emptyVersionVector,
-  encodeVersionVector,
-  exportAllUpdates,
-  exportFullHistorySnapshot,
-  mergeVersionVectors,
-  updateText,
-} from "@tearleads/loro";
-import {
-  DEFAULT_DOCUMENT_ACCESS_EPOCH,
-  DEFAULT_DOCUMENT_KIND,
-} from "../../../../data/documents/documentConstants";
-import {
-  initializeStoredDocumentKind,
-  readStoredDocumentState,
-} from "../../../../data/documents/documentKinds";
+import { mergeVersionVectors } from "@tearleads/loro";
 import type { DocumentSummary } from "../../../../data/documents/documentSummary";
-import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import {
-  type DocumentRecord,
   isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
+  retryWhileDatabaseBusy,
 } from "../../../../workflows/documents";
 import { loadOrganizationSyncPausesBeforeSync } from "../../../../workflows/sync/coordination";
 import type { DocumentStoreRelinkInput } from "../../types";
@@ -32,8 +15,8 @@ import {
   advancePendingBaseVersion,
   documentSummaryFromRecord,
   persistDocument,
-  saveDocumentRecord,
 } from "../persistence";
+import { noteDocumentStoreWrite } from "../reportWriteFailure";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -47,7 +30,7 @@ import {
   invalidateDocumentStoreRemoteSync,
   isDocumentStoreSyncGenerationCurrent,
 } from "../sync/syncGeneration";
-import { writeInitialDocumentContent } from "./initialContent";
+import { createInitialDocumentRecord } from "./createInitialDocumentRecord";
 import {
   installPersistedAttachments,
   type LoadedDocumentStoreState,
@@ -62,76 +45,6 @@ import {
   recoverDroppedAttachmentSlots,
 } from "./initializationRecovery";
 import { relinkRecordPatch } from "./relinkRecordPatch";
-
-async function createInitialDocumentRecord(
-  state: DocumentStoreState,
-  nextDoc: DocumentState,
-): ReturnType<typeof saveDocumentRecord> {
-  initializeStoredDocumentKind(
-    nextDoc,
-    state.initialDocumentKind,
-    state.runtime.infra.documentProjectors,
-  );
-  if (state.initialText) updateText(nextDoc, state.initialText);
-  const wroteInitialContent = writeInitialDocumentContent(state, nextDoc);
-  const initialDocumentState = readStoredDocumentState(
-    nextDoc,
-    state.runtime.infra.documentProjectors,
-  );
-  const hasInitialContent =
-    wroteInitialContent ||
-    state.initialText.length > 0 ||
-    state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND;
-  const initialUpdate = hasInitialContent
-    ? createPendingUpdateFields(exportAllUpdates(nextDoc))
-    : null;
-  // A deferred birth still commits its checkpoint, but leaves the marker at the
-  // empty version with nothing queued: the promised attach exports every op
-  // since that marker, so one update carries the birth and the attachment.
-  const birthDurability = !initialUpdate
-    ? {}
-    : state.deferInitialUpdate
-      ? { pendingBaseVersionOverride: emptyVersionVector() }
-      : { pendingUpdate: initialUpdate };
-
-  const created: DocumentRecord = {
-    id: state.localId,
-    containerId: state.runtime.state.containerId ?? null,
-    documentId: state.initialDocumentId,
-    documentKind: initialDocumentState.documentKind,
-    text: initialDocumentState.text,
-    title: initialDocumentState.title,
-    snapshotEndVersion: encodeVersionVector(nextDoc),
-    accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
-    accessStateHash: null,
-    effectiveAccessLevel: "admin",
-    lastCommitLsn: null,
-    contentKeyBundle: null,
-    documentKekTargets: null,
-    documentManifestBundle: null,
-  };
-  // The create-only persistence primitive commits the canonical row and birth
-  // checkpoint together. A concurrent initializer either wins both or adopts
-  // both, so it cannot replace another pane's history or keying state.
-  const persisted = await saveDocumentRecord(
-    state,
-    nextDoc,
-    {
-      ...created,
-      snapshotEndVersion: encodeVersionVector(nextDoc),
-    },
-    {
-      historyCheckpoint: {
-        coveredTailIds: [],
-        endVersionVector: encodeVersionVector(nextDoc),
-        pruneCoveredLocalState: false,
-        snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
-      },
-      ...birthDurability,
-    },
-  );
-  return persisted;
-}
 
 function installPersistedDocumentRecord(
   state: DocumentStoreState,
@@ -232,21 +145,15 @@ function restorePendingBaseVersion(input: {
       : markerBase;
 }
 
-async function initializeDocumentStore(
+interface InitializedDocumentStoreAttempt {
+  readonly coveredByListing: boolean;
+  readonly restored: RestoredInitialDocumentState;
+}
+
+async function initializeDocumentStoreAttempt(
   state: DocumentStoreState,
-  scheduleSync: () => void,
-) {
-  if (state.runtime.infra.dbStatus !== "ready") {
-    return;
-  }
-
-  // A store reset while this fire-and-forget initialization is loading (a
-  // runtime swap, or a local-edits discard that re-seeds the persisted rows)
-  // must win: assigning the state loaded BEFORE the reset would bring the
-  // replaced record and doc back to life. Every reset bumps the local write
-  // generation, so a stale capture here aborts before each assignment batch.
-  const initializeGeneration = state.localWriteGeneration;
-
+  initializeGeneration: number,
+): Promise<InitializedDocumentStoreAttempt | null> {
   const persistedState = await loadPersistedDocumentStoreState({
     execSql: state.runtime.infra.execSql,
     localId: state.localId,
@@ -258,7 +165,7 @@ async function initializeDocumentStore(
     persistedState.document?.peerSalt,
   );
   if (state.localWriteGeneration !== initializeGeneration) {
-    return;
+    return null;
   }
   await loadOrganizationSyncPausesBeforeSync({
     domainScope: state.runtime.state.domainScope,
@@ -266,14 +173,14 @@ async function initializeDocumentStore(
     log: state.runtime.util.log,
   });
   if (state.localWriteGeneration !== initializeGeneration) {
-    return;
+    return null;
   }
   // Only readers opened this store: leave the record missing until a join.
   // Ending in this same step means a creator that joins later starts its own
   // initialization instead of waiting on this one.
   if (!persistedState.document && state.createIfMissing === false) {
     state.initializePromise = null;
-    return;
+    return null;
   }
   const restored = await restoreOrCreateInitialDocument({
     initializeGeneration,
@@ -285,7 +192,7 @@ async function initializeDocumentStore(
     if (state.localWriteGeneration === initializeGeneration) {
       state.initializePromise = null;
     }
-    return;
+    return null;
   }
   const activePersistedState = restored.activePersistedState;
   installPersistedAttachments(state, activePersistedState);
@@ -319,11 +226,11 @@ async function initializeDocumentStore(
     restored.doc,
   );
   if (!writeGeneration) {
-    return;
+    return null;
   }
   await recoverDroppedAttachmentSlots(state, restored.doc, writeGeneration);
   if (state.localWriteGeneration !== initializeGeneration) {
-    return;
+    return null;
   }
   await healLocalAttachmentDetachState(
     state,
@@ -332,7 +239,7 @@ async function initializeDocumentStore(
     writeGeneration,
   );
   if (state.localWriteGeneration !== initializeGeneration) {
-    return;
+    return null;
   }
   // What a listing owes the document decides the startup probe below.
   const coveredByListing = await loadDocumentListingCoverage(
@@ -340,7 +247,48 @@ async function initializeDocumentStore(
     state.record ?? restored.activeRecord,
     () => state.localWriteGeneration === initializeGeneration,
   );
-  if (state.localWriteGeneration !== initializeGeneration) return;
+  if (state.localWriteGeneration !== initializeGeneration) return null;
+  return { coveredByListing, restored };
+}
+
+async function initializeDocumentStore(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+) {
+  if (state.runtime.infra.dbStatus !== "ready") {
+    return;
+  }
+
+  // A store reset while this fire-and-forget initialization is loading (a
+  // runtime swap, or a local-edits discard that re-seeds the persisted rows)
+  // must win: assigning the state loaded BEFORE the reset would bring the
+  // replaced record and doc back to life. Every reset bumps the local write
+  // generation, so a stale capture here aborts before each assignment batch.
+  const initializeGeneration = state.localWriteGeneration;
+
+  // Each step before `state.initialized = true` is safe to repeat if the
+  // SQLite worker refuses a statement behind another tab's transaction: reads
+  // are pure, create-only birth adopts any committed row on retry, and
+  // attachment recovery / detach healing skip work already committed.
+  const loaded = await retryWhileDatabaseBusy(
+    () => initializeDocumentStoreAttempt(state, initializeGeneration),
+    {
+      isCurrent: () =>
+        state.localWriteGeneration === initializeGeneration &&
+        state.runtime.infra.dbStatus === "ready",
+      onBusy: () => {
+        noteDocumentStoreWrite(
+          state,
+          "Documents: initialization delayed behind another tab's database transaction",
+        );
+      },
+    },
+  );
+  if (!loaded || state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
+
+  const { coveredByListing, restored } = loaded;
   state.initialized = true;
   state.initializePromise = null;
   setReadySnapshot(state, restored.doc, false);

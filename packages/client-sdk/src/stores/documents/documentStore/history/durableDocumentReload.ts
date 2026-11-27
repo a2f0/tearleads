@@ -2,8 +2,10 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { importSnapshot } from "@tearleads/loro";
 import {
   importDocumentHistoryTailUpdates,
+  retryWhileDatabaseBusy,
   runSerializedSqlMutation,
 } from "../../../../workflows/documents";
+import { noteDocumentStoreWrite } from "../reportWriteFailure";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -100,48 +102,66 @@ export async function reloadDocumentFromDurableHistory(input: {
     return false;
   }
 
-  const replacementDoc = await createFreshPeerStoredDocument();
-  return runSerializedSqlMutation(
-    state.runtime.infra.execSql,
-    async (lockedExecSql) => {
-      if (!isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)) {
-        return false;
-      }
-      const { document: durableRecord, historyRestoreState } =
-        await state.persistence.loadDocumentWithHistoryRestoreState(
-          lockedExecSql,
-          state.localId,
-        );
-      if (!durableRecord) {
-        markDocumentStoreRemoved(state);
-        return false;
-      }
-      const canRestoreCapturedSnapshot = Boolean(
-        input.sameIdentitySnapshot &&
-          (state.record?.documentId ?? null) === durableRecord.documentId,
-      );
-      if (canRestoreCapturedSnapshot && input.sameIdentitySnapshot) {
-        importSnapshot(replacementDoc, input.sameIdentitySnapshot);
-      }
-      // The captured snapshot removes the failed in-memory mutation, but it
-      // cannot replace the durable source of truth: another pane may have
-      // advanced history and the record frontier while attachment staging was
-      // in flight. Merge the latest checkpoint and tail in both paths before
-      // installing that record/frontier beside the rebuilt CRDT.
-      importDurableDocumentHistory(replacementDoc, historyRestoreState);
-      if (!isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)) {
-        return false;
-      }
+  return retryWhileDatabaseBusy(
+    async () => {
+      const replacementDoc = await createFreshPeerStoredDocument();
+      return runSerializedSqlMutation(
+        state.runtime.infra.execSql,
+        async (lockedExecSql) => {
+          if (
+            !isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)
+          ) {
+            return false;
+          }
+          const { document: durableRecord, historyRestoreState } =
+            await state.persistence.loadDocumentWithHistoryRestoreState(
+              lockedExecSql,
+              state.localId,
+            );
+          if (!durableRecord) {
+            markDocumentStoreRemoved(state);
+            return false;
+          }
+          const canRestoreCapturedSnapshot = Boolean(
+            input.sameIdentitySnapshot &&
+              (state.record?.documentId ?? null) === durableRecord.documentId,
+          );
+          if (canRestoreCapturedSnapshot && input.sameIdentitySnapshot) {
+            importSnapshot(replacementDoc, input.sameIdentitySnapshot);
+          }
+          // The captured snapshot removes the failed in-memory mutation, but it
+          // cannot replace the durable source of truth: another pane may have
+          // advanced history and the record frontier while attachment staging was
+          // in flight. Merge the latest checkpoint and tail in both paths before
+          // installing that record/frontier beside the rebuilt CRDT.
+          importDurableDocumentHistory(replacementDoc, historyRestoreState);
+          if (
+            !isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)
+          ) {
+            return false;
+          }
 
-      installDurableDocumentReload({
-        durableRecord,
-        preserveQueuedWritesWhenIdentityMatches:
-          input.preserveQueuedWritesWhenIdentityMatches,
-        replacementDoc,
-        retainsLiveDocEdits: canRestoreCapturedSnapshot,
-        state,
-      });
-      return true;
+          installDurableDocumentReload({
+            durableRecord,
+            preserveQueuedWritesWhenIdentityMatches:
+              input.preserveQueuedWritesWhenIdentityMatches,
+            replacementDoc,
+            retainsLiveDocEdits: canRestoreCapturedSnapshot,
+            state,
+          });
+          return true;
+        },
+      );
+    },
+    {
+      isCurrent: () =>
+        isDocumentStoreSyncGenerationCurrent(state, expectedGeneration),
+      onBusy: () => {
+        noteDocumentStoreWrite(
+          state,
+          "Documents: durable history reload delayed behind another tab's database transaction",
+        );
+      },
     },
   );
 }

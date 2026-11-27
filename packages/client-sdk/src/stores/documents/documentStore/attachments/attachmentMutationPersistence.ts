@@ -1,12 +1,25 @@
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
+import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
 import {
   deleteUnreferencedStagedAttachmentBytes,
   type stagePendingAttachments,
 } from "../attachmentUpload/attachmentStaging";
 import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
 import { persistDocument } from "../persistence";
+import { noteDocumentStoreWrite } from "../reportWriteFailure";
 import type { DocumentStoreState } from "../state";
-import type { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";
+import {
+  type captureDocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "../sync/syncGeneration";
+import {
+  type AttachmentWriteGeneration,
+  isAttachmentWriteGenerationCurrent,
+} from "./attachmentWriteGeneration";
+
+// Fixed literal: a reported message must never carry file names or slot ids.
+export const ATTACHMENT_FAILURE_MESSAGE =
+  "Documents: attachment mutation failed";
 
 export async function restoreFailedAttachmentMutation(input: {
   generation: NonNullable<
@@ -33,21 +46,40 @@ export async function persistStagedAttachmentMutation(input: {
   rollbackSnapshot: Uint8Array;
   staged: NonNullable<Awaited<ReturnType<typeof stagePendingAttachments>>>;
   state: DocumentStoreState;
+  writeGeneration: AttachmentWriteGeneration;
 }) {
   const { staged, state } = input;
   try {
-    return await persistDocument(
-      state,
-      input.currentDoc,
-      { snapshotEndVersion: input.coveredVersion },
+    // Blob bytes are already staged under `staged.pendingAttachments` and
+    // `persistDocument` commits the attachment rows, history tail, pending
+    // update, and document record in one SQLite transaction, so retrying a
+    // busy refusal commits all SQLite records together or none at all.
+    return await retryWhileDatabaseBusy(
+      () =>
+        persistDocument(
+          state,
+          input.currentDoc,
+          { snapshotEndVersion: input.coveredVersion },
+          {
+            attachmentStaging: staged,
+            pendingUpdate:
+              createPendingUpdateFields(input.attachmentUpdate) ?? undefined,
+            preserveSnapshotStructuredFields: true,
+            preserveSnapshotText: true,
+          },
+          input.generation,
+        ),
       {
-        attachmentStaging: staged,
-        pendingUpdate:
-          createPendingUpdateFields(input.attachmentUpdate) ?? undefined,
-        preserveSnapshotStructuredFields: true,
-        preserveSnapshotText: true,
+        isCurrent: () =>
+          isAttachmentWriteGenerationCurrent(state, input.writeGeneration) &&
+          isDocumentStoreSyncGenerationCurrent(state, input.generation),
+        onBusy: () => {
+          noteDocumentStoreWrite(
+            state,
+            `${ATTACHMENT_FAILURE_MESSAGE} behind another tab's database transaction`,
+          );
+        },
       },
-      input.generation,
     );
   } catch (error) {
     await deleteUnreferencedStagedAttachmentBytes({

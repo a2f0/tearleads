@@ -249,6 +249,18 @@ async function editCreation(
   return id;
 }
 
+function releaseUnmutatedCreation(
+  intent: object,
+  attempt: CreationAttempt,
+): void {
+  if (
+    creations.get(intent) === attempt &&
+    attempt.state.status === "creating"
+  ) {
+    creations.delete(intent);
+  }
+}
+
 export async function addContactAddressRow(
   store: DocumentStore,
   fields: ContactAddressFields,
@@ -288,6 +300,10 @@ export async function addContactAddressRow(
       },
       mutationOptions(store, authorized),
     );
+    if (id === null) {
+      releaseUnmutatedCreation(intent, attempt);
+      throw new Error(SAVE_FAILURE);
+    }
     attempt.state = transitionContactAddressCreation(attempt.state, {
       type: "returned",
       id,

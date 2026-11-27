@@ -7,6 +7,7 @@ import {
   removeDocumentAttachment,
 } from "../../../../data/documents/documentContent";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
+import { retryWhileDatabaseBusy } from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import { ensureDocumentStoreReady } from "../initialization";
 import { chainQueuedWrite } from "../localWriteQueue";
@@ -16,14 +17,23 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "../persistence";
-import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
+import {
+  noteDocumentStoreWrite,
+  reportDocumentStoreWriteFailure,
+} from "../reportWriteFailure";
 import {
   canWriteDocument,
   type DocumentStoreState,
   setReadySnapshot,
 } from "../state";
-import { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";
-import { restoreFailedAttachmentMutation } from "./attachmentMutationPersistence";
+import {
+  captureDocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "../sync/syncGeneration";
+import {
+  ATTACHMENT_FAILURE_MESSAGE,
+  restoreFailedAttachmentMutation,
+} from "./attachmentMutationPersistence";
 import {
   assignLocalAttachmentSlots,
   removeLocalAttachmentSlot,
@@ -34,7 +44,6 @@ import {
   isAttachmentWriteGenerationCurrent,
   shouldAbortAttachmentPersistFollowup,
 } from "./attachmentWriteGeneration";
-import { ATTACHMENT_FAILURE_MESSAGE } from "./index";
 
 function installCommittedAttachmentRemoval(input: {
   currentDoc: NonNullable<DocumentStoreState["doc"]>;
@@ -82,6 +91,73 @@ function installCommittedAttachmentRemoval(input: {
   );
 }
 
+async function commitAttachmentRemoval(input: {
+  coveredVersion: string;
+  currentDoc: NonNullable<DocumentStoreState["doc"]>;
+  generation: NonNullable<
+    ReturnType<typeof captureDocumentStoreSyncGeneration>
+  >;
+  pendingUpdate: ReturnType<typeof createPendingUpdateFields>;
+  rollbackSnapshot: Uint8Array;
+  slotId: string;
+  state: DocumentStoreState;
+  storageKey: string | undefined;
+  syncedAttachment: boolean;
+  writeGeneration: AttachmentWriteGeneration;
+}) {
+  const { currentDoc, generation, state, storageKey, writeGeneration } = input;
+  try {
+    // `persistDocument` commits the attachment removal/detach marker, history
+    // tail, pending update, and document record in one atomic SQLite
+    // transaction, so retrying a busy refusal leaves no partial removal.
+    return await retryWhileDatabaseBusy(
+      () =>
+        persistDocument(
+          state,
+          currentDoc,
+          { snapshotEndVersion: input.coveredVersion },
+          {
+            ...(storageKey
+              ? {
+                  attachmentRemoval: {
+                    mode: input.syncedAttachment
+                      ? ("detach" as const)
+                      : ("delete" as const),
+                    slotId: input.slotId,
+                    storageKey,
+                  },
+                }
+              : {}),
+            ...(input.pendingUpdate
+              ? { pendingUpdate: input.pendingUpdate }
+              : {}),
+            preserveSnapshotStructuredFields: true,
+            preserveSnapshotText: true,
+          },
+          generation,
+        ),
+      {
+        isCurrent: () =>
+          isAttachmentWriteGenerationCurrent(state, writeGeneration) &&
+          isDocumentStoreSyncGenerationCurrent(state, generation),
+        onBusy: () => {
+          noteDocumentStoreWrite(
+            state,
+            `${ATTACHMENT_FAILURE_MESSAGE} behind another tab's database transaction`,
+          );
+        },
+      },
+    );
+  } catch (error) {
+    await restoreFailedAttachmentMutation({
+      generation,
+      rollbackSnapshot: input.rollbackSnapshot,
+      state,
+    });
+    throw error;
+  }
+}
+
 async function persistRemovedAttachment(
   state: DocumentStoreState,
   slotId: string,
@@ -123,38 +199,18 @@ async function persistRemovedAttachment(
 
   // Preserve the optimistic text/structured fields (see persistAttachedFiles):
   // removing an attachment while typing must not regress the editor.
-  let persisted: Awaited<ReturnType<typeof persistDocument>>;
-  try {
-    persisted = await persistDocument(
-      state,
-      currentDoc,
-      { snapshotEndVersion: coveredVersion },
-      {
-        ...(storageKey
-          ? {
-              attachmentRemoval: {
-                mode: syncedAttachment
-                  ? ("detach" as const)
-                  : ("delete" as const),
-                slotId,
-                storageKey,
-              },
-            }
-          : {}),
-        ...(pendingUpdate ? { pendingUpdate } : {}),
-        preserveSnapshotStructuredFields: true,
-        preserveSnapshotText: true,
-      },
-      generation,
-    );
-  } catch (error) {
-    await restoreFailedAttachmentMutation({
-      generation,
-      rollbackSnapshot,
-      state,
-    });
-    throw error;
-  }
+  const persisted = await commitAttachmentRemoval({
+    coveredVersion,
+    currentDoc,
+    generation,
+    pendingUpdate,
+    rollbackSnapshot,
+    slotId,
+    state,
+    storageKey,
+    syncedAttachment,
+    writeGeneration,
+  });
   if (
     shouldAbortAttachmentPersistFollowup(
       state,

@@ -84,11 +84,13 @@ export type DocumentAttachmentStatus =
   | "intent-mismatch"
   | "unavailable";
 
-// Add a row to the document's repeated-row list, returning the new row id.
+// Add a row to the document's repeated-row list, returning the new row id, or
+// null when the store could not initialize, was not writable, or refused the
+// mutation before applying it.
 export type AddDocumentRow = (
   fields: Readonly<Record<string, string>>,
   options?: DocumentMutationGuard | undefined,
-) => Promise<string>;
+) => Promise<string | null>;
 // Patch one or more cells of a single row (merges per-cell).
 export type UpdateDocumentRowFields = (
   id: string,
