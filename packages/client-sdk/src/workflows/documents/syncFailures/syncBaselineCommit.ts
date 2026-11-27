@@ -48,6 +48,7 @@ export async function settleSyncBaselineCommit(input: {
         readonly baselineStageCode?: string | undefined;
         readonly code?: string | undefined;
         readonly ok: false;
+        readonly status?: number | null | undefined;
       };
 }): Promise<boolean> {
   const api = documentBaselineStageApi(input.apiClient);

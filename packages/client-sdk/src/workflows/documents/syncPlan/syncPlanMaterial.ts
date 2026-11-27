@@ -127,9 +127,9 @@ async function resolveStaleHealMaterial(
   let contentKey: Uint8Array = crypto.getRandomValues(new Uint8Array(32));
   let contentKeyBundle = await wrap(contentKey);
   // A baseline part way through a stage was encrypted under a key: the heal
-  // that goes on with it wraps that key, not a new one. It may only where
-  // it leaves out no target the key has gone to
-  // (`reusableStagedBaselinePlan`), which the bundle just built says.
+  // that goes on with it wraps that key, not a new one. It may only for the
+  // exact target set the key was wrapped for (`reusableStagedBaselinePlan`),
+  // which the bundle just built says.
   const held = reusableStagedBaselinePlan(
     input.execSql,
     input.writerProjection.documentId,
@@ -441,36 +441,36 @@ async function planResolvedSyncContent(
     pendingUpdates,
   } = material;
   const { rotationBaseline } = material;
-  const outgoingUpdates = await prepareDocumentOutgoingUpdates({
-    baselineSegments: rotationBaseline?.segments,
-    contentKey,
-    contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
-    documentId,
-    organizationId: signing.organizationId,
-    pendingUpdates,
-  });
-  const basePlan = await buildDocumentSyncPlan({
-    author: { ...input.author, organizationId: signing.organizationId },
-    authorizingContainerPathRefs: authorizingContainerPathRefs(
-      input.writerProjection,
-    ),
-    baselineStageId: rotationBaseline?.baselineStageId,
-    containerRekeys: input.containerRekeys,
-    contentKeyBundle,
-    documentId,
-    documentKekTargets,
-    documentManifest,
-    historyMode: input.historyMode,
-    inlineRekeyCommitId: input.inlineRekeyCommitId,
-    localVersionVector: input.localVersionVector,
-    maxPageUpdates: input.maxPageUpdates,
-    minLsn: input.minLsn,
-    outgoingUpdates,
-    processedThroughUpdateId: input.processedThroughUpdateId,
-    pullCursor: input.pullCursor,
-    signedAt: signing.signedAt,
-  });
   try {
+    const outgoingUpdates = await prepareDocumentOutgoingUpdates({
+      baselineSegments: rotationBaseline?.segments,
+      contentKey,
+      contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
+      documentId,
+      organizationId: signing.organizationId,
+      pendingUpdates,
+    });
+    const basePlan = await buildDocumentSyncPlan({
+      author: { ...input.author, organizationId: signing.organizationId },
+      authorizingContainerPathRefs: authorizingContainerPathRefs(
+        input.writerProjection,
+      ),
+      baselineStageId: rotationBaseline?.baselineStageId,
+      containerRekeys: input.containerRekeys,
+      contentKeyBundle,
+      documentId,
+      documentKekTargets,
+      documentManifest,
+      historyMode: input.historyMode,
+      inlineRekeyCommitId: input.inlineRekeyCommitId,
+      localVersionVector: input.localVersionVector,
+      maxPageUpdates: input.maxPageUpdates,
+      minLsn: input.minLsn,
+      outgoingUpdates,
+      processedThroughUpdateId: input.processedThroughUpdateId,
+      pullCursor: input.pullCursor,
+      signedAt: signing.signedAt,
+    });
     const plan = finalizeMaterializedDocumentSyncPlan({
       basePlan,
       material,

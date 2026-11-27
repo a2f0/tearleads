@@ -98,7 +98,7 @@ export interface RotationBaselineWriterInput {
   /**
    * Every target the request that rotates wraps `contentKey` for: its
    * content-key bundle's envelopes. A staged upload keeps them, and its key
-   * goes on to a later attempt only if that attempt leaves none of them out
+   * goes on to a later attempt only for the exact same target set
    * (`reusableStagedBaselinePlan`).
    */
   readonly keyTargets: readonly RotationKeyTarget[];
@@ -122,11 +122,11 @@ export interface RotationBaselineWriterInput {
  * what is staged stays what the attempt signs for.
  *
  * It may only if the upload is still under way for that epoch and the
- * attempt's targets hold every target the key was ever wrapped for. A key
- * that a request carried to a container this attempt leaves out, whether
- * that request was refused, lost or never answered, is known to that
- * container's members: an unlink of it must not commit that key. The
- * attempt then plans a new key, and the writer deletes the stage, whose
+ * attempt's target set matches the targets the key was wrapped for exactly.
+ * Shrinking the set would commit a key already sent to a container being
+ * removed; expanding it would wrap a post-unlink key for the unlinked
+ * container if a later heal ran against a stale projection. Any target-set
+ * change therefore plans a new key, and the writer deletes the stage, whose
  * segments the old key encrypts.
  */
 export function reusableStagedBaselinePlan(
@@ -233,10 +233,10 @@ async function writeNewBaseline(
  * never commit, so its stage is given up first.
  *
  * The plan's key is the upload's only when `reusableStagedBaselinePlan`
- * handed it out, which holds the attempt to the targets the key has gone
- * to. The request's own envelopes are held to the same rule here, where
- * they are in hand: a key about to be wrapped for fewer targets than it
- * went to is never sent, and its upload is given up.
+ * handed it out, which holds the attempt to the exact target set the key
+ * has gone to. The request's own envelopes are held to the same rule here,
+ * where they are in hand: a key about to be wrapped for a different target
+ * set than it went to is never sent, and its upload is given up.
  */
 async function writeOnce(
   run: WriterRun,
@@ -251,7 +251,7 @@ async function writeOnce(
     await dropStagedBaselineUpload(run.context, held);
     if (!sameKey) return writeNewBaseline(run, encoderStart);
     throw new Error(
-      "Document rotation key was planned for fewer targets than it was sent to",
+      "Document rotation key was planned for different targets than it was sent to",
     );
   }
   held.wrapKeyFor(keyTargets);
@@ -356,8 +356,13 @@ export async function writeRotationBaseline(
 export async function releaseStagedBaselineCommit(
   commit: StagedBaselineCommit,
 ): Promise<void> {
-  const { attempt, upload } = commit;
-  if (upload.state.attempt !== attempt) return;
+  const { attempt, upload, uploads } = commit;
+  if (
+    uploads.get(upload.documentId) !== upload ||
+    upload.state.attempt !== attempt
+  ) {
+    return;
+  }
   upload.dispatch({ attempt, type: "released" });
   await dropStagedBaselineUpload(commit, upload);
 }

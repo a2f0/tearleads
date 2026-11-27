@@ -82,9 +82,13 @@ carried to the party the rotation is meant to keep out:
 
 In both the held key is known to the removed container's members, and to
 whoever kept the earlier request, whether the API took that request,
-refused it, or never answered. So an upload records every target its key
-was wrapped for (`StagedBaselineUpload.wrapKeyFor`), and an attempt takes
-the held plan only if its own targets hold every one of them
+refused it, or never answered. The reverse direction matters too: if an
+unlink's commit got no answer and a later heal ran against a stale
+projection that still linked the removed container, reusing the unlink's
+key would wrap a post-revocation key for that container. So an upload
+records every target its key was wrapped for
+(`StagedBaselineUpload.wrapKeyFor`), and an attempt takes the held plan
+only if its own target set matches those targets exactly
 (`reusableStagedBaselinePlan`):
 
 - A **target** is one key epoch of one linked container: a content-key
@@ -98,11 +102,10 @@ the held plan only if its own targets hold every one of them
   state: a request a superseded run sent gave the key away as surely as the
   current run's. An attempt's targets are recorded when it takes the plan,
   before any request is built, so a request that is never sent counts too.
-- The rule is "holds every one", not "equals". A retry of the same heal or
-  the same unlink has the same targets and goes on with the upload; so does
-  an attempt with more targets, such as a heal after an unlink was refused,
-  which gives the key to a container that is still linked. Its targets are
-  then recorded, and the unlink's retry no longer qualifies.
+- The rule is exact target-set equality. A retry of the same heal or the
+  same unlink has the same targets and goes on with the upload; any change
+  in the target set — shrinking, expanding, or advancing a container key
+  epoch — disqualifies the held key.
 - An attempt that does not qualify plans afresh: a new key, and for an
   unlink a new event id and signed time. The writer finds the document's
   upload planned for another key, gives it up, and deletes its stage, whose
@@ -111,8 +114,8 @@ the held plan only if its own targets hold every one of them
   finds its upload gone on its next pass and plans again at the epoch after
   the unlink's.
 - The writer holds the request's own envelopes to the same rule where they
-  are in hand. A key about to be wrapped for fewer targets than it went to
-  is never sent: the upload is given up and the attempt fails.
+  are in hand. A key about to be wrapped for a different target set than it
+  went to is never sent: the upload is given up and the attempt fails.
 
 A process that restarts has no upload and no held key, so it plans afresh.
 

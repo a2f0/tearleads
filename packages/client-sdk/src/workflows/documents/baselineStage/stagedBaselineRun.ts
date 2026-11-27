@@ -125,9 +125,16 @@ function saysNothing(failure: DocumentBaselineStageFailure): boolean {
   return status === null || status >= 500 || TRANSIENT_STATUSES.has(status);
 }
 
-/** Whether `run` is still the upload's run: no later one has started. */
+/**
+ * Whether `run` is still the document's live upload and its current run:
+ * neither another attempt of this upload nor a replacement upload for a
+ * different key has taken the document over.
+ */
 function isCurrent(run: StagedBaselineRun): boolean {
-  return run.upload.state.attempt === run.attempt;
+  return (
+    run.context.uploads.get(run.upload.documentId) === run.upload &&
+    run.upload.state.attempt === run.attempt
+  );
 }
 
 /**
@@ -273,12 +280,14 @@ async function resignHeader(
   const segmentIndex = state.nextHeaderIndex;
   const record = state.records[segmentIndex];
   if (!record) throw new Error("A staged segment has no record to sign for");
+  const writeHeader = await resignStagedSegmentHeader(signer, record);
+  if (!isCurrent(run)) return;
   const result =
     await run.context.api.resignDocumentBaselineSegmentHeaderResult(
       run.upload.documentId,
       state.baselineId,
       segmentIndex,
-      { writeHeader: await resignStagedSegmentHeader(signer, record) },
+      { writeHeader },
       requestOptions(run),
     );
   if (!result.ok) return refuse(run, result);
@@ -325,6 +334,7 @@ async function stageNext(
       }
       throw error;
     });
+  if (!isCurrent(run)) return;
   const record = stagedSegmentRecord(segment);
   upload.dispatch({ attempt, record, segmentIndex, type: "segmentSent" });
   const result = await run.context.api.stageDocumentBaselineSegmentResult(
@@ -467,10 +477,11 @@ export async function runStagedBaselineUpload(
   let traced: string | null = null;
   for (;;) {
     const { state } = run.upload;
-    // A later run started while this one waited on a request. That run owns
-    // the upload now, and this one ends without a word: a local race is not
-    // a failure of the upload.
-    if (state.attempt !== run.attempt) return { kind: "superseded" };
+    // A later run — or a replacement upload for a fresh key — took over
+    // while this one waited on a request. That run owns the document's
+    // upload now, and this one ends without a word: a local race is not a
+    // failure of the upload.
+    if (!isCurrent(run)) return { kind: "superseded" };
     if (run.context.stillCurrent?.() === false) return { kind: "cancelled" };
     const progress = `${state.status}:${stagedSegmentCount(state) >> 4}`;
     if (progress !== traced) trace(run, state);

@@ -27,7 +27,10 @@ import {
   MAX_STAGE_READS_PER_RUN,
   stagedRecords,
 } from "../baselineStage/stagedBaselineState";
-import { getOrCreateStagedBaselineUploads } from "../baselineStage/stagedBaselineUploads";
+import {
+  getOrCreateStagedBaselineUploads,
+  type RotationKeyTarget,
+} from "../baselineStage/stagedBaselineUploads";
 import { settleSyncBaselineCommit } from "../syncFailures/syncBaselineCommit";
 
 setDefaultTimeout(STAGED_BASELINE_TEST_TIMEOUT_MS);
@@ -284,7 +287,7 @@ test("a heal's upload remembers the containers its key was sent to", async () =>
   if (!bundle) throw new Error("Expected the heal to send its bundle");
   expect(bundle.targets.length).toBeGreaterThan(0);
 
-  const held = (targets: typeof bundle.targets) =>
+  const held = (targets: readonly RotationKeyTarget[]) =>
     reusableStagedBaselinePlan(
       execSql,
       documentId,
@@ -293,7 +296,66 @@ test("a heal's upload remembers the containers its key was sent to", async () =>
     );
 
   expect(held(bundle.targets.slice(1))).toBeNull();
+  expect(
+    held([
+      ...bundle.targets,
+      { containerId: "extra-container", containerKeyEpochId: "extra-epoch-1" },
+    ]),
+  ).toBeNull();
   expect(held(bundle.targets)?.contentKeyCommitment).toBe(
     bundle.contentKeyCommitment,
   );
 });
+
+// When a second attempt replaces the document's upload with a fresh key
+// (for instance, an unlink starting while a heal's stage request is in
+// flight), the first upload transitions to `released` without advancing its
+// attempt counter. The superseded run must still detect that it no longer
+// owns the document's upload and end quietly without recording a failure.
+test("a run superseded by a different-key upload ends quietly without failing", async () => {
+  const harness = await createStagedHealHarness();
+  const { documentId, server } = harness;
+  const document = await createLongHistoryDocument("superseded-diff-key");
+  const uploads = getOrCreateStagedBaselineUploads(execSql);
+
+  const staging = gate();
+  const resumeFirst = gate();
+  server.beforeNext("stage:2", async () => {
+    staging.open();
+    await resumeFirst.opened;
+  });
+  const first = harness.heal(document, execSql);
+  await staging.opened;
+
+  const held = uploads.get(documentId);
+  if (!held) throw new Error("Expected an active upload");
+  const firstAttempt = held.state.attempt;
+  // Simulate a concurrent unlink replacing the upload with a fresh key,
+  // exactly as `writeOnce` does when `sameKey` is false: release at the
+  // existing attempt, drop from registry, and begin a new upload.
+  held.dispatch({ attempt: firstAttempt, type: "released" });
+  uploads.end(held);
+  const replacement = uploads.begin(
+    documentId,
+    {
+      contentKey: new Uint8Array(32).fill(9),
+      contentKeyCommitment: "f".repeat(64),
+      contentKeyEpoch: held.plan.contentKeyEpoch,
+      linkSetEvent: undefined,
+      signedAt: "2026-07-26T00:00:00.000Z",
+    },
+    [{ containerId: "surviving", containerKeyEpochId: "surviving-epoch-1" }],
+  );
+  const abandonsBefore = server.calls.filter((c) => c === "abandon").length;
+
+  resumeFirst.open();
+  expect(await first).toBeNull();
+  expect(harness.terminalFailures).toEqual([]);
+  expect(harness.abandonedReasons).toContain(
+    "a later attempt took over the rotation baseline upload",
+  );
+  expect(server.calls.filter((c) => c === "abandon")).toHaveLength(
+    abandonsBefore,
+  );
+  expect(uploads.get(documentId)).toBe(replacement);
+}, 60_000);

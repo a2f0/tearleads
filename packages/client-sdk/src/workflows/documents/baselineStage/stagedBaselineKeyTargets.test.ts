@@ -1,6 +1,6 @@
 // A rotation exists to keep a key from someone. A staged upload holds its
 // key between attempts, so it also holds where the key has gone: a later
-// attempt takes the key only if it leaves none of those places out.
+// attempt takes the key only for the exact same target set.
 import { expect, test } from "bun:test";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { reusableStagedBaselinePlan } from "./rotationBaselineWriter";
@@ -29,12 +29,16 @@ function database() {
   return { execSql, uploads: getOrCreateStagedBaselineUploads(execSql) };
 }
 
-test("a key goes on only to an attempt that leaves out no target it went to", () => {
+test("a key goes on only to an attempt with the exact same target set", () => {
   const { uploads } = database();
   const upload = uploads.begin(documentId, PLAN, [X, Y]);
 
+  // Same set (order-independent, duplicates collapsed).
   expect(upload.keyMayBeWrappedFor([X, Y])).toBe(true);
-  expect(upload.keyMayBeWrappedFor([Y, X, Z])).toBe(true);
+  expect(upload.keyMayBeWrappedFor([Y, X])).toBe(true);
+  // Expanding the set (e.g., a heal on a stale projection after an unlink)
+  // must not wrap a post-revocation key for an extra container.
+  expect(upload.keyMayBeWrappedFor([Y, X, Z])).toBe(false);
   // An unlink of either container leaves it out.
   expect(upload.keyMayBeWrappedFor([X])).toBe(false);
   expect(upload.keyMayBeWrappedFor([Y])).toBe(false);
@@ -48,10 +52,10 @@ test("where a key has gone only grows, whatever became of the request", () => {
   const { uploads } = database();
   const upload = uploads.begin(documentId, PLAN, [X]);
   expect(upload.keyMayBeWrappedFor([X])).toBe(true);
+  expect(upload.keyMayBeWrappedFor([X, Y])).toBe(false);
 
-  // A wider attempt (a heal, after an unlink of Y was refused) wraps it
-  // for Y as well. No attempt tag guards this: a superseded run's request
-  // gave the key away as surely.
+  // If another path ever records an additional target, no attempt tag
+  // guards it and the narrower set is no longer eligible.
   upload.dispatch({ type: "runStarted" });
   upload.dispatch({ type: "runStarted" });
   upload.wrapKeyFor([X, Y]);
@@ -60,7 +64,7 @@ test("where a key has gone only grows, whatever became of the request", () => {
   expect(upload.keyMayBeWrappedFor([X, Y])).toBe(true);
 });
 
-test("a held plan is handed to an attempt only under that rule", () => {
+test("a held plan is handed to an attempt only under exact target equality", () => {
   const { execSql, uploads } = database();
   const upload = uploads.begin(documentId, PLAN, [X, Y]);
   const { attempt } = upload.dispatch({ type: "runStarted" });
@@ -76,15 +80,13 @@ test("a held plan is handed to an attempt only under that rule", () => {
 
   // The same targets: the same key.
   expect(held(2, [X, Y])?.contentKey).toBe(PLAN.contentKey);
-  // Fewer: a new key, and the refusal records nothing.
+  // Fewer or more targets: a new key, and the refusal records nothing.
   expect(held(2, [X])).toBeNull();
+  expect(held(2, [X, Y, Z])).toBeNull();
   expect(held(2, [X, Y])).toBe(PLAN);
-  // More: the same key, which has then gone to Z as well.
-  expect(held(2, [X, Y, Z])).toBe(PLAN);
-  expect(held(2, [X, Y])).toBeNull();
 
   // An upload that is over holds no plan for anyone.
   upload.dispatch({ attempt, baselineId: "b", type: "planned" });
   upload.dispatch({ attempt, type: "released" });
-  expect(held(2, [X, Y, Z])).toBeNull();
+  expect(held(2, [X, Y])).toBeNull();
 });

@@ -100,15 +100,20 @@ export class StagedBaselineUpload {
   }
 
   /**
-   * Whether an attempt that wraps the key for `targets` leaves out nobody
-   * the key has gone to: every target it was ever wrapped for is among them.
-   * A rotation exists to keep a key from someone, so a key any request
-   * carried to a target the new attempt leaves out is not a fresh key for
-   * that attempt, whatever became of the request.
+   * Whether an attempt wraps the key for the exact same target set the key
+   * has gone to. Shrinking the set would commit a key already wrapped for a
+   * target the new attempt leaves out (for instance, a heal's key reused by
+   * an unlink); expanding it would wrap a post-revocation key for a target
+   * an earlier unlink excluded if a later heal ran against a stale
+   * projection. Exact equality allows retries of the same heal or the same
+   * unlink and forces a fresh key whenever the target set changes.
    */
   keyMayBeWrappedFor(targets: readonly RotationKeyTarget[]): boolean {
     const offered = new Set(keyTargetIds(targets));
-    return [...this.keyTargets].every((target) => offered.has(target));
+    return (
+      offered.size === this.keyTargets.size &&
+      [...this.keyTargets].every((target) => offered.has(target))
+    );
   }
 
   /** Remember that an attempt wraps the key for `targets`. */
