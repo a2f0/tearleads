@@ -32,7 +32,7 @@ async function resetDevice(page: Page): Promise<void> {
   await page.goto("/app/identity-manager/local-data");
   await page.getByRole("button", { name: "Reset Device" }).first().click();
   const confirm = page.getByRole("dialog");
-  await confirm.getByRole("textbox").fill("reset device");
+  await confirm.getByRole("textbox").fill("Reset device");
   await confirm.getByRole("button", { name: "Reset Device" }).click();
 }
 

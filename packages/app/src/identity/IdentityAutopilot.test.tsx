@@ -270,7 +270,7 @@ test(
         name: "Destroy Key Pair",
       }),
     );
-    fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
+    fireEvent.change(view.getByLabelText(/Type Confirm delete to continue/u), {
       target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
     });
     fireEvent.click(view.getByRole("button", { name: "Destroy Key Package" }));

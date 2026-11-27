@@ -74,17 +74,19 @@ the search to restore every type, then select a type to open its editor.
 **Identity Manager → Local Data → Reset Device** erases everything the app
 keeps on the device and restarts it as a fresh install, on web, desktop, and
 mobile alike. A locked keychain offers the same action as **Forgot PIN? Reset
-Device**. Type `reset device` to confirm. Data on the server is not touched;
+Device**. Type `Reset device` to confirm. Data on the server is not touched;
 an identity's recovery phrase signs it back in.
 
 Every shell keeps local data in its WebView's origin storage: OPFS (the SQLite
 databases, blobs, and desktop state), IndexedDB (the local keyring),
 localStorage, and sessionStorage. Capacitor also stages decrypted share and
 preview copies in its native cache directory, which it clears through the
-`clearNativeCache` host hook. Confirming records a request and reloads;
+`clearNativeCache` host hook. Confirming records a request and restarts the
+page at the home route, so the fresh device sets up its identity on Explorer's
+root rather than wherever the reset was asked for;
 [`DeviceResetGate`](src/providers/device-reset/DeviceResetGate.tsx) then wipes
 all of it before the app renders, so nothing on the page holds or rewrites the
-data being removed, and the reload restarts the SDK from nothing. WKWebView
+data being removed, and the restart brings the SDK up from nothing. WKWebView
 (iOS and the macOS desktop) has no OPFS on the main thread, so there the first
 database boot has the SQLite worker wipe OPFS before it opens anything.
 

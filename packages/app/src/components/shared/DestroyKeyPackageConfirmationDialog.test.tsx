@@ -57,17 +57,17 @@ test("requires the confirmation phrase before destroying", () => {
   }) as HTMLButtonElement;
   expect(destroyButton.disabled).toBe(true);
 
-  fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
+  fireEvent.change(view.getByLabelText(/Type Confirm delete to continue/u), {
     target: { value: "delete" },
   });
   expect(destroyButton.disabled).toBe(true);
 
-  fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
+  fireEvent.change(view.getByLabelText(/Type Confirm delete to continue/u), {
     target: { value: `${DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE} ` },
   });
   expect(destroyButton.disabled).toBe(false);
 
-  fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
+  fireEvent.change(view.getByLabelText(/Type Confirm delete to continue/u), {
     target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
   });
   expect(destroyButton.disabled).toBe(false);
@@ -88,7 +88,7 @@ test("cancel invokes onCancel without confirming", () => {
 test("resets confirmation text when hidden", () => {
   const { view } = renderDialog();
   const input = view.getByLabelText(
-    /Type confirm delete to continue/u,
+    /Type Confirm delete to continue/u,
   ) as HTMLInputElement;
 
   fireEvent.change(input, {
@@ -116,7 +116,7 @@ test("resets confirmation text when hidden", () => {
   expect(
     (
       view.getByLabelText(
-        /Type confirm delete to continue/u,
+        /Type Confirm delete to continue/u,
       ) as HTMLInputElement
     ).value,
   ).toBe("");

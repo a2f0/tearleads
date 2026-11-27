@@ -122,7 +122,7 @@ for (const failure of ["sqlite", "blobs"] as const) {
           ),
         ).toBeTruthy();
         fireEvent.change(
-          view.getByLabelText(/Type confirm delete to continue/u),
+          view.getByLabelText(/Type Confirm delete to continue/u),
           { target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } },
         );
         fireEvent.click(
@@ -155,7 +155,7 @@ for (const failure of ["sqlite", "blobs"] as const) {
         );
         expect(
           view
-            .getByLabelText(/Type confirm delete to continue/u)
+            .getByLabelText(/Type Confirm delete to continue/u)
             .getAttribute("aria-describedby"),
         ).toContain(view.getByRole("alert").id);
         expect(opfs.blobs.has(fingerprint)).toBe(true);
