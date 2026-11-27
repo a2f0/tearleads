@@ -4,6 +4,7 @@ import {
   CONTAINER_MOVE_INTENT_TYPE,
   type ContainerMoveIntentRecord,
 } from "../../../../data/persistence/container-contents/containerContentsPersistenceTypes";
+import { DocumentContainerProjectionRepository as Links } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
@@ -197,6 +198,7 @@ test("only a failure recorded by a requested pass ends the wait", async () => {
 async function saveQueuedDocument(
   execSql: ExecSql,
   containerId: string,
+  linkedContainerIds?: readonly string[],
 ): Promise<{ documentId: string; localId: string }> {
   await sqlDocumentsPersistence.ensureSchema(execSql);
   const localId = crypto.randomUUID();
@@ -211,6 +213,12 @@ async function saveQueuedDocument(
     text: "",
     title: "Queued",
   });
+  if (linkedContainerIds) {
+    await new Links(execSql).replaceDocumentLinks(
+      documentId,
+      linkedContainerIds,
+    );
+  }
   await new DocumentMoveIntentRepository(execSql).enqueueMoveIntent({
     documentId,
     localId,
@@ -338,4 +346,60 @@ test("a pass that settles the move during the intent read is not a failure", asy
       settlements: ["waiting"],
     });
   });
+});
+
+test("a parked placement on a secondary-linked document in scope stops the purge", async () => {
+  await withTestExecSql(
+    "purge-move-settlement-secondary-parked",
+    async (execSql) => {
+      const { documentId } = await saveQueuedDocument(execSql, "elsewhere", [
+        "elsewhere",
+        "child",
+      ]);
+      await new DocumentMoveIntentRepository(execSql).recordMoveIntentError({
+        denied: true,
+        documentId,
+        message: "denied",
+      });
+      const outcome = await settle({
+        execSql,
+        lane: { read: () => idleLane(0) },
+        moves: () => [],
+      });
+      expect(outcome).toEqual({
+        reports: ["Purge scope holds a parked move"],
+        requests: 0,
+        result: "unsettled",
+        settlements: ["unsettled"],
+      });
+    },
+  );
+});
+
+test("a pending placement on a secondary-linked document in scope is awaited", async () => {
+  await withTestExecSql(
+    "purge-move-settlement-secondary-pending",
+    async (execSql) => {
+      const { localId } = await saveQueuedDocument(execSql, "elsewhere", [
+        "elsewhere",
+        "folder",
+      ]);
+      let reads = 0;
+      const outcome = await settle({
+        execSql,
+        lane: { read: () => idleLane(0) },
+        moves: async () => {
+          reads += 1;
+          if (reads === 2)
+            await execSql("DELETE FROM local_intents WHERE local_id = ?", [
+              localId,
+            ]);
+          return [];
+        },
+      });
+      expect(outcome.result).toBe("settled");
+      expect(outcome.requests).toBe(1);
+      expect(outcome.settlements).toEqual(["waiting"]);
+    },
+  );
 });

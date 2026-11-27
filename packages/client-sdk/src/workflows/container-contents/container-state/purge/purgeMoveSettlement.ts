@@ -1,3 +1,4 @@
+import { DocumentContainerProjectionRepository } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { listDocumentPlacementIntentStates } from "../../../../data/persistence/container-contents/documentPurgePlacement";
 import { listDocumentsByContainerIdsOrDocumentIds } from "../../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
@@ -69,10 +70,20 @@ function createScopeReader(input: SettlePurgeScopeMovesInput) {
   // Listing the subtree's documents is the costly read, so it runs only once
   // some document placement is queued anywhere on this device.
   const readDocumentLocalIds = () => {
-    documentLocalIds ??= listDocumentsByContainerIdsOrDocumentIds(
-      input.execSql,
-      { containerIds: [...containerIds], documentIds: [] },
-    ).then((documents) => new Set(documents.map((document) => document.id)));
+    documentLocalIds ??= (async () => {
+      const subtreeContainerIds = [...containerIds];
+      const linkedDocumentIds = await new DocumentContainerProjectionRepository(
+        input.execSql,
+      ).listDocumentIdsByContainerIds(subtreeContainerIds);
+      const documents = await listDocumentsByContainerIdsOrDocumentIds(
+        input.execSql,
+        {
+          containerIds: subtreeContainerIds,
+          documentIds: linkedDocumentIds,
+        },
+      );
+      return new Set(documents.map((document) => document.id));
+    })();
     return documentLocalIds;
   };
   return async (): Promise<ScopedIntent[]> => {
