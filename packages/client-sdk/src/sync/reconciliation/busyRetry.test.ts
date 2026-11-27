@@ -102,9 +102,13 @@ test("a busy refusal in an earlier sweep batch does not mask a real error in a l
   const service = createReconciliationService(host);
   service.start();
 
-  await expect(service.reconcileNow()).rejects.toThrow(
-    "later batch real failure",
-  );
+  try {
+    await expect(service.reconcileNow()).rejects.toThrow(
+      "later batch real failure",
+    );
+  } finally {
+    service.stop();
+  }
 });
 
 test("an unforced container hitting busy SQLite refusals re-queues and reconciles", async () => {

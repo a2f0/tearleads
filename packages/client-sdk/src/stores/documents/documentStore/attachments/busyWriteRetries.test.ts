@@ -338,6 +338,10 @@ test("exhausted busy attach resets the live doc when rollback reload is also bus
         if (blockSql) throw busyRefusal();
         return durable.commitDocumentMutation(...args);
       },
+      async loadDocumentStoreState(execSql, localId) {
+        if (blockSql) throw busyRefusal();
+        return durable.loadDocumentStoreState(execSql, localId);
+      },
       async loadDocumentWithHistoryRestoreState(execSql, localId) {
         if (blockSql) throw busyRefusal();
         return durable.loadDocumentWithHistoryRestoreState(execSql, localId);

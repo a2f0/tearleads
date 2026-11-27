@@ -211,11 +211,20 @@ export async function syncDocumentState(
   // finalizeDocumentSync must not clear the signal if this sequence has moved.
   const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
   const wasRemoteProbe = state.remoteUpdatePending;
+  const wasRemoteSyncBlocked = isDocumentStoreRemoteSyncBlocked(state);
   let pendingUpdates: PendingUpdateRecord[] = await listPendingUpdates(state);
   if (!isDocumentStoreSyncGenerationCurrent(state, generation))
     return requestSyncAgain(state, nextRecord);
-  if (pendingUpdates.length === 0 && isDocumentStoreRemoteSyncBlocked(state)) {
-    return nextRecord;
+  if (pendingUpdates.length === 0) {
+    if (isDocumentStoreRemoteSyncBlocked(state)) {
+      return nextRecord;
+    }
+    // If remote sync was unblocked while listing pending updates, this pass
+    // captured a pre-unblock signal sequence and wasRemoteProbe=false; yield to
+    // the fresh pass so the probe pulls once and clears its signal cleanly.
+    if (wasRemoteSyncBlocked) {
+      return requestSyncAgain(state, nextRecord);
+    }
   }
   // Create the remote document even when nothing is queued to send: a note
   // created and never edited enqueues no updates, but its local row is still a
