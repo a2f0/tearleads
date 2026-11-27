@@ -1,5 +1,9 @@
 import { readFile } from "node:fs/promises";
-import type { CanaryReport, CanaryRun } from "../canaries/report";
+import {
+  type CanaryReport,
+  type CanaryRun,
+  loadCanaryReport,
+} from "../canaries/report";
 import type { InventoryReport } from "../inventory/markdown";
 import { readCaptureFile } from "../statements/captureFile";
 import {
@@ -27,52 +31,69 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-async function readJsonFile<T>(path: string): Promise<T> {
-  return JSON.parse(await readFile(path, "utf8")) as T;
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function isTxControlSql(sql: string): boolean {
   return txControlPattern.test(sql.trim());
 }
 
+function assertInventoryReport(
+  value: unknown,
+  path: string,
+): asserts value is InventoryReport {
+  if (
+    !isObject(value) ||
+    Reflect.get(value, "scenario") !== "static-inventory" ||
+    !isObject(Reflect.get(value, "postgres")) ||
+    !isObject(Reflect.get(value, "sqlite")) ||
+    !isObject(Reflect.get(value, "openapi")) ||
+    !isObject(Reflect.get(value, "canaries"))
+  ) {
+    throw new Error(`${path} is not a valid perf:inventory report.`);
+  }
+}
+
 /** Extracts compact schema, OpenAPI, and canary-drift metrics from `perf:inventory`. */
 export async function extractInventoryMetrics(
   path: string,
 ): Promise<EpochInventoryMetrics> {
-  const report = await readJsonFile<InventoryReport>(path);
-  const headrooms = report.canaries.ceilingDrift.map((item) => item.headroom);
+  const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
+  assertInventoryReport(parsed, path);
+  const headrooms = parsed.canaries.ceilingDrift.map((item) => item.headroom);
   return {
     postgres: {
-      tables: report.postgres.tableCount,
-      columns: report.postgres.columnCount,
-      indexes: report.postgres.indexCount,
-      migrations: report.postgres.migrationCount,
-      duplicateIndexes: report.postgres.duplicateIndexes.length,
-      unreadTables: report.postgres.unreadTables.length,
-      unreadColumns: report.postgres.unreadColumns.length,
+      tables: parsed.postgres.tableCount,
+      columns: parsed.postgres.columnCount,
+      indexes: parsed.postgres.indexCount,
+      migrations: parsed.postgres.migrationCount,
+      duplicateIndexes: parsed.postgres.duplicateIndexes.length,
+      unreadTables: parsed.postgres.unreadTables.length,
+      unreadColumns: parsed.postgres.unreadColumns.length,
     },
     sqlite: {
-      totalTables: report.sqlite.totalTableCount,
-      sdkTables: report.sqlite.sdkTableCount,
-      appProjectionTables: report.sqlite.appProjectionTableCount,
-      columns: report.sqlite.columnCount,
-      indexes: report.sqlite.indexCount,
-      duplicateIndexes: report.sqlite.duplicateIndexes.length,
-      unreadTables: report.sqlite.unreadTables.length,
-      unreadColumns: report.sqlite.unreadColumns.length,
+      totalTables: parsed.sqlite.totalTableCount,
+      sdkTables: parsed.sqlite.sdkTableCount,
+      appProjectionTables: parsed.sqlite.appProjectionTableCount,
+      columns: parsed.sqlite.columnCount,
+      indexes: parsed.sqlite.indexCount,
+      duplicateIndexes: parsed.sqlite.duplicateIndexes.length,
+      unreadTables: parsed.sqlite.unreadTables.length,
+      unreadColumns: parsed.sqlite.unreadColumns.length,
     },
     openapi: {
-      paths: report.openapi.pathCount,
-      operations: report.openapi.operationCount,
-      distinctResponseFields: report.openapi.distinctResponseFields,
-      unreadResponseFieldLeads: report.openapi.unreadResponseFields.length,
-      unreadFields: report.openapi.unreadResponseFields.map(
+      paths: parsed.openapi.pathCount,
+      operations: parsed.openapi.operationCount,
+      distinctResponseFields: parsed.openapi.distinctResponseFields,
+      unreadResponseFieldLeads: parsed.openapi.unreadResponseFields.length,
+      unreadFields: parsed.openapi.unreadResponseFields.map(
         (entry) => entry.field,
       ),
     },
     canaries: {
-      budgetAssertions: report.canaries.budgetAssertionCount,
-      driftedPhases: report.canaries.ceilingDrift.length,
+      budgetAssertions: parsed.canaries.budgetAssertionCount,
+      driftedPhases: parsed.canaries.ceilingDrift.length,
       maxHeadroom: headrooms.length > 0 ? Math.max(...headrooms) : 0,
       totalHeadroom: headrooms.reduce((sum, value) => sum + value, 0),
     },
@@ -81,14 +102,15 @@ export async function extractInventoryMetrics(
 
 interface ParsedRunStatements {
   readonly summary: StatementSummary;
-  readonly sameKeyRepeats: number;
-  readonly pureReadRepeats: number;
+  readonly sameKeyRepeats: number | null;
+  readonly pureReadRepeats: number | null;
 }
 
 function sumRepeatField(
   summary: StatementSummary,
   field: "sameKeyRepeats" | "pureReadRepeats",
-): number {
+): number | null {
+  if (!summary.paramHashes) return null;
   if (summary.routes.length > 0) {
     return summary.routes.reduce((sum, route) => sum + (route[field] ?? 0), 0);
   }
@@ -113,8 +135,8 @@ async function summarizeRunStatements(
   };
 }
 
-async function countTxControls(run: CanaryRun): Promise<number> {
-  if (run.clientSql?.status !== "captured") return 0;
+async function countTxControls(run: CanaryRun): Promise<number | null> {
+  if (run.clientSql?.status !== "captured") return null;
   const raw = await readCaptureFile(run.clientSql.capture).catch(() => null);
   if (raw !== null) {
     let count = 0;
@@ -140,6 +162,10 @@ function mergeRouteStats(
 ): void {
   for (const route of routes) {
     const prev = target.get(route.route);
+    const pureRepeats =
+      route.pureReadRepeats === null
+        ? (prev?.pureReadRepeats ?? null)
+        : (prev?.pureReadRepeats ?? 0) + route.pureReadRepeats;
     target.set(route.route, {
       route: route.route,
       requests: (prev?.requests ?? 0) + route.requests,
@@ -147,8 +173,7 @@ function mergeRouteStats(
       txStatements: (prev?.txStatements ?? 0) + route.txStatements,
       lockHoldStatements:
         (prev?.lockHoldStatements ?? 0) + route.lockHoldStatements,
-      pureReadRepeats:
-        (prev?.pureReadRepeats ?? 0) + (route.pureReadRepeats ?? 0),
+      pureReadRepeats: pureRepeats,
     });
   }
 }
@@ -182,147 +207,179 @@ function selectFirstPassedSamplePerCanary(
   );
 }
 
-interface CanaryTotals {
-  wallMs: number;
-  requests: number;
-  requestBytes: number;
-  responseBytes: number;
-  echoBytes: number;
-  redeliveredBytes: number;
-  reDownloadedUploadBytes: number;
-  exactHeadRereads: number;
-  manifestCitations: number;
-  wsHints: number;
-  apiStatements: number;
-  apiTxStatements: number;
-  apiLockHoldStatements: number;
-  apiSameKeyRepeats: number;
-  apiPureReadRepeats: number;
-  clientSqlStatements: number;
-  clientSqlInLock: number;
-  clientSqlDurationMs: number;
-  clientSqlMutations: number;
-  clientSqlTxControls: number;
-  clientSqlMaxHoldMs: number;
-  clientSqlMaxWaitMs: number;
+interface RunExtraction {
+  readonly entry: EpochCanaryEntry;
+  readonly wsHints: number;
+  readonly echoBytes: number | null;
+  readonly redeliveredBytes: number | null;
+  readonly reDownloadedUploadBytes: number | null;
+  readonly manifestCitations: number | null;
+  readonly apiLockHoldStatements: number | null;
+  readonly apiSameKeyRepeats: number | null;
+  readonly clientSqlInLock: number | null;
+  readonly clientSqlDurationMs: number | null;
+  readonly clientSqlMutations: number | null;
+  readonly clientSqlTxControls: number | null;
+  readonly clientSqlMaxWaitMs: number | null;
 }
 
-function createZeroTotals(): CanaryTotals {
-  return {
-    wallMs: 0,
-    requests: 0,
-    requestBytes: 0,
-    responseBytes: 0,
-    echoBytes: 0,
-    redeliveredBytes: 0,
-    reDownloadedUploadBytes: 0,
-    exactHeadRereads: 0,
-    manifestCitations: 0,
-    wsHints: 0,
-    apiStatements: 0,
-    apiTxStatements: 0,
-    apiLockHoldStatements: 0,
-    apiSameKeyRepeats: 0,
-    apiPureReadRepeats: 0,
-    clientSqlStatements: 0,
-    clientSqlInLock: 0,
-    clientSqlDurationMs: 0,
-    clientSqlMutations: 0,
-    clientSqlTxControls: 0,
-    clientSqlMaxHoldMs: 0,
-    clientSqlMaxWaitMs: 0,
-  };
+function sumAllOrNull(values: readonly (number | null)[]): number | null {
+  if (values.length === 0 || values.some((value) => value === null)) {
+    return null;
+  }
+  return values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 }
 
-function wireMetricsForRun(run: CanaryRun) {
+function maxAllOrNull(values: readonly (number | null)[]): number | null {
+  if (values.length === 0 || values.some((value) => value === null)) {
+    return null;
+  }
+  return Math.max(...values.map((value) => value ?? 0));
+}
+
+function extractPayloadFields(run: CanaryRun) {
   const payload =
     run.payloadAudit?.status === "captured" ? run.payloadAudit.summary : null;
-  const requests = payload
-    ? payload.requests
-    : run.phases.reduce((sum, p) => sum + p.total, 0);
-  const requestBytes = payload
-    ? payload.requestBytes
-    : run.phases.reduce((sum, p) => sum + p.bodyBytes.request, 0);
-  const responseBytes = payload
-    ? payload.responseBytes
-    : run.phases.reduce((sum, p) => sum + p.bodyBytes.response, 0);
-  const echoBytes = payload?.echoBytes ?? 0;
-  const redeliveredBytes = payload?.redeliveredBytes ?? 0;
-  const reDownloadedUploadBytes = payload?.reDownloadedUploadBytes ?? 0;
+  if (!payload) {
+    return {
+      requests: null,
+      requestBytes: null,
+      responseBytes: null,
+      redundantBytes: null,
+      echoBytes: null,
+      redeliveredBytes: null,
+      reDownloadedUploadBytes: null,
+      exactHeadRereads: null,
+      manifestCitations: null,
+    };
+  }
   return {
-    requests,
-    requestBytes,
-    responseBytes,
-    echoBytes,
-    redeliveredBytes,
-    reDownloadedUploadBytes,
-    redundantBytes: echoBytes + redeliveredBytes + reDownloadedUploadBytes,
-    exactHeadRereads: payload?.exactHeadRereadsCount ?? 0,
-    manifestCitations: payload?.manifestCitations ?? 0,
-    wsHints: run.phases.reduce((sum, p) => sum + (p.ws?.total ?? 0), 0),
+    requests: payload.requests,
+    requestBytes: payload.requestBytes,
+    responseBytes: payload.responseBytes,
+    redundantBytes:
+      payload.echoBytes +
+      payload.redeliveredBytes +
+      payload.reDownloadedUploadBytes,
+    echoBytes: payload.echoBytes,
+    redeliveredBytes: payload.redeliveredBytes,
+    reDownloadedUploadBytes: payload.reDownloadedUploadBytes,
+    exactHeadRereads: payload.exactHeadRereadsCount,
+    manifestCitations: payload.manifestCitations,
   };
 }
 
-async function accumulateCanaryRun(
+function extractClientFields(run: CanaryRun, txControls: number | null) {
+  const client =
+    run.clientSql?.status === "captured" ? run.clientSql.summary : null;
+  return {
+    statements: client?.statements ?? null,
+    inLock: client?.inLockStatements ?? null,
+    durationMs: client?.durationMs ?? null,
+    mutations: client?.mutations ?? null,
+    txControls,
+    maxHoldMs: client ? round1(client.maxMutationHoldMs) : null,
+    maxWaitMs: client ? round1(client.maxMutationWaitMs) : null,
+  };
+}
+
+async function extractOneRun(
   run: CanaryRun,
-  totals: CanaryTotals,
   routeMap: Map<string, EpochApiRouteMetrics>,
   clientQueryMap: Map<string, { count: number; durationMs: number }>,
-): Promise<EpochCanaryEntry> {
+): Promise<RunExtraction> {
   const stmtInfo = await summarizeRunStatements(run);
   const txControls = await countTxControls(run);
   if (stmtInfo) mergeRouteStats(routeMap, stmtInfo.summary.routes);
   mergeClientTopQueries(clientQueryMap, run);
 
-  const wire = wireMetricsForRun(run);
-  const client =
-    run.clientSql?.status === "captured" ? run.clientSql.summary : null;
-  const apiStmts = stmtInfo?.summary.statements ?? 0;
-  const apiTx = stmtInfo?.summary.txStatements ?? 0;
-  const apiPure = stmtInfo?.pureReadRepeats ?? 0;
-
-  totals.wallMs += run.wallMs;
-  totals.requests += wire.requests;
-  totals.requestBytes += wire.requestBytes;
-  totals.responseBytes += wire.responseBytes;
-  totals.echoBytes += wire.echoBytes;
-  totals.redeliveredBytes += wire.redeliveredBytes;
-  totals.reDownloadedUploadBytes += wire.reDownloadedUploadBytes;
-  totals.exactHeadRereads += wire.exactHeadRereads;
-  totals.manifestCitations += wire.manifestCitations;
-  totals.wsHints += wire.wsHints;
-  totals.apiStatements += apiStmts;
-  totals.apiTxStatements += apiTx;
-  totals.apiLockHoldStatements += stmtInfo?.summary.lockHoldStatements ?? 0;
-  totals.apiSameKeyRepeats += stmtInfo?.sameKeyRepeats ?? 0;
-  totals.apiPureReadRepeats += apiPure;
-  totals.clientSqlStatements += client?.statements ?? 0;
-  totals.clientSqlInLock += client?.inLockStatements ?? 0;
-  totals.clientSqlDurationMs += client?.durationMs ?? 0;
-  totals.clientSqlMutations += client?.mutations ?? 0;
-  totals.clientSqlTxControls += txControls;
-  totals.clientSqlMaxHoldMs = Math.max(
-    totals.clientSqlMaxHoldMs,
-    client?.maxMutationHoldMs ?? 0,
-  );
-  totals.clientSqlMaxWaitMs = Math.max(
-    totals.clientSqlMaxWaitMs,
-    client?.maxMutationWaitMs ?? 0,
-  );
+  const wire = extractPayloadFields(run);
+  const client = extractClientFields(run, txControls);
 
   return {
-    canary: run.canary,
-    wallMs: Math.round(run.wallMs),
-    requests: wire.requests,
-    requestBytes: wire.requestBytes,
-    responseBytes: wire.responseBytes,
-    redundantBytes: wire.redundantBytes,
-    exactHeadRereads: wire.exactHeadRereads,
-    apiStatements: apiStmts,
-    apiTxStatements: apiTx,
-    apiPureReadRepeats: apiPure,
-    clientSqlStatements: client?.statements ?? 0,
-    clientSqlMaxHoldMs: round1(client?.maxMutationHoldMs ?? 0),
+    entry: {
+      canary: run.canary,
+      wallMs: Math.round(run.wallMs),
+      requests: wire.requests,
+      requestBytes: wire.requestBytes,
+      responseBytes: wire.responseBytes,
+      redundantBytes: wire.redundantBytes,
+      exactHeadRereads: wire.exactHeadRereads,
+      apiStatements: stmtInfo?.summary.statements ?? null,
+      apiTxStatements: stmtInfo?.summary.txStatements ?? null,
+      apiPureReadRepeats: stmtInfo?.pureReadRepeats ?? null,
+      clientSqlStatements: client.statements,
+      clientSqlMaxHoldMs: client.maxHoldMs,
+    },
+    wsHints: run.phases.reduce((sum, p) => sum + (p.ws?.total ?? 0), 0),
+    echoBytes: wire.echoBytes,
+    redeliveredBytes: wire.redeliveredBytes,
+    reDownloadedUploadBytes: wire.reDownloadedUploadBytes,
+    manifestCitations: wire.manifestCitations,
+    apiLockHoldStatements: stmtInfo?.summary.lockHoldStatements ?? null,
+    apiSameKeyRepeats: stmtInfo?.sameKeyRepeats ?? null,
+    clientSqlInLock: client.inLock,
+    clientSqlDurationMs: client.durationMs,
+    clientSqlMutations: client.mutations,
+    clientSqlTxControls: client.txControls,
+    clientSqlMaxWaitMs: client.maxWaitMs,
+  };
+}
+
+function aggregateExtractedRuns(
+  extracted: readonly RunExtraction[],
+  topApiRoutes: readonly EpochApiRouteMetrics[],
+  topClientQueries: readonly EpochClientQueryMetrics[],
+): EpochCanariesMetrics {
+  const rawDuration = sumAllOrNull(extracted.map((r) => r.clientSqlDurationMs));
+  const rawMaxHold = maxAllOrNull(
+    extracted.map((r) => r.entry.clientSqlMaxHoldMs),
+  );
+  const rawMaxWait = maxAllOrNull(extracted.map((r) => r.clientSqlMaxWaitMs));
+  return {
+    canaryCount: extracted.length,
+    wallMs: extracted.reduce((sum, r) => sum + r.entry.wallMs, 0),
+    requests: sumAllOrNull(extracted.map((r) => r.entry.requests)),
+    requestBytes: sumAllOrNull(extracted.map((r) => r.entry.requestBytes)),
+    responseBytes: sumAllOrNull(extracted.map((r) => r.entry.responseBytes)),
+    redundantBytes: sumAllOrNull(extracted.map((r) => r.entry.redundantBytes)),
+    echoBytes: sumAllOrNull(extracted.map((r) => r.echoBytes)),
+    redeliveredBytes: sumAllOrNull(extracted.map((r) => r.redeliveredBytes)),
+    reDownloadedUploadBytes: sumAllOrNull(
+      extracted.map((r) => r.reDownloadedUploadBytes),
+    ),
+    exactHeadRereads: sumAllOrNull(
+      extracted.map((r) => r.entry.exactHeadRereads),
+    ),
+    manifestCitations: sumAllOrNull(extracted.map((r) => r.manifestCitations)),
+    wsHints: extracted.reduce((sum, r) => sum + r.wsHints, 0),
+    apiStatements: sumAllOrNull(extracted.map((r) => r.entry.apiStatements)),
+    apiTxStatements: sumAllOrNull(
+      extracted.map((r) => r.entry.apiTxStatements),
+    ),
+    apiLockHoldStatements: sumAllOrNull(
+      extracted.map((r) => r.apiLockHoldStatements),
+    ),
+    apiSameKeyRepeats: sumAllOrNull(extracted.map((r) => r.apiSameKeyRepeats)),
+    apiPureReadRepeats: sumAllOrNull(
+      extracted.map((r) => r.entry.apiPureReadRepeats),
+    ),
+    clientSqlStatements: sumAllOrNull(
+      extracted.map((r) => r.entry.clientSqlStatements),
+    ),
+    clientSqlInLock: sumAllOrNull(extracted.map((r) => r.clientSqlInLock)),
+    clientSqlDurationMs: rawDuration === null ? null : round1(rawDuration),
+    clientSqlMutations: sumAllOrNull(
+      extracted.map((r) => r.clientSqlMutations),
+    ),
+    clientSqlTxControls: sumAllOrNull(
+      extracted.map((r) => r.clientSqlTxControls),
+    ),
+    clientSqlMaxHoldMs: rawMaxHold === null ? null : round1(rawMaxHold),
+    clientSqlMaxWaitMs: rawMaxWait === null ? null : round1(rawMaxWait),
+    topApiRoutes,
+    topClientQueries,
+    byCanary: extracted.map((r) => r.entry),
   };
 }
 
@@ -333,20 +390,16 @@ export async function extractCanariesMetrics(path: string): Promise<{
   readonly dirty: boolean;
   readonly runtime: CanaryReport["runtime"];
 }> {
-  const report = await readJsonFile<CanaryReport>(path);
+  const report = await loadCanaryReport(path);
   const runs = selectFirstPassedSamplePerCanary(report.runs);
   const routeMap = new Map<string, EpochApiRouteMetrics>();
   const clientQueryMap = new Map<
     string,
     { count: number; durationMs: number }
   >();
-  const totals = createZeroTotals();
-  const byCanary: EpochCanaryEntry[] = [];
-
+  const extracted: RunExtraction[] = [];
   for (const run of runs) {
-    byCanary.push(
-      await accumulateCanaryRun(run, totals, routeMap, clientQueryMap),
-    );
+    extracted.push(await extractOneRun(run, routeMap, clientQueryMap));
   }
 
   const topApiRoutes = [...routeMap.values()]
@@ -367,37 +420,6 @@ export async function extractCanariesMetrics(path: string): Promise<{
     revision: report.revision,
     dirty: report.dirty,
     runtime: report.runtime,
-    metrics: {
-      canaryCount: runs.length,
-      wallMs: Math.round(totals.wallMs),
-      requests: totals.requests,
-      requestBytes: totals.requestBytes,
-      responseBytes: totals.responseBytes,
-      redundantBytes:
-        totals.echoBytes +
-        totals.redeliveredBytes +
-        totals.reDownloadedUploadBytes,
-      echoBytes: totals.echoBytes,
-      redeliveredBytes: totals.redeliveredBytes,
-      reDownloadedUploadBytes: totals.reDownloadedUploadBytes,
-      exactHeadRereads: totals.exactHeadRereads,
-      manifestCitations: totals.manifestCitations,
-      wsHints: totals.wsHints,
-      apiStatements: totals.apiStatements,
-      apiTxStatements: totals.apiTxStatements,
-      apiLockHoldStatements: totals.apiLockHoldStatements,
-      apiSameKeyRepeats: totals.apiSameKeyRepeats,
-      apiPureReadRepeats: totals.apiPureReadRepeats,
-      clientSqlStatements: totals.clientSqlStatements,
-      clientSqlInLock: totals.clientSqlInLock,
-      clientSqlDurationMs: round1(totals.clientSqlDurationMs),
-      clientSqlMutations: totals.clientSqlMutations,
-      clientSqlTxControls: totals.clientSqlTxControls,
-      clientSqlMaxHoldMs: round1(totals.clientSqlMaxHoldMs),
-      clientSqlMaxWaitMs: round1(totals.clientSqlMaxWaitMs),
-      topApiRoutes,
-      topClientQueries,
-      byCanary,
-    },
+    metrics: aggregateExtractedRuns(extracted, topApiRoutes, topClientQueries),
   };
 }

@@ -20,11 +20,6 @@ across greenfield optimization PRs. Started 2026-11-27T22:34:02.103Z.
 | Schema | Client SQLite tables | 63 tables | 63 tables | — | baseline |
 | Schema | Unread 2xx OpenAPI fields | 3 fields | 3 fields | — | baseline |
 | Schema | Drifted canary ceilings | 14 phases | 14 phases | — | baseline |
-| Wire | Canary requests | 340 reqs | 340 reqs | — | baseline |
-| Wire | Canary request bytes | 1,609,389 B | 1,609,389 B | — | baseline |
-| Wire | Canary response bytes | 1,492,860 B | 1,492,860 B | — | baseline |
-| Wire | Canary redundant response bytes | 198,160 B | 198,160 B | — | baseline |
-| Wire | Exact-head policy re-reads | 42 reads | 42 reads | — | baseline |
 | API DB | Canary API SQL statements | 36,878 stmts | 36,878 stmts | — | baseline |
 | API DB | Canary API in-tx statements | 30,788 stmts | 30,788 stmts | — | baseline |
 | API DB | Canary API lock-hold statements | 22,227 stmts | 22,227 stmts | — | baseline |
@@ -40,17 +35,19 @@ across greenfield optimization PRs. Started 2026-11-27T22:34:02.103Z.
 | Scenarios | Bob-and-Alice API statements | 122,420 stmts | 122,420 stmts | — | baseline |
 | Scenarios | Bob-and-Alice pure read repeats | 14,321 repeats | 14,321 repeats | — | baseline |
 | Scenarios | Bob-and-Alice client SQLite | 486,496 stmts | 486,496 stmts | — | baseline |
-| Reload | Settled reload requests (max tier) | 4 reqs | 4 reqs | — | baseline |
+| Reload | Settled reload requests (shared max tier) | 4 reqs | 4 reqs | — | baseline |
 | Reload | Settled reload API statements | 62 stmts | 62 stmts | — | baseline |
 | Reload | Settled reload client SQLite | 481 stmts | 481 stmts | — | baseline |
 | Realtime | Realtime hub auth statements | 9 stmts | 9 stmts | — | baseline |
 | Realtime | Realtime hub auth PG bytes | 1,383,651 B | 1,383,651 B | — | baseline |
+| Rotations | Rotation group-shrink PG statements | 623 stmts | 623 stmts | — | baseline |
+| Baselines | Baseline first-unlink PG statements | 102 stmts | 102 stmts | — | baseline |
 
 ## Latest Per-Canary Breakdown
 
 | Canary | Reqs | Req B | Res B | Redundant B | Head Re-reads | API Stmts | Pure Repeats | Client SQL |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `DeviceFirstOfflineRequestVolume` | 0 | 0 | 0 | 0 | 0 | 1,557 | 180 | 5,294 |
+| `DeviceFirstOfflineRequestVolume` | — | — | — | — | — | 1,557 | 180 | 5,294 |
 | `DualPaneProvider.groupsRequestVolume` | 91 | 681,547 | 550,170 | 64,178 | 13 | 2,847 | 338 | 9,202 |
 | `DualPaneProvider.sharing` | 47 | 104,409 | 340,523 | 42,247 | 5 | 11,170 | 1,379 | 38,784 |
 | `ExplorerUploadRequestVolume` | 5 | 34,558 | 2,176 | 384 | 0 | 1,163 | 151 | 2,558 |
@@ -94,3 +91,37 @@ across greenfield optimization PRs. Started 2026-11-27T22:34:02.103Z.
 | ---: | --- | ---: | ---: | ---: | ---: | ---: |
 | 100 | declaration | 30 | 19.5 | 9 | 113 | 1,383,651 |
 | 100 | revalidation | 30.7 | 18.4 | 9 | 113 | 1,383,651 |
+
+## Latest Rotation & Revocation Scaling
+
+| Phase | Rotations | Depth | Reqs | 409s | PG Stmts | Local SQL | Wall ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `group-share` | 1 | 3 | 11 | 0 | 398 | 1,976 | 1,189 |
+| `group-share` | 4 | 3 | 11 | 0 | 398 | 1,976 | 1,118 |
+| `group-shrink` | 1 | 3 | 12 | 1 | 622 | 3,403 | 1,496 |
+| `group-shrink` | 4 | 3 | 12 | 1 | 623 | 3,439 | 1,643 |
+| `stale-writer-repair` | 1 | 3 | 12 | 2 | 378 | 1,236 | 712 |
+| `stale-writer-repair` | 4 | 3 | 12 | 2 | 400 | 1,282 | 951 |
+| `direct-revoke` | 1 | 3 | 10 | 1 | 375 | 2,074 | 828 |
+| `direct-revoke` | 4 | 3 | 10 | 1 | 378 | 2,111 | 958 |
+| `grantee-subtree-repair` | 1 | 3 | 9 | 1 | 332 | 1,385 | 842 |
+| `grantee-subtree-repair` | 4 | 3 | 9 | 1 | 349 | 1,410 | 1,083 |
+| `subtree-move` | 1 | 3 | 6 | 0 | 180 | 1,302 | 518 |
+| `subtree-move` | 4 | 3 | 6 | 0 | 180 | 1,322 | 648 |
+| `fresh-reader-hydration` | 1 | 3 | 69 | 0 | 1,546 | 7,918 | 2,982 |
+| `fresh-reader-hydration` | 4 | 3 | 69 | 0 | 1,553 | 8,123 | 3,362 |
+| `roster-vouched-share` | 1 | 3 | 21 | 0 | 632 | 3,261 | 1,302 |
+| `roster-vouched-share` | 4 | 3 | 21 | 0 | 633 | 3,281 | 1,470 |
+
+## Latest Rotation Baseline Scaling
+
+| Phase | MiB | Race | Mode | Reqs | PG Stmts | Local SQL | Peak RSS MiB |
+| --- | ---: | --- | --- | ---: | ---: | ---: | ---: |
+| `seed-history` | 1 | no | — | 4 | 103 | 593 | 139.7 |
+| `seed-history` | 5 | no | — | 4 | 103 | 593 | 188.1 |
+| `first-unlink-rotate` | 1 | no | inline | 4 | 101 | 1,124 | 32.3 |
+| `first-unlink-rotate` | 5 | no | inline | 4 | 102 | 1,124 | 169.1 |
+| `fresh-reader-sync` | 1 | no | — | 36 | 660 | 3,119 | 217.5 |
+| `fresh-reader-sync` | 5 | no | — | 36 | 660 | 3,119 | 126.7 |
+| `second-unlink-rotate` | 1 | no | inline | 4 | 100 | 1,430 | 54.9 |
+| `second-unlink-rotate` | 5 | no | inline | 4 | 101 | 1,430 | 336 |

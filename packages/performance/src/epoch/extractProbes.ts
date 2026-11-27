@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import type { BaselineSummaryRow } from "../baselines/summary";
 import type { PlanReportSummary } from "../plans/planAnalysis";
 import type { RotationSummaryRow } from "../rotations/summary";
-import type { ScenarioReport } from "../scenarios/report";
+import { loadScenarioReport } from "../scenarios/report";
 import type {
   EpochBaselineRow,
   EpochPlansMetrics,
@@ -16,15 +16,46 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-async function readJsonFile<T>(path: string): Promise<T> {
-  return JSON.parse(await readFile(path, "utf8")) as T;
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function sumAllOrNull(values: readonly (number | null)[]): number | null {
+  if (values.length === 0 || values.some((value) => value === null)) {
+    return null;
+  }
+  return values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+}
+
+async function readCompleteProbeSummary<T>(
+  path: string,
+  expectedScenario: string,
+): Promise<readonly T[]> {
+  const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
+  if (
+    !isObject(parsed) ||
+    Reflect.get(parsed, "scenario") !== expectedScenario
+  ) {
+    throw new Error(`${path} is not a ${expectedScenario} report.`);
+  }
+  const status = Reflect.get(parsed, "status");
+  if (status !== "complete") {
+    throw new Error(
+      `${path} has status '${String(status)}'; record only complete reports.`,
+    );
+  }
+  const summary = Reflect.get(parsed, "summary");
+  if (!Array.isArray(summary)) {
+    throw new Error(`${path} is missing a summary array.`);
+  }
+  return summary as readonly T[];
 }
 
 /** Extracts multi-party bob-and-alice scenario totals from `perf:scenarios`. */
 export async function extractScenariosMetrics(
   path: string,
 ): Promise<EpochScenariosMetrics> {
-  const report = await readJsonFile<ScenarioReport>(path);
+  const report = await loadScenarioReport(path);
   const byScenario = [...report.summary]
     .sort((a, b) =>
       a.scenario < b.scenario ? -1 : a.scenario > b.scenario ? 1 : 0,
@@ -50,17 +81,12 @@ export async function extractScenariosMetrics(
       (sum, item) => sum + item.responseBytes,
       0,
     ),
-    apiStatements: byScenario.reduce(
-      (sum, item) => sum + (item.apiStatements ?? 0),
-      0,
+    apiStatements: sumAllOrNull(byScenario.map((item) => item.apiStatements)),
+    pureReadRepeats: sumAllOrNull(
+      byScenario.map((item) => item.pureReadRepeats),
     ),
-    pureReadRepeats: byScenario.reduce(
-      (sum, item) => sum + (item.pureReadRepeats ?? 0),
-      0,
-    ),
-    clientSqlStatements: byScenario.reduce(
-      (sum, item) => sum + (item.clientSqlStatements ?? 0),
-      0,
+    clientSqlStatements: sumAllOrNull(
+      byScenario.map((item) => item.clientSqlStatements),
     ),
     byScenario,
   };
@@ -70,10 +96,17 @@ export async function extractScenariosMetrics(
 export async function extractPlansMetrics(
   path: string,
 ): Promise<EpochPlansMetrics> {
-  const report = await readJsonFile<{ readonly summary: PlanReportSummary }>(
-    path,
-  );
-  const { summary } = report;
+  const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
+  const summaryValue = isObject(parsed) ? Reflect.get(parsed, "summary") : null;
+  if (
+    !isObject(parsed) ||
+    Reflect.get(parsed, "scenario") !== "postgres-query-plans" ||
+    !isObject(summaryValue) ||
+    !Array.isArray(Reflect.get(summaryValue, "plans"))
+  ) {
+    throw new Error(`${path} is not a valid perf:plans report.`);
+  }
+  const summary = summaryValue as unknown as PlanReportSummary;
   const materializeQueries = summary.plans.filter((plan) =>
     plan.warnings.some((warning) => warning.kind === "Materialize"),
   ).length;
@@ -100,18 +133,16 @@ export async function extractPlansMetrics(
 export async function extractReloadMetrics(
   path: string,
 ): Promise<readonly EpochReloadRow[]> {
-  const report = await readJsonFile<{
-    readonly summary: readonly {
-      readonly documents: number;
-      readonly folders: number;
-      readonly reload: string;
-      readonly medianRequests: number;
-      readonly medianSettledMs: number;
-      readonly medianStatements: number;
-      readonly medianLocalStatements: number;
-    }[];
-  }>(path);
-  return report.summary.map((row) => ({
+  const summary = await readCompleteProbeSummary<{
+    readonly documents: number;
+    readonly folders: number;
+    readonly reload: string;
+    readonly medianRequests: number;
+    readonly medianSettledMs: number;
+    readonly medianStatements: number;
+    readonly medianLocalStatements: number;
+  }>(path, "document-reload");
+  return summary.map((row) => ({
     documents: row.documents,
     folders: row.folders,
     reload: row.reload,
@@ -126,19 +157,17 @@ export async function extractReloadMetrics(
 export async function extractRealtimeMetrics(
   path: string,
 ): Promise<readonly EpochRealtimeRow[]> {
-  const report = await readJsonFile<{
-    readonly summary: readonly {
-      readonly size: number;
-      readonly pass: "declaration" | "revalidation";
-      readonly medianDurationMs: number;
-      readonly medianCpuMs: number;
-      readonly statements: number;
-      readonly roundTrips: number;
-      readonly rows: number;
-      readonly bytesReturned: number;
-    }[];
-  }>(path);
-  return report.summary.map((row) => ({
+  const summary = await readCompleteProbeSummary<{
+    readonly size: number;
+    readonly pass: "declaration" | "revalidation";
+    readonly medianDurationMs: number;
+    readonly medianCpuMs: number;
+    readonly statements: number;
+    readonly roundTrips: number;
+    readonly rows: number;
+    readonly bytesReturned: number;
+  }>(path, "realtime-container-interest");
+  return summary.map((row) => ({
     size: row.size,
     pass: row.pass,
     medianDurationMs: round1(row.medianDurationMs),
@@ -154,10 +183,11 @@ export async function extractRealtimeMetrics(
 export async function extractRotationMetrics(
   path: string,
 ): Promise<readonly EpochRotationRow[]> {
-  const report = await readJsonFile<{
-    readonly summary: readonly RotationSummaryRow[];
-  }>(path);
-  return report.summary.map((row) => ({
+  const summary = await readCompleteProbeSummary<RotationSummaryRow>(
+    path,
+    "key-rotations",
+  );
+  return summary.map((row) => ({
     phase: row.phase,
     rotations: row.rotations,
     depth: row.depth,
@@ -173,10 +203,11 @@ export async function extractRotationMetrics(
 export async function extractBaselineMetrics(
   path: string,
 ): Promise<readonly EpochBaselineRow[]> {
-  const report = await readJsonFile<{
-    readonly summary: readonly BaselineSummaryRow[];
-  }>(path);
-  return report.summary.map((row) => ({
+  const summary = await readCompleteProbeSummary<BaselineSummaryRow>(
+    path,
+    "rotation-baselines",
+  );
+  return summary.map((row) => ({
     phase: row.phase,
     sizeMiB: row.sizeMiB,
     race: row.race,

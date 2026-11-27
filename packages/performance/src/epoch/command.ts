@@ -60,14 +60,39 @@ function defaultManifest(now: string): EpochManifest {
   };
 }
 
-async function loadManifest(resultsDir: string): Promise<EpochManifest> {
-  try {
-    return JSON.parse(
-      await readFile(manifestPath(resultsDir), "utf8"),
-    ) as EpochManifest;
-  } catch {
-    return defaultManifest(new Date().toISOString());
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return typeof error === "object" && error !== null && "code" in error;
+}
+
+function assertEpochManifest(
+  value: unknown,
+  path: string,
+): asserts value is EpochManifest {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Reflect.get(value, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
+    Reflect.get(value, "epoch") !== CURRENT_EPOCH ||
+    !Array.isArray(Reflect.get(value, "entries"))
+  ) {
+    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} manifest.`);
   }
+}
+
+async function loadManifest(resultsDir: string): Promise<EpochManifest> {
+  const path = manifestPath(resultsDir);
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf8");
+  } catch (error) {
+    if (isErrnoException(error) && error.code === "ENOENT") {
+      return defaultManifest(new Date().toISOString());
+    }
+    throw error;
+  }
+  const parsed: unknown = JSON.parse(raw);
+  assertEpochManifest(parsed, path);
+  return parsed;
 }
 
 async function loadAllSnapshots(
@@ -256,9 +281,10 @@ async function runRecordMode(
   host.print(
     `Recorded Epoch ${CURRENT_EPOCH} snapshot '${options.id}' at ${snapshot.revision.slice(0, 9)} (${join(dir, snapshotFile)}).`,
   );
-  const prev = snapshots.at(-2);
-  const curr = snapshots.at(-1);
-  if (prev && curr && snapshots.length >= 2) {
+  const recordedIndex = snapshots.findIndex((s) => s.id === options.id);
+  const prev = recordedIndex > 0 ? snapshots[recordedIndex - 1] : undefined;
+  const curr = recordedIndex >= 0 ? snapshots[recordedIndex] : undefined;
+  if (prev && curr) {
     host.print("");
     host.print(formatComparisonMarkdown(compareSnapshots(prev, curr)));
   }

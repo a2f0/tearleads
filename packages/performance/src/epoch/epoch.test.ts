@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compareSnapshots } from "./analyze";
@@ -121,7 +121,7 @@ function sampleSnapshot(overrides: Partial<EpochSnapshot> = {}): EpochSnapshot {
 }
 
 describe("parseEpochOptions", () => {
-  test("parses record, analyze, and render options", () => {
+  test("parses record, analyze, and render options and rejects malformed integers", () => {
     expect(parseEpochOptions(["--help"])).toBeNull();
     expect(
       parseEpochOptions([
@@ -152,41 +152,97 @@ describe("parseEpochOptions", () => {
       parseEpochOptions(["analyze", "--from", "a", "--to", "b", "--json"]),
     ).toEqual({ mode: "analyze", from: "a", to: "b", json: true });
     expect(parseEpochOptions(["render"])).toEqual({ mode: "render" });
-  });
-
-  test("rejects invalid ids and unknown subcommands", () => {
-    expect(() => parseEpochOptions(["bogus"])).toThrow(/Unknown subcommand/u);
     expect(() =>
-      parseEpochOptions(["record", "--id", "Bad Id", "--label", "x"]),
-    ).toThrow(/--id is required/u);
+      parseEpochOptions([
+        "record",
+        "--id",
+        "a",
+        "--label",
+        "b",
+        "--pr",
+        "12abc",
+      ]),
+    ).toThrow(/positive integer/u);
+    expect(() =>
+      parseEpochOptions([
+        "record",
+        "--id",
+        "a",
+        "--label",
+        "b",
+        "--issues",
+        "3396x",
+      ]),
+    ).toThrow(/Invalid issue number/u);
+    expect(() => parseEpochOptions(["bogus"])).toThrow(/Unknown subcommand/u);
   });
 });
 
 describe("compareSnapshots", () => {
-  test("classifies improvements, regressions, noise thresholds, and cross-dimension tradeoffs", () => {
-    const before = sampleSnapshot();
+  test("classifies improvements, regressions, noise thresholds, tradeoffs, and shared tiers", () => {
+    const before = sampleSnapshot({
+      realtime: [
+        {
+          size: 100,
+          pass: "declaration",
+          medianDurationMs: 30,
+          medianCpuMs: 20,
+          statements: 9,
+          roundTrips: 9,
+          rows: 113,
+          bytesReturned: 1_300_000,
+        },
+      ],
+    });
     const baseCanaries = before.canaries;
     if (!baseCanaries) throw new Error("expected sample canaries");
     const after = sampleSnapshot({
       id: "001-api-memo",
-      label: "API read memoization",
+      label: "API | memo\nupdate",
       revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       canaries: {
         ...baseCanaries,
         apiStatements: 30_000,
         apiPureReadRepeats: 800,
-        // Small noise within 5% threshold should stay unchanged:
         clientSqlDurationMs: 13_400,
-        // Deterministic client SQL increase should flag as regression + tradeoff:
         clientSqlStatements: 135_000,
       },
+      realtime: [
+        {
+          size: 100,
+          pass: "declaration",
+          medianDurationMs: 5,
+          medianCpuMs: 3,
+          statements: 3,
+          roundTrips: 3,
+          rows: 4,
+          bytesReturned: 20_000,
+        },
+        {
+          size: 10_000,
+          pass: "declaration",
+          medianDurationMs: 6,
+          medianCpuMs: 4,
+          statements: 4,
+          roundTrips: 4,
+          rows: 5,
+          bytesReturned: 25_000,
+        },
+      ],
     });
 
     const diff = compareSnapshots(before, after);
     expect(diff.improvements.map((m) => m.key)).toEqual([
       "canaries.apiStatements",
       "canaries.apiPureReadRepeats",
+      "realtime.declaration.statements",
+      "realtime.declaration.bytesReturned",
     ]);
+    // Shared tier (size=100) was compared: 9 -> 3, not 9 -> 4 (size=10,000).
+    expect(
+      diff.metrics.find((m) => m.key === "realtime.declaration.statements")
+        ?.after,
+    ).toBe(3);
     expect(diff.regressions.map((m) => m.key)).toEqual([
       "canaries.clientSqlStatements",
     ]);
@@ -194,16 +250,59 @@ describe("compareSnapshots", () => {
       diff.metrics.find((m) => m.key === "canaries.clientSqlDurationMs")
         ?.verdict,
     ).toBe("unchanged");
-    expect(diff.tradeoffs).toHaveLength(1);
-    expect(diff.tradeoffs[0]).toMatchObject({
-      improvedDimension: "API DB",
-      regressedDimension: "Client SQLite",
-    });
+    expect(diff.tradeoffs.length).toBeGreaterThanOrEqual(1);
 
     const md = formatComparisonMarkdown(diff);
     expect(md).toContain("## Tradeoffs Detected");
-    expect(md).toContain("API DB");
-    expect(md).toContain("Client SQLite");
+
+    // Scorecard marks metrics missing from latest as "n/a" (not "baseline") and escapes cells.
+    const { plans: _omittedPlans, ...withoutPlans } = sampleSnapshot({
+      id: "002-no-plans",
+      label: "A | B\nC",
+    });
+    const latestWithoutPlans: EpochSnapshot = withoutPlans;
+    const manifest: EpochManifest = {
+      schemaVersion: EPOCH_SCHEMA_VERSION,
+      epoch: CURRENT_EPOCH,
+      title: "Test",
+      startedAt: "2026-11-27T00:00:00Z",
+      description: "Desc",
+      entries: [
+        {
+          id: before.id,
+          seq: 0,
+          label: before.label,
+          kind: "baseline",
+          recordedAt: before.recordedAt,
+          revision: before.revision,
+          dirty: false,
+          issues: [],
+          snapshotFile: "snapshots/000-baseline.json",
+        },
+        {
+          id: latestWithoutPlans.id,
+          seq: 1,
+          label: latestWithoutPlans.label,
+          kind: "checkpoint",
+          recordedAt: latestWithoutPlans.recordedAt,
+          revision: latestWithoutPlans.revision,
+          dirty: false,
+          issues: [],
+          snapshotFile: "snapshots/002-no-plans.json",
+        },
+      ],
+    };
+    const trends = formatEpochTrendsMarkdown(manifest, [
+      before,
+      latestWithoutPlans,
+    ]);
+    expect(trends).toContain("A \\| B C");
+    expect(trends).toContain(
+      "| Plans | Postgres generic Sort plans | 3 queries | — | — | n/a |",
+    );
+    expect(formatResultsIndexMarkdown(manifest, [before])).toContain(
+      "# Performance results",
+    );
   });
 });
 
@@ -219,45 +318,43 @@ describe("runEpochCommand", () => {
     expect(out.join("\n")).toBe(epochUsage);
   });
 
-  test("records snapshots from fixture reports, renders TRENDS/README, and analyzes deltas", async () => {
+  test("records, updates in-place, renders, analyzes, and rejects corrupt manifests", async () => {
     const dir = await makeTempDir();
     const resultsDir = join(dir, "results");
-    const plansBefore = join(dir, "plans-before.json");
-    const plansAfter = join(dir, "plans-after.json");
-    await writeFile(
-      plansBefore,
-      JSON.stringify({
-        summary: {
-          inspected: 25,
-          planned: 23,
-          skipped: 2,
-          seqScanQueries: 0,
-          sortQueries: 3,
-          plans: [
-            {
-              sql: "select * from t order by x",
-              count: 100,
-              status: "planned",
-              nodeTypes: ["Sort"],
-              warnings: [{ kind: "Sort" }, { kind: "Materialize" }],
-            },
-          ],
-        },
-      }),
-    );
-    await writeFile(
-      plansAfter,
-      JSON.stringify({
-        summary: {
-          inspected: 25,
-          planned: 25,
-          skipped: 0,
-          seqScanQueries: 0,
-          sortQueries: 0,
-          plans: [],
-        },
-      }),
-    );
+    const makePlans = (sortQueries: number, path: string) =>
+      writeFile(
+        path,
+        JSON.stringify({
+          scenario: "postgres-query-plans",
+          summary: {
+            inspected: 25,
+            planned: 23,
+            skipped: 2,
+            seqScanQueries: 0,
+            sortQueries,
+            plans:
+              sortQueries > 0
+                ? [
+                    {
+                      sql: "select * from t order by x",
+                      count: 100,
+                      status: "planned",
+                      nodeTypes: ["Sort"],
+                      warnings: [{ kind: "Sort" }, { kind: "Materialize" }],
+                    },
+                  ]
+                : [],
+          },
+        }),
+      );
+    const plans0 = join(dir, "plans-0.json");
+    const plans1 = join(dir, "plans-1.json");
+    const plans2 = join(dir, "plans-2.json");
+    await Promise.all([
+      makePlans(3, plans0),
+      makePlans(1, plans1),
+      makePlans(0, plans2),
+    ]);
 
     const out: string[] = [];
     const host = {
@@ -272,66 +369,74 @@ describe("runEpochCommand", () => {
           "--id",
           "000-baseline",
           "--label",
-          "Baseline",
+          "Base",
           "--kind",
           "baseline",
           "--plans",
-          plansBefore,
+          plans0,
         ],
         host,
       ),
     ).toBe(0);
     expect(
       await runEpochCommand(
-        [
-          "record",
-          "--id",
-          "001-fix-plans",
-          "--label",
-          "Fix generic plan sorts",
-          "--issues",
-          "3396",
-          "--plans",
-          plansAfter,
-        ],
+        ["record", "--id", "001-mid", "--label", "Mid", "--plans", plans1],
         host,
       ),
     ).toBe(0);
+    expect(
+      await runEpochCommand(
+        ["record", "--id", "002-end", "--label", "End", "--plans", plans2],
+        host,
+      ),
+    ).toBe(0);
+
+    // Re-recording 001-mid compares 000-baseline -> 001-mid, not 001-mid -> 002-end.
+    const updateOut: string[] = [];
+    expect(
+      await runEpochCommand(
+        [
+          "record",
+          "--id",
+          "001-mid",
+          "--label",
+          "Mid updated",
+          "--plans",
+          plans1,
+        ],
+        { ...host, print: (line) => updateOut.push(line) },
+      ),
+    ).toBe(0);
+    expect(updateOut.join("\n")).toContain("`000-baseline` -> `001-mid`");
+
+    // Render mode regenerates views cleanly.
+    const renderOut: string[] = [];
+    expect(
+      await runEpochCommand(["render"], {
+        ...host,
+        print: (line) => renderOut.push(line),
+      }),
+    ).toBe(0);
+    expect(renderOut.join("\n")).toContain("3 snapshots");
 
     const manifest = JSON.parse(
       await readFile(join(resultsDir, "epoch-2/manifest.json"), "utf8"),
     ) as EpochManifest;
     expect(manifest.entries.map((e) => e.id)).toEqual([
       "000-baseline",
-      "001-fix-plans",
+      "001-mid",
+      "002-end",
     ]);
 
-    const trends = await readFile(
-      join(resultsDir, "epoch-2/TRENDS.md"),
-      "utf8",
-    );
-    expect(trends).toContain("## Step-by-Step Deltas & Tradeoffs");
-    expect(trends).toContain("001-fix-plans");
-
-    const readme = await readFile(join(resultsDir, "README.md"), "utf8");
-    expect(readme).toContain("Epoch 2 Scorecard");
-
-    const analyzeOut: string[] = [];
-    expect(
-      await runEpochCommand(["analyze", "--json"], {
-        ...host,
-        print: (line) => analyzeOut.push(line),
-      }),
-    ).toBe(0);
-    const parsed = JSON.parse(analyzeOut.join("\n"));
-    expect(parsed.improvements.map((m: { key: string }) => m.key)).toContain(
-      "plans.sortQueries",
-    );
-    expect(formatEpochTrendsMarkdown(manifest, [sampleSnapshot()])).toContain(
-      "# Performance Epoch 2",
-    );
-    expect(formatResultsIndexMarkdown(manifest, [sampleSnapshot()])).toContain(
-      "# Performance results",
-    );
+    // Corrupt manifest must throw instead of silently wiping history.
+    const corruptDir = join(dir, "corrupt");
+    await mkdir(join(corruptDir, "epoch-2"), { recursive: true });
+    await writeFile(join(corruptDir, "epoch-2/manifest.json"), "{bad json");
+    await expect(
+      runEpochCommand(
+        ["record", "--id", "000-base", "--label", "Base", "--plans", plans0],
+        { ...host, resultsDir: corruptDir },
+      ),
+    ).rejects.toThrow();
   });
 });

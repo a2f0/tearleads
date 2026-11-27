@@ -65,17 +65,25 @@ function nextValue(
   return value;
 }
 
+const positiveIntPattern = /^[1-9]\d*$/u;
+
+function parsePositiveInt(raw: string, flag: string): number {
+  if (!positiveIntPattern.test(raw)) {
+    throw new Error(`${flag} must be a positive integer.`);
+  }
+  return Number.parseInt(raw, 10);
+}
+
 function parseIssueList(raw: string): number[] {
   return raw
     .split(",")
     .map((part) => part.trim().replace(/^#/, ""))
     .filter((part) => part.length > 0)
     .map((part) => {
-      const value = Number.parseInt(part, 10);
-      if (!Number.isInteger(value) || value <= 0) {
+      if (!positiveIntPattern.test(part)) {
         throw new Error(`Invalid issue number: ${part}`);
       }
-      return value;
+      return Number.parseInt(part, 10);
     });
 }
 
@@ -149,14 +157,6 @@ const recordStringFlags = new Set([
   "--baselines",
   "--results-dir",
 ]);
-
-function parsePositiveInt(raw: string, flag: string): number {
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${flag} must be a positive integer.`);
-  }
-  return parsed;
-}
 
 function pickRecordPaths(strings: ReadonlyMap<string, string>) {
   const keys = [

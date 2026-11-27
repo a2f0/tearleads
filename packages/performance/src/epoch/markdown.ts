@@ -1,18 +1,15 @@
 import {
   compareSnapshots,
   type EpochComparison,
-  epochMetricDescriptors,
   type MetricDelta,
 } from "./analyze";
+import { epochMetricDescriptors } from "./descriptors";
+import {
+  fmtNum,
+  formatMarkdownTable,
+  renderLatestBreakdowns,
+} from "./markdownBreakdowns";
 import type { EpochManifest, EpochSnapshot } from "./schema";
-
-const integers = new Intl.NumberFormat("en-US");
-
-function fmtNum(value: number): string {
-  return Number.isInteger(value)
-    ? integers.format(value)
-    : value.toLocaleString("en-US", { maximumFractionDigits: 1 });
-}
 
 function fmtDelta(item: MetricDelta): string {
   if (item.delta === 0) return "0";
@@ -52,30 +49,19 @@ function wrapProse(text: string, width = 78): string[] {
   return lines;
 }
 
-function table(
-  header: readonly string[],
-  rows: readonly (readonly string[])[],
-  numeric: readonly boolean[],
-): string[] {
-  const align = header.map((_, index) => (numeric[index] ? "---:" : "---"));
-  return [
-    `| ${header.join(" | ")} |`,
-    `| ${align.join(" | ")} |`,
-    ...rows.map((row) => `| ${row.join(" | ")} |`),
-  ];
-}
-
 /** Formats a before-vs-after comparison between two Epoch 2 snapshots. */
 export function formatComparisonMarkdown(comparison: EpochComparison): string {
   const lines = [
     `# Epoch 2 Comparison: \`${comparison.beforeId}\` -> \`${comparison.afterId}\``,
     "",
-    `Revisions: \`${comparison.beforeRevision.slice(0, 9)}\` -> \`${comparison.afterRevision.slice(0, 9)}\`. ` +
-      `Improvements: **${comparison.improvements.length}**, ` +
-      `Regressions: **${comparison.regressions.length}**, ` +
-      `Tradeoffs: **${comparison.tradeoffs.length}**.`,
+    ...wrapProse(
+      `Revisions: \`${comparison.beforeRevision.slice(0, 9)}\` -> \`${comparison.afterRevision.slice(0, 9)}\`. ` +
+        `Improvements: **${comparison.improvements.length}**, ` +
+        `Regressions: **${comparison.regressions.length}**, ` +
+        `Tradeoffs: **${comparison.tradeoffs.length}**.`,
+    ),
     "",
-    ...table(
+    ...formatMarkdownTable(
       ["Dimension", "Metric", "Before", "After", "Delta", "Verdict"],
       comparison.metrics.map((item) => [
         item.dimension,
@@ -94,7 +80,7 @@ export function formatComparisonMarkdown(comparison: EpochComparison): string {
       "",
       "## Tradeoffs Detected",
       "",
-      ...table(
+      ...formatMarkdownTable(
         [
           "Improved Dimension",
           "Improvement",
@@ -114,12 +100,29 @@ export function formatComparisonMarkdown(comparison: EpochComparison): string {
   return `${lines.join("\n")}\n`;
 }
 
+function formatMetricCell(
+  value: number | null | undefined,
+  unit: string,
+): string {
+  return value === undefined || value === null
+    ? "—"
+    : `${fmtNum(value)} ${unit}`;
+}
+
+function scorecardVerdict(
+  item: MetricDelta | undefined,
+  sameSnapshot: boolean,
+): string {
+  if (item) return verdictBadge(item.verdict);
+  return sameSnapshot ? "baseline" : "n/a";
+}
+
 function renderScorecardRows(
   baseline: EpochSnapshot,
   latest: EpochSnapshot,
 ): string[][] {
-  const comparison =
-    baseline.id === latest.id ? null : compareSnapshots(baseline, latest);
+  const sameSnapshot = baseline.id === latest.id;
+  const comparison = sameSnapshot ? null : compareSnapshots(baseline, latest);
   const deltaByKey = new Map(
     comparison?.metrics.map((item) => [item.key, item]) ?? [],
   );
@@ -127,15 +130,20 @@ function renderScorecardRows(
   for (const descriptor of epochMetricDescriptors) {
     const baseVal = descriptor.pick(baseline);
     const latestVal = descriptor.pick(latest);
-    if (baseVal === undefined && latestVal === undefined) continue;
+    if (
+      (baseVal === undefined || baseVal === null) &&
+      (latestVal === undefined || latestVal === null)
+    ) {
+      continue;
+    }
     const item = deltaByKey.get(descriptor.key);
     rows.push([
       descriptor.dimension,
       descriptor.label,
-      baseVal === undefined ? "—" : `${fmtNum(baseVal)} ${descriptor.unit}`,
-      latestVal === undefined ? "—" : `${fmtNum(latestVal)} ${descriptor.unit}`,
+      formatMetricCell(baseVal, descriptor.unit),
+      formatMetricCell(latestVal, descriptor.unit),
       item ? fmtDelta(item) : "—",
-      item ? verdictBadge(item.verdict) : "baseline",
+      scorecardVerdict(item, sameSnapshot),
     ]);
   }
   return rows;
@@ -171,7 +179,7 @@ function renderCheckpointLog(
       summaryCell,
     ]);
   }
-  return table(
+  return formatMarkdownTable(
     ["Checkpoint", "Kind", "Revision", "PR", "Issues", "Label", "Step Summary"],
     rows,
     [false, false, false, false, false, false, false],
@@ -201,7 +209,7 @@ function renderStepComparisons(snapshots: readonly EpochSnapshot[]): string[] {
     if (moved.length > 0) {
       lines.push(
         "",
-        ...table(
+        ...formatMarkdownTable(
           ["Dimension", "Metric", "Before", "After", "Delta", "Verdict"],
           moved.map((item) => [
             item.dimension,
@@ -229,143 +237,6 @@ function renderStepComparisons(snapshots: readonly EpochSnapshot[]): string[] {
   return lines;
 }
 
-function renderCanaryBreakdown(latest: EpochSnapshot): string[] {
-  if (!latest.canaries) return [];
-  return [
-    "",
-    "## Latest Per-Canary Breakdown",
-    "",
-    ...table(
-      [
-        "Canary",
-        "Reqs",
-        "Req B",
-        "Res B",
-        "Redundant B",
-        "Head Re-reads",
-        "API Stmts",
-        "Pure Repeats",
-        "Client SQL",
-      ],
-      latest.canaries.byCanary.map((item) => [
-        `\`${item.canary}\``,
-        fmtNum(item.requests),
-        fmtNum(item.requestBytes),
-        fmtNum(item.responseBytes),
-        fmtNum(item.redundantBytes),
-        fmtNum(item.exactHeadRereads),
-        fmtNum(item.apiStatements),
-        fmtNum(item.apiPureReadRepeats),
-        fmtNum(item.clientSqlStatements),
-      ]),
-      [false, true, true, true, true, true, true, true, true],
-    ),
-  ];
-}
-
-function renderScenarioBreakdown(latest: EpochSnapshot): string[] {
-  if (!latest.scenarios) return [];
-  return [
-    "",
-    "## Latest Multi-Party Scenarios (`bob-and-alice`)",
-    "",
-    ...table(
-      [
-        "Scenario",
-        "Reqs",
-        "409s",
-        "Req B",
-        "Res B",
-        "API Stmts",
-        "Pure Repeats",
-        "Client SQL",
-      ],
-      latest.scenarios.byScenario.map((item) => [
-        `\`${item.scenario}\``,
-        fmtNum(item.requests),
-        fmtNum(item.conflicts),
-        fmtNum(item.requestBytes),
-        fmtNum(item.responseBytes),
-        item.apiStatements === null ? "—" : fmtNum(item.apiStatements),
-        item.pureReadRepeats === null ? "—" : fmtNum(item.pureReadRepeats),
-        item.clientSqlStatements === null
-          ? "—"
-          : fmtNum(item.clientSqlStatements),
-      ]),
-      [false, true, true, true, true, true, true, true],
-    ),
-  ];
-}
-
-function renderProbeBreakdowns(latest: EpochSnapshot): string[] {
-  const lines: string[] = [];
-  if (latest.reload && latest.reload.length > 0) {
-    lines.push(
-      "",
-      "## Latest Reload Scaling",
-      "",
-      ...table(
-        [
-          "Docs",
-          "Folders",
-          "Reload",
-          "Reqs",
-          "Settled ms",
-          "API Stmts",
-          "Client SQL",
-        ],
-        latest.reload.map((row) => [
-          fmtNum(row.documents),
-          fmtNum(row.folders),
-          row.reload,
-          fmtNum(row.medianRequests),
-          fmtNum(row.medianSettledMs),
-          fmtNum(row.medianApiStatements),
-          fmtNum(row.medianClientStatements),
-        ]),
-        [true, true, false, true, true, true, true],
-      ),
-    );
-  }
-  if (latest.realtime && latest.realtime.length > 0) {
-    lines.push(
-      "",
-      "## Latest Realtime Hub Scaling",
-      "",
-      ...table(
-        [
-          "Folders",
-          "Pass",
-          "Median ms",
-          "CPU ms",
-          "PG Stmts",
-          "Rows",
-          "PG Bytes",
-        ],
-        latest.realtime.map((row) => [
-          fmtNum(row.size),
-          row.pass,
-          fmtNum(row.medianDurationMs),
-          fmtNum(row.medianCpuMs),
-          fmtNum(row.statements),
-          fmtNum(row.rows),
-          fmtNum(row.bytesReturned),
-        ]),
-        [true, false, true, true, true, true, true],
-      ),
-    );
-  }
-  return lines;
-}
-
-function renderLatestBreakdowns(latest: EpochSnapshot): string[] {
-  return [
-    ...renderCanaryBreakdown(latest),
-    ...renderScenarioBreakdown(latest),
-    ...renderProbeBreakdowns(latest),
-  ];
-}
-
 /** Generates `packages/performance/results/epoch-2/TRENDS.md`. */
 export function formatEpochTrendsMarkdown(
   manifest: EpochManifest,
@@ -387,7 +258,7 @@ export function formatEpochTrendsMarkdown(
       "",
       `## Cumulative Scorecard (\`${baseline.id}\` -> \`${latest.id}\`)`,
       "",
-      ...table(
+      ...formatMarkdownTable(
         ["Dimension", "Metric", "Baseline", "Latest", "Delta", "Verdict"],
         renderScorecardRows(baseline, latest),
         [false, false, true, true, true, false],
@@ -438,7 +309,7 @@ export function formatResultsIndexMarkdown(
       `Baseline \`${baseline.revision.slice(0, 9)}\` -> Latest \`${latest.revision.slice(0, 9)}\` ` +
         `(${manifest.entries.length} checkpoint${manifest.entries.length === 1 ? "" : "s"} recorded).`,
       "",
-      ...table(
+      ...formatMarkdownTable(
         ["Dimension", "Metric", "Baseline", "Latest", "Delta", "Verdict"],
         renderScorecardRows(baseline, latest),
         [false, false, true, true, true, false],

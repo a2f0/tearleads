@@ -84,7 +84,7 @@ export interface EpochApiRouteMetrics {
   readonly statements: number;
   readonly txStatements: number;
   readonly lockHoldStatements: number;
-  readonly pureReadRepeats: number;
+  readonly pureReadRepeats: number | null;
 }
 
 export interface EpochClientQueryMetrics {
@@ -96,43 +96,43 @@ export interface EpochClientQueryMetrics {
 export interface EpochCanaryEntry {
   readonly canary: string;
   readonly wallMs: number;
-  readonly requests: number;
-  readonly requestBytes: number;
-  readonly responseBytes: number;
-  readonly redundantBytes: number;
-  readonly exactHeadRereads: number;
-  readonly apiStatements: number;
-  readonly apiTxStatements: number;
-  readonly apiPureReadRepeats: number;
-  readonly clientSqlStatements: number;
-  readonly clientSqlMaxHoldMs: number;
+  readonly requests: number | null;
+  readonly requestBytes: number | null;
+  readonly responseBytes: number | null;
+  readonly redundantBytes: number | null;
+  readonly exactHeadRereads: number | null;
+  readonly apiStatements: number | null;
+  readonly apiTxStatements: number | null;
+  readonly apiPureReadRepeats: number | null;
+  readonly clientSqlStatements: number | null;
+  readonly clientSqlMaxHoldMs: number | null;
 }
 
 export interface EpochCanariesMetrics {
   readonly canaryCount: number;
   readonly wallMs: number;
-  readonly requests: number;
-  readonly requestBytes: number;
-  readonly responseBytes: number;
-  readonly redundantBytes: number;
-  readonly echoBytes: number;
-  readonly redeliveredBytes: number;
-  readonly reDownloadedUploadBytes: number;
-  readonly exactHeadRereads: number;
-  readonly manifestCitations: number;
+  readonly requests: number | null;
+  readonly requestBytes: number | null;
+  readonly responseBytes: number | null;
+  readonly redundantBytes: number | null;
+  readonly echoBytes: number | null;
+  readonly redeliveredBytes: number | null;
+  readonly reDownloadedUploadBytes: number | null;
+  readonly exactHeadRereads: number | null;
+  readonly manifestCitations: number | null;
   readonly wsHints: number;
-  readonly apiStatements: number;
-  readonly apiTxStatements: number;
-  readonly apiLockHoldStatements: number;
-  readonly apiSameKeyRepeats: number;
-  readonly apiPureReadRepeats: number;
-  readonly clientSqlStatements: number;
-  readonly clientSqlInLock: number;
-  readonly clientSqlDurationMs: number;
-  readonly clientSqlMutations: number;
-  readonly clientSqlTxControls: number;
-  readonly clientSqlMaxHoldMs: number;
-  readonly clientSqlMaxWaitMs: number;
+  readonly apiStatements: number | null;
+  readonly apiTxStatements: number | null;
+  readonly apiLockHoldStatements: number | null;
+  readonly apiSameKeyRepeats: number | null;
+  readonly apiPureReadRepeats: number | null;
+  readonly clientSqlStatements: number | null;
+  readonly clientSqlInLock: number | null;
+  readonly clientSqlDurationMs: number | null;
+  readonly clientSqlMutations: number | null;
+  readonly clientSqlTxControls: number | null;
+  readonly clientSqlMaxHoldMs: number | null;
+  readonly clientSqlMaxWaitMs: number | null;
   readonly topApiRoutes: readonly EpochApiRouteMetrics[];
   readonly topClientQueries: readonly EpochClientQueryMetrics[];
   readonly byCanary: readonly EpochCanaryEntry[];
@@ -157,9 +157,9 @@ export interface EpochScenariosMetrics {
   readonly conflicts: number;
   readonly requestBytes: number;
   readonly responseBytes: number;
-  readonly apiStatements: number;
-  readonly pureReadRepeats: number;
-  readonly clientSqlStatements: number;
+  readonly apiStatements: number | null;
+  readonly pureReadRepeats: number | null;
+  readonly clientSqlStatements: number | null;
   readonly byScenario: readonly EpochScenarioEntry[];
 }
 

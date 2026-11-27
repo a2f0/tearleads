@@ -33,11 +33,6 @@ Baseline `53819b364` -> Latest `53819b364` (1 checkpoint recorded).
 | Schema | Client SQLite tables | 63 tables | 63 tables | — | baseline |
 | Schema | Unread 2xx OpenAPI fields | 3 fields | 3 fields | — | baseline |
 | Schema | Drifted canary ceilings | 14 phases | 14 phases | — | baseline |
-| Wire | Canary requests | 340 reqs | 340 reqs | — | baseline |
-| Wire | Canary request bytes | 1,609,389 B | 1,609,389 B | — | baseline |
-| Wire | Canary response bytes | 1,492,860 B | 1,492,860 B | — | baseline |
-| Wire | Canary redundant response bytes | 198,160 B | 198,160 B | — | baseline |
-| Wire | Exact-head policy re-reads | 42 reads | 42 reads | — | baseline |
 | API DB | Canary API SQL statements | 36,878 stmts | 36,878 stmts | — | baseline |
 | API DB | Canary API in-tx statements | 30,788 stmts | 30,788 stmts | — | baseline |
 | API DB | Canary API lock-hold statements | 22,227 stmts | 22,227 stmts | — | baseline |
@@ -53,11 +48,13 @@ Baseline `53819b364` -> Latest `53819b364` (1 checkpoint recorded).
 | Scenarios | Bob-and-Alice API statements | 122,420 stmts | 122,420 stmts | — | baseline |
 | Scenarios | Bob-and-Alice pure read repeats | 14,321 repeats | 14,321 repeats | — | baseline |
 | Scenarios | Bob-and-Alice client SQLite | 486,496 stmts | 486,496 stmts | — | baseline |
-| Reload | Settled reload requests (max tier) | 4 reqs | 4 reqs | — | baseline |
+| Reload | Settled reload requests (shared max tier) | 4 reqs | 4 reqs | — | baseline |
 | Reload | Settled reload API statements | 62 stmts | 62 stmts | — | baseline |
 | Reload | Settled reload client SQLite | 481 stmts | 481 stmts | — | baseline |
 | Realtime | Realtime hub auth statements | 9 stmts | 9 stmts | — | baseline |
 | Realtime | Realtime hub auth PG bytes | 1,383,651 B | 1,383,651 B | — | baseline |
+| Rotations | Rotation group-shrink PG statements | 623 stmts | 623 stmts | — | baseline |
+| Baselines | Baseline first-unlink PG statements | 102 stmts | 102 stmts | — | baseline |
 
 ## Checkpoints
 
