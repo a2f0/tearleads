@@ -123,6 +123,7 @@ function runProvisionedPullSequence(input: {
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
   readonly machines: Map<string, ProvisionedPullState>;
+  readonly online: boolean;
   readonly store: ContainerContentsStore;
 }): () => void {
   const { key, listMissingSlots, machines, store } = input;
@@ -178,7 +179,7 @@ function runProvisionedPullSequence(input: {
     stopTimer();
     if (next.status === "abandoned" && previous.status !== "abandoned") {
       input.log(
-        `System bootstrap: ${input.describeMissing(next.missingSlots)} did not appear after ${next.listings} root-lane listing(s); stopped polling for it until the next load.`,
+        `System bootstrap: ${input.describeMissing(next.missingSlots)} did not appear after ${next.listings} root-lane listing(s); stopped polling for it.`,
       );
     }
   };
@@ -211,13 +212,12 @@ function runProvisionedPullSequence(input: {
         }
       })
       .finally(() => {
-        if (active) {
-          send({
-            missingSlots: listMissingSlots(),
-            sequence,
-            type: "surfaced",
-          });
-        }
+        if (!active) return;
+        const missingSlots = listMissingSlots();
+        // Offline, only the local surface runs. The remote poll waits for the
+        // runtime to come back, which re-runs the effect.
+        if (missingSlots.length > 0 && !input.online) return;
+        send({ missingSlots, sequence, type: "surfaced" });
       });
   }
 
@@ -226,6 +226,20 @@ function runProvisionedPullSequence(input: {
     stopTimer();
     send({ sequence, type: "cancel" });
   };
+}
+
+function storeMachines(
+  machinesByStore: WeakMap<
+    ContainerContentsStore,
+    Map<string, ProvisionedPullState>
+  >,
+  store: ContainerContentsStore,
+): Map<string, ProvisionedPullState> {
+  const existing = machinesByStore.get(store);
+  if (existing) return existing;
+  const machines = new Map<string, ProvisionedPullState>();
+  machinesByStore.set(store, machines);
+  return machines;
 }
 
 // Surface the containers created in the organization's provisioning transaction
@@ -249,9 +263,10 @@ function runProvisionedPullSequence(input: {
 // that passed no provisioned system containers) would otherwise poll for ten
 // seconds on every load.
 //
-// It polls only while the live runtime is online with its database ready. The
-// store defers a pull made otherwise until it can list, and resolves it as
-// listed without a request, which would spend the budget on nothing.
+// It polls remotely only while the live runtime is online with its database
+// ready; the local surface runs either way. The store defers a pull made
+// otherwise until it can list, and resolves it as listed without a request,
+// which would spend the budget on nothing.
 export function useProvisionedSystemContainerPull(input: {
   readonly currentOrganizationId: string | null | undefined;
   readonly currentRootContainerId: string | null | undefined;
@@ -283,7 +298,7 @@ export function useProvisionedSystemContainerPull(input: {
     new WeakMap<ContainerContentsStore, Map<string, ProvisionedPullState>>(),
   );
   useEffect(() => {
-    if (!enabled || !isAuthenticated || !online || !snapshotReady) {
+    if (!enabled || !isAuthenticated || !snapshotReady) {
       return;
     }
     const provisionedContainers = systemContainers.filter(
@@ -320,11 +335,6 @@ export function useProvisionedSystemContainerPull(input: {
       return;
     }
 
-    let machines = machinesRef.current.get(store);
-    if (!machines) {
-      machines = new Map();
-      machinesRef.current.set(store, machines);
-    }
     return runProvisionedPullSequence({
       describeMissing: (missingSlots) =>
         `${provisionedContainers
@@ -340,7 +350,8 @@ export function useProvisionedSystemContainerPull(input: {
       listMissingSlots,
       log,
       logError,
-      machines,
+      machines: storeMachines(machinesRef.current, store),
+      online,
       store,
     });
   }, [

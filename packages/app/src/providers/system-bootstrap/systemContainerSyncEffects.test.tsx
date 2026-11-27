@@ -96,7 +96,7 @@ test("a provisioned-container poll that never finds its slot stops after two lis
   expect(refreshRootLane.mock.calls.length).toBe(2);
   expect(props.log.mock.calls).toEqual([
     [
-      `System bootstrap: Trash (${TRASH_SLOT}) under root root-1 did not appear after 2 root-lane listing(s); stopped polling for it until the next load.`,
+      `System bootstrap: Trash (${TRASH_SLOT}) under root root-1 did not appear after 2 root-lane listing(s); stopped polling for it.`,
     ],
   ]);
 });
@@ -135,9 +135,10 @@ test("a provisioned-container poll waits while the live runtime is offline", asy
   const refreshRootLane = mock((_options?: RefreshRootLaneOptions) =>
     Promise.resolve(true),
   );
+  const refreshLocalContainers = mock(() => Promise.resolve());
   const store = {
     getSnapshot: () => ({ nodes: [], ready: true }),
-    refreshLocalContainers: () => Promise.resolve(),
+    refreshLocalContainers,
     refreshRootLane,
   } as unknown as ContainerContentsStore;
   const props = { ...pullProps(store), online: false };
@@ -147,6 +148,8 @@ test("a provisioned-container poll waits while the live runtime is offline", asy
     { initialProps: props },
   );
   await new Promise((resolve) => setTimeout(resolve, 300));
+  // The local surface needs no network, so it still runs.
+  expect(refreshLocalContainers).toHaveBeenCalledTimes(1);
   expect(refreshRootLane).not.toHaveBeenCalled();
 
   rerender({ ...props, online: true });
