@@ -88,14 +88,25 @@ export interface SweepPlan {
 
 type PlanSweep = () => SweepPlan | Promise<SweepPlan>;
 
+type TakenOverEntries = Array<readonly [string, ReconcilePriority]>;
+
 /**
  * Reads the sweep's plan and returns the containers to list. A container the
  * plan vouches for counts as reconciled this session and is added to
- * `settled`, so an unforced queue entry for it is not listed.
+ * `settled`, so an unforced queue entry for it is not listed. A sweep that
+ * takes the queue over also takes each entry queued for a planned container
+ * while the plan was read, into `takenOver`, before the lane can list it
+ * too; `onPlanTaken` runs once it has.
  */
 async function readSweepPlan(
-  input: { planSweep: PlanSweep; state: ReconciliationState },
+  input: {
+    onPlanTaken: (() => void) | undefined;
+    planSweep: PlanSweep;
+    scope: RefreshScope;
+    state: ReconciliationState;
+  },
   settled: Set<string>,
+  takenOver: TakenOverEntries,
 ): Promise<ReadonlyArray<string>> {
   const { state } = input;
   // Reading the plan can outlast the session: a stop and start meanwhile
@@ -103,15 +114,22 @@ async function readSweepPlan(
   const lifecycleGeneration = state.lifecycleGeneration;
   const plan = await input.planSweep();
   if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) return [];
-  for (const containerId of plan.vouchedContainerIds ?? []) {
+  const vouched = plan.vouchedContainerIds ?? [];
+  for (const containerId of vouched) {
     state.discoveredContainerIds.add(containerId);
     settled.add(containerId);
   }
+  if (input.scope !== "root") {
+    const planned = new Set([...plan.containerIds, ...vouched]);
+    takenOver.push(...state.queue.drain((id) => planned.has(id)));
+  }
+  input.onPlanTaken?.();
   return plan.containerIds;
 }
 
 async function refreshAndReconcileContainers(input: {
   host: ReconciliationHost;
+  onPlanTaken: (() => void) | undefined;
   planSweep: PlanSweep;
   refreshTree: () => Promise<void>;
   scope: RefreshScope;
@@ -128,7 +146,8 @@ async function refreshAndReconcileContainers(input: {
   // A sweep that lists every known container takes over the queue, so each
   // container is fetched once. It hands back whatever it leaves unsettled,
   // so queued work is never dropped.
-  const takenOver = scope === "root" ? [] : state.queue.drain();
+  const takenOver: TakenOverEntries =
+    scope === "root" ? [] : state.queue.drain();
   const listedBySweep = new Set<string>();
   try {
     // A resync_required structural refresh runs independently of this service.
@@ -151,7 +170,7 @@ async function refreshAndReconcileContainers(input: {
     // is treated as newly surfaced instead of being suppressed for the rest of
     // the session.
     forgetIneligibleDiscoveredContainers(host, state);
-    const knownIds = await readSweepPlan(input, listedBySweep);
+    const knownIds = await readSweepPlan(input, listedBySweep, takenOver);
     if (
       !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
       stop.aborted
@@ -262,6 +281,12 @@ function joinsPendingRefresh(
 export function requestContainerRefresh(input: {
   freshListing: boolean;
   host: ReconciliationHost;
+  /**
+   * Runs once this request's own sweep has read its plan and taken the
+   * queue entries it covers. A request that joins another sweep never runs
+   * it.
+   */
+  onPlanTaken?: (() => void) | undefined;
   state: ReconciliationState;
   refreshTree: () => Promise<void>;
   planSweep: PlanSweep;
@@ -283,6 +308,7 @@ export function requestContainerRefresh(input: {
     run: (stop) =>
       refreshAndReconcileContainers({
         host: input.host,
+        onPlanTaken: input.onPlanTaken,
         planSweep: input.planSweep,
         refreshTree: input.refreshTree,
         scope,

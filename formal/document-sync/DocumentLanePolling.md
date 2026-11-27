@@ -89,7 +89,10 @@ document-lane listing is assumed to see everything the crawl's page saw: it
 carries no publication floor, so a listing answered from an older snapshot
 than the page that served the container's row would settle the request
 without the change. Production reads one primary database with no query
-cache. And a listing is assumed to be answered by its own request:
+cache. If replicas or a cache arrive, the request row would keep the
+checkpoint of the page that served the row, and the listing would send it
+as its floor, as a listing sent `afterParentPage` already does. And a
+listing is assumed to be answered by its own request:
 production gives each listing lane ids of its own, so the API client never
 answers it from an identical request already in flight.
 
@@ -103,4 +106,7 @@ resume, so `DebtsSettle` describes requests a catch-up's crawl recorded. The
 idle backfill a regain queues waits for the connect attempt in flight and is
 raised behind the catch-up an acknowledgement owes, which takes its lanes
 over; after an attempt that ends without one it lists them. It only adds
-listings and is not modelled.
+listings and is not modelled. Neither is the deferral of unforced lanes
+while a catch-up waits: it holds listings back until the sweep has read its
+plan, or until 15 seconds after the crawl settled, and an owed lane is
+listed either way.

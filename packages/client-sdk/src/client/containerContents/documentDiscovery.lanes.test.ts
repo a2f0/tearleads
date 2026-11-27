@@ -10,12 +10,14 @@ import {
   containerContentsSyncLane,
 } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
+import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { documentContainerProjection } from "../../data/sqlite/schema/documentProjectionSchema";
 import { documents } from "../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { laneApi } from "../../workflows/container-contents/documentDiscovery/documentDiscovery.testUtils";
+import * as documentLaneDiscovery from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import * as tombstoneEvidence from "../../workflows/container-contents/tombstones/documentTombstoneEvidence";
 import {
   type ContainerDocumentDiscoveryOutcome,
@@ -91,10 +93,12 @@ async function createLanes() {
     });
   const discover = (
     onOutcome?: (outcome: ContainerDocumentDiscoveryOutcome) => Promise<void>,
+    logError?: (message: string | Error, cause?: unknown) => void,
   ) => {
     const input = createWorkflowInputFixture({
       apiClient: laneApiFor(LANES) as never,
       execSql: native.execSql,
+      ...(logError ? { logError } : {}),
     });
     return discoverContainerDocumentLanesForRuntime({
       onOutcome,
@@ -189,6 +193,43 @@ test("a runtime lane whose verification fails leaves healthy lanes applied", asy
       documentIds: ["lane-a:doc", "lane-c:doc"],
       links: ["lane-a:doc@lane-a", "lane-c:doc@lane-c"],
     });
+  } finally {
+    native.close();
+  }
+});
+
+test("a lane request that cannot be settled is reported unless the database closed", async () => {
+  stubSignedHeads();
+  const { discover, native } = await createLanes();
+  try {
+    await documentLaneDiscovery.requestDocumentLaneListings(native.execSql, [
+      "lane-a",
+      "lane-b",
+    ]);
+    const failure = new Error("settle failed");
+    const spy = spyOn(
+      documentLaneDiscovery,
+      "settleOwedDocumentLaneListing",
+    ).mockImplementation(async (_execSql, owed) => {
+      throw owed.containerId === "lane-a"
+        ? new DatabaseUnavailableError("database closed")
+        : failure;
+    });
+    restorers.push(() => spy.mockRestore());
+    const logged: unknown[] = [];
+
+    const outcomes = await discover(undefined, (message, error) => {
+      logged.push([message, error]);
+    });
+
+    // Each listing applied all the same; only lane b's failure is news.
+    expect(outcomes.map(({ status }) => status)).toEqual([
+      "fulfilled",
+      "fulfilled",
+      "fulfilled",
+    ]);
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(logged).toEqual([["Document lane request settle failed", failure]]);
   } finally {
     native.close();
   }
