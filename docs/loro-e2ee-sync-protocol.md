@@ -155,7 +155,7 @@ the signed link-set manifest, current KEK targets,
 retained [DEK](./glossary/keys.md#dek) material. Additive target changes can reuse
 the same [content key](./glossary/keys.md#content-key) when the submitted bundle
 matches the current derived target hash. Shrinks require a new content-key epoch
-and a baseline encrypted under fresh key material.
+and a baseline encrypted under a key that is [fresh](./rotation-baseline-writer.md#where-a-key-has-gone).
 
 Behavior:
 

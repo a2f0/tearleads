@@ -123,3 +123,48 @@ test("the device proxy rewrites a matching JSON request and records the one sent
     await upstream.stop(true);
   }
 });
+
+// A rewritten request is built anew from the SDK's. It must still end when
+// its sender gives up, as an unrewritten one does: a held sync that the
+// device cancelled would otherwise go on to commit upstream.
+test("a rewritten request is cancelled with its sender", async () => {
+  const reached = Promise.withResolvers<void>();
+  const cancelled = Promise.withResolvers<void>();
+  const upstream = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: (request) => {
+      request.signal.addEventListener("abort", () => cancelled.resolve());
+      reached.resolve();
+      return new Promise<Response>(() => {});
+    },
+  });
+  const transport = new DeviceTransport(upstream.url.origin);
+  transport.rewriteRequests(
+    () => true,
+    (body) => ({ ...Object(body), maxPageUpdates: 1 }),
+  );
+  const sender = new AbortController();
+  try {
+    const sent = fetch(`${transport.origin}/sync`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ outgoingUpdates: [] }),
+      signal: sender.signal,
+    }).then(
+      () => "answered",
+      () => "cancelled",
+    );
+    await reached.promise;
+    sender.abort();
+    expect(await sent).toBe("cancelled");
+    const outcome = await Promise.race([
+      cancelled.promise.then(() => "upstream cancelled"),
+      Bun.sleep(2_000).then(() => "upstream still running"),
+    ]);
+    expect(outcome).toBe("upstream cancelled");
+  } finally {
+    transport.dispose();
+    await upstream.stop(true);
+  }
+});

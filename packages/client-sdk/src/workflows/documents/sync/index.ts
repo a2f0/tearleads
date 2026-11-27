@@ -27,6 +27,7 @@ import {
   abandonAfterRetryableConflicts,
   abandonBlockedSync,
 } from "../syncFailures/syncAbandon";
+import { settleSyncBaselineCommit } from "../syncFailures/syncBaselineCommit";
 import { recoverablePendingUpdates } from "../syncPlan/syncPlanRequestBounds";
 import { requireStandaloneAncestorRepairs } from "../syncRekeys/syncContainerRekeyPreparation";
 import { recoveryLocalVersionVector } from "../syncRekeys/syncRecoveryRekey";
@@ -79,6 +80,15 @@ async function submitPlannedSyncAttempt(args: {
       onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
       pendingUpdates: args.pendingUpdates,
       plan: args.materializedPlan.plan,
+      settleBaselineCommit: (outcome) =>
+        settleSyncBaselineCommit({
+          apiClient: args.sync.apiClient,
+          attempt: args.materializedPlan.baselineStageAttempt,
+          baselineStageId: args.materializedPlan.plan.request.baselineStageId,
+          documentId: args.sync.documentId,
+          execSql: args.sync.execSql,
+          outcome,
+        }),
       pull: {
         historyMode: args.sync.historyMode,
         minLsn: args.sync.minLsn,

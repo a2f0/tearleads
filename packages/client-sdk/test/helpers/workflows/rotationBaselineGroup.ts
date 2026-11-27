@@ -1,3 +1,7 @@
+// A rotation baseline group built whole in memory, for tests of what a
+// reader or a request does with one. The writer itself cuts and encrypts a
+// segment at a time (`workflows/documents/baselineStage`); these helpers
+// take any segments, honest or not, and sign their places in a group.
 import {
   computeDocumentBaselineSegmentsDigest,
   type DocumentBaselineSegmentDigestEntry,
@@ -9,24 +13,17 @@ import {
   exportAllUpdates,
   exportHistorySegments,
   getImportBlobMetadata,
-  HistorySegmentCounterTooLargeError,
   type HistorySegmentSizes,
   importSnapshot,
   versionVectorsEqual,
 } from "@tearleads/loro";
-import { MAX_DOCUMENT_BASELINE_SEGMENTS } from "@tearleads/validators/util";
-import { encryptDocumentPendingUpdate } from "../../../data/documents/shared/crypto";
-import type { DocumentBaselineSegmentFields } from "../../../data/documents/shared/sync/baselineSegment";
-import type { DocumentContentKey } from "../../../data/documents/shared/sync/contentKeyCommitment";
-import { DocumentSyncRequestLimitError } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
-import type { DocumentSyncPreparedUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
-import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
+import { encryptDocumentPendingUpdate } from "../../../src/data/documents/shared/crypto";
+import type { DocumentBaselineSegmentFields } from "../../../src/data/documents/shared/sync/baselineSegment";
+import type { DocumentContentKey } from "../../../src/data/documents/shared/sync/contentKeyCommitment";
+import type { DocumentSyncPreparedUpdate } from "../../../src/data/documents/shared/sync/documentSyncTypes";
+import type { PendingUpdateRecord } from "../../../src/data/persistence/documents/records";
 
-/**
- * A proven history cut into the segments of one rotation baseline: ordinary
- * update blobs that rebuild it when imported in order. The segments are
- * built for the request that rotates and are never queued.
- */
+/** A proven history cut into the segments of one rotation baseline. */
 export interface DocumentRotationBaselineHistory {
   readonly baselineId: string;
   /** In index order. A history with no operations has none. */
@@ -45,8 +42,13 @@ export function rotationBaselineDataCharacters(
   );
 }
 
-function assertFullHistorySnapshot(snapshot: Uint8Array, purpose: string) {
-  const metadata = getImportBlobMetadata(snapshot);
+/** Cut the history in a full-history `snapshot` into a baseline's segments. */
+export function segmentRotationSnapshot(input: {
+  readonly purpose: string;
+  readonly segmentSizes?: HistorySegmentSizes | undefined;
+  readonly snapshot: Uint8Array;
+}): DocumentRotationBaselineHistory {
+  const metadata = getImportBlobMetadata(input.snapshot);
   if (
     metadata.mode !== "snapshot" ||
     !versionVectorsEqual(
@@ -54,41 +56,15 @@ function assertFullHistorySnapshot(snapshot: Uint8Array, purpose: string) {
       emptyVersionVector(),
     )
   ) {
-    throw new Error(`${purpose} requires a full-history rotation snapshot`);
+    throw new Error(
+      `${input.purpose} requires a full-history rotation snapshot`,
+    );
   }
-  return metadata;
-}
-
-/**
- * Cut the history in `snapshot`, the full-history snapshot a rotation proof
- * returned, into a baseline's segments. A holder restored from a snapshot
- * segments exactly as the document it came from, so the segments carry the
- * proven history and nothing else.
- *
- * A baseline travels in the one request that rotates. A history with more
- * segments than a request may carry, or with one operation larger than a
- * segment may be (`HistorySegmentCounterTooLargeError`: the author's own
- * data, which no retry makes smaller), cannot rotate in one request: both
- * throw `DocumentSyncRequestLimitError`, the failure an oversized queued
- * update ends in.
- */
-export function segmentRotationSnapshot(input: {
-  /** Names the caller in the error for a snapshot that is not one. */
-  readonly purpose: string;
-  readonly segmentSizes?: HistorySegmentSizes | undefined;
-  readonly snapshot: Uint8Array;
-}): DocumentRotationBaselineHistory {
-  const metadata = assertFullHistorySnapshot(input.snapshot, input.purpose);
   const document = createReadOnlyDocument();
   const segments: PendingUpdateRecord[] = [];
   try {
     importSnapshot(document, input.snapshot);
     for (const segment of exportHistorySegments(document, input.segmentSizes)) {
-      if (segments.length === MAX_DOCUMENT_BASELINE_SEGMENTS) {
-        throw new DocumentSyncRequestLimitError(
-          "Document rotation baseline has more segments than one request carries",
-        );
-      }
       segments.push({
         id: crypto.randomUUID(),
         partialEndVersionVector: segment.partialEndVersionVector,
@@ -96,13 +72,6 @@ export function segmentRotationSnapshot(input: {
         updateData: bytesToBase64(segment.update),
       });
     }
-  } catch (error) {
-    if (error instanceof HistorySegmentCounterTooLargeError) {
-      throw new DocumentSyncRequestLimitError(
-        `Document rotation baseline cannot carry one operation: ${error.message}`,
-      );
-    }
-    throw error;
   } finally {
     document.free();
   }
@@ -113,12 +82,7 @@ export function segmentRotationSnapshot(input: {
   };
 }
 
-/**
- * The one segment of an empty baseline: an update blob with no operations.
- * Its author voided every update through the cursor the segment signs, so
- * the history it carries is empty, and the API asks the baseline to cover
- * only the updates after the cursor.
- */
+/** The one segment of an empty baseline: an update with no operations. */
 export function emptyRotationBaselineSegment(): PendingUpdateRecord {
   const document = createReadOnlyDocument();
   try {
@@ -138,9 +102,7 @@ export function emptyRotationBaselineSegment(): PendingUpdateRecord {
 /**
  * Encrypt a baseline's segments in index order, each signing its place in
  * the group. The final segment also signs the count, the digest of the
- * segments before it, and the author's processed cursor, so it is encrypted
- * last: the digest covers the earlier segments' metadata and ciphertext
- * hashes, which exist only once they are encrypted.
+ * segments before it, and the author's processed cursor.
  */
 export async function encryptRotationBaselineGroup(input: {
   readonly baselineId: string;

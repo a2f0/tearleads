@@ -13,6 +13,8 @@ export type LinkSetRewrapSource = "listed" | "reused" | "skipped";
 
 /** A submit refusal, with the deferred host report the API client withheld. */
 export interface LinkSetSubmitFailure extends DocumentLinkSetMutationFailure {
+  /** What a refused commit of a staged baseline means for its stage. */
+  readonly baselineStageCode?: string | undefined;
   readonly report?: (() => void) | undefined;
 }
 

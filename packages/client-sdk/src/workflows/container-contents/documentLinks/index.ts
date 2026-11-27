@@ -113,6 +113,8 @@ export async function relinkRemoteContainerDocument(input: {
       author,
       documentId,
       expectedSubtreeRoot: input.expectedSubtreeRoot,
+      onBaselineStageTrace: (line) =>
+        runtime.util.log(`Container contents: ${line}`),
       onFailure: input.onFailure,
       operation,
       resolveProjectionUserKey,

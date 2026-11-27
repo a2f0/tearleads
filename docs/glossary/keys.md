@@ -231,9 +231,14 @@ most 1 GiB. A stage expires an hour after its last upload and at most a
 day after it opened, and an expired or abandoned stage is deleted with what
 it staged.
 
+The SDK stages a baseline only when it does not fit the request that
+rotates, and keeps the upload in memory: an attempt that follows a refusal
+goes on from what the stage holds, and a restarted process starts over.
+
 Related docs:
 
 - [document-rotation-baselines.md](../document-rotation-baselines.md#a-baseline-staged-ahead)
+- [the SDK writer](../rotation-baseline-writer.md)
 - [limits.md](../limits.md#document-sync)
 
 ## Target Hash

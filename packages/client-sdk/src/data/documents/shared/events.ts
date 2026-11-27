@@ -1,4 +1,5 @@
 import {
+  type AccessEvent,
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
@@ -7,6 +8,7 @@ import {
   type DocumentLinkSetManifestState,
   deriveDocumentLinkSetManifest,
   readKeyingCanonicalJson,
+  serializeKeyingCanonicalJson,
   signAccessEvent,
   type UnsignedAccessEvent,
 } from "@tearleads/crypto";
@@ -125,6 +127,28 @@ export async function buildDocumentCreatePlan({
   };
 }
 
+/**
+ * `signed` when it is `unsigned` with a signature: every signed field is the
+ * same. A signature differs each time it is made, and an event's hash covers
+ * it, so a plan that signed an equal event again would name another manifest
+ * hash. Keeping the signature keeps the hash.
+ */
+function signedEventOf(
+  unsigned: UnsignedAccessEvent,
+  signed: AccessEvent | undefined,
+): AccessEvent | null {
+  if (!signed) return null;
+  const { signature: _signature, ...fields } = signed;
+  const same =
+    serializeKeyingCanonicalJson(
+      readKeyingCanonicalJson(fields, "Signed link-set event"),
+    ) ===
+    serializeKeyingCanonicalJson(
+      readKeyingCanonicalJson(unsigned, "Link-set event"),
+    );
+  return same ? signed : null;
+}
+
 export async function buildDocumentLinkSetEventPlan(input: {
   blobRewraps: DocumentLinkAccessEventBody["blobRewraps"];
   author: DocumentCreateAuthor;
@@ -135,6 +159,8 @@ export async function buildDocumentLinkSetEventPlan(input: {
   // container's org — never the acting member's personal org.
   organizationId: string;
   signedAt: string;
+  /** An earlier attempt's signed event, kept if it signs this very event. */
+  signedEvent?: AccessEvent | undefined;
   targetContainerPathRefs: readonly ContainerManifestRef[];
   targetState: DocumentLinkSetTargetState;
   writerProjection: DocumentWriterProjectionResponse;
@@ -176,10 +202,9 @@ export async function buildDocumentLinkSetEventPlan(input: {
     signerKeyFingerprint: input.author.signerKeyFingerprint,
     signedAt: input.signedAt,
   };
-  const event = await signAccessEvent(
-    unsignedEvent,
-    input.author.signerPrivateKey,
-  );
+  const event =
+    signedEventOf(unsignedEvent, input.signedEvent) ??
+    (await signAccessEvent(unsignedEvent, input.author.signerPrivateKey));
   const eventHash = await computeAccessEventHash(event);
 
   return {

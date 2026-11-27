@@ -4,6 +4,11 @@ import type {
 } from "@tearleads/validators/response";
 
 export interface DocumentSyncSubmitFailure {
+  /**
+   * With `document_sync_baseline_group_invalid` on a request that commits a
+   * staged rotation baseline: what the refusal means for the stage.
+   */
+  readonly baselineStageCode?: string | undefined;
   readonly code?: string | undefined;
   readonly message: string;
   readonly ok: false;

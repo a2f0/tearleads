@@ -9,12 +9,18 @@ import {
 } from "../../../data/documents/shared/sync/syncPagination";
 import { checkWithHeldBundleRecovery } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
+import {
+  DocumentRotationBaselineUploadEndedError,
+  isDocumentRotationBaselineStageError,
+} from "../baselineStage/rotationBaselineErrors";
 import { retrySyncPlanOrAbandon } from "../syncFailures";
 import {
   abandonAncestorRepair,
   abandonBlockedSync,
+  abandonEndedBaselineUpload,
   abandonInaccessibleAncestorRepair,
   abandonOversizedSyncPlan,
+  abandonRefusedBaselineStage,
   isPullUnderWay,
 } from "../syncFailures/syncAbandon";
 import type { TerminalSubmitFailureHandler } from "../syncFailures/syncFailureClassification";
@@ -78,6 +84,33 @@ async function plannedPendingUpdates(input: {
   return isPullUnderWay(input.sync) ? [] : null;
 }
 
+/**
+ * What a failure to plan means for the pass: a retry, an abandonment that
+ * leaves the writes queued, or an error that is the caller's.
+ */
+function abandonUnplannedSyncAttempt(
+  sync: RemoteDocumentSyncPass,
+  error: unknown,
+) {
+  if (error instanceof DocumentSyncPreparationRequiredError) {
+    return "retry" as const;
+  }
+  if (error instanceof DocumentAncestorRepairAbandonedError) {
+    return abandonAncestorRepair(sync, error);
+  }
+  if (error instanceof ContainerKekRepairInaccessibleError) {
+    return abandonInaccessibleAncestorRepair(sync, error);
+  }
+  if (error instanceof DocumentRotationBaselineUploadEndedError) {
+    return abandonEndedBaselineUpload(sync, error);
+  }
+  if (isDocumentRotationBaselineStageError(error)) {
+    return abandonRefusedBaselineStage(sync, error);
+  }
+  if (!isDocumentSyncRequestLimitError(error)) throw error;
+  return abandonOversizedSyncPlan(sync, error);
+}
+
 export async function planDocumentSyncAttempt(input: {
   /** The version the request advertises; defaults to the sync's live one. */
   localVersionVector?: string | null | undefined;
@@ -132,17 +165,6 @@ export async function planDocumentSyncAttempt(input: {
       writerProjection: prepared.projection,
     });
   } catch (error) {
-    if (error instanceof DocumentSyncPreparationRequiredError)
-      return "retry" as const;
-    if (error instanceof DocumentAncestorRepairAbandonedError) {
-      return abandonAncestorRepair(input.sync, error);
-    }
-    if (error instanceof ContainerKekRepairInaccessibleError) {
-      return abandonInaccessibleAncestorRepair(input.sync, error);
-    }
-    if (!isDocumentSyncRequestLimitError(error)) {
-      throw error;
-    }
-    return abandonOversizedSyncPlan(input.sync, error);
+    return abandonUnplannedSyncAttempt(input.sync, error);
   }
 }

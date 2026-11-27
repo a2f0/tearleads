@@ -22,7 +22,10 @@ interface SyncPlanProjectionMaterial {
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly healedStaleContentKeyBundle: boolean;
   readonly rotationBaseline?:
-    | { readonly segments: readonly { readonly id: string }[] }
+    | {
+        readonly segments: readonly { readonly id: string }[];
+        readonly stagedCommit?: { readonly attempt: number } | undefined;
+      }
     | undefined;
 }
 

@@ -12,6 +12,7 @@
  */
 
 import {
+  DOCUMENT_BASELINE_STAGE_ERROR_CODES,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
@@ -63,8 +64,30 @@ const HEAL_BLOCKED_REASONS: ReadonlyArray<readonly [string, string]> = [
 const SAFE_FAILURE_CODES: ReadonlySet<string> = new Set([
   ...Object.values(DOCUMENT_SYNC_ERROR_CODES),
   ...Object.values(DOCUMENT_PROJECTION_ERROR_CODES),
+  ...Object.values(DOCUMENT_BASELINE_STAGE_ERROR_CODES),
   DOCUMENT_NOT_FOUND_ERROR_CODE,
 ]);
+
+/**
+ * Where the upload of a staged rotation baseline stands: the states of
+ * `stagedBaselineMachine.ts`, enumerated here so the pattern admits no
+ * other word.
+ */
+const BASELINE_STAGE_STATUSES = [
+  "abandoned",
+  "appendingTail",
+  "committing",
+  "confirming",
+  "done",
+  "failed",
+  "opening",
+  "planning",
+  "resigningHeaders",
+  "resuming",
+  "staging",
+] as const;
+
+export type BaselineStageTraceStatus = (typeof BASELINE_STAGE_STATUSES)[number];
 
 type DocumentSyncTraceAction =
   | "rebase-peer"
@@ -105,6 +128,7 @@ export const DOCUMENT_SYNC_TRACE_FRAGMENT = [
   `document sync projection failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT})`,
   `document sync ancestor repair abandoned document=${UUID_FRAGMENT} reason=(?:${ABANDON_REASON_FRAGMENT})`,
   `document sync healed document=${UUID_FRAGMENT} epoch=\\d+ accepted=\\d+`,
+  `document sync baseline stage document=${UUID_FRAGMENT} status=(?:${BASELINE_STAGE_STATUSES.join("|")}) segments=\\d+`,
 ]
   .map((alternative) => `(?:${alternative})`)
   .join("|");
@@ -231,5 +255,23 @@ export function traceHealed(
 ): void {
   emit?.(
     `document sync healed document=${input.documentId} epoch=${input.epoch} accepted=${input.accepted}`,
+  );
+}
+
+/**
+ * Progress of a rotation baseline too large for one request: the state its
+ * upload entered and how many segments its stage holds. A long upload
+ * emits one line per state and one every sixteen staged segments.
+ */
+export function traceBaselineStage(
+  emit: DocumentSyncTraceEmitter | undefined,
+  input: {
+    documentId: string;
+    segments: number;
+    status: BaselineStageTraceStatus;
+  },
+): void {
+  emit?.(
+    `document sync baseline stage document=${input.documentId} status=${input.status} segments=${input.segments}`,
   );
 }

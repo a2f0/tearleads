@@ -1,0 +1,16 @@
+# Issue #3238 (rotation baselines larger than one request; greenfield flag
+# day, no compatibility shim): each inline segment of a link-set mutation's
+# `rotationBaseline` is validated as a sync update is, so the four strings a
+# segment carries are each bounded at the 16 MiB a sync request holds. They
+# had no bound of their own under the route's 32 MiB. The SDK ships with the
+# API and sends no segment near the bound: it cuts at 11 MiB of plaintext.
+# Delete these exact diagnostics, and this file, once main contains this
+# contract.
+POST /documents/{documentId}/link the `rotationBaseline/items/dependencyVersionVector` request property's maxLength was set to `16777216`
+POST /documents/{documentId}/link the `rotationBaseline/items/encryptedData` request property's maxLength was set to `16777216`
+POST /documents/{documentId}/link the `rotationBaseline/items/partialEndVersionVector` request property's maxLength was set to `16777216`
+POST /documents/{documentId}/link the `rotationBaseline/items/partialStartVersionVector` request property's maxLength was set to `16777216`
+POST /documents/{documentId}/unlink the `rotationBaseline/items/dependencyVersionVector` request property's maxLength was set to `16777216`
+POST /documents/{documentId}/unlink the `rotationBaseline/items/encryptedData` request property's maxLength was set to `16777216`
+POST /documents/{documentId}/unlink the `rotationBaseline/items/partialEndVersionVector` request property's maxLength was set to `16777216`
+POST /documents/{documentId}/unlink the `rotationBaseline/items/partialStartVersionVector` request property's maxLength was set to `16777216`
