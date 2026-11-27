@@ -103,6 +103,7 @@ Each refusal is an event of the machine:
 | `too_large` | deletes the stage and fails with `DocumentRotationBaselineLimitError`: the history needs more bytes or span rows than a stage stores. A header signed again counts by its difference from the one it replaces, so signing again can draw this too. |
 | A stage request, or the rotating request, refused for the writer itself (`402`, `403`, a `413` for a re-signed header over 512 KiB, or any other refusal with no stage code) | gives the upload up and deletes the stage, so it does not hold one of the user's four open stages until it expires. Nothing is retried. A sync records the failure with the refusal's own status as it records a refused submit; an unlink reports it to its caller with that status. |
 | A stage request that got no answer, or a `5xx` | stops, and leaves the stage as it is: the failure says nothing about it. The next run reads the stage and goes on. |
+| `document_sync_update_id_conflict` on a sync that commits a stage | keeps the stage: the refusal names an update id, not the stage. The pass settles its queued writes with a read-only pull as for any sync, and the next pass reads the stage and commits it with a final segment under a new id. |
 
 ## Header Bounds
 

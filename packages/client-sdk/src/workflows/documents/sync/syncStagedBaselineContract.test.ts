@@ -137,6 +137,91 @@ test("a header signed again that the route refuses for its size gives the upload
   ]);
 });
 
+// Before a run relies on a stage it reads it, and the stage's digest must
+// be the one the writer's own records chain to. A stage that holds other
+// segments than the writer sent is not the writer's to commit: it is
+// deleted, and the same pass uploads the baseline anew.
+test("a stage whose digest is not the writer's chain is abandoned on resume", async () => {
+  const harness = await createStagedHealHarness();
+  const document = await createLongHistoryDocument("digest-mismatch");
+  harness.script.refuse = (_request, ordinal) =>
+    ordinal === 1
+      ? {
+          code: DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+          message: "the baseline does not cover the committed frontier",
+          status: 409,
+        }
+      : null;
+  expect(await harness.heal(document, execSql)).toBeNull();
+  const firstStage = harness.server.stage(harness.documentId)?.baselineId;
+  expect(firstStage).toBeString();
+  harness.server.corruptDigest(harness.documentId);
+  const callsBefore = harness.server.calls.length;
+
+  const synced = await harness.heal(document, execSql);
+
+  expect(synced?.acceptedRecoveryBaseline).toBe(true);
+  expect(harness.server.calls.slice(callsBefore, callsBefore + 4)).toEqual([
+    "get",
+    "abandon",
+    "open",
+    "stage:0",
+  ]);
+  const [committed] = harness.server.committed.at(-1) ?? [];
+  expect(committed?.baselineId).toBeString();
+  expect(committed?.baselineId).not.toBe(firstStage);
+  // The writer found the mismatch itself: it sent no commit to learn it.
+  expect(harness.requests).toHaveLength(2);
+});
+
+// `document_sync_update_id_conflict` on a staged commit says an update id
+// the request names is taken, and nothing about the stage. The pass answers
+// it as it does for any request (a read-only pull that settles its queued
+// writes); the stage stands, and the next pass reads it and commits it
+// with a final segment under a new id. Nothing staged is sent again.
+test("a commit refused for an update id keeps the stage for the next pass", async () => {
+  const harness = await createStagedHealHarness();
+  const document = await createLongHistoryDocument("update-id-conflict");
+  harness.script.refuse = (_request, ordinal) =>
+    ordinal === 1
+      ? {
+          code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+          message: "Document sync update id conflict",
+          status: 409,
+        }
+      : null;
+
+  await harness.heal(document, execSql);
+
+  const stagedSegments =
+    harness.server.stage(harness.documentId)?.segments.length ?? 0;
+  expect(stagedSegments).toBeGreaterThan(64);
+  expect(harness.server.committed).toEqual([]);
+  expect(harness.server.calls).not.toContain("abandon");
+  // The recovery pull carries no write and names no stage.
+  expect(
+    harness.requests.map((request) => [
+      request.baselineStageId !== undefined,
+      request.outgoingUpdates.length > 0,
+    ]),
+  ).toEqual([
+    [true, true],
+    [false, false],
+  ]);
+  const callsBefore = harness.server.calls.length;
+
+  const synced = await harness.heal(document, execSql);
+
+  expect(synced?.acceptedRecoveryBaseline).toBe(true);
+  expect(harness.server.calls.slice(callsBefore)).toEqual(["get"]);
+  expect(harness.server.committed.at(-1)).toHaveLength(stagedSegments + 1);
+  const [refused, , committed] = harness.requests;
+  expect(committed?.baselineStageId).toBe(refused?.baselineStageId);
+  expect(committed?.outgoingUpdates[0]?.id).not.toBe(
+    refused?.outgoingUpdates[0]?.id,
+  );
+});
+
 // The SDK names a device after its signing key, so the name's length is the
 // fingerprint's plus a fixed prefix, whatever the host.
 test("the device id an author signs with fits a write header", async () => {

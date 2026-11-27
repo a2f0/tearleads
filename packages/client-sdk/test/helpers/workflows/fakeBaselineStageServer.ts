@@ -137,6 +137,12 @@ export class FakeBaselineStageServer {
     this.stages.delete(documentId);
   }
 
+  /** Make the stage's digest another than its segments chain to. */
+  corruptDigest(documentId: string): void {
+    const stage = this.stages.get(documentId);
+    if (stage) stage.digest = "f".repeat(64);
+  }
+
   stage(documentId: string): {
     readonly baselineId: string;
     readonly segments: readonly DocumentOutgoingUpdate[];
