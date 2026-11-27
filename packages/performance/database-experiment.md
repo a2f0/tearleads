@@ -5,10 +5,9 @@ round trips from PostgreSQL execution work. It sends constant queries through
 the selected API's existing Hyperdrive binding, with query caching disabled.
 It creates no accounts and neither reads nor writes application tables.
 
-The
-[first staging and production results](results/deployed/2026-10-26-database-round-trip.md)
-show roughly five milliseconds per warm exchange and a 13–20 times faster
-constant-query batch in production.
+Historical Epoch 1 staging and production runs (archived before the
+[Epoch 2 results ledger](results/README.md)) showed roughly five milliseconds
+per warm exchange and a 13–20 times faster constant-query batch in production.
 
 ## Running
 

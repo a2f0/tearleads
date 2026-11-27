@@ -113,6 +113,8 @@ const ignoredPathPatterns = [
   /^formal\/lean\/vectors\/[^/]+\.json$/,
   // `bun run generate:test-timings` rewrites these Bun --timings tables.
   /^packages\/[^/]+\/test-timings\.json$/,
+  // `bun run perf:epoch` generates structured performance snapshots and trend views.
+  /^packages\/performance\/results\/epoch-\d+\//,
   /^packages\/app-capacitor\/ios\/App\/App\.xcodeproj\/project\.pbxproj$/,
   /^playwright-report\//,
   /^scripts\/checks\/lintSourceShape\.ts$/,

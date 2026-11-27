@@ -1,0 +1,848 @@
+{
+  "schemaVersion": 1,
+  "epoch": 2,
+  "id": "000-baseline",
+  "label": "Clean main baseline (53819b364)",
+  "kind": "baseline",
+  "recordedAt": "2026-11-27T22:34:02.103Z",
+  "revision": "53819b364768ac87e42c4fe48c5d41e7b8ad1ec9",
+  "dirty": false,
+  "issues": [3263, 3289, 3291, 3342, 3353, 3396],
+  "runtime": {
+    "bun": "1.4.3",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M2 Pro"
+  },
+  "notes": "Epoch 2 clean-main baseline captured at 53819b364 before greenfield optimization and bug-scrub pass.",
+  "inventory": {
+    "postgres": {
+      "tables": 57,
+      "columns": 572,
+      "indexes": 183,
+      "migrations": 17,
+      "duplicateIndexes": 0,
+      "unreadTables": 0,
+      "unreadColumns": 0
+    },
+    "sqlite": {
+      "totalTables": 63,
+      "sdkTables": 58,
+      "appProjectionTables": 5,
+      "columns": 479,
+      "indexes": 98,
+      "duplicateIndexes": 0,
+      "unreadTables": 4,
+      "unreadColumns": 0
+    },
+    "openapi": {
+      "paths": 94,
+      "operations": 99,
+      "distinctResponseFields": 405,
+      "unreadResponseFieldLeads": 3,
+      "unreadFields": ["leaseExpiresAt", "portalUrl", "stagedBytes"]
+    },
+    "canaries": {
+      "budgetAssertions": 5,
+      "driftedPhases": 14,
+      "maxHeadroom": 13,
+      "totalHeadroom": 24
+    }
+  },
+  "canaries": {
+    "canaryCount": 9,
+    "wallMs": 137591,
+    "requests": 340,
+    "requestBytes": 1609389,
+    "responseBytes": 1492860,
+    "redundantBytes": 198160,
+    "echoBytes": 17137,
+    "redeliveredBytes": 159917,
+    "reDownloadedUploadBytes": 21106,
+    "exactHeadRereads": 42,
+    "manifestCitations": 1009,
+    "wsHints": 24,
+    "apiStatements": 36878,
+    "apiTxStatements": 30788,
+    "apiLockHoldStatements": 22227,
+    "apiSameKeyRepeats": 5795,
+    "apiPureReadRepeats": 4744,
+    "clientSqlStatements": 131525,
+    "clientSqlInLock": 81876,
+    "clientSqlDurationMs": 13058.2,
+    "clientSqlMutations": 18145,
+    "clientSqlTxControls": 32446,
+    "clientSqlMaxHoldMs": 49.4,
+    "clientSqlMaxWaitMs": 33.8,
+    "topApiRoutes": [
+      {
+        "route": "POST /auth/register",
+        "requests": 25,
+        "statements": 10175,
+        "txStatements": 10125,
+        "lockHoldStatements": 10075,
+        "pureReadRepeats": 2050
+      },
+      {
+        "route": "POST /documents/{documentId}/sync",
+        "requests": 206,
+        "statements": 5715,
+        "txStatements": 5509,
+        "lockHoldStatements": 3812,
+        "pureReadRepeats": 1054
+      },
+      {
+        "route": "POST /containers/with-metadata-document",
+        "requests": 53,
+        "statements": 3922,
+        "txStatements": 3869,
+        "lockHoldStatements": 3445,
+        "pureReadRepeats": 848
+      },
+      {
+        "route": "POST /documents",
+        "requests": 62,
+        "statements": 2185,
+        "txStatements": 2159,
+        "lockHoldStatements": 2035,
+        "pureReadRepeats": 234
+      },
+      {
+        "route": "POST /containers/documents/query",
+        "requests": 151,
+        "statements": 1736,
+        "txStatements": 0,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 0
+      },
+      {
+        "route": "GET /containers/{containerId}/writer-projection",
+        "requests": 112,
+        "statements": 1623,
+        "txStatements": 1623,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 0
+      },
+      {
+        "route": "GET /principals/{principalType}/{principalId}/policy",
+        "requests": 292,
+        "statements": 1570,
+        "txStatements": 1570,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 22
+      },
+      {
+        "route": "PUT /organizations/{organizationId}/groups/{groupId}/policy-commit",
+        "requests": 7,
+        "statements": 1418,
+        "txStatements": 1383,
+        "lockHoldStatements": 1376,
+        "pureReadRepeats": 197
+      },
+      {
+        "route": "GET /documents/{documentId}/writer-projection",
+        "requests": 52,
+        "statements": 1336,
+        "txStatements": 1336,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 2
+      },
+      {
+        "route": "POST /containers/parent-lanes/query",
+        "requests": 75,
+        "statements": 1143,
+        "txStatements": 0,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 57
+      }
+    ],
+    "topClientQueries": [
+      {
+        "sql": "select \"version\", \"state_hash\" from \"principal_policy_checkpoints\" where (\"principal_policy_checkpoints\".\"principal_type\" = ? and \"principal_policy_checkpoints\"…",
+        "count": 9497,
+        "durationMs": 449.2
+      },
+      {
+        "sql": "select \"identity_trust_domain\", \"user_id\", \"format_version\", \"signing_suite\", \"signing_public_key\", \"signing_key_fingerprint\", \"encapsulation_suite\", \"encapsula…",
+        "count": 8785,
+        "durationMs": 743.5
+      },
+      {
+        "sql": "select \"leaf_hash\", \"entry_json\" from \"principal_history_entries\" where (\"principal_history_entries\".\"scope_id\" = ? and \"principal_history_entries\".\"leaf_hash\" …",
+        "count": 8528,
+        "durationMs": 390
+      },
+      {
+        "sql": "select \"id\", \"generation\", \"invalidated_through\" from \"document_discovery_sequence\" limit ?",
+        "count": 2872,
+        "durationMs": 132.2
+      },
+      {
+        "sql": "select \"hash\", \"left_hash\", \"right_hash\" from \"principal_history_nodes\" where (\"principal_history_nodes\".\"scope_id\" = ? and \"principal_history_nodes\".\"hash\" in …",
+        "count": 1514,
+        "durationMs": 67.4
+      },
+      {
+        "sql": "select \"scope_id\", \"organization_id\", \"hash\", \"reference_count\", \"managed\", \"left_hash\", \"right_hash\" from \"principal_history_nodes\" where (\"principal_history_n…",
+        "count": 1402,
+        "durationMs": 57.8
+      },
+      {
+        "sql": "select \"documents\".\"local_id\", \"documents\".\"document_id\", \"documents\".\"recovery_generation\", \"documents\".\"recovery_document_id\", \"documents\".\"snapshot_end_versi…",
+        "count": 1391,
+        "durationMs": 160.1
+      },
+      {
+        "sql": "select \"update_id\", \"origin\", \"update_data\", \"partial_start_version_vector\", \"partial_end_version_vector\", \"rekey_count\" from \"document_history_updates\" where (…",
+        "count": 787,
+        "durationMs": 59.3
+      },
+      {
+        "sql": "select \"principal_id\", \"version\", \"state_hash\" from \"principal_policy_checkpoints\" where (\"principal_policy_checkpoints\".\"principal_type\" = ? and \"principal_pol…",
+        "count": 506,
+        "durationMs": 11.6
+      },
+      {
+        "sql": "select \"id\", \"organization_id\", \"current_json\", \"after_version\", \"complete\", \"progress\" from \"principal_history_stages\" where \"principal_history_stages\".\"id\" = …",
+        "count": 372,
+        "durationMs": 20.7
+      }
+    ],
+    "byCanary": [
+      {
+        "canary": "DeviceFirstOfflineRequestVolume",
+        "wallMs": 6540,
+        "requests": 0,
+        "requestBytes": 0,
+        "responseBytes": 0,
+        "redundantBytes": 0,
+        "exactHeadRereads": 0,
+        "apiStatements": 1557,
+        "apiTxStatements": 1159,
+        "apiPureReadRepeats": 180,
+        "clientSqlStatements": 5294,
+        "clientSqlMaxHoldMs": 32.1
+      },
+      {
+        "canary": "DualPaneProvider.groupsRequestVolume",
+        "wallMs": 8366,
+        "requests": 91,
+        "requestBytes": 681547,
+        "responseBytes": 550170,
+        "redundantBytes": 64178,
+        "exactHeadRereads": 13,
+        "apiStatements": 2847,
+        "apiTxStatements": 2357,
+        "apiPureReadRepeats": 338,
+        "clientSqlStatements": 9202,
+        "clientSqlMaxHoldMs": 49.4
+      },
+      {
+        "canary": "DualPaneProvider.sharing",
+        "wallMs": 29434,
+        "requests": 47,
+        "requestBytes": 104409,
+        "responseBytes": 340523,
+        "redundantBytes": 42247,
+        "exactHeadRereads": 5,
+        "apiStatements": 11170,
+        "apiTxStatements": 9783,
+        "apiPureReadRepeats": 1379,
+        "clientSqlStatements": 38784,
+        "clientSqlMaxHoldMs": 43.7
+      },
+      {
+        "canary": "ExplorerUploadRequestVolume",
+        "wallMs": 4581,
+        "requests": 5,
+        "requestBytes": 34558,
+        "responseBytes": 2176,
+        "redundantBytes": 384,
+        "exactHeadRereads": 0,
+        "apiStatements": 1163,
+        "apiTxStatements": 798,
+        "apiPureReadRepeats": 151,
+        "clientSqlStatements": 2558,
+        "clientSqlMaxHoldMs": 37.4
+      },
+      {
+        "canary": "FolderMutationRequestVolume",
+        "wallMs": 7899,
+        "requests": 35,
+        "requestBytes": 116478,
+        "responseBytes": 83143,
+        "redundantBytes": 19533,
+        "exactHeadRereads": 11,
+        "apiStatements": 1867,
+        "apiTxStatements": 1425,
+        "apiPureReadRepeats": 200,
+        "clientSqlStatements": 8036,
+        "clientSqlMaxHoldMs": 27.1
+      },
+      {
+        "canary": "GroupMutationRequestVolume",
+        "wallMs": 8938,
+        "requests": 43,
+        "requestBytes": 165089,
+        "responseBytes": 278479,
+        "redundantBytes": 53672,
+        "exactHeadRereads": 4,
+        "apiStatements": 2860,
+        "apiTxStatements": 2388,
+        "apiPureReadRepeats": 344,
+        "clientSqlStatements": 9672,
+        "clientSqlMaxHoldMs": 42
+      },
+      {
+        "canary": "OrganizationBootstrapRequestVolume",
+        "wallMs": 7294,
+        "requests": 27,
+        "requestBytes": 486190,
+        "responseBytes": 41626,
+        "redundantBytes": 5651,
+        "exactHeadRereads": 3,
+        "apiStatements": 2267,
+        "apiTxStatements": 1831,
+        "apiPureReadRepeats": 330,
+        "clientSqlStatements": 4639,
+        "clientSqlMaxHoldMs": 27.1
+      },
+      {
+        "canary": "PaneReconnectRequestVolume",
+        "wallMs": 14709,
+        "requests": 24,
+        "requestBytes": 5097,
+        "responseBytes": 74732,
+        "redundantBytes": 3418,
+        "exactHeadRereads": 3,
+        "apiStatements": 3545,
+        "apiTxStatements": 2908,
+        "apiPureReadRepeats": 445,
+        "clientSqlStatements": 14500,
+        "clientSqlMaxHoldMs": 28
+      },
+      {
+        "canary": "PaneRestartRequestVolume",
+        "wallMs": 49830,
+        "requests": 68,
+        "requestBytes": 16021,
+        "responseBytes": 122011,
+        "redundantBytes": 9077,
+        "exactHeadRereads": 3,
+        "apiStatements": 9602,
+        "apiTxStatements": 8139,
+        "apiPureReadRepeats": 1377,
+        "clientSqlStatements": 38840,
+        "clientSqlMaxHoldMs": 27.8
+      }
+    ]
+  },
+  "scenarios": {
+    "scenarioCount": 12,
+    "wallMs": 263974,
+    "requests": 4975,
+    "conflicts": 70,
+    "requestBytes": 56246646,
+    "responseBytes": 132578223,
+    "apiStatements": 122420,
+    "pureReadRepeats": 14321,
+    "clientSqlStatements": 486496,
+    "byScenario": [
+      {
+        "scenario": "attachmentAccess",
+        "wallMs": 15653,
+        "requests": 357,
+        "conflicts": 2,
+        "requestBytes": 1485232,
+        "responseBytes": 3232230,
+        "apiStatements": 8147,
+        "pureReadRepeats": 867,
+        "clientSqlStatements": 26363
+      },
+      {
+        "scenario": "billingPurgeRecovery",
+        "wallMs": 10802,
+        "requests": 193,
+        "conflicts": 2,
+        "requestBytes": 1353774,
+        "responseBytes": 1463645,
+        "apiStatements": 5024,
+        "pureReadRepeats": 571,
+        "clientSqlStatements": 16677
+      },
+      {
+        "scenario": "concurrentFirstWriters",
+        "wallMs": 14206,
+        "requests": 331,
+        "conflicts": 3,
+        "requestBytes": 1179950,
+        "responseBytes": 3827657,
+        "apiStatements": 6968,
+        "pureReadRepeats": 674,
+        "clientSqlStatements": 25572
+      },
+      {
+        "scenario": "deviceFirstCatchUp",
+        "wallMs": 17504,
+        "requests": 268,
+        "conflicts": 1,
+        "requestBytes": 1635987,
+        "responseBytes": 1580247,
+        "apiStatements": 7198,
+        "pureReadRepeats": 841,
+        "clientSqlStatements": 26111
+      },
+      {
+        "scenario": "documentPurge",
+        "wallMs": 25063,
+        "requests": 532,
+        "conflicts": 8,
+        "requestBytes": 2574573,
+        "responseBytes": 4779985,
+        "apiStatements": 12646,
+        "pureReadRepeats": 1465,
+        "clientSqlStatements": 46565
+      },
+      {
+        "scenario": "firstMemberAdd",
+        "wallMs": 5686,
+        "requests": 59,
+        "conflicts": 0,
+        "requestBytes": 759613,
+        "responseBytes": 379171,
+        "apiStatements": 2441,
+        "pureReadRepeats": 300,
+        "clientSqlStatements": 5357
+      },
+      {
+        "scenario": "groupShrinkCarry",
+        "wallMs": 66430,
+        "requests": 1354,
+        "conflicts": 18,
+        "requestBytes": 4167001,
+        "responseBytes": 19633963,
+        "apiStatements": 34006,
+        "pureReadRepeats": 4136,
+        "clientSqlStatements": 151165
+      },
+      {
+        "scenario": "multiLinkDocument",
+        "wallMs": 18120,
+        "requests": 354,
+        "conflicts": 6,
+        "requestBytes": 1373628,
+        "responseBytes": 4438418,
+        "apiStatements": 8696,
+        "pureReadRepeats": 1024,
+        "clientSqlStatements": 36208
+      },
+      {
+        "scenario": "nestedTree",
+        "wallMs": 32329,
+        "requests": 647,
+        "conflicts": 12,
+        "requestBytes": 1987275,
+        "responseBytes": 9772360,
+        "apiStatements": 15975,
+        "pureReadRepeats": 1972,
+        "clientSqlStatements": 69361
+      },
+      {
+        "scenario": "realtimeHints",
+        "wallMs": 9720,
+        "requests": 136,
+        "conflicts": 2,
+        "requestBytes": 956291,
+        "responseBytes": 651886,
+        "apiStatements": 4056,
+        "pureReadRepeats": 521,
+        "clientSqlStatements": 13369
+      },
+      {
+        "scenario": "rotationHistory",
+        "wallMs": 26494,
+        "requests": 608,
+        "conflicts": 13,
+        "requestBytes": 1744272,
+        "responseBytes": 9070373,
+        "apiStatements": 13655,
+        "pureReadRepeats": 1565,
+        "clientSqlStatements": 56113
+      },
+      {
+        "scenario": "stagedBaseline",
+        "wallMs": 21967,
+        "requests": 136,
+        "conflicts": 3,
+        "requestBytes": 37029050,
+        "responseBytes": 73748288,
+        "apiStatements": 3608,
+        "pureReadRepeats": 385,
+        "clientSqlStatements": 13635
+      }
+    ]
+  },
+  "plans": {
+    "inspected": 25,
+    "planned": 23,
+    "skipped": 2,
+    "seqScanQueries": 0,
+    "sortQueries": 3,
+    "materializeQueries": 1,
+    "flagged": [
+      {
+        "count": 650,
+        "warnings": ["Sort"],
+        "sqlPrefix": "with recursive ancestor_path as ( select h.object_id, h.manifest_hash, m.object_kind, m.object_id as manifest_object_id,…"
+      },
+      {
+        "count": 541,
+        "warnings": ["Sort"],
+        "sqlPrefix": "select \"access_manifest_heads\".\"id\", \"access_manifest_heads\".\"object_kind\", \"access_manifest_heads\".\"object_id\", \"access…"
+      },
+      {
+        "count": 371,
+        "warnings": ["Sort", "Materialize"],
+        "sqlPrefix": "select publication::text as publication, (select coalesce(jsonb_agg(rows order by rows.\"discoveryOrder\"::bigint, rows.id…"
+      }
+    ]
+  },
+  "reload": [
+    {
+      "documents": 10,
+      "folders": 1,
+      "reload": "first",
+      "medianRequests": 10,
+      "medianSettledMs": 522,
+      "medianApiStatements": 147,
+      "medianClientStatements": 1130
+    },
+    {
+      "documents": 10,
+      "folders": 1,
+      "reload": "settled",
+      "medianRequests": 4,
+      "medianSettledMs": 197.5,
+      "medianApiStatements": 53,
+      "medianClientStatements": 427
+    },
+    {
+      "documents": 13,
+      "folders": 1,
+      "reload": "peer-edited",
+      "medianRequests": 13,
+      "medianSettledMs": 590,
+      "medianApiStatements": 232,
+      "medianClientStatements": 1665
+    },
+    {
+      "documents": 100,
+      "folders": 10,
+      "reload": "first",
+      "medianRequests": 6,
+      "medianSettledMs": 527,
+      "medianApiStatements": 96,
+      "medianClientStatements": 2947
+    },
+    {
+      "documents": 100,
+      "folders": 10,
+      "reload": "settled",
+      "medianRequests": 4,
+      "medianSettledMs": 196.5,
+      "medianApiStatements": 62,
+      "medianClientStatements": 481
+    },
+    {
+      "documents": 103,
+      "folders": 10,
+      "reload": "peer-edited",
+      "medianRequests": 13,
+      "medianSettledMs": 568,
+      "medianApiStatements": 240,
+      "medianClientStatements": 1763
+    }
+  ],
+  "realtime": [
+    {
+      "size": 100,
+      "pass": "declaration",
+      "medianDurationMs": 30,
+      "medianCpuMs": 19.5,
+      "statements": 9,
+      "roundTrips": 9,
+      "rows": 113,
+      "bytesReturned": 1383651
+    },
+    {
+      "size": 100,
+      "pass": "revalidation",
+      "medianDurationMs": 30.7,
+      "medianCpuMs": 18.4,
+      "statements": 9,
+      "roundTrips": 9,
+      "rows": 113,
+      "bytesReturned": 1383651
+    }
+  ],
+  "rotations": [
+    {
+      "phase": "group-share",
+      "rotations": 1,
+      "depth": 3,
+      "medianWallMs": 1189,
+      "medianRequests": 11,
+      "maxConflicts": 0,
+      "medianPgStatements": 398,
+      "medianLocalSqlCalls": 1976
+    },
+    {
+      "phase": "group-share",
+      "rotations": 4,
+      "depth": 3,
+      "medianWallMs": 1118,
+      "medianRequests": 11,
+      "maxConflicts": 0,
+      "medianPgStatements": 398,
+      "medianLocalSqlCalls": 1976
+    },
+    {
+      "phase": "group-shrink",
+      "rotations": 1,
+      "depth": 3,
+      "medianWallMs": 1496,
+      "medianRequests": 12,
+      "maxConflicts": 1,
+      "medianPgStatements": 622,
+      "medianLocalSqlCalls": 3403
+    },
+    {
+      "phase": "group-shrink",
+      "rotations": 4,
+      "depth": 3,
+      "medianWallMs": 1643,
+      "medianRequests": 12,
+      "maxConflicts": 1,
+      "medianPgStatements": 623,
+      "medianLocalSqlCalls": 3439
+    },
+    {
+      "phase": "stale-writer-repair",
+      "rotations": 1,
+      "depth": 3,
+      "medianWallMs": 712,
+      "medianRequests": 12,
+      "maxConflicts": 2,
+      "medianPgStatements": 378,
+      "medianLocalSqlCalls": 1236
+    },
+    {
+      "phase": "stale-writer-repair",
+      "rotations": 4,
+      "depth": 3,
+      "medianWallMs": 951,
+      "medianRequests": 12,
+      "maxConflicts": 2,
+      "medianPgStatements": 400,
+      "medianLocalSqlCalls": 1282
+    },
+    {
+      "phase": "direct-revoke",
+      "rotations": 1,
+      "depth": 3,
+      "medianWallMs": 828,
+      "medianRequests": 10,
+      "maxConflicts": 1,
+      "medianPgStatements": 375,
+      "medianLocalSqlCalls": 2074
+    },
+    {
+      "phase": "direct-revoke",
+      "rotations": 4,
+      "depth": 3,
+      "medianWallMs": 958,
+      "medianRequests": 10,
+      "maxConflicts": 1,
+      "medianPgStatements": 378,
+      "medianLocalSqlCalls": 2111
+    },
+    {
+      "phase": "grantee-subtree-repair",
+      "rotations": 1,
+      "depth": 3,
+      "medianWallMs": 842,
+      "medianRequests": 9,
+      "maxConflicts": 1,
+      "medianPgStatements": 332,
+      "medianLocalSqlCalls": 1385
+    },
+    {
+      "phase": "grantee-subtree-repair",
+      "rotations": 4,
+      "depth": 3,
+      "medianWallMs": 1083,
+      "medianRequests": 9,
+      "maxConflicts": 1,
+      "medianPgStatements": 349,
+      "medianLocalSqlCalls": 1410
+    },
+    {
+      "phase": "subtree-move",
+      "rotations": 1,
+      "depth": 3,
+      "medianWallMs": 518,
+      "medianRequests": 6,
+      "maxConflicts": 0,
+      "medianPgStatements": 180,
+      "medianLocalSqlCalls": 1302
+    },
+    {
+      "phase": "subtree-move",
+      "rotations": 4,
+      "depth": 3,
+      "medianWallMs": 648,
+      "medianRequests": 6,
+      "maxConflicts": 0,
+      "medianPgStatements": 180,
+      "medianLocalSqlCalls": 1322
+    },
+    {
+      "phase": "fresh-reader-hydration",
+      "rotations": 1,
+      "depth": 3,
+      "medianWallMs": 2982,
+      "medianRequests": 69,
+      "maxConflicts": 0,
+      "medianPgStatements": 1546,
+      "medianLocalSqlCalls": 7918
+    },
+    {
+      "phase": "fresh-reader-hydration",
+      "rotations": 4,
+      "depth": 3,
+      "medianWallMs": 3362,
+      "medianRequests": 69,
+      "maxConflicts": 0,
+      "medianPgStatements": 1553,
+      "medianLocalSqlCalls": 8123
+    },
+    {
+      "phase": "roster-vouched-share",
+      "rotations": 1,
+      "depth": 3,
+      "medianWallMs": 1302,
+      "medianRequests": 21,
+      "maxConflicts": 0,
+      "medianPgStatements": 632,
+      "medianLocalSqlCalls": 3261
+    },
+    {
+      "phase": "roster-vouched-share",
+      "rotations": 4,
+      "depth": 3,
+      "medianWallMs": 1470,
+      "medianRequests": 21,
+      "maxConflicts": 0,
+      "medianPgStatements": 633,
+      "medianLocalSqlCalls": 3281
+    }
+  ],
+  "baselines": [
+    {
+      "phase": "seed-history",
+      "sizeMiB": 1,
+      "race": false,
+      "baselineMode": null,
+      "medianWallMs": 471,
+      "medianRequests": 4,
+      "maxConflicts": 0,
+      "medianPgStatements": 103,
+      "medianLocalSqlCalls": 593,
+      "peakRssDeltaMiB": 139.7
+    },
+    {
+      "phase": "seed-history",
+      "sizeMiB": 5,
+      "race": false,
+      "baselineMode": null,
+      "medianWallMs": 1125,
+      "medianRequests": 4,
+      "maxConflicts": 0,
+      "medianPgStatements": 103,
+      "medianLocalSqlCalls": 593,
+      "peakRssDeltaMiB": 188.1
+    },
+    {
+      "phase": "first-unlink-rotate",
+      "sizeMiB": 1,
+      "race": false,
+      "baselineMode": "inline",
+      "medianWallMs": 604,
+      "medianRequests": 4,
+      "maxConflicts": 0,
+      "medianPgStatements": 101,
+      "medianLocalSqlCalls": 1124,
+      "peakRssDeltaMiB": 32.3
+    },
+    {
+      "phase": "first-unlink-rotate",
+      "sizeMiB": 5,
+      "race": false,
+      "baselineMode": "inline",
+      "medianWallMs": 1426,
+      "medianRequests": 4,
+      "maxConflicts": 0,
+      "medianPgStatements": 102,
+      "medianLocalSqlCalls": 1124,
+      "peakRssDeltaMiB": 169.1
+    },
+    {
+      "phase": "fresh-reader-sync",
+      "sizeMiB": 1,
+      "race": false,
+      "baselineMode": null,
+      "medianWallMs": 1286,
+      "medianRequests": 36,
+      "maxConflicts": 0,
+      "medianPgStatements": 660,
+      "medianLocalSqlCalls": 3119,
+      "peakRssDeltaMiB": 217.5
+    },
+    {
+      "phase": "fresh-reader-sync",
+      "sizeMiB": 5,
+      "race": false,
+      "baselineMode": null,
+      "medianWallMs": 1761,
+      "medianRequests": 36,
+      "maxConflicts": 0,
+      "medianPgStatements": 660,
+      "medianLocalSqlCalls": 3119,
+      "peakRssDeltaMiB": 126.7
+    },
+    {
+      "phase": "second-unlink-rotate",
+      "sizeMiB": 1,
+      "race": false,
+      "baselineMode": "inline",
+      "medianWallMs": 671,
+      "medianRequests": 4,
+      "maxConflicts": 0,
+      "medianPgStatements": 100,
+      "medianLocalSqlCalls": 1430,
+      "peakRssDeltaMiB": 54.9
+    },
+    {
+      "phase": "second-unlink-rotate",
+      "sizeMiB": 5,
+      "race": false,
+      "baselineMode": "inline",
+      "medianWallMs": 1611,
+      "medianRequests": 4,
+      "maxConflicts": 0,
+      "medianPgStatements": 101,
+      "medianLocalSqlCalls": 1430,
+      "peakRssDeltaMiB": 336
+    }
+  ]
+}

@@ -246,6 +246,10 @@ describe("runInventoryCommand", () => {
       recursive: true,
     });
     await mkdir(join(repo, "packages/app/src"), { recursive: true });
+    await mkdir(join(repo, "packages/crypto/src"), { recursive: true });
+    await mkdir(join(repo, "packages/validators/src/response"), {
+      recursive: true,
+    });
     await mkdir(join(repo, "docs"), { recursive: true });
 
     await writeFile(
@@ -273,6 +277,14 @@ CREATE INDEX "notes_title_id_idx" ON "notes" USING btree ("title","id");`,
       `export const q = [localNotes.id, localNotes.title];`,
     );
     await writeFile(
+      join(repo, "packages/crypto/src/seal.ts"),
+      `export const suite = "sealingSuite";`,
+    );
+    await writeFile(
+      join(repo, "packages/validators/src/response/writerProjectionWire.ts"),
+      `export const digest = "levelDigest";`,
+    );
+    await writeFile(
       join(repo, "docs/openapi.json"),
       JSON.stringify({
         paths: {
@@ -286,6 +298,8 @@ CREATE INDEX "notes_title_id_idx" ON "notes" USING btree ("title","id");`,
                         type: "object",
                         properties: {
                           title: { type: "string" },
+                          sealingSuite: { type: "string" },
+                          levelDigest: { type: "string" },
                           neverReadField: { type: "string" },
                         },
                       },

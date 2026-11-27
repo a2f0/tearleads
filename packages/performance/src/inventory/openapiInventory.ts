@@ -191,6 +191,12 @@ export async function auditOpenApi(
     join(repoRoot, "packages/api-client/src"),
     join(repoRoot, "packages/app/src"),
     join(repoRoot, "packages/cli/src"),
+    join(repoRoot, "packages/crypto/src"),
+    join(repoRoot, "packages/validators/src/response/writerProjectionWire.ts"),
+    join(
+      repoRoot,
+      "packages/validators/src/response/manifestBundleReferences.ts",
+    ),
   ]);
 
   const unreadResponseFields: UnreadResponseFieldLead[] = [];

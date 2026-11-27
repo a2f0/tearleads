@@ -5,7 +5,9 @@ production. It imports public SDK, SQLite, and PostgreSQL transport entry
 points, plus the API's test runtime for the local realtime hub probes. The app,
 SDK, and API do not depend on it.
 
-Measured runs live in [results](results/README.md), one dated file per run.
+Measured runs live in the [Epoch 2 results ledger](results/README.md),
+with machine-readable snapshots under `results/epoch-2/` and automated
+improvement, regression, and tradeoff analysis via `bun run perf:epoch`.
 This README describes the experiments and how to repeat them.
 
 The [database round-trip experiment](database-experiment.md) separates connection
@@ -44,6 +46,7 @@ as this README describes, and record a run that supports a shipped change in
 
 | Skill | Tasks |
 | --- | --- |
+| `full-optimization` | `perf:epoch record` and `perf:epoch analyze` for longitudinal Epoch 2 tracking across `perf:canaries`, `perf:scenarios`, `perf:inventory`, `perf:plans`, `perf:reload`, `perf:realtime`, `perf:rotations`, and `perf:baselines` |
 | `protocol-efficiency-audit` | `perf:canaries --payload-audit [--stacks]` for app canary requests, wire bytes, WS hints, ceiling drift, and pane/field/echo attribution; `perf:scenarios --payload-audit` for multi-party `bob-and-alice` HTTP/409/payload traces; `perf:reload` (`--ack-delay-ms`, `--peer-edits`), `perf:rotations`, and `perf:baselines` (`--race`) for scaled reload, rotation/revocation, and baseline staging costs; `perf:inventory` for static route/table/field census; `perf:realtime` and `perf:realtime-contention` for the hub; `perf:provision`, `perf:seed --cloudflare`, and `perf:database` results for deployed costs |
 | `database-efficiency-audit` | `perf:canaries --statements --param-hash --client-statements`, `perf:scenarios --statements --param-hash --client-statements`, and `perf:statements` for API route/tx/lock-hold/pure-repeat and client SQLite baselines; `perf:plans` for Postgres generic-plan screening; `perf:inventory` for schema/index/unread-column census; `perf:realtime` and `perf:realtime-contention` for hub statements and stalls; `perf:reload`, `perf:rotations`, and `perf:baselines` for scaled API and client SQLite statements/plans; `perf:database`, `perf:provision --cloudflare`, and `perf:seed --cloudflare` results for deployed costs |
 
@@ -73,7 +76,7 @@ attach correlated `api.request.cost` Worker logs (requiring the same Cloudflare
 credentials as `perf:provision --cloudflare`).
 Keys travel over stdin and are discarded. This exercises the deployed API and
 blob storage through the SDK. Browser rendering and OPFS require a web test.
-See the [2026-11-20 production run](results/deployed/2026-11-20-continuity-seed-round-trip.md).
+Record significant runs in the [results ledger](results/README.md).
 
 ## Realtime hub interest authorization
 
@@ -144,16 +147,15 @@ Durations and CPU do not match production. Bun's JavaScriptCore
 runs the hub code here instead of workerd's V8, and a local PostgreSQL answers
 in well under a millisecond, where the deployed hub waits about 5 ms per warm
 exchange through Hyperdrive
-([database round trip](results/deployed/2026-10-26-database-round-trip.md)). The
+([database experiment](database-experiment.md)). The
 returned bytes also cross the network in production. Memory is sampled every
 5 ms at event-loop turns, so a peak between two awaits is missed, and the
 peaks are lower bounds. Bun's heap figure leaves out Buffer storage, which the
 RSS figure includes. The process keeps pages it has touched, so a later sample
 can report a smaller RSS increase than the first. CPU includes the proxy's
 relay work, about 0.75 ms per MB returned on an M2 Pro. Reports are saved as
-`.test_files/performance/realtime-<run>.json`. See the
-[2026-11-25 results](results/realtime/2026-11-25-realtime-hub-interest.md) at 100,
-1,000 and 10,000 folders.
+`.test_files/performance/realtime-<run>.json` and recorded in the
+[Epoch 2 ledger](results/README.md).
 
 ## Realtime hub contention
 
@@ -219,8 +221,8 @@ The interest probe's measurement boundary applies. Hint lag tracks the
 longest synchronous stretch between two awaits, which depends on the engine:
 Bun's JavaScriptCore here, workerd's V8 in production. Lag is clamped at zero,
 since a timer can fire a fraction of a millisecond early. Reports are saved
-as `.test_files/performance/realtime-contention-<run>.json`. See the
-[2026-11-25 results](results/realtime/2026-11-25-realtime-hub-contention.md).
+as `.test_files/performance/realtime-contention-<run>.json` and recorded in the
+[Epoch 2 ledger](results/README.md).
 
 ## Document reload
 
@@ -279,8 +281,8 @@ requests (`POST /auth/ws-ticket`, `GET /organization-memberships` and the
 billing read) are not made. The account has no Contacts folder, which the
 app's system bootstrap creates after sign-in, so nothing the app requests for
 that folder is counted. Reports are saved as
-`.test_files/performance/reload-<run>.json`. See the
-[2026-11-26 results](results/reload/2026-11-26-document-reload.md).
+`.test_files/performance/reload-<run>.json` and recorded in the
+[Epoch 2 ledger](results/README.md).
 
 ## Request-volume canaries
 
@@ -399,8 +401,7 @@ census).
 
 ## Account provisioning
 
-The [initial production baseline](results/deployed/2026-10-24-provisioning.md) records
-three registrations and their correlated database and CPU measurements.
+Record provisioning runs in the [Epoch 2 ledger](results/README.md).
 
 Build the workspace SDK before running so the experiment uses current source:
 
