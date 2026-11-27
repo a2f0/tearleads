@@ -13,6 +13,7 @@ test("runs named files in one package", () => {
       "--name",
       "budget",
       "--param-hash",
+      "--client-statements",
       "--limit",
       "500",
     ]),
@@ -22,11 +23,17 @@ test("runs named files in one package", () => {
     files: ["src/a.test.ts", "./src/b.test.ts"],
     name: "budget",
     paramHash: true,
+    clientStatements: true,
     limit: 500,
   });
   expect(
     parseStatementOptions(["--package", "app", "--file", "x.test.tsx"]),
-  ).toMatchObject({ name: null, paramHash: false, limit: null });
+  ).toMatchObject({
+    name: null,
+    paramHash: false,
+    clientStatements: false,
+    limit: null,
+  });
   expect(parseStatementOptions(["--help"])).toBeNull();
 });
 
@@ -40,6 +47,7 @@ test("summarizes a saved capture without running tests", () => {
     ["--file", "a.test.ts"],
     ["--name", "budget"],
     ["--param-hash"],
+    ["--client-statements"],
     ["--limit", "5"],
   ])
     expect(() =>

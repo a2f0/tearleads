@@ -22,12 +22,13 @@ The [document reload probe](#document-reload) counts the requests a returning
 client makes when it reloads, as its account grows. Run it with
 `bun run perf:reload`.
 
-The [request-volume canaries](#request-volume-canaries) record what the app's
-canary tests send to the API, per phase and endpoint, plus optional payload
-attribution (`--payload-audit`, `--stacks`), API statements (`--statements`),
-and client SQLite statements (`--client-statements`). Run them with
-`bun run perf:canaries`. The [statement capture](#statement-capture) records
-every statement the API sends while tests run (`bun run perf:statements`).
+The [request-volume canaries](#request-volume-canaries) record app canary API
+traffic, payload attribution (`--payload-audit`, `--stacks`), API SQL
+(`--statements`), and client SQLite (`--client-statements`) via
+`bun run perf:canaries`. The [scenario profiler](scenarios-and-probes.md) runs
+those same captures across `packages/bob-and-alice` (`bun run perf:scenarios`).
+The [statement capture](#statement-capture) records API (and
+`--client-statements` SQLite) statements for any package (`bun run perf:statements`).
 
 The [PostgreSQL plan analyzer and static inventory](plans-and-inventory.md)
 screen captured `SELECT`s with `EXPLAIN (GENERIC_PLAN)` (`bun run perf:plans`)

@@ -4,13 +4,15 @@ import { integer } from "../inProcess/optionValues";
 export type StatementOptions =
   | {
       readonly mode: "run";
-      /** A directory under `packages`, such as `api` or `app`. */
+      /** A directory under `packages`, such as `api`, `app`, or `bob-and-alice`. */
       readonly package: string;
       /** Test files, relative to the package. */
       readonly files: readonly string[];
       /** Bun's `-t` test name pattern. */
       readonly name: string | null;
       readonly paramHash: boolean;
+      /** Also record client SQLite statements and serialized mutation-lock holds. */
+      readonly clientStatements: boolean;
       readonly limit: number | null;
     }
   | { readonly mode: "summarize"; readonly capture: string };
@@ -18,19 +20,20 @@ export type StatementOptions =
 export const statementUsage = `Record every statement the API's ORM sends while tests run, and summarize them.
 
 bun run perf:statements --package api --file <test file>... [--name <pattern>]
-                        [--param-hash] [--limit <records>]
+                        [--param-hash] [--client-statements] [--limit <records>]
 bun run perf:statements --summarize <capture.jsonl>
 
 Runs bun test in packages/<package> on the given files, relative to that
-package, with its own preloads and then the statement capture preload. API
-tests use API_DATABASE=memory unless it is set. --name is bun test's -t
-pattern. --param-hash adds a hash of each statement's bind values, so a
-repeated statement can be told apart from one reading another key; bind
-values are never written. --limit stops recording after that many records.
-The capture, its summary as JSON and Markdown, and the test output are saved
-under .test_files/performance/. --summarize summarizes an existing capture,
-such as one perf:canaries --statements kept; relative paths resolve from the
-repository root.`;
+package, with its own preloads and then the statement capture preload. API and
+bob-and-alice tests use API_DATABASE=memory unless it is set. --name is bun
+test's -t pattern. --param-hash adds a hash of each statement's bind values, so
+a repeated statement can be told apart from one reading another key; bind
+values are never written. --client-statements also records client SQLite
+statements and serialized mutation-lock holds. --limit stops recording after
+that many records. The capture, its summary as JSON and Markdown, and the test
+output are saved under .test_files/performance/. --summarize summarizes an
+existing capture, such as one perf:canaries --statements kept; relative paths
+resolve from the repository root.`;
 
 export function parseStatementOptions(args: string[]): StatementOptions | null {
   const { values, positionals } = parseArgs({
@@ -40,6 +43,7 @@ export function parseStatementOptions(args: string[]): StatementOptions | null {
       file: { type: "string", multiple: true, default: [] },
       name: { type: "string" },
       "param-hash": { type: "boolean", default: false },
+      "client-statements": { type: "boolean", default: false },
       limit: { type: "string" },
       summarize: { type: "string" },
       help: { type: "boolean", default: false },
@@ -56,6 +60,7 @@ export function parseStatementOptions(args: string[]): StatementOptions | null {
       values.file.length > 0 ||
       values.name !== undefined ||
       values["param-hash"] ||
+      values["client-statements"] ||
       values.limit !== undefined
     )
       throw new Error("--summarize reads a saved capture; it runs no tests.");
@@ -70,6 +75,7 @@ export function parseStatementOptions(args: string[]): StatementOptions | null {
     files: values.file,
     name: values.name ?? null,
     paramHash: values["param-hash"],
+    clientStatements: values["client-statements"],
     limit:
       values.limit === undefined
         ? null
