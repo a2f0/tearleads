@@ -22,12 +22,12 @@
 .organization-usage-breakdown {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-xs);
 }
 
 .organization-usage-subrow {
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--space-sm);
 }
 
 .organization-usage-subrow .mini-app-row-stack {

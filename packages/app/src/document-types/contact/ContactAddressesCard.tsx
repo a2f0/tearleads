@@ -40,7 +40,11 @@ export function ContactAddressesCard(props: {
           </MiniAppButton>
         ) : null}
         {props.isEditing ? (
-          <MiniAppButton disabled={props.disabled} onClick={props.onRemove}>
+          <MiniAppButton
+            disabled={props.disabled}
+            onClick={props.onRemove}
+            variant="danger"
+          >
             Remove address
           </MiniAppButton>
         ) : null}

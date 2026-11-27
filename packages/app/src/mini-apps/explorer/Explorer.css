@@ -33,7 +33,7 @@
 
 .explorer-document-type-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
   gap: var(--space-sm);
 }
 
@@ -237,9 +237,14 @@
   cursor: pointer;
 }
 
-.explorer-node-toggle:hover,
 .explorer-node-toggle:focus-visible {
   opacity: var(--opacity-subtle);
+}
+
+@media (hover: hover) {
+  .explorer-node-toggle:hover {
+    opacity: var(--opacity-subtle);
+  }
 }
 
 .explorer-node-icon {
@@ -283,6 +288,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -340,6 +346,7 @@
   flex-direction: column;
   gap: var(--space-md);
   flex: 1;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -352,14 +359,22 @@
 
 .explorer-blob-preview-frame {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
+  gap: var(--space-sm);
   min-height: 12rem;
   max-height: 24rem;
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
   padding: var(--space-sm);
   border: var(--border);
+  border-radius: var(--app-radius-control);
+}
+
+.explorer-blob-preview-frame:has(.explorer-blob-preview-text) {
+  align-items: stretch;
+  justify-content: flex-start;
 }
 
 /* The image preview is a button into the full-screen viewer, but it should read

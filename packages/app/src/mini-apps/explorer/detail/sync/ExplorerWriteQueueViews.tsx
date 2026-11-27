@@ -3,7 +3,7 @@ import type {
   DomainSyncSnapshot,
   PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -12,6 +12,7 @@ import {
   MiniAppModalHighlight,
   MiniAppModalPanel,
   MiniAppStatus,
+  useModalEscapeAndFocusRestore,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerWriteQueueEntryDetail } from "./ExplorerWriteQueueEntryDetail";
@@ -27,6 +28,8 @@ export function WriteQueueDiscardConfirmDialog(params: {
   onConfirm: () => void;
 }) {
   const titleId = useId();
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  useModalEscapeAndFocusRestore(params.onCancel, cancelButtonRef);
   return (
     <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
@@ -49,8 +52,10 @@ export function WriteQueueDiscardConfirmDialog(params: {
             {EXPLORER_LABELS.writeQueueDiscardConfirmBody}
           </MiniAppStatus>
           <MiniAppActions>
-            <MiniAppButton onClick={params.onCancel}>Cancel</MiniAppButton>
-            <MiniAppButton type="submit">
+            <MiniAppButton ref={cancelButtonRef} onClick={params.onCancel}>
+              Cancel
+            </MiniAppButton>
+            <MiniAppButton type="submit" variant="danger">
               {EXPLORER_LABELS.writeQueueDiscardAction}
             </MiniAppButton>
           </MiniAppActions>
@@ -152,7 +157,7 @@ function WriteQueueEntryBody(
   // Surface the error instead of falsely claiming the change finished syncing.
   if (params.error !== null) {
     return (
-      <MiniAppStatus>
+      <MiniAppStatus tone="error">
         <WriteQueueLoadError error={params.error} />
       </MiniAppStatus>
     );

@@ -32,7 +32,7 @@ function TwoFactorPanelBody({ panel }: { readonly panel: TwoFactorPanel }) {
           <MiniAppStatus role="alert" tone="error">
             {state.message}
           </MiniAppStatus>
-          <MiniAppToolbar>
+          <MiniAppToolbar wrap>
             <MiniAppButton onClick={() => void panel.retry()} type="button">
               Try again
             </MiniAppButton>
@@ -51,7 +51,7 @@ function TwoFactorPanelBody({ panel }: { readonly panel: TwoFactorPanel }) {
             Two-factor authentication asks for a code from an authenticator app
             each time this identity signs in on a new device.
           </MiniAppStatus>
-          <MiniAppToolbar>
+          <MiniAppToolbar wrap>
             <MiniAppButton
               loading={busy === "setup"}
               onClick={() => void panel.beginSetup()}

@@ -40,6 +40,20 @@
   cursor: default;
 }
 
+/* Shared clickable label row for MiniAppCheckbox; guarantees the 44px touch
+   target in routed mode so callers never re-declare it piecemeal. */
+.mini-app-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+:root[data-navigation-mode="routed"] .mini-app-checkbox-label {
+  min-height: var(--control-height);
+}
+
 /* Let the platform draw its high-contrast checkbox and checkmark. */
 @media (forced-colors: active) {
   .mini-app-checkbox {

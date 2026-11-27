@@ -65,3 +65,8 @@
   .routed-pane-sidebar {
   inset-block-start: 0;
 }
+
+.tearleads-frame.layout:has(> .billing-banner, > .runtime-restart-notice)
+  > .demo-legal-terms-gate {
+  padding-block-start: 0;
+}

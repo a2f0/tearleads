@@ -16,13 +16,13 @@
   min-height: 14rem;
   margin: 0;
   overflow: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
   padding: var(--space-md);
   border: var(--border);
+  border-radius: var(--app-radius-control);
   background: transparent;
   color: inherit;
-  font-family:
-    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
-    monospace;
+  font-family: var(--tearleads-font-family);
   font-size: var(--font-size-sm);
   line-height: 1.5;
   white-space: pre-wrap;
@@ -42,19 +42,25 @@
   min-height: 18rem;
   padding: var(--space-md);
   border: var(--border);
-  background: transparent;
+  border-color: var(--app-control-border);
+  border-radius: var(--app-radius-control);
+  background: var(--color-light);
   color: inherit;
-  font-family:
-    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
-    monospace;
+  font-family: var(--tearleads-font-family);
   font-size: var(--font-size-sm);
   line-height: 1.5;
   resize: vertical;
 }
 
+.json-file-content-field textarea:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
 .json-file-empty-state {
   padding: var(--space-md);
   border: var(--border);
+  border-radius: var(--app-radius-control);
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
 }

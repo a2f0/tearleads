@@ -85,6 +85,7 @@ export function TrackerRowActions(params: {
         disabled={disabled}
         onClick={onRemove}
         title={removeAriaLabel}
+        variant="danger"
       >
         <TrashIcon aria-hidden size={14} />
         Remove

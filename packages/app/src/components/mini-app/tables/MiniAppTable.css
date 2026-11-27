@@ -115,10 +115,16 @@
 }
 
 .mini-app-table-row--selected .mini-app-table-cell,
-.mini-app-table-row--interactive:hover .mini-app-table-cell,
 .mini-app-table-row--interactive:focus-visible .mini-app-table-cell {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .mini-app-table-row--interactive:hover .mini-app-table-cell {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
 }
 
 .mini-app-table-empty {
@@ -157,9 +163,14 @@
   cursor: pointer;
 }
 
-.mini-app-table-action:hover:not(:disabled),
 .mini-app-table-action:focus-visible:not(:disabled) {
   text-decoration: underline;
+}
+
+@media (hover: hover) {
+  .mini-app-table-action:hover:not(:disabled) {
+    text-decoration: underline;
+  }
 }
 
 .mini-app-table-action:disabled {

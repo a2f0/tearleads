@@ -92,7 +92,7 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
         {restoring && (
           <SavedPassphraseButton disabled={false} onPick={setValue} />
         )}
-        <MiniAppToolbar>
+        <MiniAppToolbar wrap>
           {leaveForm && (
             <MiniAppButton type="button" variant="ghost" onClick={leaveForm}>
               Back
@@ -137,7 +137,7 @@ export function AccountBootstrapProgressPanel({
         description={progress.description}
         title={progress.title}
       >
-        <MiniAppToolbar>
+        <MiniAppToolbar wrap>
           <MiniAppButton onClick={() => onboarding.navigate("naming-account")}>
             Create new identity
           </MiniAppButton>

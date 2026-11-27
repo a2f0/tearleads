@@ -1,108 +1,127 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import type { RoutedLayoutTier } from "../launcher/useRoutedLayoutTier";
 import type { LauncherPlacement } from "./launcherPlacement";
+import {
+  initialRoutedPaneOverlaysState,
+  isRoutedDrawerOpen,
+  isRoutedSidebarExpanded,
+  transitionRoutedPaneOverlays,
+} from "./routedPaneOverlaysMachine";
 
 export function invertBoolean(value: boolean): boolean {
   return !value;
 }
 
-// Reset the tier-specific overlays when the layout crosses the breakpoint
-// (resize / rotation): the bottom sheet belongs to mobile or tablet bottom
-// mode, and the expanded sidebar becomes a full-screen dialog on mobile.
-function useCollapseOverlaysOnTierChange({
-  closeDrawer,
-  closeSidebar,
-  tier,
-}: {
-  closeDrawer: () => void;
-  closeSidebar: () => void;
-  tier: RoutedLayoutTier;
-}) {
+// Listen on `window` (bubble phase) so any in-app modal or menu listening on
+// `document` handles Escape first and calls `preventDefault()`, preventing a
+// background shell overlay from stealing Escape or focus underneath a dialog.
+function useEscapeToDismissOverlay(open: boolean, onDismiss: () => void) {
   useEffect(() => {
-    if (tier === "tablet") {
-      closeDrawer();
-    }
-  }, [tier, closeDrawer]);
-
-  useEffect(() => {
-    if (tier === "mobile") {
-      closeSidebar();
-    }
-  }, [tier, closeSidebar]);
-}
-
-function useEscapeToDismissDrawer(
-  drawerOpen: boolean,
-  dismissDrawer: () => void,
-) {
-  useEffect(() => {
-    if (!drawerOpen) {
+    if (!open) {
       return;
     }
     const dismissOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !event.defaultPrevented) {
         event.preventDefault();
-        dismissDrawer();
+        onDismiss();
       }
     };
-    document.addEventListener("keydown", dismissOnEscape);
-    return () => document.removeEventListener("keydown", dismissOnEscape);
-  }, [dismissDrawer, drawerOpen]);
+    window.addEventListener("keydown", dismissOnEscape);
+    return () => window.removeEventListener("keydown", dismissOnEscape);
+  }, [onDismiss, open]);
 }
 
 /**
  * The sidebar and the launcher sheet: whether each is open, and the actions
- * that open, close, and move them. Dismissing the sheet returns focus to the
- * taskbar's menu button, which opened it.
+ * that open, close, and move them. Dismissing a mobile overlay returns focus
+ * to the button that opened it (the taskbar menu button or app-bar sidebar
+ * toggle).
  */
 export function useRoutedPaneOverlays({
+  hasSidebar,
   initialSidebarExpanded,
   launcherPlacement,
   navigationRailExpanded,
   onToggleLauncherPlacement,
   tier,
 }: {
+  hasSidebar: boolean;
   initialSidebarExpanded: () => boolean;
   launcherPlacement: LauncherPlacement;
   navigationRailExpanded: boolean;
   onToggleLauncherPlacement: (wasOpen: boolean) => void;
   tier: RoutedLayoutTier;
 }) {
-  const [sidebarExpanded, setSidebarExpanded] = useState(
+  const [overlayState, dispatch] = useReducer(
+    transitionRoutedPaneOverlays,
     initialSidebarExpanded,
+    (init) => initialRoutedPaneOverlaysState(init()),
   );
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const sidebarExpanded = isRoutedSidebarExpanded(overlayState);
+  const drawerOpen = isRoutedDrawerOpen(overlayState);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const sidebarButtonRef = useRef<HTMLButtonElement>(null);
 
   const toggleSidebar = useCallback(
-    () => setSidebarExpanded(invertBoolean),
+    () => dispatch({ tier, type: "toggle-sidebar" }),
+    [tier],
+  );
+  const closeSidebar = useCallback(
+    () => dispatch({ type: "close-sidebar" }),
     [],
   );
-  const closeSidebar = useCallback(() => setSidebarExpanded(false), []);
-  const toggleDrawer = useCallback(() => setDrawerOpen(invertBoolean), []);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  const dismissSidebar = useCallback(() => {
+    dispatch({ type: "close-sidebar" });
+    sidebarButtonRef.current?.focus();
+  }, []);
+  const toggleDrawer = useCallback(
+    () => dispatch({ tier, type: "toggle-drawer" }),
+    [tier],
+  );
+  const closeDrawer = useCallback(() => dispatch({ type: "close-drawer" }), []);
   const dismissDrawer = useCallback(() => {
-    closeDrawer();
+    dispatch({ type: "close-drawer" });
     menuButtonRef.current?.focus();
-  }, [closeDrawer]);
-  useEscapeToDismissDrawer(drawerOpen, dismissDrawer);
+  }, []);
+
+  useEscapeToDismissOverlay(drawerOpen, dismissDrawer);
+  useEscapeToDismissOverlay(
+    tier === "mobile" && hasSidebar && sidebarExpanded,
+    dismissSidebar,
+  );
+
   const moveLauncher = () => {
     const wasOpen =
       launcherPlacement === "side" ? navigationRailExpanded : drawerOpen;
-    setDrawerOpen(launcherPlacement === "side" && wasOpen);
+    dispatch({
+      open: launcherPlacement === "side" && wasOpen,
+      tier,
+      type: "set-drawer-open",
+    });
     menuButtonRef.current?.focus();
     onToggleLauncherPlacement(wasOpen);
   };
 
-  useCollapseOverlaysOnTierChange({ closeDrawer, closeSidebar, tier });
+  // Reset tier-specific overlays when crossing the mobile/tablet breakpoint
+  // (resize / rotation).
+  const initialTierRef = useRef(tier);
+  useEffect(() => {
+    if (initialTierRef.current === tier) {
+      return;
+    }
+    initialTierRef.current = tier;
+    dispatch({ tier, type: "tier-changed" });
+  }, [tier]);
 
   return {
     closeDrawer,
     closeSidebar,
     dismissDrawer,
+    dismissSidebar,
     drawerOpen,
     menuButtonRef,
     moveLauncher,
+    sidebarButtonRef,
     sidebarExpanded,
     toggleDrawer,
     toggleSidebar,

@@ -125,6 +125,7 @@
     border: var(--border-strong);
     background: var(--color-light);
     overflow-y: auto;
+    scrollbar-gutter: var(--scrollbar-gutter);
     overscroll-behavior: contain;
   }
 

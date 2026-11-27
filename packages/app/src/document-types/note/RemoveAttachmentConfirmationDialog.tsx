@@ -1,5 +1,5 @@
 import type { DocumentAttachment } from "@tearleads/client-sdk";
-import { type FormEvent, useId } from "react";
+import { type FormEvent, useId, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -7,6 +7,7 @@ import {
   MiniAppModalForm,
   MiniAppModalHighlight,
   MiniAppModalPanel,
+  useModalEscapeAndFocusRestore,
 } from "../../components/mini-app/MiniAppLayout";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
@@ -25,6 +26,9 @@ export function RemoveAttachmentConfirmationDialog({
 }) {
   const titleId = useId();
   const messageId = useId();
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+
+  useModalEscapeAndFocusRestore(onCancel, cancelButtonRef);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -49,10 +53,14 @@ export function RemoveAttachmentConfirmationDialog({
             {NOTE_DOCUMENT_LABELS.removeAttachmentConfirmMessageTail}
           </p>
           <MiniAppActions>
-            <MiniAppButton onClick={onCancel} type="button">
+            <MiniAppButton
+              onClick={onCancel}
+              ref={cancelButtonRef}
+              type="button"
+            >
               {NOTE_DOCUMENT_LABELS.removeAttachmentConfirmCancel}
             </MiniAppButton>
-            <MiniAppButton type="submit">
+            <MiniAppButton type="submit" variant="danger">
               {NOTE_DOCUMENT_LABELS.removeAttachmentConfirmConfirm}
             </MiniAppButton>
           </MiniAppActions>

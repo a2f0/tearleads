@@ -4,6 +4,7 @@ import {
   MiniAppTable,
   MiniAppTableCell,
   MiniAppTableEmptyRow,
+  MiniAppTableFrame,
   MiniAppTableRow,
 } from "../../../components/mini-app/MiniAppTable";
 import { useApiRequestMetrics } from "../../../providers/api/useApiRequestMetrics";
@@ -58,7 +59,7 @@ export function SystemMonitorRequests() {
           </MiniAppInfoRow>
         </tbody>
       </MiniAppInfoTable>
-      <div className="system-monitor-request-table">
+      <MiniAppTableFrame className="system-monitor-request-table">
         <MiniAppTable aria-label="Requests by endpoint" columns={columns}>
           {snapshot.endpoints.map((row) => (
             <MiniAppTableRow key={`${row.method} ${row.path}`}>
@@ -80,8 +81,8 @@ export function SystemMonitorRequests() {
             </MiniAppTableEmptyRow>
           )}
         </MiniAppTable>
-      </div>
-      <div className="system-monitor-request-table">
+      </MiniAppTableFrame>
+      <MiniAppTableFrame className="system-monitor-request-table">
         <MiniAppTable
           aria-label="Request timing by endpoint"
           columns={timingColumns}
@@ -104,7 +105,7 @@ export function SystemMonitorRequests() {
             </MiniAppTableEmptyRow>
           )}
         </MiniAppTable>
-      </div>
+      </MiniAppTableFrame>
     </section>
   );
 }

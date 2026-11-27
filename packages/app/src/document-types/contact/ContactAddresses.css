@@ -12,10 +12,16 @@
   max-width: var(--form-measure);
 }
 
+.contact-addresses > .mini-app-button {
+  align-self: flex-start;
+}
+
 .contact-addresses-card,
 .contact-addresses-editor {
+  margin: 0;
   padding: var(--space-md);
-  border: 1px solid var(--color-hairline);
+  border: var(--border-width) solid var(--color-hairline);
+  border-radius: var(--app-radius-control);
 }
 
 .contact-addresses-fields {
@@ -46,7 +52,7 @@
 }
 
 .contact-addresses dt {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .contact-addresses dd {
@@ -54,5 +60,6 @@
 }
 
 .contact-addresses-attribution-note {
-  font-size: 0.85em;
+  font-size: var(--font-size-xs);
+  opacity: var(--opacity-muted);
 }

@@ -34,6 +34,7 @@
   --color-hairline: color-mix(in srgb, var(--color-dark) 18%, transparent);
 
   --tearleads-background: #f7f8f5;
+  --desktop-background: var(--tearleads-background);
   --tearleads-border: #d6ddd2;
   --tearleads-accent: #3f6d54;
   --tearleads-text: #18211f;
@@ -42,42 +43,23 @@
   --tearleads-footer-background: var(--color-dark);
   --tearleads-footer-text: var(--color-light);
 
-  /* Header/footer action-button hover fill. A themeable inversion: Light keeps
-     the crisp white-on-dark chip (foreground/background of the dark chrome
-     band), while Dark swaps to the calm neutral-grey emphasis chip (see the
-     Dark block) so the button doesn't flash a near-white slab — matching the
-     tokenized pane-footer hovers. */
+  /* Header/footer hover inversion: white-on-dark in Light, emphasis chip in
+     Dark and Dusk. */
   --tearleads-action-hover-surface: var(--tearleads-header-text);
   --tearleads-action-hover-text: var(--tearleads-header-background);
 
-  /* Window title bar. Dedicated (not the inverting --color-* primitives) so
-     Dark can render a calm raised-chrome band instead of flipping the
-     foreground role to a near-white bar. In Light these resolve to the classic
-     dark bar / light text. */
+  /* Window title bar: dedicated so Dark/Dusk stay a calm raised surface. */
   --tearleads-window-titlebar-background: var(--color-dark);
   --tearleads-window-titlebar-text: var(--color-light);
 
-  /* Color of the strong dividers/outlines (window & panel edges). Themeable:
-     Light uses the foreground primitive; Dark tones it to a soft edge (see the
-     Dark block) so window borders don't glare. The theme-independent
-     --border-strong shorthand that consumes it lives in the Borders section. */
+  /* Strong window/panel edge; Dark and Dusk soften it explicitly. */
   --border-strong-color: var(--color-dark);
 
-  /* Color of the default `--border` (grid lines, table/cell rules, toolbar
-     dividers, control outlines). Themeable, same pattern as
-     --border-strong-color above: Light draws the classic crisp hairline that
-     matches the text (currentColor), while Dark tones it down to a muted grey
-     (see the Dark block) so the near-white foreground doesn't turn every
-     gridline and divider into a glaring white line. */
+  /* Default hairline/divider border: matches text in Light, muted in Dark/Dusk. */
   --border-color: currentColor;
 
-  /* Emphasis surface — the fill/text for selected, active, hovered, primary,
-     and checked affordances (selected rows, the active menu, primary buttons,
-     the column-menu checkbox, …). It is deliberately NOT the raw --color-dark /
-     --color-light pair: in Light both read as a charcoal-on-white chip, but a
-     straight role inversion in Dark would paint every selection a glaring
-     near-white slab. Keeping emphasis its own themeable role lets Dark render a
-     calm neutral-grey chip (see the Dark block) while Light is unchanged. */
+  /* Emphasis surface for selected, active, primary, and checked affordances;
+     kept separate from --color-dark/--color-light so Dark/Dusk stay calm. */
   --emphasis-surface: var(--color-dark);
   --emphasis-text: var(--color-light);
 
@@ -95,7 +77,6 @@
   --space-sm: 0.5rem;
   --space-md: 1rem;
   --padding: var(--space-md);
-  --footer-gap: var(--space-sm);
   --panel-padding: 0.75rem;
   --info-table-cell-padding: var(--space-xs);
   --info-table-key-value-gap: var(--space-md);
@@ -111,6 +92,7 @@
 
   /* === Controls === */
   --control-height: 2rem;
+  --control-icon-size: 1rem;
   --control-padding-block: var(--space-sm);
   --control-padding-inline: var(--space-md);
   /* Ceiling for a column of text-entry controls and any frame around it: past
@@ -275,6 +257,12 @@
   --overlay-background: rgb(0 0 0 / 55%);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition: 0s;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -321,8 +309,14 @@ body {
   font-family: inherit;
 }
 
+@supports (min-height: 100dvh) {
+  body {
+    min-height: 100dvh;
+  }
+}
+
 button,
-input,
+input:where(:not([type="checkbox"], [type="radio"])),
 select,
 textarea {
   font-family: inherit;
@@ -350,7 +344,7 @@ textarea {
     "header" auto
     "main" 1fr
     "footer" auto
-    / 1fr;
+    / minmax(0, 1fr);
   min-height: 100vh;
   background: var(--tearleads-background);
 }
@@ -472,21 +466,20 @@ textarea {
   font-size: var(--font-size-md);
 }
 
-.tearleads-action-button:hover,
 .tearleads-action-button:focus-visible {
   background: var(--tearleads-action-hover-surface);
   color: var(--tearleads-action-hover-text);
 }
 
-/* Square, control-height variant with a centered glyph. The footer's tray
-   affordances — the theme toggle, the system-monitor launcher, and the
-   workspace chips — all share this so every square tray control sizes and
-   centers identically and, crucially, inherits the base button's default
-   --border (transparent fill over the footer). That is the same edge the
-   workspace chips already drew; the theme toggle and monitor launcher used to
-   carry the heavier --border-strong window-chrome edge instead, which in Dark
-   sat invisibly against the footer while its sibling chip stayed legible. One
-   token now keeps all three consistent in both themes. */
+@media (hover: hover) {
+  .tearleads-action-button:hover {
+    background: var(--tearleads-action-hover-surface);
+    color: var(--tearleads-action-hover-text);
+  }
+}
+
+/* Square icon-only tray control; shares the base button's --border across
+   Light, Dark, and Dusk so sibling tray buttons match. */
 .tearleads-action-button--icon {
   display: inline-flex;
   align-items: center;

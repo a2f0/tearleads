@@ -1,5 +1,6 @@
 import type { Icon } from "@phosphor-icons/react";
 import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
+import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { Menu, type MenuPosition } from "@tearleads/windowing";
 import { type RefObject, useEffect, useRef } from "react";
 import { classNames } from "../../shared/classNames";
@@ -166,6 +167,15 @@ function MiniAppSelectMenuOptionButton(params: {
         <span className="mini-app-select-menu-option-secondary">
           {params.option.secondaryLabel}
         </span>
+      ) : null}
+      {params.selected ? (
+        <CheckIcon
+          aria-hidden="true"
+          className="mini-app-select-menu-check"
+          focusable="false"
+          size={14}
+          weight="bold"
+        />
       ) : null}
     </button>
   );

@@ -16,9 +16,16 @@
     calc(var(--space-sm) + var(--safe-area-right));
   color: var(--color-danger);
   font-size: var(--font-size-sm);
-  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-muted));
+  /* Light 6% tint over --color-light keeps >= 4.8:1 WCAG AA contrast for
+     --color-danger text in Light, Dark, and Dusk. */
+  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-light));
   border-top: var(--border-width) solid var(--color-hairline);
   text-align: center;
+}
+
+/* In tablet side-rail mode the rail already absorbs --safe-area-left. */
+.routed-pane--tablet[data-launcher-placement="side"] .test-system-banner {
+  padding-inline-start: var(--space-sm);
 }
 
 .test-system-banner[hidden] {

@@ -14,18 +14,25 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 1px;
+  width: var(--border-width);
   background: var(--color-dark);
   content: "";
-  opacity: var(--opacity-disabled);
+  opacity: var(--opacity-icon);
 }
 
-.sidebar-resize-handle:hover::before,
 .sidebar-resize-handle:focus-visible::before {
   width: 2px;
   opacity: var(--opacity-subtle);
 }
 
+@media (hover: hover) {
+  .sidebar-resize-handle:hover::before {
+    width: 2px;
+    opacity: var(--opacity-subtle);
+  }
+}
+
 .sidebar-resize-handle:focus-visible {
-  outline: none;
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
 }

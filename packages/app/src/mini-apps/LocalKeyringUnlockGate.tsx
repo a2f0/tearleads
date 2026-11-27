@@ -203,7 +203,7 @@ function LocalIdentitySetupPanel({
         <h2>Local keys required</h2>
         <p>Generate a local key pair to open {appName}.</p>
       </div>
-      <MiniAppToolbar>
+      <MiniAppToolbar wrap>
         <MiniAppButton disabled={isGenerating} onClick={generateKey}>
           {isGenerating ? "Generating..." : "Generate Key Pair"}
         </MiniAppButton>
@@ -267,7 +267,7 @@ function LocalKeyringUnlockPanel({ appName }: { appName: string }) {
           />
         </MiniAppField>
         {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
-        <MiniAppToolbar>
+        <MiniAppToolbar wrap>
           <MiniAppButton disabled={unlocking} type="submit">
             {unlocking ? "Unlocking..." : "Unlock"}
           </MiniAppButton>

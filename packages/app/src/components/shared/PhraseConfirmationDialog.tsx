@@ -1,8 +1,9 @@
 import {
   type FormEvent,
   type ReactNode,
-  useEffect,
+  useCallback,
   useId,
+  useRef,
   useState,
 } from "react";
 import {
@@ -12,8 +13,8 @@ import {
   MiniAppModalForm,
   MiniAppModalPanel,
   MiniAppStatus,
+  useModalEscapeAndFocusRestore,
 } from "../mini-app/MiniAppLayout";
-import "./PhraseConfirmationDialog.css";
 import {
   isPhraseConfirmed,
   PhraseConfirmationField,
@@ -36,36 +37,29 @@ interface PhraseConfirmationDialogProps {
   readonly warning: ReactNode;
 }
 
-/**
- * Modal that gates an irreversible or dangerous action behind a phrase the user
- * has to type out, so the confirmation cannot be clicked through reflexively.
- */
-export function PhraseConfirmationDialog({
+function PhraseConfirmationDialogContent({
   busy = false,
   error,
   confirmLabel,
-  isOpen,
   onCancel,
   onConfirm,
   phrase,
   title,
   warning,
-}: PhraseConfirmationDialogProps) {
+}: Omit<PhraseConfirmationDialogProps, "isOpen">) {
   const [confirmationText, setConfirmationText] = useState("");
   const titleId = useId();
   const warningId = useId();
   const errorId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const confirmed = isPhraseConfirmed(confirmationText, phrase);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setConfirmationText("");
+  const handleEscape = useCallback(() => {
+    if (!busy) {
+      onCancel();
     }
-  }, [isOpen]);
+  }, [busy, onCancel]);
 
-  if (!isOpen) {
-    return null;
-  }
+  useModalEscapeAndFocusRestore(handleEscape, inputRef);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -86,13 +80,13 @@ export function PhraseConfirmationDialog({
       >
         <MiniAppModalForm onSubmit={handleSubmit}>
           <h2 id={titleId}>{title}</h2>
-          <p className="phrase-confirmation-dialog-warning" id={warningId}>
+          <MiniAppStatus id={warningId} tone="error">
             {warning}
-          </p>
+          </MiniAppStatus>
           <PhraseConfirmationField
-            autoFocus
             describedBy={error ? `${warningId} ${errorId}` : warningId}
             disabled={busy}
+            inputRef={inputRef}
             onChange={setConfirmationText}
             phrase={phrase}
             value={confirmationText}
@@ -106,7 +100,12 @@ export function PhraseConfirmationDialog({
             <MiniAppButton disabled={busy} onClick={onCancel} type="button">
               Cancel
             </MiniAppButton>
-            <MiniAppButton disabled={!confirmed || busy} type="submit">
+            <MiniAppButton
+              disabled={!confirmed}
+              loading={busy}
+              type="submit"
+              variant="danger"
+            >
               {confirmLabel}
             </MiniAppButton>
           </MiniAppActions>
@@ -114,4 +113,19 @@ export function PhraseConfirmationDialog({
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>
   );
+}
+
+/**
+ * Modal that gates an irreversible or dangerous action behind a phrase the user
+ * has to type out, so the confirmation cannot be clicked through reflexively.
+ */
+export function PhraseConfirmationDialog({
+  isOpen,
+  ...props
+}: PhraseConfirmationDialogProps) {
+  if (!isOpen) {
+    return null;
+  }
+
+  return <PhraseConfirmationDialogContent {...props} />;
 }

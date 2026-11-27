@@ -56,7 +56,8 @@ export function readCheckoutAppearance(
   probe.style.display = "none";
   probe.style.color = "var(--color-dark)";
   probe.style.backgroundColor = "var(--color-light)";
-  probe.style.borderColor = "var(--color-hairline)";
+  probe.style.borderColor = "var(--app-control-border, var(--color-hairline))";
+  probe.style.borderTopLeftRadius = "var(--app-radius-control, 0px)";
   probe.style.outlineColor = "var(--color-danger)";
   probe.style.caretColor = "var(--emphasis-surface)";
   probe.style.fontFamily = "var(--tearleads-font-family)";
@@ -67,6 +68,9 @@ export function readCheckoutAppearance(
   try {
     const computed = view.getComputedStyle(probe);
     const text = firstNonEmpty(computed.color, FALLBACK.colorText);
+    const rawRadius = computed.borderTopLeftRadius?.trim();
+    const borderRadius =
+      rawRadius && rawRadius !== "0px" ? rawRadius : FALLBACK.borderRadius;
     return {
       colorBackground: firstNonEmpty(
         computed.backgroundColor,
@@ -83,8 +87,7 @@ export function readCheckoutAppearance(
       colorBorder: firstNonEmpty(computed.borderTopColor, FALLBACK.colorBorder),
       fontFamily: firstNonEmpty(computed.fontFamily, FALLBACK.fontFamily),
       fontSizeBase: firstNonEmpty(computed.fontSize, FALLBACK.fontSizeBase),
-      // The app is square-cornered (packages/ui sets border-radius: 0).
-      borderRadius: "0",
+      borderRadius,
       inputPaddingBlock: firstNonEmpty(
         computed.paddingTop,
         FALLBACK.inputPaddingBlock,

@@ -51,7 +51,7 @@ export function OrganizationTwoFactorNotice({
       <MiniAppStatus role="alert" tone="error">
         {ORG_MANAGER_LABELS.twoFactorRequiredNotice}
       </MiniAppStatus>
-      <MiniAppToolbar>
+      <MiniAppToolbar wrap>
         <MiniAppButton
           onClick={() =>
             openMiniApp({

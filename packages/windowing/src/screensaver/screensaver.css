@@ -28,59 +28,103 @@
   user-select: none;
 }
 
+.laser-screensaver {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: black;
+}
+
+:where(.screensaver-overlay--unlock) {
+  scrollbar-color: var(
+      --scrollbar-thumb,
+      color-mix(in srgb, var(--color-dark) 32%, transparent)
+    )
+    var(--scrollbar-track, transparent);
+  scrollbar-width: thin;
+}
+
 .screensaver-overlay--unlock {
   display: grid;
   place-items: center;
-  padding: 1.5rem;
+  padding: calc(var(--space-md) + var(--safe-area-top))
+    calc(var(--space-md) + var(--safe-area-right))
+    calc(var(--space-md) + var(--safe-area-bottom))
+    calc(var(--space-md) + var(--safe-area-left));
   box-sizing: border-box;
   overflow: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
   cursor: auto;
   touch-action: auto;
-  color: white;
-  font-family: system-ui, sans-serif;
+  /* Opaque surface so locked session content stays hidden even without ::backdrop. */
+  background: var(--tearleads-background, var(--color-muted));
+  color: var(--color-dark);
+  font-family: inherit;
 }
 
 .screensaver-unlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
   width: min(100%, 22rem);
-  padding: 1.5rem;
+  padding: var(--space-md);
   box-sizing: border-box;
-  border: 1px solid #666;
-  border-radius: 0.5rem;
-  background: #171717;
+  border: var(--border-strong);
+  border-radius: var(--app-radius-surface);
+  background: var(--color-light);
+  color: var(--color-dark);
+  box-shadow: var(--app-shadow-surface);
 }
 
-.screensaver-unlock h2 {
-  margin-top: 0;
+.screensaver-unlock h2,
+.screensaver-unlock p {
+  margin: 0;
+}
+
+.screensaver-unlock [role="alert"] {
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
 }
 
 .screensaver-unlock label {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
 }
 
 .screensaver-unlock input,
 .screensaver-unlock button {
   box-sizing: border-box;
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #888;
-  border-radius: 0.25rem;
+  min-height: var(--control-height);
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--border-width) solid var(--app-control-border, var(--color-dark));
+  border-radius: var(--app-radius-control);
   font: inherit;
-  color: white;
-  background: #292929;
+  color: inherit;
+  background: var(--color-light);
 }
 
 .screensaver-unlock button {
-  margin-top: 1rem;
+  background: transparent;
   cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+
+@media (hover: hover) {
+  .screensaver-unlock button:hover:not(:disabled) {
+    background: var(--app-hover-surface);
+  }
 }
 
 .screensaver-unlock :disabled {
-  opacity: 0.6;
+  opacity: var(--opacity-disabled);
   cursor: wait;
 }
 
 .screensaver-unlock :focus-visible {
-  outline: 2px solid white;
-  outline-offset: 3px;
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
 }

@@ -29,16 +29,20 @@ export function SyncStatusPopover({
           ))}
         </ul>
       )}
-      {actions.map((action) => (
-        <button
-          className="sync-status-popover-action"
-          key={action.id}
-          onClick={action.onSelect}
-          type="button"
-        >
-          <span className="menu-item-label">{action.label}</span>
-        </button>
-      ))}
+      {actions.length > 0 && (
+        <div className="sync-status-popover-actions">
+          {actions.map((action) => (
+            <button
+              className="sync-status-popover-action"
+              key={action.id}
+              onClick={action.onSelect}
+              type="button"
+            >
+              <span className="menu-item-label">{action.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </>
   );
 }

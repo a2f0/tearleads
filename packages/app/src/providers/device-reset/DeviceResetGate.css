@@ -1,0 +1,26 @@
+.device-reset-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: calc(var(--space-md) + var(--safe-area-top))
+    calc(var(--space-md) + var(--safe-area-right))
+    calc(var(--space-md) + var(--safe-area-bottom))
+    calc(var(--space-md) + var(--safe-area-left));
+  text-align: center;
+}
+
+@supports (min-height: 100dvh) {
+  .device-reset-gate {
+    min-height: 100dvh;
+  }
+}
+
+.device-reset-gate p {
+  margin: 0;
+  max-width: var(--form-measure);
+  line-height: 1.45;
+}

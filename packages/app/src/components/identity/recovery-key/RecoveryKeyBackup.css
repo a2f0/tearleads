@@ -23,10 +23,13 @@
   min-width: 0;
 }
 
+/* White quiet zone required for QR scanners on Dark and Dusk surfaces. */
 .recovery-key-qr-image {
   display: block;
   width: min(20rem, 100%);
   height: auto;
+  padding: var(--space-xs);
+  border-radius: var(--app-radius-control);
   background: white;
 }
 

@@ -12,7 +12,8 @@
   user-select: none;
   /* Dragging is pointer-driven; keep a touch drag from scrolling the page. */
   touch-action: none;
-  border-radius: var(--app-radius-surface) var(--app-radius-surface) 0 0;
+  border-radius: calc(var(--app-radius-surface) - var(--border-width))
+    calc(var(--app-radius-surface) - var(--border-width)) 0 0;
 }
 
 .window-titlebar-title {
@@ -20,7 +21,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .window-titlebar:active {
@@ -60,29 +61,32 @@
   border: none;
   background: none;
   color: var(--tearleads-window-titlebar-text);
+  font: inherit;
   cursor: pointer;
   line-height: 1;
   border-radius: var(--app-radius-control);
-  transition: background var(--transition);
+  transition:
+    background var(--transition),
+    color var(--transition);
 }
 
-.window-close:hover,
-.window-maximize:hover,
-.window-minimize:hover,
 .window-close:focus-visible,
 .window-maximize:focus-visible,
 .window-minimize:focus-visible {
   background: color-mix(in srgb, currentColor 18%, transparent);
-}
-
-.window-close:focus-visible,
-.window-maximize:focus-visible,
-.window-minimize:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: -3px;
 }
 
-.window-close:hover {
-  background: var(--color-danger);
-  color: var(--color-light);
+@media (hover: hover) {
+  .window-close:hover,
+  .window-maximize:hover,
+  .window-minimize:hover {
+    background: color-mix(in srgb, currentColor 18%, transparent);
+  }
+
+  .window-close:hover {
+    background: var(--color-danger);
+    color: var(--color-light);
+  }
 }

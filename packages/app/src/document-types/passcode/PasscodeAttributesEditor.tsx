@@ -134,6 +134,7 @@ export function PasscodeAttributesEditor(params: {
           onClick={() =>
             void operations.addRow(newPasscodeAttributeCells(attributes))
           }
+          withIcon
         >
           <PlusIcon aria-hidden size={16} />
           Add Attribute

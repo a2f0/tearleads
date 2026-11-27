@@ -1,6 +1,7 @@
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple";
+import type { RefObject } from "react";
 import {
   useLauncherNavigationActions,
   useLauncherNavigationState,
@@ -19,12 +20,14 @@ export function RoutedPaneAppBar({
   activeAppId,
   hasSidebar,
   onToggleSidebar,
+  sidebarButtonRef,
   sidebarExpanded,
   tier,
 }: {
   activeAppId: string;
   hasSidebar: boolean;
   onToggleSidebar: () => void;
+  sidebarButtonRef?: RefObject<HTMLButtonElement | null> | undefined;
   sidebarExpanded: boolean;
   tier: RoutedLayoutTier;
 }) {
@@ -66,6 +69,7 @@ export function RoutedPaneAppBar({
         </div>
         {hasSidebar && (
           <button
+            ref={sidebarButtonRef}
             aria-controls={ROUTED_PANE_SIDEBAR_ID}
             aria-expanded={sidebarExpanded}
             aria-label={sidebarLabel}

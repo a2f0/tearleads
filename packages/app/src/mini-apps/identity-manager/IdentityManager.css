@@ -39,6 +39,7 @@
       1fr
     );
   gap: var(--space-sm) var(--space-md);
+  max-width: var(--form-measure);
   margin: 0;
   min-width: 0;
   font-size: var(--font-size-sm);
@@ -101,7 +102,7 @@
    columns still fit two across inside the cap. */
 .identity-manager-pin-forms {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
   gap: var(--space-md);
   max-width: var(--form-measure);
 }
@@ -178,9 +179,14 @@
   white-space: normal;
 }
 
-.identity-manager-session-detail-value:hover,
 .identity-manager-session-detail-value:focus-visible {
   text-decoration: underline;
+}
+
+@media (hover: hover) {
+  .identity-manager-session-detail-value:hover {
+    text-decoration: underline;
+  }
 }
 
 /*

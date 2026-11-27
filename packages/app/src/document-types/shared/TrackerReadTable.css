@@ -16,9 +16,7 @@
 /* Measurements, keys and timestamps are data, not prose: the same monospace
    treatment the entry cards used, so digits line up down the column. */
 .tracker-read-table-value {
-  font-family:
-    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
-    monospace;
+  font-family: var(--tearleads-font-family);
 }
 
 /*

@@ -26,6 +26,11 @@
   --app-shadow-surface: 0 0.5rem 2rem rgb(0 0 0 / 14%);
   --app-shadow-window:
     0 1rem 3rem rgb(0 0 0 / 12%), 0 0.25rem 0.75rem rgb(0 0 0 / 8%);
+}
+
+/* Soften Light's strong window border inside the app without overwriting Dark
+   (#3b3b3b) or Dusk (#46536a), which tune --border-strong-color explicitly. */
+:root[data-navigation-mode]:not([data-theme-scheme="dark"]) {
   --border-strong-color: color-mix(
     in srgb,
     var(--color-dark) 28%,
@@ -39,15 +44,23 @@
     0 1rem 3rem rgb(0 0 0 / 28%), 0 0.25rem 0.75rem rgb(0 0 0 / 20%);
 }
 
+:root[data-navigation-mode][data-theme="dusk"] {
+  --app-shadow-surface: 0 0.5rem 2rem rgb(10 14 22 / 40%);
+  --app-shadow-window:
+    0 1rem 3rem rgb(10 14 22 / 36%), 0 0.25rem 0.75rem rgb(10 14 22 / 24%);
+}
+
 /* An inset ring remains visible inside scrolling toolbars and clipped rows.
    currentColor follows both ordinary controls and filled selections. */
 :where(:root[data-navigation-mode])
 :where(
+  a,
   button,
   input:not([type="checkbox"], [type="radio"]),
   select,
+  summary,
   textarea,
-  [tabindex]:not(a, input)
+  [tabindex]:not(input)
 ):focus-visible {
   outline: 2px solid currentColor;
   outline-offset: -3px;
@@ -82,6 +95,14 @@
     background: var(--emphasis-surface);
     color: var(--emphasis-text);
   }
+}
+
+:root[data-navigation-mode="routed"]
+  .routed-pane-taskbar-end
+  .tearleads-action-button
+  svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
 
 @media (prefers-reduced-motion: reduce) {

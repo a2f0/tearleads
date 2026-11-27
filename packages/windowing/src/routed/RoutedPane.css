@@ -70,7 +70,7 @@
     (2 * var(--space-xs))
   );
   --routed-drawer-width: min(20rem, 82vw);
-  --routed-touch-target: 44px;
+  --routed-touch-target: var(--control-height);
 }
 
 /* Mobile: app bar on top, taskbar on bottom; rail/sidebar are overlays. */
@@ -142,10 +142,7 @@
 }
 
 /* Mobile and tablet bottom mode put the app bar at the screen's leading edge. */
-.routed-pane--mobile .routed-pane-appbar {
-  padding-inline-start: calc(var(--space-sm) + var(--safe-area-left));
-}
-
+.routed-pane--mobile .routed-pane-appbar,
 .routed-pane--tablet[data-launcher-placement="bottom"] .routed-pane-appbar {
   padding-inline-start: calc(var(--space-sm) + var(--safe-area-left));
 }
@@ -316,7 +313,7 @@
 .routed-pane-taskbar {
   grid-area: taskbar;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   padding: var(--space-xs) calc(var(--space-sm) + var(--safe-area-right))
     max(var(--space-xs), var(--safe-area-bottom)) var(--space-sm);
@@ -333,10 +330,7 @@
 }
 
 /* Same leading-edge safe area as the app bar. */
-.routed-pane--mobile .routed-pane-taskbar {
-  padding-inline-start: calc(var(--space-sm) + var(--safe-area-left));
-}
-
+.routed-pane--mobile .routed-pane-taskbar,
 .routed-pane--tablet[data-launcher-placement="bottom"] .routed-pane-taskbar {
   padding-inline-start: calc(var(--space-sm) + var(--safe-area-left));
 }
@@ -405,7 +399,9 @@
  * hook resolves.
  */
 @media (max-width: 759px) {
-  .routed-pane--tablet {
+  .routed-pane--tablet,
+  .routed-pane--tablet[data-sidebar="open"],
+  .routed-pane--tablet[data-launcher-placement="bottom"][data-sidebar="open"] {
     grid-template:
       "appbar" auto
       "main" 1fr

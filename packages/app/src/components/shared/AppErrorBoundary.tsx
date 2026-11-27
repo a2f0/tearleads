@@ -1,6 +1,8 @@
 import { Component, type PropsWithChildren } from "react";
 import type { AppDiagnostics, DiagnosticArea } from "../../host/AppDiagnostics";
+import "../mini-app/controls/MiniAppButton.css";
 import "../mini-app/controls/MiniAppStatus.css";
+import "./AppErrorBoundary.css";
 
 interface Props extends PropsWithChildren {
   area: DiagnosticArea;
@@ -42,9 +44,12 @@ export class AppErrorBoundary extends Component<Props, { failed: boolean }> {
   override render() {
     if (!this.state.failed) return this.props.children;
     return (
-      <div role="alert" className="mini-app-status">
-        <p>Something went wrong while displaying this view.</p>
+      <div role="alert" className="app-error-boundary">
+        <p className="app-error-boundary-message mini-app-status mini-app-status--error">
+          Something went wrong while displaying this view.
+        </p>
         <button
+          className="mini-app-button"
           type="button"
           onClick={() => {
             this.props.onRetry?.();

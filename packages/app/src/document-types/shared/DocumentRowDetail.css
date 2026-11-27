@@ -1,7 +1,5 @@
 .document-row-detail-value {
-  font-family:
-    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
-    monospace;
+  font-family: var(--tearleads-font-family);
   overflow-wrap: anywhere;
 }
 

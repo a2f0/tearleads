@@ -132,7 +132,11 @@ export function BillingHistory({
         onSelect={setActiveTab}
         tabs={BILLING_HISTORY_TABS}
       />
-      <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
+      <MiniAppTabPanel
+        activeTab={activeTab}
+        className="org-manager-detail-tab-panel"
+        idPrefix={idPrefix}
+      >
         {error ? <MiniAppStatus tone="error">{error}</MiniAppStatus> : null}
         {!error && loading ? (
           <MiniAppStatePanel

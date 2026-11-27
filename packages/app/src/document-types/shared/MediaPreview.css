@@ -19,3 +19,7 @@
 .media-preview--video {
   background: color-mix(in srgb, currentColor 8%, transparent);
 }
+
+.file-document-preview-frame .media-preview--video {
+  background: transparent;
+}

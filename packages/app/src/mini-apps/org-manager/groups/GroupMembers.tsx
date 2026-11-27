@@ -111,6 +111,7 @@ export function GroupMembers({
                         ? ORG_MANAGER_LABELS.personalOrganizationOwnerProtection
                         : undefined
                     }
+                    variant="danger"
                     onClick={() => removeMember(member.userId)}
                   >
                     {ORG_MANAGER_LABELS.remove}

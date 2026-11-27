@@ -24,15 +24,28 @@
   opacity: var(--opacity-muted);
 }
 
-.mini-app-copy-value:hover .mini-app-copy-value-text,
 .mini-app-copy-value:focus-visible .mini-app-copy-value-text {
   text-decoration: underline;
 }
 
-/* Touch (routed layout): in a key/value row the whole row is the value's tap
-   target (44px tall at least; see MiniAppKeyValueList.css), so the overlay fills
-   the row. Growing a 44px overlay around the text instead reached into the rows
-   beside it, where a tap meant for one id copied its neighbour. */
+@media (hover: hover) {
+  .mini-app-copy-value:hover .mini-app-copy-value-text {
+    text-decoration: underline;
+  }
+}
+
+/* Touch (routed layout): standalone copy values meet the 44px hit target; inside
+   a key/value row the whole row is the 44px target via ::before instead. */
+:root[data-navigation-mode="routed"] .mini-app-copy-value {
+  min-height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"]
+  .mini-app-key-value-row
+  .mini-app-copy-value {
+  min-height: 0;
+}
+
 :root[data-navigation-mode="routed"]
   .mini-app-key-value-row
   .mini-app-copy-value::before {

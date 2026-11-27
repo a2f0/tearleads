@@ -1,8 +1,10 @@
 .billing-banner {
   grid-area: banner;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
+  min-width: 0;
   padding-block: calc(var(--space-sm) + var(--safe-area-top)) var(--space-sm);
   padding-inline: calc(var(--space-md) + var(--safe-area-left))
     calc(var(--space-md) + var(--safe-area-right));
@@ -10,11 +12,11 @@
   /* A warning is the screen's topmost chrome, so share the routed app bar's
      surface and native status-bar color. */
   background: var(--color-muted);
-  border-bottom: var(--border-width) solid var(--tearleads-border);
-  border-left: var(--space-2xs) solid var(--tearleads-accent);
+  border-bottom: var(--border-width) solid var(--color-hairline);
+  border-inline-start: 3px solid var(--tearleads-accent);
 }
 
 .billing-banner--warning {
-  border-left-color: var(--color-danger);
+  border-inline-start-color: var(--color-danger);
   color: var(--color-danger);
 }

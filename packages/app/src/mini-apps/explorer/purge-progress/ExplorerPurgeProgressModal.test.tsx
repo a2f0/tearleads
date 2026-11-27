@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ExplorerPurgeProgressModal } from "./ExplorerPurgeProgressModal";
 import type { ExplorerPurgeRunState } from "./useExplorerPurgeRun";
 
@@ -42,4 +42,60 @@ test("a purge stopped after it began may have deleted items", () => {
   expect(
     screen.getByText("Stopped. Some items were permanently deleted."),
   ).toBeTruthy();
+});
+
+test("escape ignores a running purge, closes once settled, and restores focus", () => {
+  const opener = document.createElement("button");
+  document.body.append(opener);
+  opener.focus();
+
+  try {
+    let closeCount = 0;
+    const baseRun: ExplorerPurgeRunState = {
+      error: null,
+      kind: "container",
+      moveSettlement: null,
+      progress: null,
+      status: "running",
+      title: "Deleting",
+    };
+    const view = render(
+      <ExplorerPurgeProgressModal
+        onCancel={() => undefined}
+        onClose={() => {
+          closeCount += 1;
+        }}
+        run={baseRun}
+      />,
+    );
+
+    expect(document.activeElement).toBe(
+      view.getByRole("button", { name: "Stop" }),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(closeCount).toBe(0);
+
+    view.rerender(
+      <ExplorerPurgeProgressModal
+        onCancel={() => undefined}
+        onClose={() => {
+          closeCount += 1;
+        }}
+        run={{ ...baseRun, status: "done" }}
+      />,
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(closeCount).toBe(1);
+
+    view.rerender(
+      <ExplorerPurgeProgressModal
+        onCancel={() => undefined}
+        onClose={() => undefined}
+        run={null}
+      />,
+    );
+    expect(document.activeElement).toBe(opener);
+  } finally {
+    opener.remove();
+  }
 });

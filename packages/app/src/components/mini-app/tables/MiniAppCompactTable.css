@@ -54,8 +54,18 @@
   margin: -1px;
   border: 0;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* Inside a folded two-line summary row, the whole row already meets the touch
+   height; keep inline text actions at text line-height so two-line rows fit
+   their fixed virtual pitch. */
+:root[data-navigation-mode="routed"]
+  .mini-app-compact-table-line
+  .mini-app-table-action {
+  min-height: 0;
+  line-height: inherit;
 }
 
 /* Two-line rows use a taller virtual pitch than any of the row-height rules a

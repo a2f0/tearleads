@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import type { RoutedLayoutTier } from "../launcher/useRoutedLayoutTier";
 import {
   SidebarResizeHandle,
@@ -7,6 +7,8 @@ import {
 import "./RoutedPaneSidebar.css";
 
 const DEFAULT_WIDTH = 224;
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 // The routed shell renders one sidebar per page; the app bar's toggle names it.
 export const ROUTED_PANE_SIDEBAR_ID = "routed-pane-sidebar";
 
@@ -27,6 +29,18 @@ function RoutedPaneMobileSidebar({
   children: ReactNode;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+    const target =
+      dialog.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? dialog;
+    target.focus();
+  }, []);
+
   return (
     <>
       <button
@@ -36,9 +50,13 @@ function RoutedPaneMobileSidebar({
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
+        aria-label="Sidebar"
+        aria-modal="true"
         className="routed-pane-sidebar"
         id={ROUTED_PANE_SIDEBAR_ID}
         role="dialog"
+        tabIndex={-1}
       >
         {children}
       </div>

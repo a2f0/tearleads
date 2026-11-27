@@ -1,0 +1,23 @@
+/* Standalone fallback for AppErrorBoundary; uses plain classes so it never
+   depends on React hooks or providers that may have crashed. */
+.app-error-boundary {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  min-width: 0;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: calc(var(--space-md) + var(--safe-area-top))
+    calc(var(--space-md) + var(--safe-area-right))
+    calc(var(--space-md) + var(--safe-area-bottom))
+    calc(var(--space-md) + var(--safe-area-left));
+  text-align: center;
+}
+
+.app-error-boundary-message {
+  margin: 0;
+  max-width: var(--form-measure);
+}

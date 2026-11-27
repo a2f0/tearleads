@@ -1,10 +1,12 @@
-import { type CSSProperties, useId } from "react";
+import { type CSSProperties, useCallback, useId, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
   MiniAppModalBackdrop,
   MiniAppModalPanel,
+  MiniAppRange,
   MiniAppStatus,
+  useModalEscapeAndFocusRestore,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
   AVATAR_CROP_MAX_ZOOM,
@@ -92,6 +94,13 @@ export function AvatarEditorDialog({
   const titleId = useId();
   const zoomInputId = useId();
   const hintId = useId();
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const handleEscape = useCallback(() => {
+    if (!editor.saving) {
+      onCancel();
+    }
+  }, [editor.saving, onCancel]);
+  useModalEscapeAndFocusRestore(handleEscape, cancelButtonRef);
   const error =
     editor.errorKind === "read"
       ? AVATAR_EDITOR_LABELS.readError
@@ -121,7 +130,7 @@ export function AvatarEditorDialog({
         </p>
         <div className="avatar-editor-zoom">
           <label htmlFor={zoomInputId}>{AVATAR_EDITOR_LABELS.zoom}</label>
-          <input
+          <MiniAppRange
             disabled={!editor.imageSize || editor.saving}
             id={zoomInputId}
             max={AVATAR_CROP_MAX_ZOOM}
@@ -130,16 +139,20 @@ export function AvatarEditorDialog({
               editor.handleZoomChange(Number(event.target.value))
             }
             step={0.01}
-            type="range"
             value={editor.view.zoom}
           />
         </div>
         <MiniAppActions>
-          <MiniAppButton disabled={editor.saving} onClick={onCancel}>
+          <MiniAppButton
+            disabled={editor.saving}
+            onClick={onCancel}
+            ref={cancelButtonRef}
+          >
             {AVATAR_EDITOR_LABELS.cancel}
           </MiniAppButton>
           <MiniAppButton
-            disabled={!editor.imageSize || editor.saving}
+            disabled={!editor.imageSize}
+            loading={editor.saving}
             onClick={() => {
               void handleApply();
             }}

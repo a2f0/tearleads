@@ -7,6 +7,12 @@
 .sync-glyph {
   --sync-glyph-synced-color: #1a7f37;
   --sync-glyph-warning-color: #9a6700;
+  --sync-glyph-error-color: var(--color-danger);
+  --sync-glyph-muted-color: color-mix(
+    in srgb,
+    var(--color-dark) 55%,
+    transparent
+  );
 
   flex: 0 0 auto;
 }
@@ -53,13 +59,13 @@
 }
 
 .sync-glyph--pending {
-  color: var(--color-danger);
+  color: var(--sync-glyph-error-color);
 }
 
 /* Terminal write failures (e.g. write access denied): the warning glyph in the
    danger hue — stuck, not merely waiting. */
 .sync-glyph--error {
-  color: var(--color-danger);
+  color: var(--sync-glyph-error-color);
 }
 
 .sync-glyph--billing {
@@ -71,7 +77,7 @@
    shares the hue. */
 .sync-glyph--loading,
 .sync-glyph--inactive {
-  color: color-mix(in srgb, var(--color-dark) 35%, transparent);
+  color: var(--sync-glyph-muted-color);
 }
 
 /* Nothing on this device can sync until the user acts (no identity yet, or

@@ -9,6 +9,7 @@
   gap: var(--space-md);
   align-self: stretch;
   box-sizing: border-box;
+  min-width: 0;
   min-height: 100%;
   padding: var(--space-md);
   text-align: center;
@@ -32,7 +33,7 @@
 .mini-app-state-panel-title {
   margin: 0;
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .mini-app-state-panel-description {

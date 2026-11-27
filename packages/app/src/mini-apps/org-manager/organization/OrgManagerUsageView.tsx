@@ -155,7 +155,11 @@ export function OrgManagerUsageView({
         onSelect={setActiveTab}
         tabs={isOrgAdmin ? ADMIN_USAGE_TABS : USAGE_TABS}
       />
-      <MiniAppTabPanel activeTab={visibleTab} idPrefix={idPrefix}>
+      <MiniAppTabPanel
+        activeTab={visibleTab}
+        className="org-manager-detail-tab-panel"
+        idPrefix={idPrefix}
+      >
         {visibleTab === "pending-deletion" ? (
           <OrganizationPendingBlobDeletion
             key={organizationId}

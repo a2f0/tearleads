@@ -112,7 +112,7 @@ export function LegalTermsAgreementPanel({
           />
           <span>{LEGAL_TERMS_AGREEMENT_LABEL}</span>
         </label>
-        <MiniAppToolbar>
+        <MiniAppToolbar wrap>
           {onBack && (
             <MiniAppButton type="button" variant="ghost" onClick={onBack}>
               Back

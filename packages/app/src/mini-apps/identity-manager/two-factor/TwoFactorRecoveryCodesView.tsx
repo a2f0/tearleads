@@ -26,7 +26,7 @@ export function TwoFactorRecoveryCodesView({
           </li>
         ))}
       </ol>
-      <MiniAppToolbar>
+      <MiniAppToolbar wrap>
         <MiniAppClipboardButton
           label="Copy recovery codes"
           value={() => recoveryCodes.join("\n")}

@@ -17,6 +17,10 @@
   gap: var(--space-md);
 }
 
+.container-view-notes > h3 {
+  margin: 0;
+}
+
 .container-view-note {
   padding-block: var(--space-sm);
 }

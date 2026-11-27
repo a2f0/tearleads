@@ -90,8 +90,8 @@ absorbs that edge's inset**:
   ([`RoutedPane.css`](../packages/windowing/src/routed/RoutedPane.css)), and the
   frame footer when present;
 - left — the tablet nav rail in side mode; the app bar, taskbar, main content,
-  and sidebar in tablet bottom mode or on mobile;
-- right — the app bar, taskbar, main content, and the mobile sidebar drawer.
+  and sidebar drawer in tablet bottom mode or on mobile;
+- right — the app bar, taskbar, and main content.
 
 Vertical sizing uses `100dvh` (with a `100vh` fallback) so iOS Safari's
 collapsing toolbars never hide the bottom taskbar.

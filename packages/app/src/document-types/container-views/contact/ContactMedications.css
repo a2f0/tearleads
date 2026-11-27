@@ -5,6 +5,10 @@
   overflow-wrap: anywhere;
 }
 
+.contact-medications > h3 {
+  margin: 0;
+}
+
 .contact-medications ul {
   display: grid;
   gap: var(--space-xs);

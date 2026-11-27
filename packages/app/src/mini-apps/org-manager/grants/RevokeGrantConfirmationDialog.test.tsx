@@ -109,6 +109,50 @@ test("revoke grant confirmation dialog covers itself and does not submit while b
   expect(onConfirm).toHaveBeenCalledTimes(0);
 });
 
+test("revoke grant confirmation dialog handles Escape, focus, and busy guard", () => {
+  const opener = document.createElement("button");
+  document.body.append(opener);
+  opener.focus();
+
+  try {
+    const onCancel = mock(() => {});
+    const view = render(
+      <RevokeGrantConfirmationDialog
+        busy
+        grant={grant}
+        onCancel={onCancel}
+        onConfirm={() => {}}
+      />,
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onCancel).toHaveBeenCalledTimes(0);
+
+    view.rerender(
+      <RevokeGrantConfirmationDialog
+        busy={false}
+        grant={grant}
+        onCancel={onCancel}
+        onConfirm={() => {}}
+      />,
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+
+    view.rerender(
+      <RevokeGrantConfirmationDialog
+        busy={false}
+        grant={null}
+        onCancel={onCancel}
+        onConfirm={() => {}}
+      />,
+    );
+    expect(document.activeElement).toBe(opener);
+  } finally {
+    opener.remove();
+  }
+});
+
 test("grant confirmation expires across sign-ins to the same organization", () => {
   const first = {
     containerId: "root",

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import { startLaserAnimation } from "./laserAnimation";
+import "./screensaver.css";
 
 /** Grayscale laser trails; ScreensaverProvider owns activation and input. */
 export function LaserScreensaver() {
@@ -15,12 +16,6 @@ export function LaserScreensaver() {
       className="laser-screensaver"
       role="img"
       aria-label="Grayscale laser trails"
-      style={{
-        display: "block",
-        width: "100%",
-        height: "100%",
-        background: "black",
-      }}
     />
   );
 }

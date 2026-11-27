@@ -264,7 +264,9 @@ export function ExplorerDownloadsPanel(params: {
   return (
     <MiniAppPanel className="explorer-detail explorer-detail--incoming" scroll>
       {state.status === "failed" ? (
-        <MiniAppStatus role="alert">{state.message}</MiniAppStatus>
+        <MiniAppStatus role="alert" tone="error">
+          {state.message}
+        </MiniAppStatus>
       ) : (
         <MiniAppStatus>
           {state.status === "loading"

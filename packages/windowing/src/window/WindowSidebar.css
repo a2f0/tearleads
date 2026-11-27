@@ -19,7 +19,17 @@
 }
 
 .window-sidebar-handle::before {
-  left: 2px;
+  left: calc(50% - 0.5px);
+}
+
+.window-sidebar-handle:focus-visible::before {
+  left: calc(50% - 1px);
+}
+
+@media (hover: hover) {
+  .window-sidebar-handle:hover::before {
+    left: calc(50% - 1px);
+  }
 }
 
 .window-sidebar-content {

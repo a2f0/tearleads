@@ -75,3 +75,25 @@ test("column menu button does not bubble clicks to parent headers", () => {
 
   expect(parentClickCount).toBe(0);
 });
+
+test("clicking the columns trigger again closes the open menu", () => {
+  const view = render(
+    <MiniAppColumnMenuButton
+      ariaLabel="Columns"
+      hiddenColumns={new Set<string>()}
+      options={[{ id: "type", label: "Type" }]}
+      stateLabels={{ off: "Off", on: "On" }}
+      toggleColumn={() => undefined}
+    />,
+  );
+
+  const trigger = view.getByRole("button", { name: "Columns" });
+  fireEvent.click(trigger);
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  expect(view.queryByRole("checkbox", { name: "Type On" })).toBeTruthy();
+
+  fireEvent.mouseDown(trigger);
+  fireEvent.click(trigger);
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  expect(view.queryByRole("checkbox", { name: "Type On" })).toBeNull();
+});

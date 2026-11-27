@@ -19,7 +19,10 @@ async function expectNativeForcedColors(control: Locator, browserName: string) {
       await control.evaluate((element, singleVersion) => {
         if (!(element instanceof HTMLInputElement))
           throw new Error("Expected a range");
-        element.classList.add("explorer-document-history-slider");
+        element.classList.add(
+          "mini-app-range",
+          "explorer-document-history-slider",
+        );
         element.style.removeProperty("appearance");
         element.style.height = `${element.getBoundingClientRect().height}px`;
         element.blur();
@@ -29,7 +32,10 @@ async function expectNativeForcedColors(control: Locator, browserName: string) {
       }, disabled);
       const forced = await controlPixels(control);
       await control.evaluate((element) => {
-        element.classList.remove("explorer-document-history-slider");
+        element.classList.remove(
+          "mini-app-range",
+          "explorer-document-history-slider",
+        );
         element.style.appearance = "auto";
       });
       expect(forced).toEqual(await controlPixels(control));
@@ -93,7 +99,7 @@ test("History slider paints and seeks across browser engines", {
   await page.evaluate(() => {
     const input = document.createElement("input");
     input.type = "range";
-    input.className = "explorer-document-history-slider";
+    input.className = "mini-app-range explorer-document-history-slider";
     input.id = "test-history-slider";
     input.min = "0";
     input.max = "4";

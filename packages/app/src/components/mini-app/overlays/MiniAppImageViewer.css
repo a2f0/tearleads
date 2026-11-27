@@ -12,11 +12,17 @@
   z-index: 2000;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100vh;
   padding: var(--safe-area-top) var(--safe-area-right) var(--safe-area-bottom)
     var(--safe-area-left);
   background: var(--color-light);
   overscroll-behavior: contain;
+}
+
+@supports (height: 100dvh) {
+  .mini-app-image-viewer {
+    height: 100dvh;
+  }
 }
 
 /* Desktop content panes are their own viewing surface. Their positioned boxes
@@ -92,10 +98,16 @@
   cursor: pointer;
 }
 
-.mini-app-image-viewer-button:hover:not(:disabled),
 .mini-app-image-viewer-button:focus-visible:not(:disabled) {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .mini-app-image-viewer-button:hover:not(:disabled) {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
 }
 
 .mini-app-image-viewer-button:disabled {

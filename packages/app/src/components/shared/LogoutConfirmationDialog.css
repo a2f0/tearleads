@@ -1,18 +1,5 @@
-.logout-confirmation-keep-data {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  cursor: pointer;
-}
-
-.logout-confirmation-warning {
-  margin: 0;
-  color: var(--color-danger);
-  font-size: var(--font-size-sm);
-}
-
-/* Touch: the whole label toggles the checkbox, so grow the label row to a 44px
-   tap target rather than the 16px control glyph. */
-:root[data-navigation-mode="routed"] .logout-confirmation-keep-data {
-  min-height: var(--control-height);
+/* Layout and routed touch target come from .mini-app-checkbox-label; keep this
+   compound selector so font-size inheritance does not depend on import order. */
+.mini-app-checkbox-label.logout-confirmation-keep-data {
+  font-size: inherit;
 }

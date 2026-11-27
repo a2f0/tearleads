@@ -1,0 +1,28 @@
+.mini-app-progress {
+  width: 100%;
+  height: 0.5rem;
+  box-sizing: border-box;
+  border: var(--border);
+  border-radius: var(--app-radius-control);
+  background: var(--color-light);
+  overflow: hidden;
+}
+
+.mini-app-progress > span {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transition: width var(--transition);
+}
+
+.mini-app-progress--muted > span {
+  opacity: var(--opacity-muted);
+}
+
+.mini-app-progress--error {
+  border-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+}
+
+.mini-app-progress--error > span {
+  background: var(--color-danger);
+}

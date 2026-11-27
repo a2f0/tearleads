@@ -41,13 +41,21 @@ export default function PdfInlineViewer({
                 ? "Password required"
                 : "Loading PDF..."}
         </span>
-        <MiniAppButton disabled={!pageCount} onClick={() => zoom(0.8)}>
+        <MiniAppButton
+          disabled={!pageCount}
+          title="Zoom out"
+          onClick={() => zoom(0.8)}
+        >
           −
         </MiniAppButton>
         <MiniAppButton disabled={!pageCount} onClick={fitWidth}>
           Fit width
         </MiniAppButton>
-        <MiniAppButton disabled={!pageCount} onClick={() => zoom(1.25)}>
+        <MiniAppButton
+          disabled={!pageCount}
+          title="Zoom in"
+          onClick={() => zoom(1.25)}
+        >
           +
         </MiniAppButton>
         {onOpenExternal ? (
