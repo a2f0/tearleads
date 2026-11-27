@@ -3,7 +3,7 @@
  * every path that surfaces it — on screen, on the clipboard, in a file, on
  * paper, or in a password manager — is gated behind this typed acknowledgement.
  */
-export const RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE = "i understand";
+export const RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE = "I understand";
 
 export type RecoveryKeyDisclosure =
   | "copy"

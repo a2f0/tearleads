@@ -1,13 +1,13 @@
 import { expect, type Page } from "@playwright/test";
 
-const ACKNOWLEDGEMENT = /Type i understand to continue/u;
+const ACKNOWLEDGEMENT = /Type I understand to continue/u;
 
 /** Shows the open identity's recovery QR and returns its rendered image. */
 export async function showRecoveryQr(page: Page): Promise<string> {
   const reveal = page.getByRole("button", { name: "QR Code for Recovery Key" });
   await expect(reveal).toBeVisible({ timeout: 30_000 });
   await reveal.click();
-  await page.getByLabel(ACKNOWLEDGEMENT).fill("i understand");
+  await page.getByLabel(ACKNOWLEDGEMENT).fill("I understand");
   await page.getByRole("button", { name: "Show QR Code" }).click();
   const qr = page.getByAltText("Recovery key QR code");
   await expect(qr).toBeVisible();
@@ -19,7 +19,7 @@ export async function showRecoveryQr(page: Page): Promise<string> {
 /** Reveals the open identity's recovery passphrase and returns it. */
 export async function revealRecoveryPassphrase(page: Page): Promise<string> {
   await page.getByRole("button", { name: "View Recovery Key" }).click();
-  await page.getByLabel(ACKNOWLEDGEMENT).fill("i understand");
+  await page.getByLabel(ACKNOWLEDGEMENT).fill("I understand");
   await page.getByRole("button", { name: "Show Passphrase" }).click();
   return page
     .getByRole("textbox", { name: "Passphrase", exact: true })

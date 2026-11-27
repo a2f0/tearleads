@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import {
   completeDeviceReset,
   type DeviceResetEnvironment,
@@ -50,6 +50,23 @@ function seedDeviceData(): void {
   sessionStorage.setItem("tearleads.documents.session-peer-seed", "7");
   requestDeviceReset(localStorage, () => {});
 }
+
+test("a requested reset restarts the page at the home route, not where it was asked", () => {
+  const replace = spyOn(window.location, "replace").mockImplementation(
+    () => {},
+  );
+  const reload = spyOn(window.location, "reload").mockImplementation(() => {});
+  try {
+    requestDeviceReset();
+
+    expect(isDeviceResetRequested()).toBe(true);
+    expect(replace.mock.calls).toEqual([["/"]]);
+    expect(reload).not.toHaveBeenCalled();
+  } finally {
+    replace.mockRestore();
+    reload.mockRestore();
+  }
+});
 
 test("a device reset wipes OPFS, every IndexedDB database, the native cache, and both storages", async () => {
   seedDeviceData();

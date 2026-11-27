@@ -12,16 +12,20 @@ import { announceDeviceReset, runWithoutAppPages } from "./deviceResetTabs";
 // outside it (Capacitor's share and preview copies) clears them through its
 // `clearNativeCache` host hook.
 //
-// The running app only records the request and reloads. The next page wipes
-// before it renders anything (DeviceResetGate), and only once no other page
-// has the app mounted (deviceResetTabs.ts), so no keyring connection, database
-// worker, or queued write of an old page can hold or rewrite what is being
-// removed. WKWebView (iOS and the macOS desktop shell) exposes OPFS only
-// inside workers, so there the wipe leaves a flag and the page's first
-// database boot has the SQLite worker wipe OPFS before it opens anything.
+// The running app only records the request and restarts at the home route.
+// The next page wipes before it renders anything (DeviceResetGate), and only
+// once no other page has the app mounted (deviceResetTabs.ts), so no keyring
+// connection, database worker, or queued write of an old page can hold or
+// rewrite what is being removed. WKWebView (iOS and the macOS desktop shell)
+// exposes OPFS only inside workers, so there the wipe leaves a flag and the
+// page's first database boot has the SQLite worker wipe OPFS before it opens
+// anything.
 
 const DEVICE_RESET_REQUEST_KEY = "tearleads.device-reset.requested";
 const WORKER_STORAGE_WIPE_KEY = "tearleads.device-reset.worker-storage-wipe";
+
+// The launcher's root route, which shows the home app (Explorer) at its root.
+const HOME_PATH = "/";
 
 // Long enough for the worker handle release wipeOpfsStorage already waits on;
 // past it, something else (a frozen tab) holds the data.
@@ -38,16 +42,26 @@ export interface DeviceResetEnvironment {
 }
 
 /**
- * Records a device reset, tells the app's other pages, and reloads into the
- * reset.
+ * Loads the home route in place of the current page. The route a reset was
+ * requested from (Identity Manager, or a document the reset removes) means
+ * nothing to the fresh device, so its first identity is set up on Explorer's
+ * root, as on a new install.
+ */
+function restartAtHome(): void {
+  window.location.replace(HOME_PATH);
+}
+
+/**
+ * Records a device reset, tells the app's other pages, and restarts this page
+ * into the reset at the home route.
  */
 export function requestDeviceReset(
   storage: Pick<Storage, "setItem"> = globalThis.localStorage,
-  reload: () => void = () => window.location.reload(),
+  restart: () => void = restartAtHome,
 ): void {
   storage.setItem(DEVICE_RESET_REQUEST_KEY, "1");
   announceDeviceReset();
-  reload();
+  restart();
 }
 
 export function isDeviceResetRequested(storage = getLocalStorage()): boolean {
