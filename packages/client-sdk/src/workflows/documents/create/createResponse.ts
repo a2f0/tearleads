@@ -20,6 +20,7 @@ import { nullOnProjectionVerificationCancellation } from "../../../data/keyingPr
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { adoptExistingRemoteDocument } from "./createAdoption";
+import { primeCreatedDocumentDiscoveryHead } from "./createDiscoveryHead";
 import { documentWriterProjectionFromCreateResponse } from "./createProjection";
 import type { DocumentSubmissionRequest } from "./remoteDocumentCreateRequest";
 
@@ -90,6 +91,7 @@ export async function acknowledgeRemoteDocumentCreate(
       ? { ...recovered, response }
       : recovered;
   }
+  await primeCreatedDocumentDiscoveryHead(input.execSql, materializedPlan.plan);
   input.apiClient.primeDocumentWriterProjection(response.id, writerProjection);
   return {
     contentKey: materializedPlan.contentKey,

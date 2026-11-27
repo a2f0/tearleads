@@ -66,7 +66,7 @@ Tearleads user from `transferred_to`, then queries RevenueCat before changing
 billing. Billing history shows `TRANSFER_OUT` on the source and `TRANSFER_IN`
 on the destination.
 
-Both database dialects enforce one owner per provider subscription with a unique
+The PostgreSQL schema enforces one owner per provider subscription with a unique
 index. One store subscription funds one organization even when Apple or Google
 exposes the receipt through family sharing; restoring it moves that single
 billing entitlement rather than minting capacity for another organization. A

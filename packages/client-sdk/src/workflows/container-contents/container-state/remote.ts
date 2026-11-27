@@ -18,8 +18,8 @@ import {
 import { resolveDocumentCreateAuthor } from "../../documents";
 
 import {
-  type ContainerAlreadyCommitted,
   createRemoteContainerWithMetadataDocument,
+  type RemoteContainerCreateResult,
 } from "./create/createWithMetadata";
 import type {
   ContainerCreateIntentSyncState,
@@ -78,7 +78,7 @@ export async function createRemoteContainer(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
-}): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
+}): Promise<RemoteContainerCreateResult> {
   return createRemoteContainerWithMetadataDocument(input);
 }
 

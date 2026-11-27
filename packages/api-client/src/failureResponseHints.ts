@@ -13,9 +13,12 @@ type FailureResponseSchema = NonNullable<
   HttpOperation["failureResponses"]
 >[number];
 
-type RequestFailureHints = Pick<
+export type RequestFailureHints = Pick<
   RequestFailure,
-  "peerFrontiers" | "requiredContainerIds" | "stalePrincipalHeads"
+  | "peerFrontiers"
+  | "requiredContainerIds"
+  | "stalePrincipalHeads"
+  | "systemSlotTaken"
 >;
 
 // Container mutations and document sync with inline container rekeys can
@@ -49,6 +52,18 @@ export function peerFrontiersField(
     : {};
 }
 
+// A container create refused because its organization already holds the
+// system slot. Final for that create; the client folds its copy instead.
+export function systemSlotTakenField(
+  value: object,
+  schema?: FailureResponseSchema,
+) {
+  return schema === ContainerMutationFailureResponseSchema &&
+    Reflect.get(value, "systemSlotTaken") === true
+    ? { systemSlotTaken: true as const }
+    : {};
+}
+
 /** A failure's recovery hints, each set only when its body carried it. */
 export function requestFailureHints(
   input: RequestFailureHints,
@@ -61,5 +76,6 @@ export function requestFailureHints(
       ? { requiredContainerIds: input.requiredContainerIds }
       : {}),
     ...(input.peerFrontiers ? { peerFrontiers: input.peerFrontiers } : {}),
+    ...(input.systemSlotTaken ? { systemSlotTaken: true } : {}),
   };
 }

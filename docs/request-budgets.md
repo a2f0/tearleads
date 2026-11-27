@@ -73,7 +73,7 @@ unless noted.
 | [`DualPaneProvider.groupsRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx) | Open Org Manager and select Admins | 3 | One read-model, one organization-policy and one Admins-policy read |
 | [`DualPaneProvider.groupsRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx) | Add a new peer to Admins, including peer convergence | 49, plus each validated preparation response (at most one) | 132,000 request and 490,000 response bytes; 10 organization-policy, 3 group-policy and 7 history reads; no read-model read (the commit's response carries the actor's delta); 9 document projections (10 after a real stale-target `409`); 11 syncs, all read-only, none of the organization profile; 2 recitations; 1 policy commit; no standalone share |
 | [`DualPaneProvider.sharing.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sharing.test.tsx) (root grant after attachment writes) | Create a folder and a note with an attachment, share the root with an active roster peer, and settle the peer's discovery; measured after provisioning and roster import | 55 | 104,700 request and 350,000 response bytes; 18 syncs (1-2 write-bearing, at most 16 read-only); 9 document projections; 4 parent-lane queries; 4 listings; no read-model read (the share's response carries the sharer's delta); 10 organization-policy reads; 4 recitations; 1 share |
-| [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 6 | One document create, one multipart stage, one part upload, one attachment binding that carries the first content update and acknowledges its KEK targets by hash, no sync; one organization-policy read shared by the create and the bind's sync drain; no per-part authorization or stage-completion request; 34,500 request and 2,300 response bytes, plus the bytes of the one allowed root projection read when it happens |
+| [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 6 | One document create, one multipart stage, one part upload, one attachment binding that carries the first content update and acknowledges its KEK targets by hash, no sync; one organization-policy read shared by the create and the bind's sync drain; no per-part authorization or stage-completion request; 34,800 request and 2,300 response bytes, plus the bytes of the one allowed root projection read when it happens |
 | [`DualPaneProvider.activePeerRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx) | An active peer reconciles an ungranted custom-group change | Exactly 4 | One read-model read, two organization-policy reads and one group-policy read; no container or document request and no Admins-policy read |
 | [`DeviceFirstOfflineRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx) | Offline folder create, cached note edit, and move to Trash | 0 each | After reconnect the queued create, link and unlink commit |
 | [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged: the first restart after local creates / a later one / the first after a local edit | 19 / 10 / 12 | Two user folders; fresh SDK and SQLite worker; no replayed writes; the interest acknowledgement arrives 300 ms after the declaration, and no document listing or sync is sent before it; the later restart costs at most 10 with two notes, with eight notes, and with eight folders; a root refresh requested before the tree crawl answers adds one tree request and one policy read and leaves the probe as the one document listing (11) |
@@ -118,7 +118,8 @@ Changed inputs start a different intent, not a retry; a host upgrade changing
 those inputs can leave the previous attempt pending. Other permanently unusable
 artifacts can also remain pending; no public cancellation or expiry is provided.
 Prechange local tables and API databases require the greenfield reset; backup
-format 16 rejects backups that can restore the obsolete provisioning table.
+format 16 and later (currently 17) rejects backups that can restore the obsolete
+provisioning table.
 See the
 [lost-response regression](../packages/api/src/routes/organizations/createOrganization.lostResponse.test.ts).
 
@@ -135,8 +136,8 @@ twin and the real proxied test API.
 The restart and unchanged reconnect use one pane with the `app` host profile
 and shared runtime policy. The peer-create case uses two panes with the `demo`
 profile, isolated runtimes and peer-sharing features enabled, but no demo
-identity seeding. These are distinct fixtures: the difference between 12 and
-18 is not a measured incremental cost of creating one folder.
+identity seeding. These are distinct fixtures: the difference between 9 and
+15 is not a measured incremental cost of creating one folder.
 
 The restart closes the SQLite connection, terminates its worker and disposes
 the SDK before mounting another instance with the persisted identity/session
@@ -170,9 +171,9 @@ be remeasured and documented when an optimization changes the baseline.
 | `GET /principals/group/:groupId/policy` | 0 | 0 | 0 | 0 |
 | `GET /principals/history` | 1 | 0 | 0 | 0 |
 | `GET /containers/:containerId/writer-projection` | 3 | 2 | 1 | 2 |
-| `GET /documents/:documentId/writer-projection` | 3 | 0 | 3 | 4 |
+| `GET /documents/:documentId/writer-projection` | 0 | 0 | 0 | 1 |
 | `POST /documents/:documentId/sync` (all read-only) | 3 | 1 | 2 | 3 |
-| **Total** | **19** | **10** | **12** | **18** |
+| **Total** | **16** | **10** | **9** | **15** |
 
 No note is synced in any column. A listing
 [covers each note](./document-listing-coverage.md): its row carries the
@@ -181,11 +182,15 @@ owes no read. The syncs that remain are system-container documents, whose
 startup probe runs once per launch unless an acknowledgement's catch-up covers
 it, and one probe for a document no listing names.
 
-The first restart is the first launch after the notes were created. Their lanes
-list the rows those creates published, and each listed row's head is verified
-with one document writer-projection read. The settled restart is every launch
-after that: the tree crawl is served no folder's row, so the catch-up after the
-acknowledgement lists no document lane at all, and the cost is the same with two
+The first restart is the first launch after the notes were created. Their
+lanes list the rows those creates published, and no listed row's head is read
+back: each is the head its create authored, which the create saved to the
+discovery head cache once the server's acknowledgement matched it, as
+provisioning does for the documents it seeds. The reconnects list those rows
+too and read none of their heads; the peer case reads one head, of a document
+the peer created. The settled restart is every launch after that: the tree
+crawl is served no folder's row, so the catch-up after the acknowledgement
+lists no document lane at all, and the cost is the same with two
 notes and with eight, which the canary runs at both sizes. Nothing lists before
 the acknowledgement, which the canary delays by 300 ms as a hub's round trip
 would: the known lanes a regain queues wait for the connect attempt in flight,

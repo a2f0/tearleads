@@ -1,6 +1,8 @@
 import {
   type CatchUpEvent,
+  type CatchUpState,
   type CatchUpWait,
+  defersToCatchUp,
   transitionCatchUp,
 } from "./catchUpMachine";
 import {
@@ -12,7 +14,14 @@ import {
 import { SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
 import type { ReconciliationState } from "./serviceState";
 import type { ReconciliationHost } from "./serviceTypes";
-import { awaitTreeCrawl } from "./treeCrawlWait";
+import { awaitTreeCrawl, TREE_CRAWL_WAIT_MS } from "./treeCrawlWait";
+
+/**
+ * How long deferral outlasts the crawl. A catch-up whose crawl settled and
+ * whose turn has not come by then (a sweep ahead of it is stuck on its tree
+ * listing) holds no lane back from then on. As long as the crawl's own bound.
+ */
+export const CATCH_UP_TURN_WAIT_MS = TREE_CRAWL_WAIT_MS;
 
 /**
  * What the catch-up lists once its wait is over. With a complete crawl
@@ -77,7 +86,9 @@ function reportUnawaitedSweep(
 
 /**
  * Whether the crawl the acknowledgement owes vouches for the lanes it was
- * not served. A crawl whose outcome cannot be read vouches for nothing.
+ * not served. A crawl whose outcome cannot be read vouches for nothing. An
+ * ignorable failure (the database closed) is rethrown: the catch-up then
+ * lists nothing, as when `planCatchUp` finds the database closed.
  */
 async function awaitCrawlVerdict(
   host: ReconciliationHost,
@@ -90,11 +101,55 @@ async function awaitCrawlVerdict(
       host.clock,
     );
   } catch (error) {
-    if (!host.isIgnorableError(error)) {
-      host.logError?.("Reconciliation: tree crawl outcome was not read", error);
-    }
+    if (host.isIgnorableError(error)) throw error;
+    host.logError?.("Reconciliation: tree crawl outcome was not read", error);
     return false;
   }
+}
+
+/**
+ * Wakes the lane when an entry it holds was deferred by `before` and is not
+ * deferred now. A wake that frees nothing could cancel a failed lane's retry
+ * backoff.
+ */
+function wakeLaneForReleased(
+  state: ReconciliationState,
+  before: CatchUpState,
+  containerIds: Iterable<string>,
+): void {
+  for (const containerId of containerIds) {
+    if (
+      state.queue.has(containerId) &&
+      defersToCatchUp(before, containerId) &&
+      !defersToCatchUp(state.catchUp, containerId)
+    ) {
+      state.lane?.requestSync();
+      return;
+    }
+  }
+}
+
+/**
+ * Ends the deferral of a catch-up whose turn is overdue: a sweep ahead of it
+ * is stuck. What the catch-up held back is the lane's to list.
+ */
+function releaseOverdueCatchUp(
+  state: ReconciliationState,
+  wait: CatchUpWait,
+): void {
+  const before = state.catchUp;
+  dispatchCatchUp(state, { type: "turnOverdue", wait });
+  wakeLaneForReleased(state, before, wait.knownContainerIds);
+}
+
+/** Ends the catch-up and wakes the lane for what it held back. */
+function endCatchUp(
+  state: ReconciliationState,
+  wait: CatchUpWait,
+  planned: boolean,
+): void {
+  dispatchCatchUp(state, { type: "turnTaken", wait });
+  wakeLaneForDeferredWork(state, planned);
 }
 
 /**
@@ -108,10 +163,22 @@ async function catchUpAfterCrawl(
   wait: CatchUpWait,
   stop: AbortSignal,
 ): Promise<void> {
-  const crawlVouches = await awaitCrawlVerdict(host, stop);
+  let crawlVouches: boolean;
+  try {
+    crawlVouches = await awaitCrawlVerdict(host, stop);
+  } catch {
+    // The database closed under the wait: nothing can be listed, so no
+    // sweep runs, and what the catch-up held back is the lane's again.
+    if (!stop.aborted) endCatchUp(state, wait, false);
+    return;
+  }
   // A stopped service drops the catch-up: its next start resumes owed lanes.
   if (stop.aborted) return;
   dispatchCatchUp(state, { type: "crawlSettled", wait });
+  const cancelTurnWait = host.clock.schedule(
+    () => releaseOverdueCatchUp(state, wait),
+    CATCH_UP_TURN_WAIT_MS,
+  );
   let planned = false;
   try {
     await requestContainerRefresh({
@@ -127,38 +194,38 @@ async function catchUpAfterCrawl(
         // catch-up, while its sweep awaited its turn: its crawl says nothing
         // about the session or the connection that is current now.
         if (stop.aborted) return { containerIds: [] };
-        try {
-          const plan = await planCatchUp(host, state, crawlVouches);
-          // Superseded or stopped while the owed record was read.
-          return stop.aborted ? { containerIds: [] } : plan;
-        } finally {
-          // Deferral ends with the plan in hand, not before: a lane queued
-          // while the owed record is read is the sweep's to list or vouch
-          // for. The sweep marks its lanes before the lane can run again.
-          planned = true;
-          dispatchCatchUp(state, { type: "turnTaken", wait });
-          // What was queued while the plan was read is the lane's again. It
-          // is woken now, before the sweep can hand back a lane it failed:
-          // a request made after that would cancel the failed lane's
-          // backoff.
-          if (state.queue.size > 0) state.lane?.requestSync();
-        }
+        const plan = await planCatchUp(host, state, crawlVouches);
+        // Superseded or stopped while the owed record was read.
+        return stop.aborted ? { containerIds: [] } : plan;
+      },
+      // Deferral ends with the plan in hand and the queue entries it covers
+      // taken, not before: a lane queued while the owed record is read is
+      // the sweep's to list or vouch for.
+      onPlanTaken: () => {
+        planned = true;
+        cancelTurnWait();
+        dispatchCatchUp(state, { type: "turnTaken", wait });
+        // What is still queued is the lane's again. It is woken now, before
+        // the sweep can hand back a lane it failed: a request made after
+        // that would cancel the failed lane's backoff.
+        if (state.queue.size > 0) state.lane?.requestSync();
       },
       scope: "acknowledged",
       signal: undefined,
     });
   } finally {
-    dispatchCatchUp(state, { type: "turnTaken", wait });
-    wakeLaneForDeferredWork(state, planned);
+    cancelTurnWait();
+    endCatchUp(state, wait, planned);
   }
 }
 
 /**
  * Wakes the lane for what the catch-up held back: entries it deferred and
- * its sweep did not take, and the initial document probe. A sweep that never read its plan (the device went offline) took
- * nothing, so the lane runs at once. One that did took the queue first, and
- * may have just handed back a lane it failed, which must wait out its retry
- * backoff: an immediate request would cancel that delay.
+ * its sweep did not take, and the initial document probe. A sweep that never
+ * read its plan (the device went offline) took nothing, so the lane runs at
+ * once. One that did took the queue first, and may have just handed back a
+ * lane it failed, which must wait out its retry backoff: an immediate
+ * request would cancel that delay.
  */
 function wakeLaneForDeferredWork(
   state: ReconciliationState,
@@ -178,7 +245,8 @@ function wakeLaneForDeferredWork(
  * Stops deferring the lanes that are owed a listing as the acknowledgement
  * arrives: never listed, or holding staged candidates. No crawl can vouch
  * for them, and what they hold, a new device's system documents included,
- * should not wait for one. A failed read leaves them to the sweep.
+ * should not wait for one. A failed read leaves them to the sweep. A read
+ * that answers after this wait was superseded or stopped releases nothing.
  */
 function releaseLanesAlreadyOwed(
   host: ReconciliationHost,
@@ -189,10 +257,17 @@ function releaseLanesAlreadyOwed(
     .listOwedDocumentDiscoveryContainerIds(host.listKnownContainerIds())
     .then(
       (containerIds) => {
+        const before = state.catchUp;
         dispatchCatchUp(state, { containerIds, type: "alreadyOwed", wait });
-        if (state.queue.size > 0) state.lane?.requestSync();
+        wakeLaneForReleased(state, before, containerIds);
       },
-      () => undefined,
+      (error: unknown) => {
+        if (host.isIgnorableError(error)) return;
+        host.logError?.(
+          "Reconciliation: lanes already owed could not be read",
+          error,
+        );
+      },
     );
 }
 
@@ -213,7 +288,7 @@ export function requestAcknowledgedConnectionSweep(
   // A catch-up still awaiting its turn is superseded: its crawl settled
   // before this acknowledgement, so its verdict is about an earlier
   // connection. Its sweep lists and vouches for nothing when its turn comes.
-  if (state.catchUp.status === "awaitingTurn") state.catchUp.wait.cancel();
+  if (state.catchUp.status !== "idle") state.catchUp.wait.cancel();
   const stop = new AbortController();
   const wait: CatchUpWait = {
     cancel: () => stop.abort(),

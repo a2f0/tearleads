@@ -264,8 +264,9 @@ Each tier is four Cloudflare Workers plus independent Terraform stacks:
   the Hono API, two SQLite Durable Objects (`KeyValueStore`, which holds
   sessions and tickets, and `RealtimeHub`, which owns every WebSocket), and the
   Cron Triggers that run
-  [blob garbage collection](../attachment-retention.md#operations) hourly and
-  [billing maintenance](revenuecat-billing.md#billing-maintenance-worker)
+  [blob garbage collection](../attachment-retention.md#operations) and
+  [document baseline stage cleanup](../document-rotation-baselines.md) hourly
+  and [billing maintenance](revenuecat-billing.md#billing-maintenance-worker)
   every minute. A placement hint keeps it near PlanetScale Postgres in
   `us-east-1`, because registration performs many sequential database queries
   inside one transaction and cross-region round trips exceed Cloudflare's

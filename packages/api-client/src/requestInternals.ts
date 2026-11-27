@@ -24,6 +24,7 @@ import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import {
   peerFrontiersField,
   stalePrincipalHeadsField,
+  systemSlotTakenField,
 } from "./failureResponseHints";
 import type { RequestBody } from "./types";
 
@@ -100,6 +101,8 @@ export interface ErrorResponseDescription {
   readonly peerFrontiers?: readonly DocumentPeerFrontier[] | undefined;
   /** Descendant rekeys a refused rotation must carry, parent-first. */
   readonly requiredContainerIds?: readonly string[] | undefined;
+  /** A container create whose system slot the organization already holds. */
+  readonly systemSlotTaken?: true | undefined;
   /** Set on a 402 body — the organization whose billing blocked the sync write. */
   readonly paymentRequiredOrganizationId?: string | undefined;
 }
@@ -162,6 +165,7 @@ function parsedErrorResponseDescription(
     error: error.length === 0 ? null : error,
     ...stalePrincipalHeadsField(value, schema),
     ...peerFrontiersField(value, schema),
+    ...systemSlotTakenField(value, schema),
     ...((code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
       code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysInaccessible) &&
     "requiredContainerIds" in value &&

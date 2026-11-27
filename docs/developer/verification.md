@@ -136,7 +136,7 @@ globally to work around a shell startup error.
 | `check:package @tearleads/client-sdk` | The focused API prerequisites plus Node 24.22.2 from [`.nvmrc`](../../.nvmrc) on `PATH`, for the real V8/native SQLite regression. No desktop or static-gate toolchain is required. |
 | `check:fast` | Installed dependencies and pinned mise tools, including Java/TLA+, oasdiff, ShellCheck and Ruby; run `bundle install` in [`packages/app-capacitor`](../../packages/app-capacitor/) for Ruby lint dependencies. Prepares the Electrobun devkit and SDK declarations. |
 | `check` or `check:affected` | The static-gate prerequisites plus package builds, TypeScript, and the selected test suites; browser E2E also requires the Playwright browsers. |
-| The push gate | Installed dependencies, a prepared Electrobun devkit for Knip, and the pinned oasdiff and Ruby (with `bundle install` in [`packages/app-capacitor`](../../packages/app-capacitor/)). It builds nothing and runs no tests. |
+| The push gate | Installed dependencies, a prepared Electrobun devkit for Knip, and the pinned oasdiff, ShellCheck, and Ruby (with `bundle install` in [`packages/app-capacitor`](../../packages/app-capacitor/)). It builds nothing and runs no tests. |
 
 `build:runtime` downloads the pinned SQLite WASM archive when uncached and
 builds the SDK. Have `curl`, `unzip`, a SHA-256 utility, and network access for

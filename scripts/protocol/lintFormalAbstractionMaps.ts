@@ -77,6 +77,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/local-trust/UnacknowledgedInput.md": 1,
   "formal/local-trust/ContainerCreateAdoption.md": 1,
   "formal/local-trust/ContainerMoveReplay.md": 1,
+  "formal/local-trust/SystemSlotFold.md": 1,
   "formal/local-trust/CanonicalMeSelection.md": 1,
   "formal/local-trust/ContactAddressRecovery.md": 1,
   "formal/local-trust/ProfileDocumentIdentity.md": 1,
@@ -106,9 +107,8 @@ export function extractBacktickedTokens(cell: string): string[] {
   const tokens: string[] = [];
   for (const match of cell.matchAll(/`([^`]+)`/g)) {
     const token = match[1] ?? "";
-    // The maps name identifiers, wire tags, and dotted member accesses; any
-    // other shape means the table format drifted, which should fail loudly
-    // rather than pass unchecked.
+    // Maps name identifiers, wire tags, and dotted member accesses; any other
+    // shape means the table format drifted and must fail, not pass unchecked.
     if (!/^[A-Za-z0-9_.]+$/.test(token)) {
       throw new Error(`unexpected abstraction-map token shape: \`${token}\``);
     }

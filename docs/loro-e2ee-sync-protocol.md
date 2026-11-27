@@ -43,31 +43,30 @@ Document write routes:
     [document link-set manifest](./glossary/access.md#document-link-set-manifest)
     and initial [content-key bundle](./glossary/keys.md#content-key-bundle)
   - request shape: `DocumentCreateRequest`
-  - key fields: signed `event`, event `body`, `expectedManifestHash`,
-    `manifest`, optional `targetContainerPathRefs`, optional
-    `authorizingContainerPathRefs`, optional signed `containerRekeys[]`, and
-    required `contentKeyBundle`; a create has no predecessor manifest
+  - key fields: signed `event`, event `body`, `expectedManifestHash` (the server
+    derives the manifest), optional `targetContainerPathRefs`, optional
+    `authorizingContainerPathRefs`, optional signed `containerRekeys[]`,
+    required `contentKeyBundle`, and optional `initialSync` (no predecessor)
   - response shape: `DocumentCreateResponse`
 - `POST /documents/:documentId/link`
 - `POST /documents/:documentId/unlink`
   - advances the signed document link-set manifest
   - request shape: `DocumentLinkSetMutationRequest`
   - key fields: signed `event`, event `body`, `expectedManifestHash`,
-    `manifest`, `targetContainerPathRefs`, `authorizingContainerPathRefs`,
-    optional signed `containerRekeys[]`, and required `contentKeyBundle`; the
-    server resolves the previous link-set manifest from its own store
+    `targetContainerPathRefs`, `authorizingContainerPathRefs`, optional
+    `containerRekeys[]`, `contentKeyBundle`, and on unlink `rotationBaseline`
+    (with optional `baselineStageId`); the server resolves the predecessor
   - response shape: `DocumentLinkSetMutationResponse`
 - `POST /documents/:documentId/sync`
   - syncs encrypted Loro updates against the current signed link-set manifest
     and current derived KEK targets
   - request shape: `DocumentSyncRequest`
-  - key fields: optional `contentKeyBundle`, optional signed `containerRekeys[]`
-    with its `inlineRekeyCommitId`, `contentKeyEpoch`,
-    `expectedLinkSetManifestHash`, `expectedTargetHash`, optional
-    `authorizingContainerPathRefs`, `localVersionVector`, optional `minLsn`,
-    required `supportsPullPagination: true`, optional read-only `pullCursor`
-    and `historyMode`, optional `processedThroughUpdateId`, and
-    `outgoingUpdates[]`
+  - key fields: optional `contentKeyBundle`, optional `containerRekeys[]` with
+    `inlineRekeyCommitId`, `contentKeyEpoch`, `expectedLinkSetManifestHash`,
+    `expectedTargetHash`, optional `authorizingContainerPathRefs`,
+    `localVersionVector`, optional `minLsn`, `supportsPullPagination: true`,
+    optional `pullCursor`, `maxPageUpdates`, `historyMode`,
+    `processedThroughUpdateId`, `baselineStageId`, and `outgoingUpdates[]`
   - path references name stored signed container manifests;
     `expectedLinkSetManifestHash` pins the document [head](./glossary/sync.md#head)
   - each outgoing update includes `id`, encrypted `encryptedData`, visible
@@ -100,12 +99,12 @@ Attachment write routes:
     `attachment.bind`
   - request shape: `BlobAttachmentBindRequest`
   - key fields: signed event/body, `authorizingContainerPathRefs`, optional
-    signed `containerRekeys[]`, blob `contentKeyBundle`, and optional
-    `stagedBlob` with its signed blob `writeHeader`; the server resolves the
-    document manifest from its own store
+    `containerRekeys[]`, blob `contentKeyBundle`, `documentVersionVector`,
+    optional `processedThroughUpdateId`, optional `documentSync`, and optional
+    `stagedBlob` with its write header (server resolves the document manifest)
 - `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
-  - detaches a blob attachment through signed `attachment.detach`
-  - request shape: `BlobAttachmentDetachRequest`
+  - detaches via signed `attachment.detach` (`BlobAttachmentDetachRequest`:
+    `documentVersionVector`, optional `processedThroughUpdateId`)
 
 Access write routes are the signed `/containers` mutation family:
 
@@ -121,8 +120,8 @@ Container mutations cite every [manifest](./glossary/access.md#access-manifest)
 the server already stores (previous head, current and destination paths, KEK
 manifest history) by `{containerId, manifestHash}` reference, and every
 [principal policy](./glossary/principals.md#principal-policy-state) by its
-`{principalType, principalId, version, stateHash}` head; only the manifest being
-committed travels in full.
+`{principalType, principalId, version, stateHash}` head; the server derives the
+committed manifest and pins it with `expectedManifestHash`.
 
 For the full HTTP surface, see
 [api-architecture.md](./api-architecture.md#http-protocol-surface).
@@ -357,18 +356,18 @@ signed document manifest, content-key bundle, and target state before the
 attachment mutation.
 
 Attachment listing returns the blob content-key bundle for each active
-binding. Blob reads return only encrypted bytes and digest metadata, so clients
-use the listing or bind response bundle plus verified document/container access
-material to unwrap the blob content key.
+binding; bind responses acknowledge by hash. Blob reads return only encrypted
+bytes and digest metadata, so clients use the listing bundle plus verified
+document/container access material to unwrap the blob content key.
 
 The blob binding route validates:
 
-- signed `attachment.bind` event and body
-- expected blob id, document id, slot id, and previous binding id
-- current document manifest hash
+- signed `attachment.bind` event and body, expected blob/document/slot/previous
+  binding ids, current document manifest hash, and `documentVersionVector`
+  (plus optional `processedThroughUpdateId` and `documentSync`)
 - [authorizing container paths](./glossary/access.md#authorizing-container-path)
-  and referenced principal policy state
-- optional signed [container rekeys](./glossary/keys.md#rekey)
+  and referenced principal policy state, plus optional signed
+  [container rekeys](./glossary/keys.md#rekey)
 - staged blob ownership/expiry when a staged blob is supplied
 - staged encrypted blob bytes carry a fresh per-record AES-GCM IV committed by
   the staged object hash and signed blob write header
@@ -390,7 +389,8 @@ The blob detach route validates:
 
 - signed `attachment.detach` event and body
 - expected blob id, document id, slot id, and binding id
-- current document manifest hash
+- current document manifest hash and `documentVersionVector` (plus optional
+  `processedThroughUpdateId`)
 - authorizing container paths and referenced principal policy state
 - optional signed container rekeys
 

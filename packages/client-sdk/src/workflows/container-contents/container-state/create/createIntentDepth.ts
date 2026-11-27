@@ -43,7 +43,7 @@ export async function deferTooDeepCreate(
 /** Record a refusal from the verified plan or the API; it is final too. */
 export async function recordRefusedTooDeepCreate(
   input: ContainerCreateIntentSyncInput,
-): Promise<"blocked"> {
+): Promise<"parked"> {
   await recordTooDeepCreate(input);
-  return "blocked";
+  return "parked";
 }

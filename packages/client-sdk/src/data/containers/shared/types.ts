@@ -126,6 +126,8 @@ export interface ContainerMutationSubmitFailure {
     | readonly ReferencedPrincipalStateResponse[]
     | undefined;
   readonly status: number | null;
+  /** The organization already holds the create's system slot. */
+  readonly systemSlotTaken?: true | undefined;
 }
 
 export type ContainerMutationSubmitResult<T> =

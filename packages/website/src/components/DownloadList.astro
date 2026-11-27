@@ -199,8 +199,21 @@ const rows: readonly DownloadRow[] = [
   </ul>
   <p class="site-downloads-note">
     Verify each desktop download against its SHA-256 checksum before you
-    install. The <a
-      href="/downloads/linux/">Linux install guide</a> shows the command.
+    install.{" "}
+    {
+      windows ? (
+        <Fragment>
+          The <a href="/downloads/linux/">Linux</a> and{" "}
+          <a href="/downloads/windows/">Windows</a> install guides show the
+          commands.
+        </Fragment>
+      ) : (
+        <Fragment>
+          The <a href="/downloads/linux/">Linux install guide</a> shows the
+          command.
+        </Fragment>
+      )
+    }
   </p>
 </section>
 

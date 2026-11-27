@@ -45,9 +45,9 @@ Documents can appear in multiple containers but only within a single
 organization. The organization owns the data and governs the
 [access plane](./access-plane.md).
 
-Root containers are identified by convention rather than a foreign key on the
-organization table. A partial unique index enforces at most one root per
-organization:
+The `organizations` table records `root_container_id` without a foreign key
+constraint to `containers`, avoiding a circular foreign key between the two
+tables. A partial unique index enforces at most one root per organization:
 
 ```sql
 CREATE UNIQUE INDEX containers_org_root_idx
@@ -190,8 +190,8 @@ interface RegistrationRequest {
  userId: string;
  organizationId: string;
  rootContainerId: string;
- signingPublicKey: number[]; // ML-DSA-87 public key bytes
- encapsulationPublicKey: number[]; // ML-KEM-1024 public key bytes
+ signingPublicKey: string; // canonical base64 ML-DSA-87 public key bytes
+ encapsulationPublicKey: string; // canonical base64 ML-KEM-1024 public key bytes
  initialAdminGroup: CreateOrganizationGroupRequest;
  initialMemberGroup: CreateOrganizationGroupRequest;
  initialOrganizationPolicy: OrganizationPrincipalPolicyRequest;
@@ -233,6 +233,9 @@ interface RegistrationResponse {
  systemContainers: ContainerCreateWithMetadataDocumentResponse[];
  committedCoreMetadataUpdateIds: string[];
  committedProfileUpdateIds: string[];
+ rootBundleDigest: string;
+ commitLsn: string | null;
+ commitLsnMode: "tracked" | "untracked";
  challenge: string;
 }
 ```
@@ -288,6 +291,7 @@ CREATE TABLE IF NOT EXISTS organizations (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  admin_group_id UUID NOT NULL,
  member_group_id UUID NOT NULL,
+ root_container_id UUID NOT NULL,
  profile_document_id UUID,
  created_at TIMESTAMP NOT NULL DEFAULT now()
 );

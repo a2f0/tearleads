@@ -11,10 +11,7 @@ import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { createDomainScope } from "../../../../data/shared/domainScope";
-import {
-  CONTAINER_ALREADY_COMMITTED,
-  createRemoteContainerWithMetadataDocument,
-} from "./createWithMetadata";
+import { createRemoteContainerWithMetadataDocument } from "./createWithMetadata";
 
 const SIGNED_SLOT = `sys_v1_${"s".repeat(43)}`;
 const FOREIGN_SLOT = `sys_v1_${"t".repeat(43)}`;
@@ -117,7 +114,7 @@ for (const signedSlot of [null, SIGNED_SLOT]) {
       // An honest echo persists exactly the slot the client signed.
       echoedSlot = undefined;
       const created = await create();
-      if (!created || created === CONTAINER_ALREADY_COMMITTED) {
+      if (!created || typeof created === "symbol") {
         throw new Error("Expected the honest create to settle");
       }
       expect(created.systemSlot).toBe(signedSlot);

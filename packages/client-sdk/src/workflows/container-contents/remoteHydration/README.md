@@ -15,7 +15,8 @@ container tree state into the local `container-contents` query facade.
   timestamps.
 - [`reconciliation.ts`](reconciliation.ts) reconciles local-only root and
   system containers with
-  their remote counterparts.
+  their remote counterparts; [`rootFold/`](rootFold/) plans which local
+  descendants a root fold moves and which creates wait for a listing.
 
 Keep API pagination and watermark orchestration in [`index.ts`](index.ts).
 Keep React-free store scheduling in

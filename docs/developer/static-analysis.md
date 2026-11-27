@@ -61,10 +61,10 @@ them, so CI's `Lint` job checks every pull request's branch name as well.
 Detached pre-commit checks skip only branch naming; the file, source-shape,
 binary, and staged-content checks still run.
 
-The gate's OpenAPI and Ruby steps need the
-[mise-pinned oasdiff and Ruby tools](verification.md#pinned-tools), plus a
-fetched `origin/main` (or an explicit `OPENAPI_BASE_REF`); `check:fast` also
-needs Java and TLA+.
+The gate's OpenAPI, Ruby, and ShellCheck steps need the
+[mise-pinned oasdiff, Ruby, and ShellCheck tools](verification.md#pinned-tools),
+plus a fetched `origin/main` (or an explicit `OPENAPI_BASE_REF`); `check:fast`
+also needs Java and TLA+.
 
 `sh scripts/git/install-hooks.sh` installs the tracked hooks declared in
 [`agent-tool.json`](../../agent-tool.json) through
@@ -258,9 +258,10 @@ catalog per area from `*Labels.ts` in
 so new copy lands in its area's catalog.
 
 Generated and tool-owned files are excluded rather than given allowances,
-because their generators and drift checks own their shape: the OpenAPI
-artifact and its generated types, protocol trace and Lean vector fixtures, the
-Xcode project file, and every skill listed in
+because their generators and drift checks own their shape, including the OpenAPI
+artifact and its generated types, Drizzle migration outputs, `test-timings.json`
+tables, `subsystemSurfaceBaseline.json`, protocol trace and Lean vector
+fixtures, the Xcode project file, and every skill listed in
 [`.agent-tool-skills.json`](../../.agent-tool-skills.json). Add a new
 generated output to `ignoredPathPatterns` in
 [`scripts/checks/lintSourceShape.ts`](../../scripts/checks/lintSourceShape.ts)
@@ -327,7 +328,7 @@ directory-wide exclusion.
 The gates include the production Knip dead-file check, the scoped promise
 lint, and the architecture checks; CodeQL runs on demand through the
 `run-code-ql-scan` skill, not in CI. Strict Knip mode, private-export checks for
-root tooling, exact file-size ratcheting, full
+root tooling, full
 [subsystem-table](../subsystems.md#registry) generation, and
 grouped dependency bots are deliberately out of scope. Add focused architecture
 regression tests when changing important boundary rules, rather than an

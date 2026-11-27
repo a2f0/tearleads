@@ -135,7 +135,9 @@ test("a catch-up that cannot read what is owed lists every known lane", async ()
   await service.reconcileAcknowledgedConnection();
 
   expect(listings).toEqual([[...KNOWN]]);
-  expect(errors).toEqual([failure]);
+  // The release of lanes already owed and the plan each read it, and each
+  // reports the failure.
+  expect(errors).toEqual([failure, failure]);
   service.stop();
 });
 
