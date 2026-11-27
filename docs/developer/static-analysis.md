@@ -104,15 +104,19 @@ active) at that point; an unused exception deliberately fails both gates.
 
 `bun run agents:sync` installs the managed skills and then runs
 `agent-tool permissions install --apply`, which writes Claude Code rules to
-[`.claude/settings.json`](../../.claude/settings.json) and Codex rules to
-[`.codex/rules/agent-tool.rules`](../../.codex/rules/agent-tool.rules) and
-records what it owns in
-[`.agent-tool-permissions.json`](../../.agent-tool-permissions.json). Both allow
-routine agent-tool commands, including post-merge `repo cleanup --apply`, which
-deletes the shipped local and remote feature branch only for a confirmed merged
-PR and never a default or exempt branch. Merges, dependency additions,
-publishing, and permission changes get no generated rule in either harness, so
-they follow each user's chosen approval and sandbox policies; the agent-tool
+[`.claude/settings.json`](../../.claude/settings.json), Codex rules to
+[`.codex/rules/agent-tool.rules`](../../.codex/rules/agent-tool.rules), and
+Gemini CLI rules to
+[`.gemini/policies/agent-tool.toml`](../../.gemini/policies/agent-tool.toml),
+and records what it owns in
+[`.agent-tool-permissions.json`](../../.agent-tool-permissions.json). All three
+allow routine agent-tool commands, including post-merge `repo cleanup --apply`,
+which deletes the shipped local and remote feature branch only for a confirmed
+merged PR and never a default or exempt branch. The Gemini rules apply only in
+Gemini's `default` approval mode and only to arguments free of shell syntax.
+Merges, dependency additions, publishing, and permission changes get no
+generated rule in any harness, so they follow each user's chosen approval and
+sandbox policies; the agent-tool
 [permissions guide](https://github.com/a2f0/agent-tool/blob/4fb7feda9278877677fc532542cb505a4d4f3129/docs/permissions.md)
 lists every class. Cleanup is grouped as `share`; applied teardown and skill or
 hook installs are `local`. These labels do not change the effective rules or
