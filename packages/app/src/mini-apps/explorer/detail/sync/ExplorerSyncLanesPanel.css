@@ -31,14 +31,17 @@
     color var(--transition);
 }
 
+.explorer-sync-lane-metric:where(:not([aria-pressed="true"])):focus-visible {
+  background: var(--app-hover-surface);
+}
+
 @media (hover: hover) {
-  .explorer-sync-lane-metric:hover {
+  .explorer-sync-lane-metric:where(:not([aria-pressed="true"])):hover {
     background: var(--app-hover-surface);
   }
 }
 
-.explorer-sync-lane-metric[aria-pressed="true"],
-.explorer-sync-lane-metric[aria-pressed="true"]:hover {
+.explorer-sync-lane-metric[aria-pressed="true"] {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
 }

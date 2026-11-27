@@ -316,7 +316,7 @@ body {
 }
 
 button,
-input:not([type="checkbox"], [type="radio"]),
+input:where(:not([type="checkbox"], [type="radio"])),
 select,
 textarea {
   font-family: inherit;

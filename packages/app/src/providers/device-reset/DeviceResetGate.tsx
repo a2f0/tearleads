@@ -118,16 +118,16 @@ export function DeviceResetGate({
   }
   if (state.status === "resetting") {
     return (
-      <div role="status" className="device-reset-gate mini-app-status">
+      <div role="status" className="device-reset-gate">
         <span className="mini-app-state-panel-spinner" aria-hidden="true" />
-        <p>Resetting this device…</p>
+        <p className="mini-app-status">Resetting this device…</p>
       </div>
     );
   }
   if (state.status === "reset-elsewhere") {
     return (
-      <div role="status" className="device-reset-gate mini-app-status">
-        <p>
+      <div role="status" className="device-reset-gate">
+        <p className="mini-app-status">
           This device is being reset from another tab or window. Reload once it
           has restarted.
         </p>

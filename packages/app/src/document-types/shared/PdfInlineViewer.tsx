@@ -42,8 +42,8 @@ export default function PdfInlineViewer({
                 : "Loading PDF..."}
         </span>
         <MiniAppButton
-          aria-label="Zoom out"
           disabled={!pageCount}
+          title="Zoom out"
           onClick={() => zoom(0.8)}
         >
           −
@@ -52,8 +52,8 @@ export default function PdfInlineViewer({
           Fit width
         </MiniAppButton>
         <MiniAppButton
-          aria-label="Zoom in"
           disabled={!pageCount}
+          title="Zoom in"
           onClick={() => zoom(1.25)}
         >
           +

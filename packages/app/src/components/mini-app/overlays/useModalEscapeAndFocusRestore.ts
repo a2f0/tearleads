@@ -1,8 +1,8 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useEffectEvent } from "react";
 
 interface ModalEscapeEntry {
   readonly getDialog: () => HTMLElement | null;
-  onClose: () => void;
+  readonly onClose: () => void;
 }
 
 const modalEscapeStack: ModalEscapeEntry[] = [];
@@ -49,15 +49,14 @@ export function useModalEscapeAndFocusRestore(
   onClose: () => void,
   initialFocusRef: RefObject<HTMLElement | null>,
 ): void {
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  const close = useEffectEvent(onClose);
 
   useEffect(() => {
     const entry: ModalEscapeEntry = {
       getDialog: () =>
         initialFocusRef.current?.closest<HTMLElement>('[role="dialog"]') ??
         null,
-      onClose: () => onCloseRef.current(),
+      onClose: close,
     };
     if (modalEscapeStack.length === 0) {
       document.addEventListener("keydown", handleDocumentEscape);
