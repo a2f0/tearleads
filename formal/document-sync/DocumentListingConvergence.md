@@ -46,7 +46,7 @@ key bundle survive.
 | `HeadMove` | `recordDocumentLinkSetChange` for a peer's link change, or a rotation, either of which gives the listed row a new `currentAccessStateHash` |
 | `Acknowledge` | `flushPendingReconcileSignals` after the interest acknowledgement advances the connection generation, or on a projection opened after it |
 | `BeginListing` | `reconcileAcknowledgedConnection` listing each owed lane from its watermark |
-| `OweListedRead` | `oweListedDocumentReadsBehindListing` in `applyListedContainerDocuments`, which `listBehindListing` answers from the cursor and from the head of the record's stored key bundle, then `requestRegisteredDocumentRemoteSyncs` |
+| `OweListedRead` | `oweListedDocumentReadsBehindListing` in `applyListedContainerDocuments`, which `listBehindListing` answers from the cursor and from the head of the record's stored key bundle, then `requestRegisteredDocumentRemoteSyncs` asks each loaded store whose own record owes a read |
 | `ApplyListedRow` | `upsertDiscoveredDocuments` after the debt is durable; `resolvePersistedDocumentRuntimeState` drops the key bundle of a record whose access epoch the row moved |
 | `AdvanceWatermark` | `recordAppliedContainerDocumentListing` after the lane's rows are applied and owed |
 | `OpenStore` | `loadDocumentListingCoverage` when a store's record loads: it reads the debt (`findOwedDocumentListingRead`) and asks `takeHint`, and a record neither names is covered and arms no probe; a record with no key bundle fails `hasPersistedRemoteDocumentSyncState`, so nothing covers it |

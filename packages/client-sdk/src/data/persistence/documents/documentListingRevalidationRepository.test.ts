@@ -189,29 +189,63 @@ const record = (documentId: string, localId = `local-${documentId}`) => ({
   localId,
 });
 
-test("a request keeps the newest advertised count and head and renews its revision", async () => {
+test("a request keeps the newest advertised count and head and renews its revision only when the debt grows", async () => {
   await repository.request([owe("doc", 4, { accessEpoch: 3 })]);
   const first = await repository.find(record("doc"));
-  // A listing served by a lagging replica never lowers the debt.
+  // Repeating the same debt (e.g. a launch probe) keeps its revision so an
+  // in-flight pull for `first` can still settle it.
+  await repository.request([owe("doc", 4, { accessEpoch: 3 })]);
+  const repeated = await repository.find(record("doc"));
+  // A listing served by a lagging replica never lowers the debt or bumps its revision.
   await repository.request([owe("doc", 2, { accessEpoch: 2 })]);
-  const second = await repository.find(record("doc"));
+  const lagging = await repository.find(record("doc"));
+  // Raising either the count or the epoch renews the revision.
+  await repository.request([owe("doc", 5, { accessEpoch: 3 })]);
+  const raisedCount = await repository.find(record("doc"));
+  await repository.request([owe("doc", 5, { accessEpoch: 4 })]);
+  const raisedEpoch = await repository.find(record("doc"));
 
   expect(first?.advertisedUpdateCount).toBe(4);
-  expect(second?.advertisedUpdateCount).toBe(4);
-  expect(second?.advertisedAccessEpoch).toBe(3);
-  expect(second?.revision).not.toBe(first?.revision);
+  expect(repeated).toEqual(first);
+  expect(lagging).toEqual(first);
+  expect(raisedCount?.advertisedUpdateCount).toBe(5);
+  expect(raisedCount?.advertisedAccessEpoch).toBe(3);
+  expect(raisedCount?.revision).not.toBe(first?.revision);
+  expect(raisedEpoch?.advertisedUpdateCount).toBe(5);
+  expect(raisedEpoch?.advertisedAccessEpoch).toBe(4);
+  expect(raisedEpoch?.revision).not.toBe(raisedCount?.revision);
   expect(await repository.listOwed()).toEqual([record("doc")]);
 });
 
-test("a record that now names another document owes that one alone", async () => {
+test("an in-flight pull still settles a debt after an unchanged repeat", async () => {
+  await holdDocument({
+    cursor: { count: 4 },
+    documentId: "doc",
+    head: head("doc"),
+  });
+  await repository.request([owe("doc", 4, { accessEpoch: 1 })]);
+  const observed = await repository.find(record("doc"));
+  if (!observed) throw new Error("Expected debt");
+
+  // Launch probe re-owes the same debt while the pull is in flight.
+  await repository.request([owe("doc", 4, { accessEpoch: 1 })]);
+
+  expect(await repository.settle(observed, JUDGE)).toBe(true);
+  expect(await repository.find(record("doc"))).toBeNull();
+});
+
+test("a record that now names another document owes that one alone with a fresh revision", async () => {
   await repository.request([owe("old", 9, { accessEpoch: 9, localId: "l" })]);
+  const previous = await repository.find(record("old", "l"));
   await repository.request([owe("new", 1, { accessEpoch: 1, localId: "l" })]);
+  const replacement = await repository.find(record("new", "l"));
 
   expect(await repository.find(record("old", "l"))).toBeNull();
-  expect(await repository.find(record("new", "l"))).toMatchObject({
+  expect(replacement).toMatchObject({
     advertisedAccessEpoch: 1,
     advertisedUpdateCount: 1,
   });
+  expect(replacement?.revision).not.toBe(previous?.revision);
 });
 
 test("debts of records that no longer hold their document are forgotten", async () => {

@@ -20,6 +20,7 @@ import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { registerDocumentStore } from "../../stores/documents/registry";
 import { registerDocumentStoreLoadedRecord } from "../../stores/documents/savedElsewhere";
 import type { DocumentStoreFacade } from "../../stores/documents/types";
+import { createInitialDocumentProbe } from "../../sync/reconciliation/initialDocumentProbe";
 import type { ListedContainerDocument } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryTypes";
 import { createProbeLaneListing } from "./listingCoverageHost";
 
@@ -74,13 +75,20 @@ function row(id: string, updateCount = 0): ListedRow {
 
 /** Lists `folder` with `rows` in one page; any other lane fails. */
 function probeListing(
-  rows: ReadonlyArray<ListedRow>,
+  rows:
+    | ReadonlyArray<ListedRow>
+    | ReadonlyMap<string, ReadonlyArray<ListedRow>>,
   options: {
     readonly dbStatus?: "ready" | "idle";
+    readonly isContainerPaused?: (containerId: string) => boolean;
+    readonly loadSyncPauses?: (execSql: ExecSql) => Promise<void>;
     readonly logError?: (message: string | Error, cause?: unknown) => void;
+    readonly onListRequest?: () => void;
     readonly scope?: DomainScope;
   } = {},
 ) {
+  const rowsByContainer =
+    rows instanceof Map ? rows : new Map([["folder", rows]]);
   const requests: Array<{
     readonly input: ListContainerDocumentLanesRequest;
     readonly options: unknown;
@@ -89,20 +97,22 @@ function probeListing(
     apiClient: createMockApiClient({
       listContainerDocumentLanes: async (input, requestOptions) => {
         requests.push({ input, options: requestOptions });
+        options.onListRequest?.();
         return {
-          results: input.lanes.map(({ containerId, laneId }) =>
-            containerId === "folder"
+          results: input.lanes.map(({ containerId, laneId }) => {
+            const containerRows = rowsByContainer.get(containerId);
+            return containerRows
               ? {
                   laneId,
                   page: {
                     hasMore: false,
-                    items: [...rows],
+                    items: [...containerRows],
                     nextWatermark: null,
                     tombstones: [],
                   },
                 }
-              : { failure: { error: "refused", status: 403 }, laneId },
-          ),
+              : { failure: { error: "refused", status: 403 }, laneId };
+          }),
         };
       },
     }),
@@ -114,6 +124,14 @@ function probeListing(
   const list = createProbeLaneListing(
     createInternalRuntimeFixture(() => fixture),
     domainScope,
+    {
+      ...(options.isContainerPaused
+        ? { isContainerPaused: options.isContainerPaused }
+        : {}),
+      ...(options.loadSyncPauses
+        ? { loadSyncPauses: options.loadSyncPauses }
+        : {}),
+    },
   );
   return { list, requests };
 }
@@ -194,4 +212,96 @@ test("a probe listing whose debts cannot be written keeps its ids", async () => 
     new Map([["folder", ["document-restored"]]]),
   );
   expect(errors).toEqual(["Initial document probe could not owe reads"]);
+});
+
+test("a probe listing skips owing reads for paused containers while owing unpaused ones", async () => {
+  const paused = await openRecord("document-paused", "head:older");
+  const active = await openRecord("document-active", "head:older");
+  let loadedPauses = 0;
+  let pausedFolder = false;
+  const { list } = probeListing(
+    new Map([
+      ["paused-folder", [row("document-paused")]],
+      ["active-folder", [row("document-active")]],
+    ]),
+    {
+      isContainerPaused: (containerId) =>
+        containerId === "paused-folder" && pausedFolder,
+      loadSyncPauses: async () => {
+        loadedPauses += 1;
+        pausedFolder = true;
+      },
+    },
+  );
+
+  expect(await list(["paused-folder", "active-folder"])).toEqual(
+    new Map([
+      ["paused-folder", ["document-paused"]],
+      ["active-folder", ["document-active"]],
+    ]),
+  );
+  expect(loadedPauses).toBe(1);
+  expect(
+    await new DocumentListingRevalidationRepository(execSql).listOwed(),
+  ).toEqual([{ documentId: "document-active", localId: active.localId }]);
+  expect(paused.remoteSyncs()).toBe(0);
+  expect(active.remoteSyncs()).toBe(1);
+});
+
+test("a probe listing superseded while in flight owes nothing and asks nobody", async () => {
+  const restored = await openRecord("document-restored", "head:older");
+  let releaseListing: () => void = () => undefined;
+  const listingStarted = new Promise<void>((resolve) => {
+    releaseListing = resolve;
+  });
+  let finishListing: () => void = () => undefined;
+  const listingWait = new Promise<void>((resolve) => {
+    finishListing = resolve;
+  });
+  const fixture = createWorkflowInputFixture({
+    apiClient: createMockApiClient({
+      listContainerDocumentLanes: async (input) => {
+        releaseListing();
+        await listingWait;
+        return {
+          results: input.lanes.map(({ laneId }) => ({
+            laneId,
+            page: {
+              hasMore: false,
+              items: [row("document-restored")],
+              nextWatermark: null,
+              tombstones: [],
+            },
+          })),
+        };
+      },
+    }),
+    domainScope,
+    execSql,
+  });
+  const probe = createInitialDocumentProbe({
+    clock: { now: () => 0, schedule: () => () => undefined },
+    listContainerDocumentIds: createProbeLaneListing(
+      createInternalRuntimeFixture(() => fixture),
+      domainScope,
+    ),
+    probeUndiscoveredDocumentsBatch: async () => ({
+      done: true,
+      nextCursor: null,
+      requestedCount: 0,
+    }),
+    reportInitialDocumentProbeComplete: () => undefined,
+  });
+  probe.arm(["folder"]);
+  const run = probe.run();
+  await listingStarted;
+  // Resetting the probe while its listing is in flight invalidates the run generation.
+  probe.resetPending();
+  finishListing();
+  await run;
+
+  expect(
+    await new DocumentListingRevalidationRepository(execSql).listOwed(),
+  ).toEqual([]);
+  expect(restored.remoteSyncs()).toBe(0);
 });

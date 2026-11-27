@@ -127,8 +127,8 @@ export async function loadDocumentListingCoverage(
 /**
  * The debt a pull is about to answer, read before its request so a newer
  * request made meanwhile survives. Only a remote probe or a store that
- * already knows of a debt reads it: a listing that owes a read asks the
- * registered store to probe.
+ * already knows of a debt reads it: a listing that owes a read asks each
+ * owed record's loaded store to probe.
  */
 export async function findOwedListingReadBeforePull(
   state: DocumentStoreState,

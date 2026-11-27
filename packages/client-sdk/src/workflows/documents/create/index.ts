@@ -423,6 +423,7 @@ export async function createRemoteDocument(
     apiClient: remote.api,
     execSql: remote.execSql,
     isRemoteSyncBlocked: remote.isRemoteSyncBlocked,
+    logError: remote.logError,
     targetSecretKey: remote.encapsulationSecretKey,
   };
   // The store retries once the folder's own create settles.
