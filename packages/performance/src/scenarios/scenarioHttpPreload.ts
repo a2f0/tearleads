@@ -5,10 +5,11 @@
  * optional payload audit records to `PERF_PAYLOAD_AUDIT_OUT`.
  */
 import { beforeEach } from "bun:test";
-import { createPayloadAuditor } from "../canaries/payloadAudit";
 import { createCaptureWriter } from "../statements/captureFile";
-import type { ScenarioHttpRecord } from "./httpCapture";
-import { normalizeScenarioRoute } from "./routeNormalize";
+import {
+  createScenarioHttpObserver,
+  type ScenarioHttpObservation,
+} from "./scenarioHttpObserver";
 
 interface ScenarioHttpEnv {
   readonly [name: string]: string | undefined;
@@ -18,23 +19,9 @@ interface ScenarioHttpEnv {
   readonly PERF_PAYLOAD_AUDIT_STACKS?: string;
 }
 
-interface ScenarioHttpObservation {
-  readonly authorization: string | null;
-  readonly durationMs: number;
-  readonly knownManifestsCount: number;
-  readonly method: string;
-  readonly requestBody: string | null;
-  readonly requestBodyBytes: number;
-  readonly responseBody: string;
-  readonly responseBodyBytes: number;
-  readonly status: number;
-  readonly url: string;
-}
-
 const defaultLimit = 250_000;
 const httpSinkKey = "__tearleadsPerfScenarioHttpSink";
 const opSinkKey = "__tearleadsPerfScenarioOpSink";
-const worldOperationPattern = /^[a-z][A-Za-z]+$/u;
 
 function readEnv(env: ScenarioHttpEnv) {
   const out = env.PERF_SCENARIO_HTTP_OUT;
@@ -53,27 +40,6 @@ function readEnv(env: ScenarioHttpEnv) {
   };
 }
 
-function parseErrorCode(status: number, body: string): string | undefined {
-  if (status < 400 || !body) return undefined;
-  try {
-    const parsed: unknown = JSON.parse(body);
-    if (typeof parsed !== "object" || parsed === null) return undefined;
-    const code: unknown = Reflect.get(parsed, "code");
-    return typeof code === "string" && code.length > 0 ? code : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function pathKey(method: string, url: string): string {
-  try {
-    const parsed = new URL(url);
-    return `${method.toUpperCase()} ${parsed.pathname}${parsed.search}`;
-  } catch {
-    return `${method.toUpperCase()} ${url}`;
-  }
-}
-
 function filteredStack(): string {
   const raw = new Error().stack ?? "";
   return raw
@@ -89,23 +55,6 @@ function filteredStack(): string {
     )
     .slice(0, 4)
     .join(" <- ");
-}
-
-const { out, limit, payloadOut, captureStacks } = readEnv(process.env);
-const write = createCaptureWriter(out);
-const auditor = payloadOut
-  ? createPayloadAuditor({ write: createCaptureWriter(payloadOut) })
-  : null;
-
-const stackQueues = new Map<string, string[]>();
-let written = 0;
-let testNumber = 0;
-let payloadRequestIndex = 0;
-
-function record(entry: ScenarioHttpRecord): void {
-  if (written > limit) return;
-  written += 1;
-  write(`${JSON.stringify(written > limit ? { truncated: limit } : entry)}\n`);
 }
 
 function fetchRequestUrl(input: RequestInfo | URL): string {
@@ -129,16 +78,16 @@ function isProxyForwardInit(init?: RequestInit): boolean {
   );
 }
 
-function recordFetchStack(input: RequestInfo | URL, init?: RequestInit): void {
-  if (isProxyForwardInit(init)) return;
-  const key = pathKey(fetchRequestMethod(input, init), fetchRequestUrl(input));
-  const queue = stackQueues.get(key) ?? [];
-  queue.push(filteredStack());
-  stackQueues.set(key, queue);
-}
+const { out, limit, payloadOut, captureStacks } = readEnv(process.env);
+const observer = createScenarioHttpObserver({
+  writeHttp: createCaptureWriter(out),
+  limit,
+  ...(payloadOut ? { writePayload: createCaptureWriter(payloadOut) } : {}),
+  captureStacks,
+});
 
 function installFetchStackWrapper(): void {
-  if (!auditor || !captureStacks) return;
+  if (!payloadOut || !captureStacks) return;
   Error.stackTraceLimit = Math.max(Error.stackTraceLimit, 25);
   const original = globalThis.fetch;
   if (Reflect.get(original, "__tearleadsPerfScenarioWrapped") === true) return;
@@ -147,8 +96,16 @@ function installFetchStackWrapper(): void {
       input: RequestInfo | URL,
       init?: RequestInit,
     ): Promise<Response> {
-      recordFetchStack(input, init);
-      return original(input, init);
+      const cleanup = isProxyForwardInit(init)
+        ? null
+        : observer.enqueueStack(
+            fetchRequestMethod(input, init),
+            fetchRequestUrl(input),
+            filteredStack(),
+          );
+      const pending = original(input, init);
+      if (!cleanup) return pending;
+      return pending.finally(cleanup);
     },
     original,
     { __tearleadsPerfScenarioWrapped: true },
@@ -156,49 +113,17 @@ function installFetchStackWrapper(): void {
   globalThis.fetch = wrapped;
 }
 
-function takeStack(method: string, url: string): string | undefined {
-  if (!captureStacks) return undefined;
-  return stackQueues.get(pathKey(method, url))?.shift();
-}
-
 beforeEach(() => {
-  testNumber += 1;
-  payloadRequestIndex = 0;
-  auditor?.resetTest();
-  stackQueues.clear();
+  observer.startTest();
   installFetchStackWrapper();
 });
 
 installFetchStackWrapper();
 
 Reflect.set(globalThis, httpSinkKey, (obs: ScenarioHttpObservation) => {
-  const route = normalizeScenarioRoute(obs.method, obs.url);
-  const errorCode = parseErrorCode(obs.status, obs.responseBody);
-  record({
-    kind: "http",
-    route,
-    method: obs.method.toUpperCase(),
-    status: obs.status,
-    ...(errorCode !== undefined ? { errorCode } : {}),
-    requestBytes: obs.requestBodyBytes,
-    responseBytes: obs.responseBodyBytes,
-    durationMs: Math.round(obs.durationMs * 10) / 10,
-    knownManifestsCount: obs.knownManifestsCount,
-  });
-  if (auditor) {
-    const index = payloadRequestIndex;
-    payloadRequestIndex += 1;
-    auditor.recordPhase({
-      label: `test-${testNumber}`,
-      startIndex: index,
-      requests: [{ ...obs, routeKey: route }],
-      takeStack,
-    });
-  }
+  observer.observeHttp(obs);
 });
 
 Reflect.set(globalThis, opSinkKey, (message: string) => {
-  if (worldOperationPattern.test(message)) {
-    record({ kind: "op", name: message });
-  }
+  observer.observeTrace(message);
 });

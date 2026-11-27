@@ -72,9 +72,13 @@ export const scenarioBoundary =
 
 function isSavedScenarioReport(value: unknown): value is ScenarioReport {
   if (typeof value !== "object" || value === null) return false;
+  const status: unknown = Reflect.get(value, "status");
   return (
     Reflect.get(value, "schemaVersion") === 1 &&
     Reflect.get(value, "scenario") === "bob-and-alice-scenarios" &&
+    typeof Reflect.get(value, "runId") === "string" &&
+    typeof Reflect.get(value, "revision") === "string" &&
+    (status === "running" || status === "complete" || status === "failed") &&
     Array.isArray(Reflect.get(value, "summary")) &&
     Array.isArray(Reflect.get(value, "runs"))
   );

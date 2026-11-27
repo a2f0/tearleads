@@ -62,4 +62,32 @@ test("marks truncated captures and rejects malformed lines", () => {
   expect(() => parseScenarioHttpCapture('{"kind":"unknown"}\n')).toThrow(
     /line 1 is invalid/u,
   );
+  expect(() =>
+    parseScenarioHttpCapture(
+      JSON.stringify({
+        kind: "http",
+        route: "GET /x",
+        method: "GET",
+        status: 200,
+        requestBytes: 0,
+        responseBytes: 10,
+        durationMs: 1,
+      }),
+    ),
+  ).toThrow(/line 1 is invalid/u);
+  expect(() =>
+    parseScenarioHttpCapture(
+      JSON.stringify({
+        kind: "http",
+        route: "GET /x",
+        method: "GET",
+        status: 409,
+        errorCode: 123,
+        requestBytes: 0,
+        responseBytes: 10,
+        durationMs: 1,
+        knownManifestsCount: 0,
+      }),
+    ),
+  ).toThrow(/line 1 is invalid/u);
 });

@@ -2,6 +2,7 @@ import { formatRange } from "../canaries/markdown";
 import { formatPayloadAuditMarkdown } from "../canaries/payloadMarkdown";
 import type { Range } from "../canaries/summary";
 import { formatClientSqlMarkdown } from "../statements/clientSqlSummary";
+import type { StatementSummary } from "../statements/summary";
 import type { ScenarioReport } from "./report";
 import {
   type ScenarioChange,
@@ -112,6 +113,65 @@ function scenarioDetailSection(item: ScenarioSummary): string[] {
   return lines;
 }
 
+function apiStatementsRows(summary: StatementSummary): string[] {
+  if (summary.routes.length > 0) {
+    return table(
+      [
+        "Route",
+        "Reqs",
+        "Stmts",
+        "Per req",
+        "Max",
+        "In tx",
+        ...(summary.paramHashes ? ["Pure repeats", "All repeats"] : []),
+      ],
+      summary.routes
+        .slice(0, 15)
+        .map((route) => [
+          `\`${cell(route.route)}\``,
+          integers.format(route.requests),
+          integers.format(route.statements),
+          route.requests === 0
+            ? ""
+            : (route.statements / route.requests).toFixed(1),
+          integers.format(route.maxPerRequest),
+          integers.format(route.txStatements),
+          ...(summary.paramHashes
+            ? [
+                integers.format(route.pureReadRepeats ?? 0),
+                integers.format(route.sameKeyRepeats ?? 0),
+              ]
+            : []),
+        ]),
+    );
+  }
+  return table(
+    [
+      "Label",
+      "Stmts",
+      "Scopes",
+      ...(summary.paramHashes ? ["Pure repeats"] : []),
+    ],
+    summary.labels
+      .slice(0, 15)
+      .map((label) => [
+        `\`${cell(label.label)}\``,
+        integers.format(label.statements),
+        integers.format(label.requestScopes),
+        ...(summary.paramHashes
+          ? [
+              integers.format(
+                (label.pureReadRepeats ?? []).reduce(
+                  (sum, item) => sum + item.count,
+                  0,
+                ),
+              ),
+            ]
+          : []),
+      ]),
+  );
+}
+
 function apiStatementsSection(report: ScenarioReport): string[] {
   const lines: string[] = [];
   for (const run of report.runs) {
@@ -119,42 +179,14 @@ function apiStatementsSection(report: ScenarioReport): string[] {
       continue;
     }
     const { summary } = run.statements;
-    if (summary.routes.length === 0) continue;
+    if (summary.routes.length === 0 && summary.labels.length === 0) continue;
     lines.push(
       "",
       `## API statements: ${run.scenario} (#${run.sample})`,
       "",
       `${integers.format(summary.statements)} API ORM statements (${integers.format(summary.txStatements)} in ${integers.format(summary.transactions)} transactions, ${integers.format(summary.lockHoldStatements)} under locks).`,
       "",
-      ...table(
-        [
-          "Route",
-          "Reqs",
-          "Stmts",
-          "Per req",
-          "Max",
-          "In tx",
-          ...(summary.paramHashes ? ["Pure repeats", "All repeats"] : []),
-        ],
-        summary.routes
-          .slice(0, 15)
-          .map((route) => [
-            `\`${cell(route.route)}\``,
-            integers.format(route.requests),
-            integers.format(route.statements),
-            route.requests === 0
-              ? ""
-              : (route.statements / route.requests).toFixed(1),
-            integers.format(route.maxPerRequest),
-            integers.format(route.txStatements),
-            ...(summary.paramHashes
-              ? [
-                  integers.format(route.pureReadRepeats ?? 0),
-                  integers.format(route.sameKeyRepeats ?? 0),
-                ]
-              : []),
-          ]),
-      ),
+      ...apiStatementsRows(summary),
     );
   }
   return lines;
@@ -251,6 +283,67 @@ function optionalDelta(
   return delta(before ?? undefined, after ?? undefined);
 }
 
+function comparisonOverviewTable(changed: readonly ScenarioChange[]): string[] {
+  const hasApi = changed.some(
+    (item) => item.before?.apiStatements || item.after?.apiStatements,
+  );
+  const hasRepeats = changed.some(
+    (item) => item.before?.pureReadRepeats || item.after?.pureReadRepeats,
+  );
+  const hasClient = changed.some(
+    (item) => item.before?.clientStatements || item.after?.clientStatements,
+  );
+  return table(
+    [
+      "Scenario",
+      "Requests",
+      "409s",
+      "Request bytes",
+      "Response bytes",
+      ...(hasApi ? ["API stmts"] : []),
+      ...(hasRepeats ? ["Pure repeats"] : []),
+      ...(hasClient ? ["Client SQL"] : []),
+    ],
+    changed.map((item) => {
+      const both = Boolean(item.before && item.after);
+      return [
+        `\`${cell(item.scenario)}\``,
+        delta(item.before?.requests, item.after?.requests),
+        delta(item.before?.conflicts, item.after?.conflicts),
+        delta(item.before?.requestBytes, item.after?.requestBytes),
+        delta(item.before?.responseBytes, item.after?.responseBytes),
+        ...(hasApi
+          ? [
+              optionalDelta(
+                item.before?.apiStatements,
+                item.after?.apiStatements,
+                both,
+              ),
+            ]
+          : []),
+        ...(hasRepeats
+          ? [
+              optionalDelta(
+                item.before?.pureReadRepeats,
+                item.after?.pureReadRepeats,
+                both,
+              ),
+            ]
+          : []),
+        ...(hasClient
+          ? [
+              optionalDelta(
+                item.before?.clientStatements,
+                item.after?.clientStatements,
+                both,
+              ),
+            ]
+          : []),
+      ];
+    }),
+  );
+}
+
 /** Formats changes between two saved scenario reports. */
 export function formatScenarioComparison(
   changes: readonly ScenarioChange[],
@@ -265,54 +358,7 @@ export function formatScenarioComparison(
       "Deltas compare the lowest values.",
   ];
   if (changed.length === 0) return `${lines.join("\n")}\n`;
-  const hasApi = changed.some(
-    (item) => item.before?.apiStatements || item.after?.apiStatements,
-  );
-  const hasClient = changed.some(
-    (item) => item.before?.clientStatements || item.after?.clientStatements,
-  );
-  lines.push(
-    "",
-    ...table(
-      [
-        "Scenario",
-        "Requests",
-        "409s",
-        "Request bytes",
-        "Response bytes",
-        ...(hasApi ? ["API stmts"] : []),
-        ...(hasClient ? ["Client SQL"] : []),
-      ],
-      changed.map((item) => {
-        const both = Boolean(item.before && item.after);
-        return [
-          `\`${cell(item.scenario)}\``,
-          delta(item.before?.requests, item.after?.requests),
-          delta(item.before?.conflicts, item.after?.conflicts),
-          delta(item.before?.requestBytes, item.after?.requestBytes),
-          delta(item.before?.responseBytes, item.after?.responseBytes),
-          ...(hasApi
-            ? [
-                optionalDelta(
-                  item.before?.apiStatements,
-                  item.after?.apiStatements,
-                  both,
-                ),
-              ]
-            : []),
-          ...(hasClient
-            ? [
-                optionalDelta(
-                  item.before?.clientStatements,
-                  item.after?.clientStatements,
-                  both,
-                ),
-              ]
-            : []),
-        ];
-      }),
-    ),
-  );
+  lines.push("", ...comparisonOverviewTable(changed));
   for (const item of changed) {
     if (!item.before || !item.after || item.routes.length === 0) continue;
     lines.push("", `## ${item.scenario}`, "");

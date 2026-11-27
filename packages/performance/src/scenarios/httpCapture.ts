@@ -46,17 +46,24 @@ export interface ScenarioHttpSummary {
   readonly byRoute: Readonly<Record<string, ScenarioRouteMetrics>>;
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function isHttpRecord(
   value: object,
 ): value is Extract<ScenarioHttpRecord, { kind: "http" }> {
+  const errorCode: unknown = Reflect.get(value, "errorCode");
   return (
     Reflect.get(value, "kind") === "http" &&
     typeof Reflect.get(value, "route") === "string" &&
     typeof Reflect.get(value, "method") === "string" &&
-    typeof Reflect.get(value, "status") === "number" &&
-    typeof Reflect.get(value, "requestBytes") === "number" &&
-    typeof Reflect.get(value, "responseBytes") === "number" &&
-    typeof Reflect.get(value, "durationMs") === "number"
+    isFiniteNumber(Reflect.get(value, "status")) &&
+    (errorCode === undefined || typeof errorCode === "string") &&
+    isFiniteNumber(Reflect.get(value, "requestBytes")) &&
+    isFiniteNumber(Reflect.get(value, "responseBytes")) &&
+    isFiniteNumber(Reflect.get(value, "durationMs")) &&
+    isFiniteNumber(Reflect.get(value, "knownManifestsCount"))
   );
 }
 

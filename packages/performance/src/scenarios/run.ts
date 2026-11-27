@@ -58,6 +58,9 @@ export interface ScenarioRunInput {
   };
   /** The bob-and-alice package root; defaults to `packages/bob-and-alice`. */
   readonly root?: string;
+  /** Test seam replacing process execution and environment. */
+  readonly runTests?: typeof runTestProcess;
+  readonly baseEnv?: Readonly<Record<string, string | undefined>>;
 }
 
 function parseTestCount(text: string, outcome: "pass" | "fail"): number | null {
@@ -141,23 +144,25 @@ async function readPayloadAudit(capturePath: string): Promise<RunPayloadAudit> {
   }
 }
 
-/**
- * Runs one bob-and-alice scenario file alone with HTTP/operation capture on
- * and optional API statement, client SQLite, and payload-audit captures.
- */
-export async function runScenario(
+function buildScenarioEnv(
   input: ScenarioRunInput,
-): Promise<ScenarioRun> {
-  const root = input.root ?? bobAndAliceRoot;
-  const preloads = [
-    ...(await packagePreloads(root)),
-    scenarioHttpPreload,
-    ...(input.statements ? [capturePreload] : []),
-    ...(input.clientSql ? [clientSqlPreload] : []),
-  ];
-  const { API_DATABASE: apiDatabase } = process.env;
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
+  baseEnv: Readonly<Record<string, string | undefined>>,
+): NodeJS.ProcessEnv {
+  const {
+    API_DATABASE: apiDatabase,
+    PERF_CLIENT_SQL_LIMIT: _clientLimit,
+    PERF_CLIENT_SQL_OUT: _clientOut,
+    PERF_PAYLOAD_AUDIT_OUT: _payloadOut,
+    PERF_PAYLOAD_AUDIT_STACKS: _payloadStacks,
+    PERF_SCENARIO_HTTP_LIMIT: _httpLimit,
+    PERF_SCENARIO_HTTP_OUT: _httpOut,
+    PERF_STATEMENTS_LIMIT: _stmtLimit,
+    PERF_STATEMENTS_OUT: _stmtOut,
+    PERF_STATEMENTS_PARAM_HASH: _stmtParamHash,
+    ...cleanEnv
+  } = baseEnv;
+  return {
+    ...cleanEnv,
     API_DATABASE: apiDatabase ?? "memory",
     PERF_SCENARIO_HTTP_OUT: input.httpCapture,
     ...(input.statements && {
@@ -172,13 +177,30 @@ export async function runScenario(
       PERF_PAYLOAD_AUDIT_STACKS: input.payloadAudit.stacks ? "1" : "0",
     }),
   };
-  const result = await runTestProcess({
+}
+
+/**
+ * Runs one bob-and-alice scenario file alone with HTTP/operation capture on
+ * and optional API statement, client SQLite, and payload-audit captures.
+ */
+export async function runScenario(
+  input: ScenarioRunInput,
+): Promise<ScenarioRun> {
+  const root = input.root ?? bobAndAliceRoot;
+  const runTests = input.runTests ?? runTestProcess;
+  const preloads = [
+    ...(await packagePreloads(root)),
+    scenarioHttpPreload,
+    ...(input.statements ? [capturePreload] : []),
+    ...(input.clientSql ? [clientSqlPreload] : []),
+  ];
+  const result = await runTests({
     cwd: root,
     args: [
       ...preloads.flatMap((preload) => ["--preload", preload]),
       testFileArgument(input.scenario.file),
     ],
-    env,
+    env: buildScenarioEnv(input, input.baseEnv ?? process.env),
     log: input.log,
     timeoutMs: scenarioTimeoutMs,
   });

@@ -238,6 +238,9 @@ export function scenarioChanged(change: ScenarioChange): boolean {
     (before.apiStatements !== null &&
       after.apiStatements !== null &&
       !sameRange(before.apiStatements, after.apiStatements)) ||
+    (before.pureReadRepeats !== null &&
+      after.pureReadRepeats !== null &&
+      !sameRange(before.pureReadRepeats, after.pureReadRepeats)) ||
     (before.clientStatements !== null &&
       after.clientStatements !== null &&
       !sameRange(before.clientStatements, after.clientStatements))
