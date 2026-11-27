@@ -22,19 +22,23 @@ const pending = (
   opened: ReadonlyArray<string> = [],
   listed: ReadonlyArray<string> = [],
   acknowledgements = 1,
+  pendingGenerations: ReadonlyMap<string, number> = new Map(),
 ): CatchUpState => ({
   acknowledgements,
   listedNowContainerIds: new Set(opened),
   listedSinceContainerIds: new Set(listed),
+  pendingGenerations,
   status,
   wait: current,
 });
 const overdueFor = (
   current: CatchUpWait,
   listed: ReadonlyArray<string> = [],
+  pendingGenerations: ReadonlyMap<string, number> = new Map(),
 ): CatchUpState => ({
   acknowledgements: 1,
   listedSinceContainerIds: new Set(listed),
+  pendingGenerations,
   status: "overdue",
   wait: current,
 });
@@ -59,6 +63,7 @@ test("an acknowledgement starts a wait, and a second one shares it", () => {
   // A listing sent before it, answered after it, does not count either.
   const listedA = {
     containerIds: ["a"],
+    pendingGenerations: new Map<string, number>(),
     type: "listed",
     wait: first,
   } as const;
@@ -121,7 +126,7 @@ test("a turn that does not come in time makes the catch-up overdue", () => {
 
   expect(overdue).toEqual(overdueFor(current, ["listed"]));
   // Nothing waits for an overdue catch-up, and nothing changes that but
-  // its turn, a listing, a new acknowledgement or a stop.
+  // its turn, a listing, a pending retry, a new acknowledgement or a stop.
   expect(defersToCatchUp(overdue, "known")).toBe(false);
   for (const event of [
     { type: "crawlSettled", wait: current },
@@ -239,6 +244,7 @@ test("a lane listed after the acknowledgement is kept until the turn", () => {
   const listedA = {
     acknowledgements: 1,
     containerIds: ["a"],
+    pendingGenerations: new Map<string, number>(),
     type: "listed",
     wait: current,
   } as const;
@@ -279,8 +285,9 @@ test("a lane listed after the acknowledgement is kept until the turn", () => {
   expect(listedSinceAcknowledgement(IDLE_CATCH_UP, current)).toEqual(new Set());
 });
 
-test("pending discovery drops a lane from the listed-since set", () => {
+test("pending discovery drops a lane and blocks older in-flight listings from re-adding it", () => {
   const current = wait(["a", "b"]);
+  const olderSnapshot = new Map<string, number>();
   for (const before of [
     pending("awaitingCrawl", current, [], ["a", "b"]),
     pending("awaitingTurn", current, [], ["a", "b"]),
@@ -291,10 +298,33 @@ test("pending discovery drops a lane from the listed-since set", () => {
       type: "pendingDiscovery",
     });
     expect(listedSinceAcknowledgement(after, current)).toEqual(new Set(["b"]));
-    // Dropping a lane not in the set changes nothing.
-    expect(
-      transitionCatchUp(after, { containerId: "a", type: "pendingDiscovery" }),
-    ).toBe(after);
+    // An older listing started before pendingDiscovery cannot re-add "a",
+    // while still recording unaffected lanes such as "c".
+    const afterStaleList = transitionCatchUp(after, {
+      acknowledgements: 1,
+      containerIds: ["a", "c"],
+      pendingGenerations: olderSnapshot,
+      type: "listed",
+      wait: current,
+    });
+    expect(listedSinceAcknowledgement(afterStaleList, current)).toEqual(
+      new Set(["b", "c"]),
+    );
+    // A clean listing started after pendingDiscovery carries the raised
+    // generation and can add "a" again.
+    if (afterStaleList.status === "idle") {
+      throw new Error("Expected active catch-up state");
+    }
+    const afterFreshList = transitionCatchUp(afterStaleList, {
+      acknowledgements: 1,
+      containerIds: ["a"],
+      pendingGenerations: afterStaleList.pendingGenerations,
+      type: "listed",
+      wait: current,
+    });
+    expect(listedSinceAcknowledgement(afterFreshList, current)).toEqual(
+      new Set(["a", "b", "c"]),
+    );
   }
   expect(
     transitionCatchUp(IDLE_CATCH_UP, {

@@ -205,3 +205,52 @@ test("a pending retry clears a lane previously listed cleanly in the same wait",
   expect(listings).toEqual([["a"], ["a"], ["a", "b", "c"]]);
   service.stop();
 });
+
+test("an older concurrent batch finishing after a pending retry cannot re-vouch that lane", async () => {
+  const clock = createManualReconciliationClock();
+  const finishBatch1 = createGate();
+  const { crawl, host, listings, service } = awaitingIncompleteCrawl({ clock });
+  const discover = host.discoverContainerDocuments;
+  let calls = 0;
+  host.discoverContainerDocuments = async (requests, onOutcome) => {
+    calls += 1;
+    if (calls === 1) {
+      // Batch 1 (full refresh) starts before the hint's pending retry and
+      // finishes only after that retry's timer has fired.
+      const outcomes = await discover(requests, onOutcome);
+      await finishBatch1.wait;
+      return outcomes;
+    }
+    if (calls === 2) {
+      for (const request of requests) {
+        if (request.containerId === "a") request.onPendingDiscovery?.(50);
+      }
+    }
+    return discover(requests, onOutcome);
+  };
+  const catchUp = service.reconcileAcknowledgedConnection();
+  await settle();
+
+  // Batch 1 starts on a, b, c and pauses before returning.
+  const fullRefresh = service.reconcileNow();
+  await settle();
+  // While Batch 1 is still in flight, a hint for lane a runs Batch 2, leaves
+  // a candidate pending, clears its force, and its retry timer fires.
+  service.enqueueContainer("a", "active", true);
+  await settle();
+  await settle();
+  clock.advance(50);
+  await settle();
+  // Batch 1 now finishes: b and c count as listed since, but a must not be
+  // re-added because its pending retry fired after Batch 1 began.
+  finishBatch1.open();
+  await fullRefresh;
+  await settle();
+
+  crawl.open();
+  await catchUp;
+  await settle();
+
+  expect(listings).toEqual([["a", "b", "c"], ["a"], ["a"]]);
+  service.stop();
+});

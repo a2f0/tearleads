@@ -44,8 +44,8 @@
  * | awaitingTurn | turnOverdue, the same wait | overdue |
  * | awaitingCrawl, awaitingTurn | opened | the same, with that container listed now |
  * | awaitingCrawl, awaitingTurn | alreadyOwed, the same wait | the same, with those lanes listed now |
- * | awaitingCrawl, awaitingTurn, overdue | listed, the same wait and acknowledgement | the same, with those lanes listed since |
- * | awaitingCrawl, awaitingTurn, overdue | pendingDiscovery | the same, without that lane in listed since |
+ * | awaitingCrawl, awaitingTurn, overdue | listed, the same wait, acknowledgement and pending generation | the same, with those lanes listed since |
+ * | awaitingCrawl, awaitingTurn, overdue | pendingDiscovery | the same, without that lane in listed since and with its pending generation raised |
  * | awaitingCrawl, awaitingTurn, overdue | turnTaken, the same wait | idle |
  * | any | stopped | idle |
  *
@@ -73,9 +73,16 @@ interface CatchUpListings {
   readonly acknowledgements: number;
   /**
    * Containers whose document lane a listing sent after the acknowledgement
-   * listed. Nothing a crawl could say about them is newer than that listing.
+   * listed with no candidate left pending. Nothing a crawl could say about
+   * them is newer than that listing.
    */
   readonly listedSinceContainerIds: ReadonlySet<string>;
+  /**
+   * Per-container invalidation count bumped on `pendingDiscovery`. A listing
+   * that started before a container's pending retry carries an older count
+   * and cannot re-add that container when it finishes later.
+   */
+  readonly pendingGenerations: ReadonlyMap<string, number>;
   readonly wait: CatchUpWait;
 }
 
@@ -109,6 +116,8 @@ export type CatchUpEvent =
       /** The wait's acknowledgements when the listing was sent. */
       readonly acknowledgements: number;
       readonly containerIds: ReadonlyArray<string>;
+      /** The wait's `pendingGenerations` when the listing was sent. */
+      readonly pendingGenerations: ReadonlyMap<string, number>;
       readonly type: "listed";
       readonly wait: CatchUpWait;
     }
@@ -127,12 +136,14 @@ function afterAcknowledged(
       ...state,
       acknowledgements: state.acknowledgements + 1,
       listedSinceContainerIds: new Set(),
+      pendingGenerations: new Map(),
     };
   }
   return {
     acknowledgements: 1,
     listedNowContainerIds: new Set(),
     listedSinceContainerIds: new Set(),
+    pendingGenerations: new Map(),
     status: "awaitingCrawl",
     wait,
   };
@@ -153,8 +164,13 @@ type ListingCatchUp = Exclude<CatchUpState, { readonly status: "idle" }>;
 function listedSince(
   state: ListingCatchUp,
   containerIds: ReadonlyArray<string>,
+  atRequest: ReadonlyMap<string, number>,
 ): CatchUpState {
-  const listed = withAll(state.listedSinceContainerIds, containerIds);
+  const eligible = containerIds.filter(
+    (id) =>
+      (state.pendingGenerations.get(id) ?? 0) === (atRequest.get(id) ?? 0),
+  );
+  const listed = withAll(state.listedSinceContainerIds, eligible);
   return listed === state.listedSinceContainerIds
     ? state
     : { ...state, listedSinceContainerIds: listed };
@@ -164,10 +180,22 @@ function withoutListed(
   state: ListingCatchUp,
   containerId: string,
 ): CatchUpState {
-  if (!state.listedSinceContainerIds.has(containerId)) return state;
-  const listed = new Set(state.listedSinceContainerIds);
-  listed.delete(containerId);
-  return { ...state, listedSinceContainerIds: listed };
+  let listed = state.listedSinceContainerIds;
+  if (listed.has(containerId)) {
+    const next = new Set(listed);
+    next.delete(containerId);
+    listed = next;
+  }
+  const pendingGenerations = new Map(state.pendingGenerations);
+  pendingGenerations.set(
+    containerId,
+    (pendingGenerations.get(containerId) ?? 0) + 1,
+  );
+  return {
+    ...state,
+    listedSinceContainerIds: listed,
+    pendingGenerations,
+  };
 }
 
 type PendingCatchUp = Extract<
@@ -210,6 +238,7 @@ function transitionPending(
         ? {
             acknowledgements: state.acknowledgements,
             listedSinceContainerIds: state.listedSinceContainerIds,
+            pendingGenerations: state.pendingGenerations,
             status: "overdue",
             wait: state.wait,
           }
@@ -238,7 +267,7 @@ export function transitionCatchUp(
   if (event.type === "listed") {
     return state.wait === event.wait &&
       state.acknowledgements === event.acknowledgements
-      ? listedSince(state, event.containerIds)
+      ? listedSince(state, event.containerIds, event.pendingGenerations)
       : state;
   }
   if (event.type === "pendingDiscovery") {

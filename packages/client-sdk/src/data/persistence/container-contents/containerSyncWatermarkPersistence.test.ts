@@ -274,12 +274,16 @@ test("a document lane's fetch writes no row for a container not stored", async (
     // A listing in flight across the container's delete records afterwards,
     // with and without a guard on the commit.
     const gone = containerContentsSyncLane("deleted");
-    await watermarks.recordLaneFetch(gone, { checked: true, watermark });
-    await watermarks.recordLaneFetch(
-      gone,
-      { checked: true, watermark },
-      { stillCurrent: () => true },
-    );
+    await expect(
+      watermarks.recordLaneFetch(gone, { checked: true, watermark }),
+    ).resolves.toBe(true);
+    await expect(
+      watermarks.recordLaneFetch(
+        gone,
+        { checked: true, watermark },
+        { stillCurrent: () => true },
+      ),
+    ).resolves.toBe(true);
     await expect(watermarks.loadWatermarkRecords([gone])).resolves.toEqual([
       null,
     ]);
@@ -292,18 +296,29 @@ test("a document lane's fetch writes no row for a container not stored", async (
       "checked-only",
     ]);
     const stored = containerContentsSyncLane("stored");
-    await watermarks.recordLaneFetch(
-      stored,
-      { checked: true, watermark },
-      { stillCurrent: () => true },
-    );
+    await expect(
+      watermarks.recordLaneFetch(
+        stored,
+        { checked: true, watermark },
+        { stillCurrent: () => true },
+      ),
+    ).resolves.toBe(true);
+    // A subsequent partial update on a stored document lane preserves the
+    // untouched freshness marker via onConflictDoUpdate.
+    const nextWatermark = {
+      id: "d1/later",
+      updatedAt: "2026-05-05T00:05:00.000Z",
+    };
+    await watermarks.saveWatermark(stored, nextWatermark);
     // Recording only one half writes its own timestamp column, not the other.
     const cursorOnly = containerContentsSyncLane("cursor-only");
     const checkedOnly = containerContentsSyncLane("checked-only");
     await watermarks.saveWatermark(cursorOnly, watermark);
     await watermarks.markChecked(checkedOnly);
     await watermarks.markChecked(containerParentSyncLane("deleted"));
-    await expect(watermarks.loadWatermark(stored)).resolves.toEqual(watermark);
+    await expect(watermarks.loadWatermark(stored)).resolves.toEqual(
+      nextWatermark,
+    );
     await expect(watermarks.loadWatermark(cursorOnly)).resolves.toEqual(
       watermark,
     );

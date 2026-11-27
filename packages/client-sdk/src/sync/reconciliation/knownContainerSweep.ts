@@ -125,6 +125,7 @@ export async function reconcileMarkedContainers(
       containerIds: results.flatMap(({ containerId, listed }) =>
         listed && !pending.has(containerId) ? [containerId] : [],
       ),
+      pendingGenerations: catchUpAtRequest.pendingGenerations,
       type: "listed",
       wait: catchUpAtRequest.wait,
     });
