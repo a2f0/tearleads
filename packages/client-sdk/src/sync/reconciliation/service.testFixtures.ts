@@ -266,7 +266,12 @@ export function awaitingCrawl(input: {
 }
 
 /** A lane on the scope's coordinator that records each request to run. */
-export function recordingLane(wakes: string[]): Partial<ReconciliationHost> {
+export function recordingLane(
+  wakes: string[],
+  options?: {
+    readonly onRequestSyncAfter?: (delayMs: number, runNow: () => void) => void;
+  },
+): Partial<ReconciliationHost> {
   const domainScope = createDomainScope();
   return {
     domainScope,
@@ -283,7 +288,11 @@ export function recordingLane(wakes: string[]): Partial<ReconciliationHost> {
         },
         requestSyncAfter: (delayMs) => {
           wakes.push(`after ${delayMs} ms`);
-          lane.requestSyncAfter(delayMs);
+          if (options?.onRequestSyncAfter) {
+            options.onRequestSyncAfter(delayMs, () => lane.requestSync());
+          } else {
+            lane.requestSyncAfter(delayMs);
+          }
         },
       };
     },

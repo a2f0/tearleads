@@ -274,43 +274,6 @@ export async function listAllContainerDocumentLanes(input: {
   return listed;
 }
 
-/**
- * Lists each container's authoritative current document ids by deliberately
- * starting at no watermark, every lane in one batched listing. A lane that
- * could not be listed maps to `null`.
- */
-export async function listAllContainerDocumentIdsFromApi(input: {
-  readonly apiClient: ContainerDocumentLaneApi;
-  readonly containerIds: ReadonlyArray<string>;
-  readonly reportErrors?: boolean;
-}): Promise<ReadonlyMap<string, ReadonlyArray<string> | null>> {
-  const listed = await listAllContainerDocumentLanes({
-    lanes: input.containerIds.map((containerId) => ({
-      containerId,
-      watermark: null,
-    })),
-    // The probe settles nothing: an identical listing on its way will do.
-    listContainerDocumentLanes: (lanes) =>
-      listContainerDocumentLanesFromApi(
-        input.apiClient,
-        lanes,
-        input.reportErrors,
-        "mayJoin",
-      ),
-  });
-  return new Map(
-    input.containerIds.map((containerId) => {
-      const lane = listed.get(containerId);
-      return [
-        containerId,
-        lane && lane !== "unavailable"
-          ? Array.from(new Set(lane.items.map((document) => document.id)))
-          : null,
-      ];
-    }),
-  );
-}
-
 /** Loads each lane's persisted watermark, then lists every lane in batches. */
 export async function listContainerDocumentsFromWatermarks(input: {
   readonly containerIds: ReadonlyArray<string>;

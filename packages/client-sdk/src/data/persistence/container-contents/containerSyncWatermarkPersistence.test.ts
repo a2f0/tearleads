@@ -286,19 +286,39 @@ test("a document lane's fetch writes no row for a container not stored", async (
     await expect(watermarks.loadCheckRecords([gone])).resolves.toEqual([null]);
 
     // A stored container's lane, and a parent lane, are recorded as before.
-    await storeContainerRows(execSql, ["stored"]);
+    await storeContainerRows(execSql, [
+      "stored",
+      "cursor-only",
+      "checked-only",
+    ]);
     const stored = containerContentsSyncLane("stored");
     await watermarks.recordLaneFetch(
       stored,
       { checked: true, watermark },
       { stillCurrent: () => true },
     );
+    // Recording only one half writes its own timestamp column, not the other.
+    const cursorOnly = containerContentsSyncLane("cursor-only");
+    const checkedOnly = containerContentsSyncLane("checked-only");
+    await watermarks.saveWatermark(cursorOnly, watermark);
+    await watermarks.markChecked(checkedOnly);
     await watermarks.markChecked(containerParentSyncLane("deleted"));
     await expect(watermarks.loadWatermark(stored)).resolves.toEqual(watermark);
+    await expect(watermarks.loadWatermark(cursorOnly)).resolves.toEqual(
+      watermark,
+    );
+    await expect(watermarks.loadWatermark(checkedOnly)).resolves.toBeNull();
     await expect(
-      watermarks.loadCheckRecords([stored, containerParentSyncLane("deleted")]),
+      watermarks.loadCheckRecords([
+        stored,
+        cursorOnly,
+        checkedOnly,
+        containerParentSyncLane("deleted"),
+      ]),
     ).resolves.toEqual([
       expect.objectContaining({ laneId: "stored" }),
+      null,
+      expect.objectContaining({ laneId: "checked-only" }),
       expect.objectContaining({ laneId: "parent:deleted" }),
     ]);
   } finally {

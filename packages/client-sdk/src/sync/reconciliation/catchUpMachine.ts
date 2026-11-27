@@ -25,12 +25,15 @@
  * nothing waits for it from then on; its sweep still runs when its turn
  * comes.
  *
- * A lane whose listing was sent after the acknowledgement read everything
- * the crawl could say about it, so the catch-up keeps those lanes: when
- * nothing vouches for the rest, its sweep lists every known lane but them.
- * An acknowledgement the wait shares starts that record again: a listing
- * sent before it may have missed a write made while the socket was down,
- * so it counts only when no acknowledgement arrived after it was sent.
+ * A lane whose listing was sent after the acknowledgement and left no
+ * candidate pending read everything the crawl could say about it, so the
+ * catch-up keeps those lanes: when nothing vouches for the rest, its sweep
+ * lists every known lane but them. A later listing that leaves a candidate
+ * pending, or its retry timer firing, removes the lane from that set so the
+ * fallback does not swallow its retry. An acknowledgement the wait shares
+ * starts that record again: a listing sent before it may have missed a write
+ * made while the socket was down, so it counts only when no acknowledgement
+ * arrived after it was sent.
  *
  * | State | Event | Next |
  * | --- | --- | --- |
@@ -42,6 +45,7 @@
  * | awaitingCrawl, awaitingTurn | opened | the same, with that container listed now |
  * | awaitingCrawl, awaitingTurn | alreadyOwed, the same wait | the same, with those lanes listed now |
  * | awaitingCrawl, awaitingTurn, overdue | listed, the same wait and acknowledgement | the same, with those lanes listed since |
+ * | awaitingCrawl, awaitingTurn, overdue | pendingDiscovery | the same, without that lane in listed since |
  * | awaitingCrawl, awaitingTurn, overdue | turnTaken, the same wait | idle |
  * | any | stopped | idle |
  *
@@ -108,6 +112,7 @@ export type CatchUpEvent =
       readonly type: "listed";
       readonly wait: CatchUpWait;
     }
+  | { readonly containerId: string; readonly type: "pendingDiscovery" }
   | { readonly type: "turnTaken"; readonly wait: CatchUpWait }
   | { readonly type: "stopped" };
 
@@ -155,6 +160,16 @@ function listedSince(
     : { ...state, listedSinceContainerIds: listed };
 }
 
+function withoutListed(
+  state: ListingCatchUp,
+  containerId: string,
+): CatchUpState {
+  if (!state.listedSinceContainerIds.has(containerId)) return state;
+  const listed = new Set(state.listedSinceContainerIds);
+  listed.delete(containerId);
+  return { ...state, listedSinceContainerIds: listed };
+}
+
 type PendingCatchUp = Extract<
   CatchUpState,
   { readonly status: "awaitingCrawl" | "awaitingTurn" }
@@ -175,7 +190,14 @@ function transitionPending(
   state: PendingCatchUp,
   event: Exclude<
     CatchUpEvent,
-    { readonly type: "acknowledged" | "listed" | "stopped" | "turnTaken" }
+    {
+      readonly type:
+        | "acknowledged"
+        | "listed"
+        | "pendingDiscovery"
+        | "stopped"
+        | "turnTaken";
+    }
   >,
 ): CatchUpState {
   switch (event.type) {
@@ -219,8 +241,11 @@ export function transitionCatchUp(
       ? listedSince(state, event.containerIds)
       : state;
   }
-  // Nothing waits for an overdue catch-up: only its turn, a listing, an
-  // acknowledgement or a stop moves it.
+  if (event.type === "pendingDiscovery") {
+    return withoutListed(state, event.containerId);
+  }
+  // Nothing waits for an overdue catch-up: only its turn, a listing, a
+  // pending retry, an acknowledgement or a stop moves it.
   if (state.status === "overdue") return state;
   return transitionPending(state, event);
 }

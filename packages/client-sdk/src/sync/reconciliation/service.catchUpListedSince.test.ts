@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { awaitingCrawl, createGate } from "./service.testFixtures";
+import {
+  awaitingCrawl,
+  createGate,
+  createManualReconciliationClock,
+} from "./service.testFixtures";
 
 const settle = async () => {
   for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
@@ -123,5 +127,81 @@ test("an owed record that cannot be read leaves the lanes listed since", async (
 
   expect(listings).toEqual([["a", "b", "c"]]);
   expect(errors).toEqual([failure]);
+  service.stop();
+});
+
+test("a listing that leaves a candidate pending is not skipped by the fallback", async () => {
+  const clock = createManualReconciliationClock();
+  const { crawl, host, listings, service } = awaitingIncompleteCrawl({ clock });
+  const discover = host.discoverContainerDocuments;
+  let leavePending = true;
+  host.discoverContainerDocuments = async (requests, onOutcome) => {
+    for (const request of requests) {
+      if (request.containerId === "a" && leavePending) {
+        leavePending = false;
+        request.onPendingDiscovery?.(50);
+      }
+    }
+    return discover(requests, onOutcome);
+  };
+  const catchUp = service.reconcileAcknowledgedConnection();
+  await settle();
+  // Lane a is listed during the wait, but leaves a candidate pending and
+  // schedules its retry.
+  service.enqueueContainer("a", "active", true);
+  await settle();
+  await settle();
+  expect(listings).toEqual([["a"]]);
+
+  // The pending-discovery timer fires before the crawl settles: it requeues
+  // lane a unforced, and the catch-up holds that entry back until its plan.
+  clock.advance(50);
+  await settle();
+  expect(listings).toEqual([["a"]]);
+
+  // The crawl does not complete: the fallback must list lane a as well as b
+  // and c instead of vouching for it and swallowing the retry.
+  crawl.open();
+  await catchUp;
+  await settle();
+
+  expect(listings).toEqual([["a"], ["a", "b", "c"]]);
+  service.stop();
+});
+
+test("a pending retry clears a lane previously listed cleanly in the same wait", async () => {
+  const clock = createManualReconciliationClock();
+  const { crawl, host, listings, service } = awaitingIncompleteCrawl({ clock });
+  const discover = host.discoverContainerDocuments;
+  let aListings = 0;
+  host.discoverContainerDocuments = async (requests, onOutcome) => {
+    for (const request of requests) {
+      if (request.containerId === "a") {
+        aListings += 1;
+        // The first listing succeeds cleanly; a later hint's listing leaves a
+        // candidate pending.
+        if (aListings === 2) request.onPendingDiscovery?.(50);
+      }
+    }
+    return discover(requests, onOutcome);
+  };
+  const catchUp = service.reconcileAcknowledgedConnection();
+  await settle();
+
+  service.enqueueContainer("a", "active", true);
+  await settle();
+  await settle();
+  service.enqueueContainer("a", "active", true);
+  await settle();
+  await settle();
+  expect(listings).toEqual([["a"], ["a"]]);
+
+  clock.advance(50);
+  await settle();
+  crawl.open();
+  await catchUp;
+  await settle();
+
+  expect(listings).toEqual([["a"], ["a"], ["a", "b", "c"]]);
   service.stop();
 });

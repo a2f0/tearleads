@@ -96,8 +96,9 @@ export function createProbeLaneListing(
         containerId,
         watermark: null,
       })),
+      // The probe settles nothing: an identical listing on its way will do.
       listContainerDocumentLanes: (lanes) =>
-        listContainerDocumentLanesFromApi(apiClient, lanes, false),
+        listContainerDocumentLanesFromApi(apiClient, lanes, false, "mayJoin"),
     });
     const documentIds = new Map<string, ReadonlyArray<string> | null>();
     const heads: ListedDocumentHead[] = [];

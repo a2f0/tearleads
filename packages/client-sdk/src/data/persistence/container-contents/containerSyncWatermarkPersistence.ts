@@ -1,5 +1,14 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { and, eq, inArray, isNotNull, or, type SQL, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import {
   containers,
   containerTableSchemas,
@@ -165,11 +174,19 @@ function mapSelectedWatermarkRecord(
   };
 }
 
+const CONTAINER_SYNC_WATERMARK_COLUMNS = Object.keys(
+  getTableColumns(containerSyncWatermarks),
+);
+
 /**
  * `row`, selected from the stored container its lane id names, so that a
  * container this device does not store gets no row: a listing in flight
  * across the container's delete would otherwise write one after the cascade
  * removed it.
+ *
+ * Drizzle's `insert(...).select(...)` lists every table column in schema
+ * order, so the select keys below are checked against the table's columns to
+ * prevent silent swaps or missing optional columns on schema edits.
  */
 function storedContainerLaneRow(
   db: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
@@ -178,22 +195,34 @@ function storedContainerLaneRow(
   const value = <T>(column: { name: string }, bound: T) =>
     sql<T>`${bound}`.as(column.name);
   const columns = containerSyncWatermarks;
+  const selection = {
+    laneKind: value(columns.laneKind, row.laneKind),
+    laneId: containers.id,
+    watermarkUpdatedAt: value(
+      columns.watermarkUpdatedAt,
+      row.watermarkUpdatedAt ?? null,
+    ),
+    watermarkId: value(columns.watermarkId, row.watermarkId ?? null),
+    cursorFormat: value(
+      columns.cursorFormat,
+      row.cursorFormat ?? columns.cursorFormat.default,
+    ),
+    updatedAt: value(columns.updatedAt, row.updatedAt ?? null),
+    checkedAt: value(columns.checkedAt, row.checkedAt ?? null),
+  };
+  const selectedKeys = Object.keys(selection);
+  if (
+    selectedKeys.length !== CONTAINER_SYNC_WATERMARK_COLUMNS.length ||
+    selectedKeys.some(
+      (key, index) => key !== CONTAINER_SYNC_WATERMARK_COLUMNS[index],
+    )
+  ) {
+    throw new Error(
+      `storedContainerLaneRow columns (${selectedKeys.join(", ")}) do not match container_sync_watermarks (${CONTAINER_SYNC_WATERMARK_COLUMNS.join(", ")})`,
+    );
+  }
   return db
-    .select({
-      laneKind: value(columns.laneKind, row.laneKind),
-      laneId: containers.id,
-      watermarkUpdatedAt: value(
-        columns.watermarkUpdatedAt,
-        row.watermarkUpdatedAt ?? null,
-      ),
-      watermarkId: value(columns.watermarkId, row.watermarkId ?? null),
-      cursorFormat: value(
-        columns.cursorFormat,
-        row.cursorFormat ?? columns.cursorFormat.default,
-      ),
-      updatedAt: value(columns.updatedAt, row.updatedAt ?? null),
-      checkedAt: value(columns.checkedAt, row.checkedAt ?? null),
-    })
+    .select(selection)
     .from(containers)
     .where(eq(containers.id, row.laneId));
 }

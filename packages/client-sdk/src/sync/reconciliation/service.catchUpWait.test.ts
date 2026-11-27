@@ -1,11 +1,10 @@
 import { expect, test } from "bun:test";
-import { createDomainScope } from "../../data/shared/domainScope";
-import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import { SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
 import {
   awaitingCrawl,
   createGate,
   OWED_LANE_HOST_CONTAINER_IDS,
+  recordingLane,
 } from "./service.testFixtures";
 
 const KNOWN = OWED_LANE_HOST_CONTAINER_IDS;
@@ -218,7 +217,6 @@ test("a catch-up that cannot take its turn stops deferring", async () => {
 });
 
 test("a lane the catch-up's sweep failed waits out its retry backoff", async () => {
-  const domainScope = createDomainScope();
   // Every wake is recorded. Delayed ones are held for the test to run;
   // immediate ones run.
   const wakes: string[] = [];
@@ -227,25 +225,10 @@ test("a lane the catch-up's sweep failed waits out its retry backoff", async () 
   let fail = true;
   const { host, listings, service } = awaitingCrawl({
     overrides: {
-      domainScope,
+      ...recordingLane(wakes, {
+        onRequestSyncAfter: (delayMs, run) => delayed.push({ delayMs, run }),
+      }),
       logError: () => undefined,
-      registerLane: (key, config) => {
-        const lane = getOrCreateDomainSyncCoordinator(domainScope).registerLane(
-          key,
-          config,
-        );
-        return {
-          ...lane,
-          requestSync: () => {
-            wakes.push("now");
-            lane.requestSync();
-          },
-          requestSyncAfter: (delayMs) => {
-            wakes.push(`after ${delayMs} ms`);
-            delayed.push({ delayMs, run: () => lane.requestSync() });
-          },
-        };
-      },
       whenTreeCrawlSettles: async () => true,
     },
     owed: () => ["b"],

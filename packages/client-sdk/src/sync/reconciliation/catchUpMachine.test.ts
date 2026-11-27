@@ -278,3 +278,28 @@ test("a lane listed after the acknowledgement is kept until the turn", () => {
   expect(transitionCatchUp(IDLE_CATCH_UP, listedA)).toBe(IDLE_CATCH_UP);
   expect(listedSinceAcknowledgement(IDLE_CATCH_UP, current)).toEqual(new Set());
 });
+
+test("pending discovery drops a lane from the listed-since set", () => {
+  const current = wait(["a", "b"]);
+  for (const before of [
+    pending("awaitingCrawl", current, [], ["a", "b"]),
+    pending("awaitingTurn", current, [], ["a", "b"]),
+    overdueFor(current, ["a", "b"]),
+  ]) {
+    const after = transitionCatchUp(before, {
+      containerId: "a",
+      type: "pendingDiscovery",
+    });
+    expect(listedSinceAcknowledgement(after, current)).toEqual(new Set(["b"]));
+    // Dropping a lane not in the set changes nothing.
+    expect(
+      transitionCatchUp(after, { containerId: "a", type: "pendingDiscovery" }),
+    ).toBe(after);
+  }
+  expect(
+    transitionCatchUp(IDLE_CATCH_UP, {
+      containerId: "a",
+      type: "pendingDiscovery",
+    }),
+  ).toBe(IDLE_CATCH_UP);
+});

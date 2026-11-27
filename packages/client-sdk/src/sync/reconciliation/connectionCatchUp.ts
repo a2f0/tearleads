@@ -25,8 +25,9 @@ export const CATCH_UP_TURN_WAIT_MS = TREE_CRAWL_WAIT_MS;
 
 /**
  * What the catch-up lists when nothing vouches for its lanes: every known
- * lane but one a listing sent after the acknowledgement listed, which that
- * listing vouches for. A lane a hint forced since is listed all the same.
+ * lane but one a listing sent after the acknowledgement listed with nothing
+ * left pending, which that listing vouches for. A lane a hint forced since
+ * is listed all the same.
  */
 function planUnvouchedCatchUp(
   state: ReconciliationState,

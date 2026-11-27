@@ -131,15 +131,16 @@ test("only a listing that may join one in flight shares its request", async () =
   const first = list("mayJoin");
   await api.firstReceived;
   const joined = list("mayJoin");
-  // A listing that must be its own request is sent beside them.
+  // A listing that must be its own request is sent beside them and answers
+  // while the first request is still held.
   const own = list("ownRequest");
-  const pages = await Promise.race([
-    own.then(() => "own answered"),
-    Bun.sleep(1_000).then(() => "own waited"),
-  ]);
-  api.answerFirst();
-  await Promise.all([first, joined, own]);
+  try {
+    expect(await own).toHaveLength(1);
+    expect(api.received()).toBe(2);
+  } finally {
+    api.answerFirst();
+  }
+  await Promise.all([first, joined]);
 
-  expect(pages).toBe("own answered");
   expect(api.received()).toBe(2);
 });

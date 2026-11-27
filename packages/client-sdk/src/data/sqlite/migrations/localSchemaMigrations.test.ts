@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import {
   ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
@@ -200,6 +201,7 @@ test("step 4 replays publication cursors saved before unlink and restored-folder
     expect(
       await repository.loadWatermark(containerParentSyncLane(null)),
     ).toBeNull();
+    await storeContainerRows(execSql, ["replay"]);
     const next = { id: "124/doc", updatedAt: CREATED_AT };
     await repository.saveWatermark(lane, next);
     expect(

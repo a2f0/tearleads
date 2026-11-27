@@ -192,10 +192,11 @@ crawl that the same acknowledgement starts already says which folders moved.
   the owed record cannot be read, nothing vouches for the lanes it was not
   served, and the catch-up lists every known lane, as it did before lanes were
   owed listings, except one a listing sent after the latest acknowledgement
-  already listed (a full refresh beside the wait, or a hint's lane) and no hint
-  has forced since. A row the client refuses each time it is served leaves every
-  reconnect crawl incomplete, so while that row stays, every catch-up takes this
-  fallback. When the database closes under the wait, the catch-up lists nothing.
+  already listed with no candidate left pending (a full refresh beside the
+  wait, or a hint's lane) and no hint has forced since. A row the client
+  refuses each time it is served leaves every reconnect crawl incomplete, so
+  while that row stays, every catch-up takes this fallback. When the database
+  closes under the wait, the catch-up lists nothing.
 - Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's
   owes lanes the same way and lists nothing for them at once. The request is
   durable, so the next catch-up lists the lane, as does the owed-lane resume
