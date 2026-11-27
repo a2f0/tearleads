@@ -59,15 +59,58 @@ test("a settled crawl leaves the catch-up awaiting its turn", () => {
 test("an acknowledgement while a catch-up awaits its turn starts its own wait", () => {
   const earlier = wait();
   const later = wait();
-  const state = transitionCatchUp(
+  for (const before of [
     pending("awaitingTurn", earlier, ["opened"]),
-    { type: "acknowledged", wait: later },
+    { status: "overdue", wait: earlier } as const,
+  ]) {
+    const state = transitionCatchUp(before, {
+      type: "acknowledged",
+      wait: later,
+    });
+
+    // The earlier crawl settled before this acknowledgement, and what was
+    // listed at once then says nothing about what moved since.
+    expect(state).toEqual(awaiting(later));
+    // The earlier catch-up's turn does not end the later one's deferral.
+    expect(transitionCatchUp(state, { type: "turnTaken", wait: earlier })).toBe(
+      state,
+    );
+  }
+});
+
+test("a turn that does not come in time makes the catch-up overdue", () => {
+  const current = wait(["known"]);
+  const state = pending("awaitingTurn", current, ["opened"]);
+  const overdue = transitionCatchUp(state, {
+    type: "turnOverdue",
+    wait: current,
+  });
+
+  expect(overdue).toEqual({ status: "overdue", wait: current });
+  // Nothing waits for an overdue catch-up, and nothing changes that but
+  // its turn, a new acknowledgement or a stop.
+  expect(defersToCatchUp(overdue, "known")).toBe(false);
+  for (const event of [
+    { type: "crawlSettled", wait: current },
+    { type: "turnOverdue", wait: current },
+    { containerId: "known", type: "opened" },
+    { containerIds: ["known"], type: "alreadyOwed", wait: current },
+    { type: "turnTaken", wait: wait() },
+  ] as const) {
+    expect(transitionCatchUp(overdue, event)).toBe(overdue);
+  }
+  expect(transitionCatchUp(overdue, { type: "turnTaken", wait: current })).toBe(
+    IDLE_CATCH_UP,
   );
 
-  // The earlier crawl settled before this acknowledgement.
-  expect(state).toEqual(awaiting(later, ["opened"]));
-  // The earlier catch-up's turn does not end the later one's deferral.
-  expect(transitionCatchUp(state, { type: "turnTaken", wait: earlier })).toBe(
+  // Only a settled crawl's wait for its turn becomes overdue, and only its own.
+  expect(
+    transitionCatchUp(awaiting(current), {
+      type: "turnOverdue",
+      wait: current,
+    }),
+  ).toEqual(awaiting(current));
+  expect(transitionCatchUp(state, { type: "turnOverdue", wait: wait() })).toBe(
     state,
   );
 });
@@ -94,6 +137,9 @@ test("a stop ends any catch-up", () => {
       transitionCatchUp(pending(status, wait()), { type: "stopped" }),
     ).toBe(IDLE_CATCH_UP);
   }
+  expect(
+    transitionCatchUp({ status: "overdue", wait: wait() }, { type: "stopped" }),
+  ).toBe(IDLE_CATCH_UP);
   expect(transitionCatchUp(IDLE_CATCH_UP, { type: "stopped" })).toBe(
     IDLE_CATCH_UP,
   );
