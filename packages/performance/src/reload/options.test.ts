@@ -7,6 +7,8 @@ test("defaults cover three account sizes", () => {
     perFolder: 10,
     samples: 3,
     quietMs: 1000,
+    ackDelayMs: 0,
+    peerEdits: 0,
   });
   expect(parseReloadOptions(["--help"])).toBeNull();
 });
@@ -22,8 +24,19 @@ test("flags set each option", () => {
       "1",
       "--quiet-ms",
       "250",
+      "--ack-delay-ms",
+      "300",
+      "--peer-edits",
+      "5",
     ]),
-  ).toEqual({ documents: [5, 50], perFolder: 1000, samples: 1, quietMs: 250 });
+  ).toEqual({
+    documents: [5, 50],
+    perFolder: 1000,
+    samples: 1,
+    quietMs: 250,
+    ackDelayMs: 300,
+    peerEdits: 5,
+  });
 });
 
 test("invalid flags are refused", () => {

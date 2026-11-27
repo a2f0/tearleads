@@ -4,6 +4,7 @@ import type {
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
 import type {
+  DocumentBaselineStageErrorCode,
   DocumentPeerFrontier,
   ReferencedPrincipalStateResponse,
   WriterProjectionListing,
@@ -102,6 +103,27 @@ export interface RequestFailure {
    * `MAX_DOCUMENT_PEER_FRONTIERS`, and a retry names any others.
    */
   readonly peerFrontiers?: readonly DocumentPeerFrontier[] | undefined;
+  /**
+   * With `document_sync_baseline_group_invalid` on a request that commits a
+   * staged rotation baseline: what the refusal means for the stage.
+   */
+  readonly baselineStageCode?: DocumentBaselineStageErrorCode | undefined;
+  /**
+   * With `document_baseline_stage_segment_out_of_order`: the index the stage
+   * expects next.
+   */
+  readonly nextSegmentIndex?: number | undefined;
+  /**
+   * With `document_baseline_stage_limit_reached`: the caller's open stages,
+   * so a writer can abandon one it no longer uploads.
+   */
+  readonly openStages?:
+    | readonly {
+        readonly baselineId: string;
+        readonly documentId: string;
+        readonly expiresAt: string;
+      }[]
+    | undefined;
   /**
    * With `container_descendant_rekeys_required`, the full owed set, parent-first;
    * with `container_descendant_rekeys_inaccessible`, its unwritable subset.

@@ -19,6 +19,7 @@ import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 import type { ApiServiceRuntime } from "../runtime";
 
 export {
+  DocumentBaselineStageBusyError,
   DocumentBaselineStageError,
   DocumentBaselineStageNotFoundError,
 } from "../../workflows/documents/baselineStages";

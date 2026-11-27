@@ -25,10 +25,8 @@ import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
 } from "../documentStore.testFixtures";
-import {
-  ensureDocumentStoreReady,
-  relinkDocumentStore,
-} from "../initialization";
+import { ensureDocumentStoreReady } from "../initialization";
+import { relinkDocumentStore } from "../initialization/relinkDocumentStore";
 import {
   advancePendingBaseVersion,
   enqueuePendingUpdate,

@@ -1,10 +1,10 @@
+import type { InProcessApi } from "../inProcess/inProcessApi";
+import type { PostgresTraffic } from "../inProcess/postgresWire";
 import type { SeededTree } from "./artifacts";
 import { openFolderAccount } from "./folderTree";
 import { openHubSocket } from "./hubSocket";
-import type { InProcessApi } from "./inProcessApi";
 import { measurePass, type PassMeasurement } from "./measurePass";
 import type { RealtimeOptions } from "./options";
-import type { PostgresTraffic } from "./postgresWire";
 
 /** Seeds one account whose tree holds `size` folders in all. */
 export async function seedTree(input: {

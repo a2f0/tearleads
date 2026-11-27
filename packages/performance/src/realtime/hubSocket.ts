@@ -1,4 +1,4 @@
-import type { InProcessApi } from "./inProcessApi";
+import type { InProcessApi } from "../inProcess/inProcessApi";
 
 type GatewayDeps = NonNullable<
   Parameters<InProcessApi["createRealtimeGateway"]>[0]

@@ -89,7 +89,8 @@ export function selectDocumentSyncOutgoingBatch<
 
 const TEXT_ENCODER = new TextEncoder();
 
-function serializedBytes(value: unknown): number {
+/** The bytes `value` takes in a request body. */
+export function serializedBytes(value: unknown): number {
   return TEXT_ENCODER.encode(JSON.stringify(value)).byteLength;
 }
 

@@ -8,6 +8,7 @@ import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { BaselineGroupRun } from "../../../src/data/documents/shared/sync/baselineGroupMachine";
 import { validateDocumentSyncUpdateImports } from "../../../src/data/documents/shared/sync/documentSyncImportVerdicts";
 import { isDocumentSyncUpdateIsolationError } from "../../../src/data/documents/shared/sync/documentSyncUpdateIsolation";
+import type { DocumentSyncImportVerdicts } from "../../../src/data/documents/shared/sync/documentUpdateVerdict";
 import type { ExecSql } from "../../../src/data/sqlite/sqlSchema";
 import { syncRemoteDocumentResultFromResponse } from "../../../src/workflows/documents/sync/syncResponseResult";
 import { buildMaterializedDocumentSyncPlan } from "../../../src/workflows/documents/syncPlan/syncPlanMaterial";
@@ -33,6 +34,13 @@ interface ServedBaselinePage {
   readonly reader: BaselineFixtureDocument;
   readonly run?: BaselineGroupRun | null;
   readonly updates: readonly ServedUpdate[];
+  /**
+   * Changes the judge's verdicts before the pass reads them, as a judge
+   * that ran out of budget or met an unsettled update would return them.
+   */
+  readonly verdicts?: (
+    judged: DocumentSyncImportVerdicts,
+  ) => DocumentSyncImportVerdicts;
   readonly warm?: boolean;
 }
 
@@ -122,15 +130,17 @@ export async function servedBaselineGroup(
           : response,
       stillCurrent: () => true,
       targetSecretKey: secretKey,
-      validateIncomingUpdates: ({ decryptedUpdates, response: page }) =>
-        validateDocumentSyncUpdateImports({
+      validateIncomingUpdates: async ({ decryptedUpdates, response: page }) => {
+        const judged = await validateDocumentSyncUpdateImports({
           currentDocument: input.reader,
           decryptedUpdates,
           knownVoids: new Map(
             (input.knownVoidIds ?? []).map((id) => [id, "loro_import"]),
           ),
           responseUpdates: page.updates,
-        }),
+        });
+        return input.verdicts ? input.verdicts(judged) : judged;
+      },
       writerProjection,
     });
   };

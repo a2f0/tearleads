@@ -29,6 +29,16 @@ import { isDocumentSyncRequestLimitError } from "../../data/documents/shared/syn
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { buildDocumentRotationBaseline } from "./rotationBaseline";
 
+/** The segments the unlink request would carry, with nothing staged. */
+async function buildBaselineSegments(
+  input: Parameters<typeof buildDocumentRotationBaseline>[0],
+) {
+  const baseline = await buildDocumentRotationBaseline(input);
+  if (baseline === "cancelled") throw new Error("Unexpected cancellation");
+  expect(baseline?.staged ?? null).toBeNull();
+  return baseline?.segments ?? null;
+}
+
 /** A device that has recorded no processed cursor. */
 const noCursorExecSql: ExecSql = async () => [];
 
@@ -74,12 +84,13 @@ test("buildDocumentRotationBaseline encrypts and signs against the new access bo
     "new-link-set-manifest",
   );
   const expectedTargetHash = await fixtureHash("new-target-hash");
-  const baseline = await buildDocumentRotationBaseline({
+  const baseline = await buildBaselineSegments({
     authorizingContainerPathRefs: [],
     author,
     execSql: noCursorExecSql,
     contentKey,
     contentKeyEpoch: 2,
+    contentKeyTargets: [],
     documentId,
     expectedLinkSetManifestHash,
     expectedTargetHash,
@@ -155,12 +166,13 @@ test("a history over the segment target becomes a group of several segments", as
   }
   const documentId = crypto.randomUUID();
   const contentKey = crypto.getRandomValues(new Uint8Array(32));
-  const baseline = await buildDocumentRotationBaseline({
+  const baseline = await buildBaselineSegments({
     authorizingContainerPathRefs: [],
     author,
     execSql: noCursorExecSql,
     contentKey,
     contentKeyEpoch: 2,
+    contentKeyTargets: [],
     documentId,
     expectedLinkSetManifestHash: await fixtureHash("segmented-manifest"),
     expectedTargetHash: await fixtureHash("segmented-target"),
@@ -270,21 +282,22 @@ test("a history over the segment target becomes a group of several segments", as
   );
 });
 
-// A baseline travels whole in the request that rotates. A history that
-// cannot be cut to fit ends in the failure an oversized queued update ends
-// in, whether it has too many segments or one operation over the cap.
+// A client with no stage routes sends every baseline whole. A history that
+// cannot be cut to fit one request then ends in the failure an oversized
+// queued update ends in, as one operation over the cap does for any client.
 test("a history that cannot be one request's baseline is a request-limit failure", async () => {
   const { author } = await createAuthor();
   const build = async (
     document: Awaited<ReturnType<typeof createDocument>>,
     segmentSizes: { maxBytes: number; targetBytes: number },
   ) =>
-    buildDocumentRotationBaseline({
+    buildBaselineSegments({
       authorizingContainerPathRefs: [],
       author,
       execSql: noCursorExecSql,
       contentKey: crypto.getRandomValues(new Uint8Array(32)),
       contentKeyEpoch: 2,
+      contentKeyTargets: [],
       documentId: crypto.randomUUID(),
       expectedLinkSetManifestHash: await fixtureHash("limit-manifest"),
       expectedTargetHash: await fixtureHash("limit-target"),
@@ -301,9 +314,7 @@ test("a history that cannot be one request's baseline is a request-limit failure
     (error: unknown) => error,
   );
   expect(isDocumentSyncRequestLimitError(tooMany)).toBe(true);
-  expect(String(tooMany)).toContain(
-    "has more segments than one request carries",
-  );
+  expect(String(tooMany)).toContain("this client cannot stage it");
   // The bound is the group's, not the document's: at a larger target the
   // same history is a baseline within it.
   const fitting = await build(long, { maxBytes: 4_096, targetBytes: 1_024 });
@@ -327,12 +338,13 @@ test("buildDocumentRotationBaseline requires a full-history snapshot", async () 
   document.getText("text").update("an update is not a snapshot");
   document.commit();
   await expect(
-    buildDocumentRotationBaseline({
+    buildBaselineSegments({
       authorizingContainerPathRefs: [],
       author,
       execSql: noCursorExecSql,
       contentKey: crypto.getRandomValues(new Uint8Array(32)),
       contentKeyEpoch: 2,
+      contentKeyTargets: [],
       documentId: crypto.randomUUID(),
       expectedLinkSetManifestHash: await fixtureHash("update-manifest"),
       expectedTargetHash: await fixtureHash("update-target"),
@@ -349,12 +361,13 @@ test("buildDocumentRotationBaseline returns null for an empty document with no c
   const { author } = await createAuthor();
   const document = await createDocument("empty-rotation-baseline");
   const snapshot = exportFullHistorySnapshot(document);
-  const baseline = await buildDocumentRotationBaseline({
+  const baseline = await buildBaselineSegments({
     authorizingContainerPathRefs: [],
     author,
     execSql: noCursorExecSql,
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     contentKeyEpoch: 2,
+    contentKeyTargets: [],
     documentId: crypto.randomUUID(),
     expectedLinkSetManifestHash: await fixtureHash("empty-link-set-manifest"),
     expectedTargetHash: await fixtureHash("empty-target-hash"),

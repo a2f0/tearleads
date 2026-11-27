@@ -14,7 +14,9 @@ import {
   DocumentSyncErrorResponseSchema,
   isDocumentBaselineStageErrorCode,
 } from "../response";
+import { ErrorResponseSchema } from "../response/error";
 import {
+  DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS,
   DOCUMENT_BASELINE_STAGE_IDLE_SECONDS,
   DOCUMENT_BASELINE_STAGE_MAX_SECONDS,
   MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
@@ -40,6 +42,7 @@ import {
   stageDocumentBaselineSegmentOperation,
 } from "./documentBaselineStages";
 import type { operations, paths } from "./generatedOpenApi";
+import { operationResponseHeaderNames } from "./headerNames";
 import { openApiDocument } from "./openApi";
 import { protocolOperations } from "./registry";
 
@@ -185,6 +188,47 @@ test("the stage operations own their HTTP contracts", () => {
     expect(operation.failureStatuses).toContain(413);
   }
   expect(openDocumentBaselineStageOperation.failureStatuses).not.toContain(413);
+});
+
+// An open does not wait for the caller's own stage on the document: it
+// answers 503, which the operation declares with what it means and the
+// delay it names, so a generated client knows the status and a browser may
+// read the header. No other stage route promises the header.
+test("the open operation declares its 503 and the delay it names", () => {
+  const open = openDocumentBaselineStageOperation;
+  expect(open.failureStatuses).toContain(503);
+  expect(open.failureResponses[503]).toBe(ErrorResponseSchema);
+  expect(open.responseDescriptions[503]).toContain("did not wait");
+  expect(open.description).toContain("returns 503 with `Retry-After`");
+  const headers = open.responseHeaders[503];
+  const seconds = String(DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS);
+  expect(DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS).toBe(1);
+  expect(headers.safeParse({ "retry-after": seconds }).success).toBe(true);
+  // The outer boundary's 503, for a database it could not reach, names none.
+  expect(headers.safeParse({}).success).toBe(true);
+  expect(headers.safeParse({ "retry-after": "soon" }).success).toBe(false);
+  expect(operationResponseHeaderNames(open, 503)).toEqual(["retry-after"]);
+
+  const documented =
+    openApiDocument.paths["/documents/{documentId}/baseline-stages"]?.post
+      ?.responses?.["503"];
+  expect(documented).toMatchObject({
+    description: open.responseDescriptions[503],
+    headers: {
+      "retry-after": {
+        required: false,
+        schema: { const: seconds, type: "string" },
+      },
+    },
+  });
+  for (const operation of [
+    getDocumentBaselineStageOperation,
+    abandonDocumentBaselineStageOperation,
+    stageDocumentBaselineSegmentOperation,
+    resignDocumentBaselineSegmentHeaderOperation,
+  ]) {
+    expect(operationResponseHeaderNames(operation, 503)).toEqual([]);
+  }
 });
 
 test("a staged segment's index is every index but the final one's", () => {

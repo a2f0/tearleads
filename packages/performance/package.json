@@ -13,7 +13,9 @@
     "realtime:contention": "bun src/realtime/contention/index.ts",
     "reload": "bun src/reload/index.ts",
     "canaries": "bun src/canaries/index.ts",
-    "statements": "bun src/statements/index.ts"
+    "statements": "bun src/statements/index.ts",
+    "plans": "bun src/plans/index.ts",
+    "inventory": "bun src/inventory/index.ts"
   },
   "dependencies": {
     "@tearleads/api": "workspace:*",

@@ -60,6 +60,26 @@ function pendingUpdateMetadataHash(input: {
   });
 }
 
+/**
+ * The keyed hash of an update's plaintext that its content-record metadata
+ * signs (`plaintextHash`). Equal hashes under one record's key are equal
+ * bytes, so a writer can tell whether bytes it exports again are the bytes
+ * it encrypted before without keeping either.
+ */
+export async function computeDocumentUpdatePlaintextHash(input: {
+  contentKeyEpoch: number;
+  contentKeyMaterial: CryptoKey;
+  contentRecordId: string;
+  documentId: string;
+  organizationId: string;
+  plaintext: Uint8Array;
+}): Promise<string> {
+  return computeDocumentContentRecordPlaintextHash(
+    input.plaintext,
+    await deriveDocumentPlaintextHashKey(input),
+  );
+}
+
 export async function encryptDocumentPendingUpdate(input: {
   /** The epoch's key, opened for this document and `contentKeyEpoch`. */
   contentKey: DocumentContentKey;
@@ -90,11 +110,10 @@ export async function encryptDocumentPendingUpdate(input: {
     documentId: input.documentId,
     organizationId: input.organizationId,
   };
-  const plaintextHashKey = await deriveDocumentPlaintextHashKey(keyInput);
-  const plaintextHash = await computeDocumentContentRecordPlaintextHash(
+  const plaintextHash = await computeDocumentUpdatePlaintextHash({
+    ...keyInput,
     plaintext,
-    plaintextHashKey,
-  );
+  });
   const metadataHash = await pendingUpdateMetadataHash({
     ...input,
     dependencyVersionVector,

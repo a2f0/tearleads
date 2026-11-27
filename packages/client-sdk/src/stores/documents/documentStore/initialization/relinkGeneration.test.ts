@@ -16,7 +16,8 @@ import {
   isDocumentStoreRemoteSyncBlocked,
   isDocumentStoreRemoteSyncRequestGenerationCurrent,
 } from "../sync/syncGeneration";
-import { ensureDocumentStoreReady, relinkDocumentStore } from "./index";
+import { ensureDocumentStoreReady } from "./index";
+import { relinkDocumentStore } from "./relinkDocumentStore";
 
 test("queued A to B to A relinks invalidate both live identity transitions", async () => {
   const { close, execSql } = await createTestExecSql(

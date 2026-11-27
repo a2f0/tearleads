@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
+import type { InProcessApi } from "./inProcess/inProcessApi";
+import { emptyTraffic } from "./inProcess/postgresWire";
 import { probeReport, runInProcessProbe } from "./inProcessProbe";
-import type { InProcessApi } from "./realtime/inProcessApi";
-import { emptyTraffic } from "./realtime/postgresWire";
 
 const header = {
   schemaVersion: 1,

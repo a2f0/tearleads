@@ -1,8 +1,4 @@
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import {
-  classifyDatabaseFailure,
-  retryWhileDatabaseBusy,
-} from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import {
   deleteUnreferencedStagedAttachmentBytes,
@@ -11,12 +7,20 @@ import {
 import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
 import { ensureDocumentStoreInitialized } from "../initialization";
 import { persistDocument } from "../persistence";
-import { noteDocumentStoreWrite } from "../reportWriteFailure";
+import { retryDocumentStoreWorkWhileBusy } from "../reportWriteFailure";
 import { type DocumentStoreState, resetDocumentStore } from "../state";
 import {
   type captureDocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "../sync/syncGeneration";
+import {
+  type AttachmentWriteGeneration,
+  isAttachmentWriteGenerationCurrent,
+} from "./attachmentWriteGeneration";
+
+// Fixed literal: a reported message must never carry file names or slot ids.
+export const ATTACHMENT_FAILURE_MESSAGE =
+  "Documents: attachment mutation failed";
 
 export async function restoreFailedAttachmentMutation(input: {
   generation: NonNullable<
@@ -33,14 +37,10 @@ export async function restoreFailedAttachmentMutation(input: {
       state: input.state,
     });
   } catch {
-    // If SQLite cannot reload durable history (e.g. still busy after retries
-    // exhausted), never leave uncommitted attachment ops in the live doc for a
-    // later edit or sync pass to leak: reset and reinitialize from durable
-    // history, matching settleDeferredInitialUpdate.
-    if (
-      isDocumentStoreSyncGenerationCurrent(input.state, input.generation) &&
-      input.state.doc
-    ) {
+    // If durable reload also failed (for example, another tab kept SQLite busy
+    // past the retry budget), drop the mutated live doc and reinitialize so an
+    // uncommitted attachment slot or removal can never leak into a later edit.
+    if (isDocumentStoreSyncGenerationCurrent(input.state, input.generation)) {
       resetDocumentStore(input.state);
       ensureDocumentStoreInitialized(input.state, () =>
         requestDocumentStoreSync(input.state),
@@ -59,13 +59,16 @@ export async function persistStagedAttachmentMutation(input: {
   rollbackSnapshot: Uint8Array;
   staged: NonNullable<Awaited<ReturnType<typeof stagePendingAttachments>>>;
   state: DocumentStoreState;
+  writeGeneration: AttachmentWriteGeneration;
 }) {
   const { staged, state } = input;
   try {
-    // A busy refusal ran zero SQLite statements while staged bytes and the
-    // mutated doc are still intact, so retrying the atomic persist in place
-    // completes the attach/replace without rolling back or restaging (#3373).
-    return await retryWhileDatabaseBusy(
+    // Blob bytes are already staged under `staged.pendingAttachments` and
+    // `persistDocument` commits the attachment rows, history tail, pending
+    // update, and document record in one SQLite transaction, so retrying a
+    // busy refusal commits all SQLite records together or none at all.
+    return await retryDocumentStoreWorkWhileBusy(
+      state,
       () =>
         persistDocument(
           state,
@@ -81,14 +84,10 @@ export async function persistStagedAttachmentMutation(input: {
           input.generation,
         ),
       {
+        busyMessage: ATTACHMENT_FAILURE_MESSAGE,
         isCurrent: () =>
+          isAttachmentWriteGenerationCurrent(state, input.writeGeneration) &&
           isDocumentStoreSyncGenerationCurrent(state, input.generation),
-        onBusy: () => {
-          noteDocumentStoreWrite(
-            state,
-            `Documents: retrying attachment persist for ${state.localId} behind another tab's database transaction`,
-          );
-        },
       },
     );
   } catch (error) {
@@ -97,12 +96,6 @@ export async function persistStagedAttachmentMutation(input: {
       pendingAttachments: staged.pendingAttachments,
       state,
     });
-    if (
-      classifyDatabaseFailure(error) === "busy" &&
-      !isDocumentStoreSyncGenerationCurrent(state, input.generation)
-    ) {
-      return null;
-    }
     await restoreFailedAttachmentMutation({
       generation: input.generation,
       rollbackSnapshot: input.rollbackSnapshot,

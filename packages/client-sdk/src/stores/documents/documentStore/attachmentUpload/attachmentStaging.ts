@@ -3,6 +3,7 @@ import {
   type AttachmentStagingRows,
   type LocalAttachmentRecord,
   type PendingAttachmentRecord,
+  retryWhileDatabaseBusy,
   runSerializedDocumentBlobMutation,
   runSerializedSqlMutation,
 } from "../../../../workflows/documents";
@@ -11,6 +12,10 @@ import {
   assignLocalAttachmentSlots,
   upsertPendingAttachments,
 } from "../attachments/attachmentPersistence";
+import {
+  noteDocumentStoreWrite,
+  retryDocumentStoreWorkWhileBusy,
+} from "../reportWriteFailure";
 import { type DocumentStoreState, setReadySnapshot } from "../state";
 import {
   type DocumentStoreSyncGeneration,
@@ -47,7 +52,17 @@ async function deleteStagedAttachmentBytes(input: {
   const { state } = input;
   const cleanupResults = await Promise.allSettled(
     input.pendingAttachments.map((attachment) =>
-      state.runtime.infra.blobStore.deleteBytes(attachment.storageKey),
+      retryWhileDatabaseBusy(
+        () => state.runtime.infra.blobStore.deleteBytes(attachment.storageKey),
+        {
+          onBusy: () => {
+            noteDocumentStoreWrite(
+              state,
+              "Documents: staged attachment rollback delete delayed behind another tab's database transaction",
+            );
+          },
+        },
+      ),
     ),
   );
   const failedCleanupCount = cleanupResults.filter(
@@ -76,16 +91,36 @@ export async function deleteUnreferencedStagedAttachmentBytes(input: {
   for (const { storageKey } of input.pendingAttachments) {
     try {
       await runSerializedDocumentBlobMutation(execSql, storageKey, async () => {
-        const referenced = await runSerializedSqlMutation(
-          execSql,
-          (lockedExecSql) =>
-            state.persistence.orphanBlobs.isReferenced(
-              lockedExecSql,
-              storageKey,
+        const referenced = await retryWhileDatabaseBusy(
+          () =>
+            runSerializedSqlMutation(execSql, (lockedExecSql) =>
+              state.persistence.orphanBlobs.isReferenced(
+                lockedExecSql,
+                storageKey,
+              ),
             ),
+          {
+            onBusy: () => {
+              noteDocumentStoreWrite(
+                state,
+                "Documents: staged attachment cleanup probe delayed behind another tab's database transaction",
+              );
+            },
+          },
         );
-        if (!referenced)
-          await state.runtime.infra.blobStore.deleteBytes(storageKey);
+        if (!referenced) {
+          await retryWhileDatabaseBusy(
+            () => state.runtime.infra.blobStore.deleteBytes(storageKey),
+            {
+              onBusy: () => {
+                noteDocumentStoreWrite(
+                  state,
+                  "Documents: staged attachment cleanup delete delayed behind another tab's database transaction",
+                );
+              },
+            },
+          );
+        }
       });
     } catch {
       // A failed probe cannot prove that the atomic mutation rolled back, so
@@ -105,9 +140,20 @@ async function writePendingAttachmentBytes(
   for (const [index, pendingAttachment] of input.pendingAttachments.entries()) {
     const sourceFile = input.files[index];
     if (!sourceFile) continue;
-    await input.state.runtime.infra.blobStore.writeByteSource(
-      pendingAttachment.storageKey,
-      createBlobByteSource(sourceFile.bytes),
+    // `BlobByteSource` is replayable and `writeByteSource` overwrites by key,
+    // so repeating a single refused blob write is idempotent.
+    await retryDocumentStoreWorkWhileBusy(
+      input.state,
+      () =>
+        input.state.runtime.infra.blobStore.writeByteSource(
+          pendingAttachment.storageKey,
+          createBlobByteSource(sourceFile.bytes),
+        ),
+      {
+        busyMessage: "Documents: attachment staging delayed",
+        isCurrent: () =>
+          isDocumentStoreSyncGenerationCurrent(input.state, input.generation),
+      },
     );
   }
 }

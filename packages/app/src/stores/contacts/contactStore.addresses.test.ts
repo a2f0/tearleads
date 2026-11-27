@@ -59,6 +59,7 @@ test("updates only changed allowed cells and removes only the selected address",
       recordType: "future",
       content: "preserve",
     });
+    if (!unknown) throw new Error("Expected added row id");
     await harness.store.updateContactAddress(id, first, {
       street: " Main ",
       postalCode: " 00001 ",

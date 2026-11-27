@@ -43,6 +43,14 @@ export function isSerializationFailure(error: unknown): boolean {
   return hasDatabaseCode(error, (code) => code === "40001" || code === "40P01");
 }
 
+/**
+ * A lock asked for without waiting (`NOWAIT`) is held by another
+ * transaction. The statement failed and its transaction must roll back.
+ */
+export function isLockNotAvailable(error: unknown): boolean {
+  return hasDatabaseCode(error, (code) => code === "55P03");
+}
+
 /** Database connection failures for which a later request may succeed. */
 export function isTransientDatabaseFailure(error: unknown): boolean {
   return hasDatabaseCode(

@@ -26,6 +26,7 @@ for (const operation of operations) {
     try {
       expect(await f.store.ensureInitialized()).toBe(true);
       const id = await f.store.addRow({ value: "original" });
+      if (!id) throw new Error("Expected added row id");
       const original = f.store.getSnapshot();
       const queue = await f.queued();
       const fresh = f.open();
@@ -38,7 +39,7 @@ for (const operation of operations) {
       current = false;
       hold.release();
       const result = await write;
-      if (operation === "add") expect(result).toEqual(expect.any(String));
+      if (operation === "add") expect(result).toBeNull();
       expect(fresh.hasQueuedWrites()).toBe(false);
       expect(fresh.hasUnsavedLocalEdits()).toBe(false);
       expect(fresh.getSnapshot().rows).toEqual(original.rows);
@@ -75,6 +76,7 @@ for (const phase of ["readiness", "queue"] as const) {
       try {
         expect(await f.store.ensureInitialized()).toBe(true);
         const id = await f.store.addRow({ value: "original" });
+        if (!id) throw new Error("Expected added row id");
         const original = f.store.getSnapshot();
         const hold = f.holdCommit();
         const blocker = f.store.setText("held predecessor");

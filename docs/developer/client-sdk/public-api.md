@@ -406,9 +406,10 @@ after readiness and again when its real local write queue admits the operation,
 before Loro mutation or a pending-delta flush, including an empty structured
 patch. False makes that operation a no-op. A thrown predicate also refuses,
 reports through existing write-failure diagnostics, and leaves the queue usable.
-`addRow` still resolves its allocated id on refusal, so an id is not a success
-acknowledgement; the other methods resolve void as before. Store facades forward
-the guard unchanged.
+`addRow` resolves `null` when refused or when store initialization fails, so a
+non-null id means the row was applied (a save failure after applying still
+returns the id and sets `hasUnsavedLocalEdits()`); the other methods resolve
+void as before. Store facades forward the guard unchanged.
 
 Guarded structured writes neither publish optimistically nor participate in
 field-write coalescing: a later refused write cannot suppress an earlier valid

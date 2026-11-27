@@ -25,11 +25,6 @@ import {
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { readProcessedCursorForVersion } from "../sync/processedCursor";
-import {
-  type DocumentRotationBaselineHistory,
-  encryptRotationBaselineGroup,
-} from "./rotationBaselineGroup";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
 type RawHistoryUnavailableCause =
@@ -125,45 +120,26 @@ async function throwRawHistoryUnavailable(input: {
 }
 
 /**
- * Encrypts what a sync sends, in request order: a heal's rotation baseline,
- * every segment in index order, then the pending updates. The baseline signs
- * the processed cursor its version covers the recorded frontier of, so every
- * update the cursor's pull imported is in it and the rest were void. The API
- * then asks the baseline to cover only updates committed after the cursor,
- * and an update every reader voids no longer refuses it. A baseline whose
- * version covers no cursor signs none, and must cover every committed update.
+ * Encrypts what a sync sends, in request order: a heal's rotation baseline
+ * segments, which the baseline writer encrypted already, then the pending
+ * updates. The baseline signs the processed cursor its version covers the
+ * recorded frontier of (`writeRotationBaseline`), so the API asks it to
+ * cover only updates committed after the cursor.
  */
 export async function prepareDocumentOutgoingUpdates(input: {
+  /** A heal's baseline segments, as its request carries them. */
+  baselineSegments?: readonly DocumentSyncPreparedUpdate[] | undefined;
   contentKey: Uint8Array;
   contentKeyEpoch: number;
   documentId: string;
-  /** Reads the processed cursor the rotation baseline signs. */
-  execSql?: ExecSql | undefined;
   organizationId: string;
   pendingUpdates: readonly PendingUpdateRecord[];
-  rotationBaseline?: DocumentRotationBaselineHistory | undefined;
 }): Promise<DocumentSyncPreparedUpdate[]> {
-  const { rotationBaseline } = input;
-  if (input.pendingUpdates.length === 0 && !rotationBaseline) {
-    return [];
+  const baselineSegments = input.baselineSegments ?? [];
+  if (input.pendingUpdates.length === 0) {
+    return [...baselineSegments];
   }
   const contentKey = await openDocumentContentKey(input);
-  const baselineSegments = rotationBaseline
-    ? await encryptRotationBaselineGroup({
-        baselineId: rotationBaseline.baselineId,
-        contentKey,
-        contentKeyEpoch: input.contentKeyEpoch,
-        coversThroughUpdateId: input.execSql
-          ? await readProcessedCursorForVersion(input.execSql, {
-              documentId: input.documentId,
-              version: rotationBaseline.version,
-            })
-          : undefined,
-        documentId: input.documentId,
-        organizationId: input.organizationId,
-        segments: rotationBaseline.segments,
-      })
-    : [];
   const ordinaryUpdates = await Promise.all(
     input.pendingUpdates.map(async (update) => {
       const encrypted = await encryptDocumentPendingUpdate({

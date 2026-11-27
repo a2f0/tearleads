@@ -233,6 +233,7 @@ test("restoring a structured document brings back its fields and rows", async ()
     const rowId = await addRowToDocumentStore(state, noop, {
       street: "1 Analytical Way",
     });
+    if (!rowId) throw new Error("Expected added row id");
     const withRow = await openHistory(execSql, "contact");
     const target = withRow.viewAt(withRow.stops.length - 1);
     withRow.close();

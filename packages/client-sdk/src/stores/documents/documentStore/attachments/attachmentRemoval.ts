@@ -7,10 +7,6 @@ import {
   removeDocumentAttachment,
 } from "../../../../data/documents/documentContent";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import {
-  classifyDatabaseFailure,
-  retryWhileDatabaseBusy,
-} from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import { ensureDocumentStoreReady } from "../initialization";
 import { chainQueuedWrite } from "../localWriteQueue";
@@ -21,8 +17,8 @@ import {
   persistDocument,
 } from "../persistence";
 import {
-  noteDocumentStoreWrite,
   reportDocumentStoreWriteFailure,
+  retryDocumentStoreWorkWhileBusy,
 } from "../reportWriteFailure";
 import {
   canWriteDocument,
@@ -33,7 +29,10 @@ import {
   captureDocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "../sync/syncGeneration";
-import { restoreFailedAttachmentMutation } from "./attachmentMutationPersistence";
+import {
+  ATTACHMENT_FAILURE_MESSAGE,
+  restoreFailedAttachmentMutation,
+} from "./attachmentMutationPersistence";
 import {
   assignLocalAttachmentSlots,
   removeLocalAttachmentSlot,
@@ -44,7 +43,6 @@ import {
   isAttachmentWriteGenerationCurrent,
   shouldAbortAttachmentPersistFollowup,
 } from "./attachmentWriteGeneration";
-import { ATTACHMENT_FAILURE_MESSAGE } from "./index";
 
 function installCommittedAttachmentRemoval(input: {
   currentDoc: NonNullable<DocumentStoreState["doc"]>;
@@ -92,7 +90,7 @@ function installCommittedAttachmentRemoval(input: {
   );
 }
 
-async function commitAttachmentRemovalPersist(input: {
+async function commitAttachmentRemoval(input: {
   coveredVersion: string;
   currentDoc: NonNullable<DocumentStoreState["doc"]>;
   generation: NonNullable<
@@ -106,19 +104,13 @@ async function commitAttachmentRemovalPersist(input: {
   syncedAttachment: boolean;
   writeGeneration: AttachmentWriteGeneration;
 }) {
-  const {
-    currentDoc,
-    generation,
-    slotId,
-    state,
-    storageKey,
-    syncedAttachment,
-  } = input;
-  const isCurrent = () =>
-    isAttachmentWriteGenerationCurrent(state, input.writeGeneration) &&
-    isDocumentStoreSyncGenerationCurrent(state, generation);
+  const { currentDoc, generation, state, storageKey, writeGeneration } = input;
   try {
-    return await retryWhileDatabaseBusy(
+    // `persistDocument` commits the attachment removal/detach marker, history
+    // tail, pending update, and document record in one atomic SQLite
+    // transaction, so retrying a busy refusal leaves no partial removal.
+    return await retryDocumentStoreWorkWhileBusy(
+      state,
       () =>
         persistDocument(
           state,
@@ -128,10 +120,10 @@ async function commitAttachmentRemovalPersist(input: {
             ...(storageKey
               ? {
                   attachmentRemoval: {
-                    mode: syncedAttachment
+                    mode: input.syncedAttachment
                       ? ("detach" as const)
                       : ("delete" as const),
-                    slotId,
+                    slotId: input.slotId,
                     storageKey,
                   },
                 }
@@ -145,19 +137,13 @@ async function commitAttachmentRemovalPersist(input: {
           generation,
         ),
       {
-        isCurrent,
-        onBusy: () => {
-          noteDocumentStoreWrite(
-            state,
-            `Documents: retrying attachment removal for ${state.localId} behind another tab's database transaction`,
-          );
-        },
+        busyMessage: ATTACHMENT_FAILURE_MESSAGE,
+        isCurrent: () =>
+          isAttachmentWriteGenerationCurrent(state, writeGeneration) &&
+          isDocumentStoreSyncGenerationCurrent(state, generation),
       },
     );
   } catch (error) {
-    if (classifyDatabaseFailure(error) === "busy" && !isCurrent()) {
-      return null;
-    }
     await restoreFailedAttachmentMutation({
       generation,
       rollbackSnapshot: input.rollbackSnapshot,
@@ -208,7 +194,7 @@ async function persistRemovedAttachment(
 
   // Preserve the optimistic text/structured fields (see persistAttachedFiles):
   // removing an attachment while typing must not regress the editor.
-  const persisted = await commitAttachmentRemovalPersist({
+  const persisted = await commitAttachmentRemoval({
     coveredVersion,
     currentDoc,
     generation,

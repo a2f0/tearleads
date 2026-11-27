@@ -91,3 +91,17 @@ test("an unknown creation identity cannot be edited or acknowledged", () => {
   expect(transition(creating, { type: "edit", fields })).toBe(creating);
   expect(transition(creating, { type: "saved" })).toBe(creating);
 });
+
+test("a null addRow refusal moves to refused and retries without losing the state machine", () => {
+  const refused = transition(creating, { type: "refused" });
+  expect(refused).toEqual({ status: "refused" });
+  expect(transition(refused, { type: "edit", fields })).toBe(refused);
+  expect(transition(refused, { type: "saved" })).toBe(refused);
+  expect(transition(refused, { type: "reconciled", exists: true })).toBe(
+    refused,
+  );
+  expect(transition(refused, { type: "returned", id: "ignored", fields })).toBe(
+    refused,
+  );
+  expect(transition(refused, { type: "retry" })).toEqual(creating);
+});

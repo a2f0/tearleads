@@ -19,6 +19,7 @@ import type {
 } from "../types";
 import type { BaselineGroupRun } from "./baselineGroupMachine";
 import type { OptionalDocumentBaselineSegmentFields } from "./baselineSegment";
+import type { DocumentBaselineStageApi } from "./baselineStageApi";
 import type {
   DocumentSyncImportVerdicts,
   VoidedDocumentSyncUpdate,
@@ -63,6 +64,11 @@ export interface DecryptedDocumentSyncUpdate {
 export interface BuildDocumentSyncPlanInput {
   author: DocumentCreateAuthor;
   authorizingContainerPathRefs?: readonly (readonly ContainerManifestRef[])[];
+  /**
+   * The stage that holds the earlier segments of the rotation baseline whose
+   * final segment leads `outgoingUpdates`.
+   */
+  baselineStageId?: string | undefined;
   containerRekeys?: DocumentSyncRequest["containerRekeys"];
   contentKeyBundle: DocumentContentKeyBundleResponse;
   documentId?: string | undefined;
@@ -115,6 +121,12 @@ export interface MaterializedDocumentSyncPlan {
    * row, so an acknowledged segment settles none.
    */
   rotationBaselineUpdateIds?: readonly string[];
+  /**
+   * The run of the staged baseline upload whose final segment the plan
+   * carries. The request's answer settles that run alone: a later run of
+   * the same upload is not moved by it.
+   */
+  baselineStageAttempt?: number;
 }
 
 /**
@@ -172,7 +184,7 @@ export interface SyncRemoteDocumentResult {
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 
-export interface DocumentSyncApi {
+export interface DocumentSyncApi extends Partial<DocumentBaselineStageApi> {
   rekeyContainer: ContainerRekeyApi["rekeyContainer"];
   /**
    * Optional status-bearing rekey. Present on the real client; an adapter that

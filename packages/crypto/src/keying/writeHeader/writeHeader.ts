@@ -20,12 +20,10 @@ import {
   runVerifier,
   throwVerification,
 } from "../core/shared";
+import { readWriterDeviceId } from "../core/signedName";
 import type { KeyingVerificationResult } from "../core/verificationError";
 import { assertWriteHeaderAuthorizations } from "./writeHeaderAuthorization";
-import {
-  readWriteHeaderCitations,
-  readWriterDeviceId,
-} from "./writeHeaderCitations";
+import { readWriteHeaderCitations } from "./writeHeaderCitations";
 import type {
   ContentRecordNonceDomain,
   UnsignedWriteHeader,

@@ -327,6 +327,8 @@ const productionConfig = {
         "src/reload/index.ts!",
         "src/canaries/index.ts!",
         "src/statements/index.ts!",
+        "src/plans/index.ts!",
+        "src/inventory/index.ts!",
         "src/statements/capturePreload.ts!",
         "src/statements/clientSqlPreload.ts!",
         "src/canaries/payloadAuditPreload.ts!",

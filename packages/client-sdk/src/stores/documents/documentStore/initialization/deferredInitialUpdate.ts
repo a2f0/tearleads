@@ -1,9 +1,5 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import {
-  classifyDatabaseFailure,
-  retryWhileDatabaseBusy,
-} from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import {
   type AttachmentWriteGeneration,
@@ -16,7 +12,7 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "../persistence";
-import { noteDocumentStoreWrite } from "../reportWriteFailure";
+import { retryDocumentStoreWorkWhileBusy } from "../reportWriteFailure";
 import { type DocumentStoreState, resetDocumentStore } from "../state";
 import {
   captureDocumentStoreSyncGeneration,
@@ -129,41 +125,27 @@ async function enqueueDeferredTail(
     pendingDeltaSinceBase(state, currentDoc),
   );
   if (!pendingUpdate) return;
-  let persisted: Awaited<ReturnType<typeof persistDocument>>;
-  try {
-    persisted = await retryWhileDatabaseBusy(
-      () =>
-        persistDocument(
-          state,
-          currentDoc,
-          { snapshotEndVersion: documentVersion },
-          {
-            pendingUpdate,
-            preserveSnapshotStructuredFields: true,
-            preserveSnapshotText: true,
-          },
-          syncGeneration,
-        ),
-      {
-        isCurrent: () =>
-          isDocumentStoreSyncGenerationCurrent(state, syncGeneration),
-        onBusy: () => {
-          noteDocumentStoreWrite(
-            state,
-            `Documents: retrying deferred birth persist for ${state.localId} behind another tab's database transaction`,
-          );
+  const persisted = await retryDocumentStoreWorkWhileBusy(
+    state,
+    () =>
+      persistDocument(
+        state,
+        currentDoc,
+        { snapshotEndVersion: documentVersion },
+        {
+          pendingUpdate,
+          preserveSnapshotStructuredFields: true,
+          preserveSnapshotText: true,
         },
-      },
-    );
-  } catch (error) {
-    if (
-      classifyDatabaseFailure(error) === "busy" &&
-      !isDocumentStoreSyncGenerationCurrent(state, syncGeneration)
-    ) {
-      return;
-    }
-    throw error;
-  }
+        syncGeneration,
+      ),
+    {
+      busyMessage: "Documents: deferred birth persist delayed",
+      isCurrent: () =>
+        isAttachmentWriteGenerationCurrent(state, generation) &&
+        isDocumentStoreSyncGenerationCurrent(state, syncGeneration),
+    },
+  );
   if (
     !persisted ||
     !isDocumentStoreSyncGenerationCurrent(state, syncGeneration)

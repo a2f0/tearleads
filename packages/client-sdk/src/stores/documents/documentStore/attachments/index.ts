@@ -30,6 +30,7 @@ import {
   buildPendingAttachments,
 } from "./attachmentIntents";
 import {
+  ATTACHMENT_FAILURE_MESSAGE,
   persistStagedAttachmentMutation,
   restoreFailedAttachmentMutation,
 } from "./attachmentMutationPersistence";
@@ -39,10 +40,6 @@ import {
   isAttachmentWriteGenerationCurrent,
   shouldAbortAttachmentPersistFollowup,
 } from "./attachmentWriteGeneration";
-
-// Fixed literal: a reported message must never carry file names or slot ids.
-export const ATTACHMENT_FAILURE_MESSAGE =
-  "Documents: attachment mutation failed";
 
 function logAttachedFiles(state: DocumentStoreState, count: number) {
   state.runtime.util.log(
@@ -121,6 +118,7 @@ async function persistAttachedFiles(
     rollbackSnapshot,
     staged,
     state,
+    writeGeneration,
   });
   if (
     shouldAbortAttachmentPersistFollowup(
@@ -218,6 +216,7 @@ async function persistSlotAttachmentFile(
     rollbackSnapshot,
     staged,
     state,
+    writeGeneration,
   });
   if (
     shouldAbortAttachmentPersistFollowup(
