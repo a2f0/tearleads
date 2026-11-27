@@ -187,38 +187,52 @@ function extendedPeers(input: PromoteStagedBaselineSegmentsInput): SQL {
  * depends only on earlier staged segments, so no dependency is uncommitted
  * once they are.
  *
- * The refusal is found without aggregating the stage. A stage this refuses
- * stays as it was, so its writer can send the commit again, and a refusal
- * that read every staged span would cost that each time. The statement
- * starts from the document's peers that other users own and looks up, by
- * index, where the stage and the committed spans leave each: its cost
- * follows what other users committed, whatever the stage holds.
+ * A stage this refuses stays as it was, so its writer can send the commit
+ * again, and the check also runs ahead of every commit that is accepted:
+ * what it reads is what a writer can make the server read under the head
+ * lock. A stage with no span extends nothing and is not read. Otherwise the
+ * statement is a plain join of the stage's spans with the document's peer
+ * owners, less the spans a committed span already reaches, over three
+ * indexes that all run in peer order. The planner drives it from the
+ * smaller side, by index, when one side is small, and merges or hashes
+ * them when both are large: it reads at most each side once, never one
+ * side once for every row of the other. Some staged span of a peer ends
+ * past the frontier exactly when the highest does, so no span is
+ * aggregated.
  */
 async function assertStagedPeersNotOwnedByOthers(
   input: PromoteStagedBaselineSegmentsInput,
 ): Promise<void> {
+  if (input.commit.stage.stagedSpans === 0) return;
+  const documentId = uuidValue(input.documentId);
   const owned = await input.executor.execute(sql`
-    select peer_owner.peer_id as "peerId",
-      coalesce(committed.end_counter, 0) as "committedEndCounter"
-    from ${documentPeerOwners} peer_owner
-    cross join lateral (
-      select max(span.end_counter) as end_counter
-      from ${documentBaselineSegmentSpans} span
-      where span.document_id = ${uuidValue(input.documentId)}
-        and span.baseline_id = ${uuidValue(input.commit.stage.id)}
-        and span.peer_id = peer_owner.peer_id
-    ) staged
-    cross join lateral (
-      select max(span.end_counter) as end_counter
-      from ${documentUpdateSpans} span
-      where span.document_id = ${uuidValue(input.documentId)}
-        and span.peer_id = peer_owner.peer_id
-    ) committed
-    where peer_owner.document_id = ${uuidValue(input.documentId)}
-      and peer_owner.owner_user_id <> ${uuidValue(input.userId)}
-      and staged.end_counter > coalesce(committed.end_counter, 0)
-    order by peer_owner.peer_id collate "C"
-    limit ${MAX_DOCUMENT_PEER_FRONTIERS}
+    select refused.peer_id as "peerId",
+      coalesce((
+        select max(span.end_counter)
+        from ${documentUpdateSpans} span
+        where span.document_id = ${documentId}
+          and span.peer_id = refused.peer_id
+      ), 0) as "committedEndCounter"
+    from (
+      select staged.peer_id
+      from ${documentBaselineSegmentSpans} staged
+      join ${documentPeerOwners} peer_owner
+        on peer_owner.document_id = staged.document_id
+        and peer_owner.peer_id = staged.peer_id
+      where staged.document_id = ${documentId}
+        and staged.baseline_id = ${uuidValue(input.commit.stage.id)}
+        and peer_owner.owner_user_id <> ${uuidValue(input.userId)}
+        and not exists (
+          select 1 from ${documentUpdateSpans} committed
+          where committed.document_id = staged.document_id
+            and committed.peer_id = staged.peer_id
+            and committed.end_counter >= staged.end_counter
+        )
+      group by staged.peer_id
+      order by staged.peer_id collate "C"
+      limit ${MAX_DOCUMENT_PEER_FRONTIERS}
+    ) refused
+    order by refused.peer_id collate "C"
   `);
   if (owned.rows.length > 0) {
     throw documentPeerOwned(

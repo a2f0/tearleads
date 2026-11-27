@@ -28,7 +28,7 @@ import {
   readStagedBaselineFrontier,
   readStagedSegmentAt,
 } from "../../../documents/documentBaselineStageStore";
-import { listPeersOwnedByOthers } from "../../../documents/documentPeerOwners";
+import { extendsPeerOwnedByOthers } from "../../../documents/documentPeerOwners";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { DocumentMutationError } from "../mutations/errors";
 import { verifyStagedSegmentWriteHeader } from "../mutations/outgoingUpdateVerification";
@@ -155,12 +155,12 @@ async function assertSegmentExtendsNoForeignPeer(
   history: BaselineSegmentHistory,
   userId: string,
 ): Promise<void> {
-  const owned = await listPeersOwnedByOthers(executor, {
+  const refused = await extendsPeerOwnedByOthers(executor, {
     documentId: stage.documentId,
     spans: history.spans,
     userId,
   });
-  if (owned.length > 0) {
+  if (refused) {
     throw stagedSegmentInvalid("it extends a peer another user owns");
   }
 }

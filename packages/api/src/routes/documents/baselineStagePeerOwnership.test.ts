@@ -5,7 +5,10 @@
 // one that decides (`baselineStageCommitRefusals.test.ts`).
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { documentPeerOwners } from "@tearleads/api-shared/schema";
+import {
+  documentBaselineSegments,
+  documentPeerOwners,
+} from "@tearleads/api-shared/schema";
 import { compareCanonicalStrings } from "@tearleads/crypto";
 import {
   decodeVersionVector,
@@ -15,7 +18,7 @@ import {
   DOCUMENT_SYNC_ERROR_CODES,
   DOCUMENT_BASELINE_STAGE_ERROR_CODES as STAGE,
 } from "@tearleads/validators/response";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   peerRanges,
   signerFor,
@@ -40,14 +43,6 @@ function giveToAnotherUser(documentId: string, peerId: string) {
         eq(documentPeerOwners.peerId, peerId),
       ),
     );
-}
-
-/** The next value of the sequence every update row takes its place from. */
-async function nextUpdateSequence(): Promise<number> {
-  const result = await db.execute(
-    sql`select nextval(pg_get_serial_sequence('document_updates', 'sequence')) as next`,
-  );
-  return Number(Reflect.get(result.rows[0] ?? {}, "next"));
 }
 
 test("a segment that extends another user's peer is refused when it is staged", async () => {
@@ -122,9 +117,11 @@ test("a segment that extends another user's peer is refused when it is staged", 
 // A refused commit keeps its stage, so its writer can send it again. The
 // request's own updates are judged before the stage is promoted, against
 // the frontier and the owners the promotion would leave, so a request that
-// is refused for them does none of the promotion's writes. A rolled-back
-// insert still takes its values from the update sequence, which is how the
-// writes would show.
+// is refused for them does none of the promotion's writes. A refusal rolls
+// its writes back, so they cannot be seen afterwards; a tripwire shows
+// them. One staged row is removed: the promotion counts the rows it
+// inserts, and if it ran before the request was judged it would fail on
+// that count, with its own error, ahead of the refusal for the peer.
 test("a commit refused for its final segment promotes nothing first", async () => {
   const history = await documentWithHistory();
   const { created, frontier, owner, root } = history;
@@ -157,13 +154,17 @@ test("a commit refused for its final segment promotes nothing first", async () =
   );
   expect(staged.length).toBeGreaterThan(1);
   await giveToAnotherUser(created.id, foreignPeer);
+  const [tripwire] = staged;
+  if (!tripwire) throw new Error("Expected a staged segment");
+  await db
+    .delete(documentBaselineSegments)
+    .where(eq(documentBaselineSegments.updateId, tripwire.id));
   const { request } = await createSignedDocumentSyncRequest({
     created,
     owner,
     root,
   });
 
-  const before = await nextUpdateSequence();
   const refused = await postDocumentSync(owner, created.id, {
     ...request,
     baselineStageId,
@@ -177,7 +178,6 @@ test("a commit refused for its final segment promotes nothing first", async () =
       peerFrontiers: [{ committedEndCounter: foreignEnd, peerId: foreignPeer }],
     },
   ]);
-  expect(await nextUpdateSequence()).toBe(before + 1);
   expect((await stagedRows(created.id)).stages).toEqual([
     { id: baselineStageId, nextSegmentIndex: staged.length },
   ]);

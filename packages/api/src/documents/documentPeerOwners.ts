@@ -9,6 +9,7 @@ import {
   type CommittedDocumentPeer,
   type DocumentPeerDependency,
   type DocumentPeerRefusal,
+  type DocumentPeerSpan,
   judgeDocumentPeerSpans,
 } from "@tearleads/validators/documentPeerSpans";
 import { and, type Column, eq, max, type SQL, sql } from "drizzle-orm";
@@ -92,40 +93,31 @@ async function readCommittedDocumentPeers(
 }
 
 /**
- * The peers of `spans` that a write by `userId` would extend past their
- * committed frontier although another user owns them: the peers the
- * ownership rule of `judgeDocumentPeerSpans` refuses. It reads only the
- * named peers. A caller that does not hold the document head lock learns
- * what held when it asked, not what will hold at its commit.
+ * Whether a write of `spans` by `userId` would extend, past its committed
+ * frontier, a peer another user owns: the ownership refusal of
+ * `judgeDocumentPeerSpans`, by that rule itself. It reads only the named
+ * peers. A caller that does not hold the document head lock learns what
+ * held when it asked, not what will hold at its commit.
  */
-export async function listPeersOwnedByOthers(
+export async function extendsPeerOwnedByOthers(
   executor: DatabaseSession,
   input: {
     readonly documentId: string;
-    readonly spans: readonly {
-      readonly endCounter: number;
-      readonly peerId: string;
-    }[];
+    readonly spans: readonly DocumentPeerSpan[];
     readonly userId: string;
   },
-): Promise<string[]> {
-  if (input.spans.length === 0) return [];
-  const committed = await readCommittedDocumentPeers(
-    executor,
-    input.documentId,
-    [...new Set(input.spans.map((span) => span.peerId))],
-  );
-  return input.spans
-    .filter((span) => {
-      const peer = committed.get(span.peerId);
-      return (
-        peer !== undefined &&
-        peer.ownerUserId !== null &&
-        peer.ownerUserId !== input.userId &&
-        span.endCounter > peer.committedEndCounter
-      );
-    })
-    .map((span) => span.peerId);
+): Promise<boolean> {
+  if (input.spans.length === 0) return false;
+  const verdict = judgeDocumentPeerSpans({
+    committedPeers: await readCommittedDocumentPeers(
+      executor,
+      input.documentId,
+      [...new Set(input.spans.map((span) => span.peerId))],
+    ),
+    updates: [{ dependencies: [], spans: input.spans }],
+    userId: input.userId,
+  });
+  return verdict.kind === "peer_owned";
 }
 
 /**

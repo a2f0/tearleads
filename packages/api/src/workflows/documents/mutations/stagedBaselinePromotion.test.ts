@@ -66,6 +66,8 @@ async function stagedGroup(
   input: {
     /** The hash a staged row carries, when not the final segment's. */
     readonly authorizationHash?: (index: number) => string | undefined;
+    /** Whether the staged segments carry spans; they do unless said. */
+    readonly spans?: boolean;
   } = {},
 ) {
   const documentId = crypto.randomUUID();
@@ -87,6 +89,7 @@ async function stagedGroup(
       organizationId,
       ownerUserId,
       segmentsDigest: "0".repeat(64),
+      stagedSpans: input.spans === false ? 0 : SEGMENTS,
     })
     .returning();
   if (!stage) throw new Error("Expected a stage");
@@ -117,16 +120,18 @@ async function stagedGroup(
       updateId,
     })),
   );
-  await db.insert(documentBaselineSegmentSpans).values(
-    reversed.map(({ index, updateId }) => ({
-      baselineId,
-      documentId,
-      endCounter: 1,
-      peerId: String(1000 + index),
-      startCounter: 0,
-      updateId,
-    })),
-  );
+  if (input.spans !== false) {
+    await db.insert(documentBaselineSegmentSpans).values(
+      reversed.map(({ index, updateId }) => ({
+        baselineId,
+        documentId,
+        endCounter: 1,
+        peerId: String(1000 + index),
+        startCounter: 0,
+        updateId,
+      })),
+    );
+  }
   // The raw statements a commit ran, as text: every aggregate over the
   // stage's spans is one of them.
   const statements: string[] = [];
@@ -280,10 +285,9 @@ const UPDATE_ID_CONFLICT = {
 };
 
 // A refused commit keeps its stage, so its writer can send it again: what a
-// refusal reads is what a writer can make the server read again. A stage
-// that extends another user's peer is refused from that user's peers, by
-// index, and no statement aggregates the stage's spans or writes a row.
-test("a stage that extends another user's peer is refused without reading its spans whole", async () => {
+// refusal does is what a writer can make the server do again. A stage that
+// extends another user's peer is refused before anything is written.
+test("a stage that extends another user's peer is refused before any write", async () => {
   const { documentId, promote, statements } = await stagedGroup();
   const ownedBy = (ownerUserId: string, peerId: string) =>
     db.insert(documentPeerOwners).values({ documentId, ownerUserId, peerId });
@@ -301,20 +305,48 @@ test("a stage that extends another user's peer is refused without reading its sp
     status: 409,
   });
   expect(statements.length).toBeGreaterThan(0);
-  expect(
-    statements.filter((text) => /group by|insert into/iu.test(text)),
-  ).toEqual([]);
+  expect(statements.filter((text) => /insert into/iu.test(text))).toEqual([]);
   expect(await committedRows(documentId)).toEqual([]);
 
   // The peer's committed frontier reaches what the stage carries of it: the
   // stage re-asserts it, which any writer may, and commits.
-  await db
-    .delete(documentPeerOwners)
-    .where(eq(documentPeerOwners.documentId, documentId));
+  await db.insert(documentUpdateSpans).values({
+    documentId,
+    endCounter: 1,
+    peerId: "1061",
+    startCounter: 0,
+    updateId: crypto.randomUUID(),
+  });
   statements.length = 0;
   await promote();
-  expect(statements.some((text) => /group by/iu.test(text))).toBe(true);
+  expect(statements.some((text) => /insert into/iu.test(text))).toBe(true);
   expect(await committedRows(documentId)).toHaveLength(SEGMENTS);
+});
+
+// The ownership check runs under the document head lock ahead of every
+// commit of a stage, and what it joins the stage's spans with is every
+// peer other users own in the document. A stage that staged no span
+// extends no peer, so the check reads nothing, however many peers other
+// users own.
+test("a stage with no span is not read for peer ownership", async () => {
+  const { documentId, promote, statements } = await stagedGroup({
+    spans: false,
+  });
+  await db.insert(documentPeerOwners).values({
+    documentId,
+    ownerUserId: crypto.randomUUID(),
+    peerId: "1061",
+  });
+  await promote();
+  const ownershipRead = (text: string) =>
+    /^\s*select/iu.test(text) && /"document_peer_owners"/u.test(text);
+  expect(statements.filter(ownershipRead)).toEqual([]);
+  expect(await committedRows(documentId)).toHaveLength(SEGMENTS);
+
+  // A stage that carries spans is read for it.
+  const spanned = await stagedGroup();
+  await spanned.promote();
+  expect(spanned.statements.filter(ownershipRead)).toHaveLength(1);
 });
 
 // An update id names one update everywhere, and the document head lock a
