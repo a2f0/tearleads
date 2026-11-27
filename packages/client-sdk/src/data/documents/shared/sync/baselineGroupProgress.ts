@@ -17,9 +17,8 @@ import {
   continuesWholeBaselineGroup,
 } from "./baselineGroupMachine";
 import {
-  MAX_UNAPPLIED_BASELINE_SPANS,
+  carriedUnappliedOperations,
   type UnappliedOperations,
-  unappliedOperationSpans,
   unappliedOperationsOf,
   unappliedSegmentsDeclared,
   withUnappliedSegment,
@@ -238,7 +237,10 @@ export async function judgeServedBaselineGroups(input: {
  * What it declares is unapplied in turn. An unapplied segment excuses no
  * other operation: a server that leaves out a segment the reader lacks does
  * not turn the omission into a void by serving a void segment first.
- * `run.unapplied` carries the declared operations across pages.
+ * `run.unapplied` carries the declared operations across pages. A group
+ * whose unapplied segments name more peers than a run lists is taken as one
+ * whose every operation was declared (`EVERY_OPERATION_UNAPPLIED`): the
+ * pass goes on, and the segments of that group that cannot join are void.
  */
 export function settleBaselineGroupVerdicts(input: {
   /** The served updates the page applies. */
@@ -283,17 +285,12 @@ export function settleBaselineGroupVerdicts(input: {
   }
   const { nextRun } = input;
   if (!nextRun) return null;
-  const carried = unappliedOperationSpans(
-    unapplied.get(nextRun.baselineId) ?? none,
-  );
-  // The run is carried in memory and stored with the continuation. A group
-  // that would grow it past its bound fails the pass, as a broken group
-  // does: nothing of the page is imported and no void is recorded.
-  if (carried.length > MAX_UNAPPLIED_BASELINE_SPANS) {
-    throw servedBaselineGroupError(
-      "a rotation baseline's unapplied segments name more peers than a pull carries",
-      input.updates.map((served) => served.id),
-    );
-  }
-  return { ...nextRun, unapplied: carried };
+  // The run is carried in memory and stored with the continuation, so what
+  // it lists is bounded: past the bound it carries every operation.
+  return {
+    ...nextRun,
+    unapplied: carriedUnappliedOperations(
+      unapplied.get(nextRun.baselineId) ?? none,
+    ),
+  };
 }

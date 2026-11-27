@@ -13,7 +13,10 @@ import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { servedBaselineGroup } from "../../../../test/helpers/workflows/servedBaselineGroupPass";
 import type { BaselineGroupRun } from "../../../data/documents/shared/sync/baselineGroupMachine";
 import { settleBaselineGroupVerdicts } from "../../../data/documents/shared/sync/baselineGroupProgress";
-import { MAX_UNAPPLIED_BASELINE_SPANS } from "../../../data/documents/shared/sync/baselineGroupUnapplied";
+import {
+  EVERY_OPERATION_UNAPPLIED,
+  MAX_UNAPPLIED_BASELINE_SPANS,
+} from "../../../data/documents/shared/sync/baselineGroupUnapplied";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
@@ -114,7 +117,13 @@ test("a segment that failed to decrypt is carried as unapplied, never as applied
   ).toThrow();
 });
 
-test("a group whose unapplied segments name more peers than a pull carries fails the pass", () => {
+// The API bounds a segment's spans only by its stage's total, so a writing
+// member can commit a group whose void segments name more peers than a run
+// lists. Failing the pass on it stopped every reader of the document for
+// good, for that one member's doing. The run carries every operation as
+// unapplied instead: the pass goes on, and what of that writer's group
+// cannot join is void.
+test("a group whose void segments name more peers than a run lists does not fail the pass", () => {
   const peers = Array.from({ length: MAX_UNAPPLIED_BASELINE_SPANS }, (_, n) =>
     String(10_000_000 + n),
   );
@@ -134,16 +143,35 @@ test("a group whose unapplied segments name more peers than a pull carries fails
     })?.unapplied,
   ).toHaveLength(MAX_UNAPPLIED_BASELINE_SPANS);
 
+  // One peer more than a run lists: every operation is carried.
   const onePeerMore = segment(2, "99999999", 0, 1);
-  let failure: unknown;
-  try {
+  const over = settleBaselineGroupVerdicts({
+    appliedUpdateIds: new Set(),
+    nextRun: runAt(3),
+    run: full,
+    updates: [onePeerMore],
+    voided: [],
+  });
+  expect(over).toEqual(runAt(3, EVERY_OPERATION_UNAPPLIED));
+
+  // A later segment of the group that lacks operations no listed span
+  // named is void, and the run stays as it is.
+  const dependent = segment(3, "424242", 5, 9);
+  const missing = [{ endCounter: 5, peerId: "424242", startCounter: 0 }];
+  const settle = (run: BaselineGroupRun | null) =>
     settleBaselineGroupVerdicts({
       appliedUpdateIds: new Set(),
-      nextRun: runAt(3),
-      run: full,
-      updates: [onePeerMore],
-      voided: [],
+      nextRun: runAt(4),
+      run,
+      updates: [dependent],
+      voided: [{ missingOperations: missing, updateId: dependent.id }],
     });
+  expect(settle(over)).toEqual(runAt(4, EVERY_OPERATION_UNAPPLIED));
+  // Under a run that lists its spans the same segment is one the server
+  // served without what it builds on, which still fails the pass.
+  let failure: unknown;
+  try {
+    settle(full);
   } catch (error) {
     failure = error;
   }
@@ -151,9 +179,6 @@ test("a group whose unapplied segments name more peers than a pull carries fails
     throw new Error("Expected the pass to fail on its baseline group");
   }
   expect(failure.stage).toBe("baseline_group");
-  expect(String(failure.cause)).toContain(
-    "unapplied segments name more peers than a pull carries",
-  );
 });
 
 // A page that ends inside a group and applies all of it carries the run on.

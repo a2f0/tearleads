@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH } from "@tearleads/validators/util";
 import type { BaselineGroupRun } from "./baselineGroupMachine";
 import { isColdPullPage } from "./baselineGroupProgress";
-import { MAX_UNAPPLIED_BASELINE_SPANS } from "./baselineGroupUnapplied";
+import {
+  EVERY_OPERATION_UNAPPLIED,
+  MAX_UNAPPLIED_BASELINE_SPANS,
+} from "./baselineGroupUnapplied";
 import {
   continuedBaselineGroupRun,
   type DocumentSyncPullContinuation,
@@ -68,7 +71,7 @@ test("a continuation carries the rotation baseline its page ended inside", () =>
   const stored = serializeDocumentSyncPullContinuation(continuation);
   expect(stored).toBe(
     JSON.stringify([
-      3,
+      4,
       "tracked",
       "0/2A",
       "page-2",
@@ -97,7 +100,7 @@ test("a continuation carries the rotation baseline its page ended inside", () =>
     }),
   ).toBe(
     JSON.stringify([
-      3,
+      4,
       "tracked",
       "0/2A",
       "page-2",
@@ -119,7 +122,7 @@ test("a continuation carries the rotation baseline its page ended inside", () =>
       baselineGroupRun,
     });
     expect(without).toBe(
-      JSON.stringify([3, "tracked", "0/2A", "page-2", null]),
+      JSON.stringify([4, "tracked", "0/2A", "page-2", null]),
     );
     expect(deserializeDocumentSyncPullContinuation(without)).toEqual({
       commitLsn: "0/2A",
@@ -244,8 +247,10 @@ test("malformed durable pull progress safely restarts from page one", () => {
     "not-json",
     // The shape before a continuation carried a run.
     JSON.stringify([1, "tracked", "0/2", "page-2"]),
-    JSON.stringify([3, "tracked", "0/2", "page-2"]),
-    JSON.stringify([4, "tracked", "0/2", "page-2", null]),
+    JSON.stringify([4, "tracked", "0/2", "page-2"]),
+    JSON.stringify([5, "tracked", "0/2", "page-2", null]),
+    // The format before a run could carry every operation as unapplied.
+    JSON.stringify([3, "tracked", "0/2", "page-2", null]),
     // The format before a run stored its unapplied operations as spans: a
     // continuation is read only in the format that wrote it.
     JSON.stringify([2, "tracked", "0/2", "page-2", null]),
@@ -256,26 +261,26 @@ test("malformed durable pull progress safely restarts from page one", () => {
       "page-2",
       ["baseline-1", 3, RUN.digest, [["7", 0, 9]]],
     ]),
-    JSON.stringify([3, "tracked", "not-an-lsn", "page-2", null]),
-    JSON.stringify([3, "tracked", "0/0", "page-2", null]),
-    JSON.stringify([3, "untracked", "0/2", "page-2", null]),
-    JSON.stringify([3, "tracked", "0/2", "", null]),
+    JSON.stringify([4, "tracked", "not-an-lsn", "page-2", null]),
+    JSON.stringify([4, "tracked", "0/0", "page-2", null]),
+    JSON.stringify([4, "untracked", "0/2", "page-2", null]),
+    JSON.stringify([4, "tracked", "0/2", "", null]),
     JSON.stringify([
-      3,
+      4,
       "tracked",
       "0/2",
       "x".repeat(MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH + 1),
       null,
     ]),
     // A run that is not one: a pull cannot be held to it, so it restarts.
-    JSON.stringify([3, "tracked", "0/2", "page-2", "run"]),
-    JSON.stringify([3, "tracked", "0/2", "page-2", ["baseline-1", 3]]),
-    JSON.stringify([3, "tracked", "0/2", "page-2", ["", 3, RUN.digest]]),
-    JSON.stringify([3, "tracked", "0/2", "page-2", ["baseline-1", 0, "d"]]),
-    JSON.stringify([3, "tracked", "0/2", "page-2", ["baseline-1", 1.5, "d"]]),
-    JSON.stringify([3, "tracked", "0/2", "page-2", ["baseline-1", 3, ""]]),
+    JSON.stringify([4, "tracked", "0/2", "page-2", "run"]),
+    JSON.stringify([4, "tracked", "0/2", "page-2", ["baseline-1", 3]]),
+    JSON.stringify([4, "tracked", "0/2", "page-2", ["", 3, RUN.digest]]),
+    JSON.stringify([4, "tracked", "0/2", "page-2", ["baseline-1", 0, "d"]]),
+    JSON.stringify([4, "tracked", "0/2", "page-2", ["baseline-1", 1.5, "d"]]),
+    JSON.stringify([4, "tracked", "0/2", "page-2", ["baseline-1", 3, ""]]),
     // The mark before a run carried what its unapplied segments declared.
-    JSON.stringify([3, "tracked", "0/2", "page-2", ["baseline-1", 3, "d", 1]]),
+    JSON.stringify([4, "tracked", "0/2", "page-2", ["baseline-1", 3, "d", 1]]),
     // Unapplied operations that are not spans, one a peer, in peer order.
     ...[
       [["7", 0]],
@@ -302,7 +307,7 @@ test("malformed durable pull progress safely restarts from page one", () => {
       ],
     ].map((unapplied) =>
       JSON.stringify([
-        3,
+        4,
         "tracked",
         "0/2",
         "page-2",
@@ -317,7 +322,7 @@ test("malformed durable pull progress safely restarts from page one", () => {
 test("a stored run carries no more spans than a pull may carry", () => {
   const stored = (count: number) =>
     JSON.stringify([
-      3,
+      4,
       "tracked",
       "0/2",
       "page-2",
@@ -336,6 +341,43 @@ test("a stored run carries no more spans than a pull may carry", () => {
   expect(
     deserializeDocumentSyncPullContinuation(
       stored(MAX_UNAPPLIED_BASELINE_SPANS + 1),
+    ),
+  ).toBeNull();
+});
+
+// A group whose void segments name more peers than a run lists is carried
+// as every operation: the word is stored, and read back as it was written.
+test("a run that carries every operation as unapplied survives storage", () => {
+  const continuation = {
+    baselineGroupRun: { ...RUN, unapplied: EVERY_OPERATION_UNAPPLIED },
+    commitLsn: "0/2A",
+    commitLsnMode: "tracked",
+    cursor: "page-2",
+  } as const;
+  const stored = serializeDocumentSyncPullContinuation(continuation);
+  expect(stored).toBe(
+    JSON.stringify([
+      4,
+      "tracked",
+      "0/2A",
+      "page-2",
+      ["baseline-1", RUN.nextIndex, RUN.digest, "every_operation"],
+    ]),
+  );
+  expect(deserializeDocumentSyncPullContinuation(stored)).toEqual(continuation);
+  expect(
+    documentSyncPullContinuationsEqual(continuation, {
+      ...continuation,
+      baselineGroupRun: RUN,
+    }),
+  ).toBe(false);
+  expect(documentSyncPullContinuationsEqual(continuation, continuation)).toBe(
+    true,
+  );
+  // Any other word is no run this reader wrote.
+  expect(
+    deserializeDocumentSyncPullContinuation(
+      stored?.replace("every_operation", "everything") ?? "",
     ),
   ).toBeNull();
 });

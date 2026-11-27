@@ -8,7 +8,11 @@ import {
   baselineGroupStateFromRun,
   continuesWholeBaselineGroup,
 } from "./baselineGroupMachine";
-import { MAX_UNAPPLIED_BASELINE_SPANS } from "./baselineGroupUnapplied";
+import {
+  type CarriedUnappliedOperations,
+  EVERY_OPERATION_UNAPPLIED,
+  MAX_UNAPPLIED_BASELINE_SPANS,
+} from "./baselineGroupUnapplied";
 import type { DocumentOperationSpan } from "./documentUpdateVerdict";
 
 export type DocumentSyncCommitLsnMode = "tracked" | "untracked";
@@ -52,6 +56,19 @@ function operationSpansEqual(
   );
 }
 
+function unappliedOperationsEqual(
+  left: CarriedUnappliedOperations,
+  right: CarriedUnappliedOperations,
+): boolean {
+  if (typeof left === "string" || typeof right === "string") {
+    return left === right;
+  }
+  return (
+    left.length === right.length &&
+    left.every((span, index) => operationSpansEqual(span, right[index]))
+  );
+}
+
 function baselineGroupRunsEqual(
   left: BaselineGroupRun | null | undefined,
   right: BaselineGroupRun | null | undefined,
@@ -61,10 +78,7 @@ function baselineGroupRunsEqual(
     left.baselineId === right.baselineId &&
     left.digest === right.digest &&
     left.nextIndex === right.nextIndex &&
-    left.unapplied.length === right.unapplied.length &&
-    left.unapplied.every((span, index) =>
-      operationSpansEqual(span, right.unapplied[index]),
-    )
+    unappliedOperationsEqual(left.unapplied, right.unapplied)
   );
 }
 
@@ -91,15 +105,18 @@ type PersistedBaselineGroupRun = readonly [
   baselineId: string,
   nextIndex: number,
   digest: string | null,
-  unapplied: readonly PersistedOperationSpan[],
+  unapplied:
+    | readonly PersistedOperationSpan[]
+    | typeof EVERY_OPERATION_UNAPPLIED,
 ];
 
 /**
  * The format of a stored continuation. A reader takes only its own: a
  * continuation stored in another format restarts its pull from page one.
- * Format 3 stores a run's unapplied operations as one span a peer.
+ * Format 4 stores a run's unapplied operations as one span a peer, or as
+ * the word for every operation once they are more than a run lists.
  */
-const PULL_CONTINUATION_FORMAT = 3;
+const PULL_CONTINUATION_FORMAT = 4;
 
 type PersistedDocumentSyncPullContinuation = readonly [
   version: typeof PULL_CONTINUATION_FORMAT,
@@ -130,14 +147,15 @@ function isCounter(value: unknown): value is number {
 }
 
 /**
- * Decodes a persisted run's unapplied operations: at most
- * `MAX_UNAPPLIED_BASELINE_SPANS` spans that each hold at least one
- * operation, one a canonical peer id, in peer order. Null when they are
- * anything else.
+ * Decodes a persisted run's unapplied operations: the word for every
+ * operation, or at most `MAX_UNAPPLIED_BASELINE_SPANS` spans that each hold
+ * at least one operation, one a canonical peer id, in peer order. Null when
+ * they are anything else.
  */
 function readUnappliedOperations(
   value: unknown,
-): DocumentOperationSpan[] | null {
+): CarriedUnappliedOperations | null {
+  if (value === EVERY_OPERATION_UNAPPLIED) return value;
   if (!Array.isArray(value) || value.length > MAX_UNAPPLIED_BASELINE_SPANS) {
     return null;
   }
@@ -279,13 +297,15 @@ export function serializeDocumentSyncPullContinuation(
           run.baselineId,
           run.nextIndex,
           run.digest,
-          run.unapplied.map(
-            (span): PersistedOperationSpan => [
-              span.peerId,
-              span.startCounter,
-              span.endCounter,
-            ],
-          ),
+          typeof run.unapplied === "string"
+            ? run.unapplied
+            : run.unapplied.map(
+                (span): PersistedOperationSpan => [
+                  span.peerId,
+                  span.startCounter,
+                  span.endCounter,
+                ],
+              ),
         ]
       : null,
   ] satisfies PersistedDocumentSyncPullContinuation);

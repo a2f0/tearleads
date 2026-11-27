@@ -16,17 +16,39 @@ import { compareCanonicalStrings } from "@tearleads/crypto";
 import { isLoroRuntimeFailure, listVersionVectorSpans } from "@tearleads/loro";
 import type { DocumentOperationSpan } from "./documentUpdateVerdict";
 
-export type UnappliedOperations = ReadonlyMap<string, DocumentOperationSpan>;
-
 /**
  * The most unapplied spans a pull carries for one rotation baseline, which
- * is the most peers its unapplied segments may name. The run is kept in
- * memory and stored with the pull's continuation, so it is bounded: a group
- * whose unapplied segments name more peers fails the pass
- * (`settleBaselineGroupVerdicts`), and a stored run longer than this is not
- * one this reader wrote.
+ * is the most peers its unapplied segments may name one by one. The run is
+ * kept in memory and stored with the pull's continuation, so it is bounded.
+ * A stored run longer than this is not one this reader wrote.
  */
 export const MAX_UNAPPLIED_BASELINE_SPANS = 8_192;
+
+/**
+ * What a run carries once its group's unapplied segments name more peers
+ * than `MAX_UNAPPLIED_BASELINE_SPANS`: every operation of the group counts
+ * as one an unapplied segment declared.
+ *
+ * The API bounds a segment's spans only by its stage's total, so a writing
+ * member can commit a group whose void segments name any number of peers.
+ * Failing the pass on it would stop every reader of the document for good,
+ * for one member's doing. Its writer signed segments no reader takes, over
+ * more of the history than a pull will list, so the rest of that writer's
+ * group is taken on the same terms: a later segment that cannot join the
+ * reader's history is void, as it is after any void segment it builds on.
+ * Only void segments are unapplied, so a group its writer did not break
+ * never carries this.
+ */
+export const EVERY_OPERATION_UNAPPLIED = "every_operation";
+
+/** What a run carries of its group's unapplied operations between pages. */
+export type CarriedUnappliedOperations =
+  | readonly DocumentOperationSpan[]
+  | typeof EVERY_OPERATION_UNAPPLIED;
+
+export type UnappliedOperations =
+  | ReadonlyMap<string, DocumentOperationSpan>
+  | typeof EVERY_OPERATION_UNAPPLIED;
 
 interface DeclaredVectors {
   readonly partialEndVersionVector: string;
@@ -35,15 +57,26 @@ interface DeclaredVectors {
 
 /** The unapplied operations a run carried from the pages before. */
 export function unappliedOperationsOf(
-  spans: readonly DocumentOperationSpan[],
+  carried: CarriedUnappliedOperations,
 ): UnappliedOperations {
-  return new Map(spans.map((span) => [span.peerId, span]));
+  return carried === EVERY_OPERATION_UNAPPLIED
+    ? carried
+    : new Map(carried.map((span) => [span.peerId, span]));
 }
 
-/** The spans a run carries to the next page: one a peer, in peer order. */
-export function unappliedOperationSpans(
+/**
+ * What a run carries to the next page: one span a peer, in peer order, or
+ * every operation once the spans are more than a pull lists.
+ */
+export function carriedUnappliedOperations(
   unapplied: UnappliedOperations,
-): DocumentOperationSpan[] {
+): CarriedUnappliedOperations {
+  if (
+    unapplied === EVERY_OPERATION_UNAPPLIED ||
+    unapplied.size > MAX_UNAPPLIED_BASELINE_SPANS
+  ) {
+    return EVERY_OPERATION_UNAPPLIED;
+  }
   return [...unapplied.values()].sort((left, right) =>
     compareCanonicalStrings(left.peerId, right.peerId),
   );
@@ -77,6 +110,7 @@ export function withUnappliedSegment(
   unapplied: UnappliedOperations,
   segment: DeclaredVectors,
 ): UnappliedOperations {
+  if (unapplied === EVERY_OPERATION_UNAPPLIED) return unapplied;
   const next = new Map(unapplied);
   for (const span of declaredSpans(segment)) {
     const known = next.get(span.peerId);
@@ -103,6 +137,7 @@ export function unappliedSegmentsDeclared(
   unapplied: UnappliedOperations,
   missing: readonly DocumentOperationSpan[],
 ): boolean {
+  if (unapplied === EVERY_OPERATION_UNAPPLIED) return true;
   return missing.every((span) => {
     const declared = unapplied.get(span.peerId);
     return (
