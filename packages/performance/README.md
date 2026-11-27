@@ -72,7 +72,7 @@ attach correlated `api.request.cost` Worker logs (requiring the same Cloudflare
 credentials as `perf:provision --cloudflare`).
 Keys travel over stdin and are discarded. This exercises the deployed API and
 blob storage through the SDK. Browser rendering and OPFS require a web test.
-See the [2026-11-20 production run](results/2026-11-20-continuity-seed-round-trip.md).
+See the [2026-11-20 production run](results/deployed/2026-11-20-continuity-seed-round-trip.md).
 
 ## Realtime hub interest authorization
 
@@ -143,7 +143,7 @@ Durations and CPU do not match production. Bun's JavaScriptCore
 runs the hub code here instead of workerd's V8, and a local PostgreSQL answers
 in well under a millisecond, where the deployed hub waits about 5 ms per warm
 exchange through Hyperdrive
-([database round trip](results/2026-10-26-database-round-trip.md)). The
+([database round trip](results/deployed/2026-10-26-database-round-trip.md)). The
 returned bytes also cross the network in production. Memory is sampled every
 5 ms at event-loop turns, so a peak between two awaits is missed, and the
 peaks are lower bounds. Bun's heap figure leaves out Buffer storage, which the
@@ -151,7 +151,7 @@ RSS figure includes. The process keeps pages it has touched, so a later sample
 can report a smaller RSS increase than the first. CPU includes the proxy's
 relay work, about 0.75 ms per MB returned on an M2 Pro. Reports are saved as
 `.test_files/performance/realtime-<run>.json`. See the
-[2026-11-25 results](results/2026-11-25-realtime-hub-interest.md) at 100,
+[2026-11-25 results](results/realtime/2026-11-25-realtime-hub-interest.md) at 100,
 1,000 and 10,000 folders.
 
 ## Realtime hub contention
@@ -219,7 +219,7 @@ longest synchronous stretch between two awaits, which depends on the engine:
 Bun's JavaScriptCore here, workerd's V8 in production. Lag is clamped at zero,
 since a timer can fire a fraction of a millisecond early. Reports are saved
 as `.test_files/performance/realtime-contention-<run>.json`. See the
-[2026-11-25 results](results/2026-11-25-realtime-hub-contention.md).
+[2026-11-25 results](results/realtime/2026-11-25-realtime-hub-contention.md).
 
 ## Document reload
 
@@ -279,7 +279,7 @@ billing read) are not made. The account has no Contacts folder, which the
 app's system bootstrap creates after sign-in, so nothing the app requests for
 that folder is counted. Reports are saved as
 `.test_files/performance/reload-<run>.json`. See the
-[2026-11-26 results](results/2026-11-26-document-reload.md).
+[2026-11-26 results](results/reload/2026-11-26-document-reload.md).
 
 ## Request-volume canaries
 
@@ -398,7 +398,7 @@ census).
 
 ## Account provisioning
 
-The [initial production baseline](results/2026-10-24-provisioning.md) records
+The [initial production baseline](results/deployed/2026-10-24-provisioning.md) records
 three registrations and their correlated database and CPU measurements.
 
 Build the workspace SDK before running so the experiment uses current source:

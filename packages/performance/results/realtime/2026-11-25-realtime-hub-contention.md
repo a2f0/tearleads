@@ -1,6 +1,6 @@
 # Realtime hub contention, 2026-11-25
 
-The [realtime hub contention probe](../README.md#realtime-hub-contention)
+The [realtime hub contention probe](../../README.md#realtime-hub-contention)
 measured, for [issue #3272](https://github.com/a2f0/tearleads/issues/3272),
 how long other sockets' events wait while the hub authorizes large
 declarations and revalidations, with one, two and four sockets running their
