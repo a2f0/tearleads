@@ -302,7 +302,7 @@ async function relinkRemoteDocumentOnce(
   const targetContainerProjection = targetContainerFetch.projection;
   if (input.stillCurrent?.() === false) return null;
 
-  const fixed = fixedLinkSetPlan(
+  const fixed = await fixedLinkSetPlan(
     input,
     writerProjection,
     targetContainerProjection,

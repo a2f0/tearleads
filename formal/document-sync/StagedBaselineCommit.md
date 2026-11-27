@@ -38,7 +38,8 @@ The abstraction maps to production at these seams:
 | `CommitGate` (rotator) | `submitLinkSetLeg` and `submitDocumentSyncAttempt`, which send the final segment with the stage's id and pass the answer to `settleStagedBaselineCommit` |
 | `Reprove` | `confirmStaged`, which holds every staged segment to the re-proven history with `stagedSegmentMatchesHistory`, and `continueRotationBaselineEncoder`, which cuts the tail after them |
 | `RotatorSeesRefusal` (rotator) | `stagedBaselineRefusalEvent`, which turns each stage code into the machine's event, and `dropStagedBaselineUpload`, after which the next run plans again |
-| `RotatorRestart` | `getOrCreateStagedBaselineUploads`, whose uploads live in memory: a restarted process has none, and its next run opens a stage that replaces the one left |
+| `RotatorRestart` | a restart after local state was lost or reset (`document_staged_baseline_uploads` absent): the next run opens a new stage that replaces the one left |
+| `RotatorCrash` / `ResumeStage` / `ResumeChecksStage` | durable stage resume across restart (`loadDocumentStagedBaselineUploads`, `saveDocumentStagedBaselineUpload`, and `getOrCreateStagedBaselineUploads`): the writer persists its stage id, key, targets, and segment records before each request, hydrates via `StagedBaselineUpload.hydrate` into the resuming state on restart, reads the server stage (`readStage`), confirms acknowledged segments against the re-proven history (`confirmStaged`), and continues from `nextSegmentIndex` — or drops the row and opens anew if the stage expired or vanished |
 | `RedirectStart` / `RedirectCandidates` / `GroupWhole` / `RedirectRequiresWholeGroup` | `findLatestWholeStoredBaselineGroup`, which finds the newest group whose rows are whole, and `readStoredBaselineGroupCoverage`, which reads what it covers from its spans; `resolveBaselineRedirectAfterSequence` and `loadLatestStoredDocumentBaselineGroup` call both |
 
 ## Properties
@@ -98,6 +99,9 @@ violation:
   (`ReproveOnStaleRefusal = FALSE`): a rotator refused for stale coverage
   sends the same final segment again forever, and `RotatorEventuallyCommits`
   fails.
+- `staged-baseline-resume-ignores-lost-stage` (`ResumeChecksStage = FALSE`):
+  a crashed rotator that fails to drop a stage that expired or was swept
+  while it was down stays in `resuming` and `RotatorEventuallyCommits` fails.
 
 ## The sweep and a commit
 
@@ -130,7 +134,8 @@ sweep are not forced. It rests on three bounds:
 - Writers commit at most `MaxOps` updates. A writer that always commits
   another update before the rotator stages its tail starves the rotation, and
   a finite model cannot show that case.
-- Expiries, abandons and rotator restarts together number at most `MaxFaults`.
+- Expiries, abandons, crashes, and rotator restarts together number at most
+  `MaxFaults`.
   A stage that expires every time before its rotator commits never commits.
   Production extends a stage's expiry on every staged segment to keep an
   active upload alive; the model has no clock, so that rule is an assumption
@@ -148,7 +153,7 @@ that as never committing.
 ## Bounds and what is left out
 
 The registered configuration has three updates, two baseline ids, two
-rotations and two faults. It explores 335,286 generated and 78,110 distinct
+rotations and two faults. It explores 410,632 generated and 92,796 distinct
 states.
 
 - One rotator and one document. A stage's owner, document, epoch and
@@ -166,7 +171,7 @@ states.
   [BaselineDominance](./BaselineDominance.md)'s; here a reader applies every
   row it is served. Which attempt may commit the key an upload holds is
   production's rule too (`reusableStagedBaselinePlan`): the key goes on only
-  to an attempt that wraps it for every target it was ever wrapped for.
+  to an attempt that wraps it for the exact same targets.
 - The model has one rotator and one run of it at a time. Production runs
   can overlap, and a superseded run's answers are events of an attempt the
   machine no longer takes.

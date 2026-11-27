@@ -103,7 +103,56 @@ const nestedScopeChainsByCanonicalExecSql = new WeakMap<
   ExecSql,
   Map<number, Promise<unknown>>
 >();
+const canonicalExecSqlByScope = new WeakMap<object, ExecSql>();
+const commitCallbacksByCanonicalExecSql = new WeakMap<
+  ExecSql,
+  Array<Array<() => void>>
+>();
 const execSqlByClient = new WeakMap<ExecSqlClientLike, ExecSql>();
+
+function openCommitCallbackScope(canonical: ExecSql): void {
+  const stack = commitCallbacksByCanonicalExecSql.get(canonical) ?? [];
+  stack.push([]);
+  commitCallbacksByCanonicalExecSql.set(canonical, stack);
+}
+
+function closeCommitCallbackScope(
+  canonical: ExecSql,
+  committed: boolean,
+): void {
+  const stack = commitCallbacksByCanonicalExecSql.get(canonical);
+  if (!stack || stack.length === 0) return;
+  const callbacks = stack.pop() ?? [];
+  if (stack.length > 0) {
+    if (committed && callbacks.length > 0) {
+      stack[stack.length - 1]?.push(...callbacks);
+    }
+    return;
+  }
+  commitCallbacksByCanonicalExecSql.delete(canonical);
+  if (!committed) return;
+  for (const callback of callbacks) callback();
+}
+
+/**
+ * Run `callback` once the SQLite scope's enclosing transaction commits (or
+ * immediately when `tx` runs outside an open transaction). Rolled-back
+ * transactions and savepoints discard their registered callbacks. Callbacks
+ * must be synchronous and non-throwing.
+ */
+export function afterClientSQLiteScopeCommit(
+  tx: object,
+  callback: (canonicalExecSql: ExecSql) => void,
+): void {
+  const canonical = canonicalExecSqlByScope.get(tx);
+  if (!canonical) return;
+  const stack = commitCallbacksByCanonicalExecSql.get(canonical);
+  if (stack && stack.length > 0) {
+    stack[stack.length - 1]?.push(() => callback(canonical));
+    return;
+  }
+  callback(canonical);
+}
 
 function toSqlRowValue(value: unknown): SqlRowValue {
   if (value === null || value === undefined) {
@@ -187,6 +236,7 @@ async function runNestedSavepointScope<T>(
       const savepoint = `runtime_transaction_sp_${depth}` as const;
       const discardNestedGuards = captureClientSQLiteCommitGuards(canonical);
       openTransactionSchemaMemoScope(canonical);
+      openCommitCallbackScope(canonical);
       let released = false;
       try {
         await lockedExecSql(`SAVEPOINT ${savepoint}`);
@@ -203,6 +253,7 @@ async function runNestedSavepointScope<T>(
       } finally {
         // The savepoint's rollback undid only the schema it first ensured.
         closeTransactionSchemaMemoScope(canonical, released);
+        closeCommitCallbackScope(canonical, released);
         transactionDepthByCanonicalExecSql.set(canonical, depth);
         if (chains.get(depthAtEntry) === tracked) {
           chains.delete(depthAtEntry);
@@ -214,11 +265,89 @@ async function runNestedSavepointScope<T>(
   return scope;
 }
 
+async function runTopLevelTransaction<T>(
+  canonical: ExecSql,
+  db: ClientSQLiteDatabase,
+  operation: (tx: ClientSQLiteTransactionScope) => Promise<T>,
+  config: ClientSQLiteTransactionConfig | undefined,
+): Promise<T> {
+  transactionDepthByCanonicalExecSql.set(canonical, 1);
+  beginClientSQLiteCommitGuards(canonical);
+  openTransactionSchemaMemoScope(canonical);
+  openCommitCallbackScope(canonical);
+  let committed = false;
+  try {
+    const result = await db.transaction(async (tx) => {
+      canonicalExecSqlByScope.set(tx, canonical);
+      return operation(tx);
+    }, config);
+    committed = true;
+    return result;
+  } catch (error: unknown) {
+    rethrowClientSQLiteCommitGuardFailure(canonical);
+    throw error;
+  } finally {
+    // A rollback forgets the ensures it undid (see sqlExec).
+    closeTransactionSchemaMemoScope(canonical, committed);
+    clearClientSQLiteCommitGuards(canonical);
+    transactionDepthByCanonicalExecSql.delete(canonical);
+    closeCommitCallbackScope(canonical, committed);
+  }
+}
+
+async function runGuardedTopLevelTransaction<T>(
+  canonical: ExecSql,
+  lockedExecSql: ExecSql,
+  db: ClientSQLiteDatabase,
+  operation: (tx: ClientSQLiteTransactionScope) => Promise<T>,
+  canCommit: () => boolean,
+  config: ClientSQLiteTransactionConfig | undefined,
+): Promise<{ committed: boolean; result: T | null }> {
+  if ((transactionDepthByCanonicalExecSql.get(canonical) ?? 0) > 0) {
+    throw new Error(
+      "guardedTransaction cannot nest inside an open transaction",
+    );
+  }
+  transactionDepthByCanonicalExecSql.set(canonical, 1);
+  beginClientSQLiteCommitGuards(canonical);
+  openTransactionSchemaMemoScope(canonical);
+  openCommitCallbackScope(canonical);
+  let committed = false;
+  try {
+    await lockedExecSql(transactionBeginStatement(config));
+    const result = await operation(db);
+    if (!canCommit()) {
+      await lockedExecSql("ROLLBACK");
+      return { committed: false, result: null };
+    }
+    // The guard passed in THIS synchronous slice and the COMMIT is
+    // dispatched in the same slice: no JavaScript can run between
+    // the two, so the decision cannot go stale before dispatch. (A
+    // host tearing the connection down concurrently is resolved by
+    // SQLite's own commit atomicity, not by anything client-side.)
+    assertClientSQLiteCommitAllowed(lockedExecSql);
+    const commit = lockedExecSql("COMMIT");
+    await commit;
+    committed = true;
+    return { committed: true, result };
+  } catch (error: unknown) {
+    await lockedExecSql("ROLLBACK").catch(() => undefined);
+    rethrowClientSQLiteCommitGuardFailure(canonical);
+    throw error;
+  } finally {
+    closeTransactionSchemaMemoScope(canonical, committed);
+    clearClientSQLiteCommitGuards(canonical);
+    transactionDepthByCanonicalExecSql.delete(canonical);
+    closeCommitCallbackScope(canonical, committed);
+  }
+}
+
 function createRuntimeForExecSql(
   execSql: ExecSql,
 ): ClientSQLitePersistenceRuntime {
   let activeExecSql = execSql;
   const db = createClientSQLiteDatabase(() => activeExecSql);
+  canonicalExecSqlByScope.set(db, resolveCanonicalExecSql(execSql));
 
   async function withActiveExecSql<T>(
     nextExecSql: ExecSql,
@@ -257,68 +386,23 @@ function createRuntimeForExecSql(
               operation(db),
             );
           }
-
-          transactionDepthByCanonicalExecSql.set(canonical, 1);
-          beginClientSQLiteCommitGuards(canonical);
-          openTransactionSchemaMemoScope(canonical);
-          let committed = false;
-          try {
-            const result = await db.transaction(operation, config);
-            committed = true;
-            return result;
-          } catch (error: unknown) {
-            rethrowClientSQLiteCommitGuardFailure(canonical);
-            throw error;
-          } finally {
-            // A rollback forgets the ensures it undid (see sqlExec).
-            closeTransactionSchemaMemoScope(canonical, committed);
-            clearClientSQLiteCommitGuards(canonical);
-            transactionDepthByCanonicalExecSql.delete(canonical);
-          }
+          return runTopLevelTransaction(canonical, db, operation, config);
         }),
       );
     },
     guardedTransaction(operation, canCommit, config) {
+      const canonical = resolveCanonicalExecSql(execSql);
       return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-        withActiveExecSql(lockedExecSql, async () => {
-          const canonical = resolveCanonicalExecSql(execSql);
-          if ((transactionDepthByCanonicalExecSql.get(canonical) ?? 0) > 0) {
-            throw new Error(
-              "guardedTransaction cannot nest inside an open transaction",
-            );
-          }
-
-          transactionDepthByCanonicalExecSql.set(canonical, 1);
-          beginClientSQLiteCommitGuards(canonical);
-          openTransactionSchemaMemoScope(canonical);
-          let committed = false;
-          try {
-            await lockedExecSql(transactionBeginStatement(config));
-            const result = await operation(db);
-            if (!canCommit()) {
-              await lockedExecSql("ROLLBACK");
-              return { committed: false, result: null };
-            }
-            // The guard passed in THIS synchronous slice and the COMMIT is
-            // dispatched in the same slice: no JavaScript can run between
-            // the two, so the decision cannot go stale before dispatch. (A
-            // host tearing the connection down concurrently is resolved by
-            // SQLite's own commit atomicity, not by anything client-side.)
-            assertClientSQLiteCommitAllowed(lockedExecSql);
-            const commit = lockedExecSql("COMMIT");
-            await commit;
-            committed = true;
-            return { committed: true, result };
-          } catch (error: unknown) {
-            await lockedExecSql("ROLLBACK").catch(() => undefined);
-            rethrowClientSQLiteCommitGuardFailure(canonical);
-            throw error;
-          } finally {
-            closeTransactionSchemaMemoScope(canonical, committed);
-            clearClientSQLiteCommitGuards(canonical);
-            transactionDepthByCanonicalExecSql.delete(canonical);
-          }
-        }),
+        withActiveExecSql(lockedExecSql, () =>
+          runGuardedTopLevelTransaction(
+            canonical,
+            lockedExecSql,
+            db,
+            operation,
+            canCommit,
+            config,
+          ),
+        ),
       );
     },
   };

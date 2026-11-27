@@ -27,13 +27,13 @@ import type { RotationBaselineSigner } from "./rotationBaselineSigner";
 import { openRotationHistory, type RotationHistory } from "./rotationHistory";
 import { stagedBaselineRefusalEvent } from "./stagedBaselineMachine";
 import {
-  dropStagedBaselineUpload,
   runStagedBaselineUpload,
   type StagedBaselineRunContext,
   type StagedBaselineRunResult,
 } from "./stagedBaselineRun";
 import type { StagedBaselineState } from "./stagedBaselineState";
 import {
+  dropStagedBaselineUpload,
   getOrCreateStagedBaselineUploads,
   type RotationKeyTarget,
   type StagedBaselinePlan,
@@ -129,13 +129,15 @@ export interface RotationBaselineWriterInput {
  * change therefore plans a new key, and the writer deletes the stage, whose
  * segments the old key encrypts.
  */
-export function reusableStagedBaselinePlan(
+export async function reusableStagedBaselinePlan(
   execSql: ExecSql | undefined,
   documentId: string,
   contentKeyEpoch: number,
   keyTargets: readonly RotationKeyTarget[],
-): StagedBaselinePlan | null {
-  const upload = getOrCreateStagedBaselineUploads(execSql).get(documentId);
+): Promise<StagedBaselinePlan | null> {
+  const uploads = getOrCreateStagedBaselineUploads(execSql);
+  await uploads.ensureLoaded();
+  const upload = uploads.get(documentId);
   if (
     !upload?.isLiveAt(contentKeyEpoch) ||
     !upload.keyMayBeWrappedFor(keyTargets)
@@ -300,6 +302,7 @@ async function writeBaselineOf(
   }
   const api = documentBaselineStageApi(input.api);
   const uploads = getOrCreateStagedBaselineUploads(input.execSql);
+  await uploads.ensureLoaded();
   const { onTrace, segmentSizes, signer, stillCurrent } = input;
   const shared = { coversThroughUpdateId, history, keying, segmentSizes };
   const run: WriterRun = {
@@ -406,14 +409,17 @@ export async function settleStagedBaselineCommit(
     upload.dispatch({ attempt, type: "released" });
   }
   const { state } = upload;
-  if (
-    state.attempt === attempt &&
-    (state.status === "planning" ||
+  if (state.attempt === attempt) {
+    if (
+      state.status === "planning" ||
       state.status === "abandoned" ||
       state.status === "failed" ||
-      state.status === "done")
-  ) {
-    await dropStagedBaselineUpload(commit, upload);
+      state.status === "done"
+    ) {
+      await dropStagedBaselineUpload(commit, upload);
+    } else if (state.status === "resigningHeaders") {
+      await commit.uploads.persist(upload);
+    }
   }
   return state;
 }

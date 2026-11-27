@@ -117,7 +117,9 @@ only if its own target set matches those targets exactly
   are in hand. A key about to be wrapped for a different target set than it
   went to is never sent: the upload is given up and the attempt fails.
 
-A process that restarts has no upload and no held key, so it plans afresh.
+A process that restarts hydrates the upload's key and target set from local
+SQLite (`document_staged_baseline_uploads`), so the same target-set equality
+rule holds across restarts.
 
 ## The Upload Machine
 
@@ -211,14 +213,24 @@ tail does.
 
 ## Interruption And Restart
 
-An upload lives in memory, one a document
-per database (`getOrCreateStagedBaselineUploads`), so a sync's heal and an
-unlink of one document share it, and the next attempt after a refusal or a
-lost answer finds it. A process that restarts has no upload. Its next
-attempt opens a new stage, which replaces the one left behind, and uploads
-every segment again. A stage nobody replaces holds one of the user's four
-open stages until it expires or a later upload finds it
-[orphaned](#orphaned-stages). Durable resume across a restart is not built.
+An upload lives in a per-database registry backed by local SQLite
+(`getOrCreateStagedBaselineUploads`, `document_staged_baseline_uploads`), one
+a document per database, so a sync's heal and an unlink of one document share
+it, and the next attempt after a refusal, a lost answer, or a process restart
+finds it.
+
+The writer persists the stage id, fresh key, wrapped target set, and signed
+unlink event before calling `POST /baseline-stages`, and persists each staged
+segment's hash record before its `PUT /segments/{index}` request. After a
+restart, the next run hydrates the upload in `resuming`, reads the stage
+(`GET`), keeps only the records the server acknowledges, confirms their digest
+and plaintext hashes against the re-proven history, and resumes from
+`nextSegmentIndex` without re-uploading earlier segments. If the stage expired
+or vanished while the process was down, or if the local row is corrupt, the
+row is deleted and a fresh stage opens. Document deletion, rebind, and
+local-edit discard delete the row in the same transaction; a stage left behind
+after a local database reset still expires or is abandoned as an
+[orphan](#orphaned-stages).
 
 ## Orphaned Stages
 
