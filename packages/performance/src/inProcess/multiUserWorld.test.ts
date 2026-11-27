@@ -171,6 +171,20 @@ function createFakeWorldServices(state: FakeState): MultiUserDeviceServices {
             listPendingWrites: async () =>
               [...state.pendingDocumentIds].map((remoteId) => ({ remoteId })),
           }),
+          documentLinks: () => ({
+            linkDocumentToContainer: async (input: {
+              targetContainerId: string;
+            }) => {
+              state.events.push(`linkDoc:${input.targetContainerId}`);
+              return true;
+            },
+            unlinkDocumentFromContainer: async (input: {
+              removedContainerId: string;
+            }) => {
+              state.events.push(`unlinkDoc:${input.removedContainerId}`);
+              return true;
+            },
+          }),
           loadContainerInfo: async (input: { containerId: string }) => ({
             remoteInfo: {
               security: {
@@ -253,6 +267,10 @@ test("MultiUserWorld coordinates org membership, sharing, edits, epochs, and cle
   );
   const doc = await world.createDocument(alice, folderId, "hello");
   await world.editDocument(alice, doc, "updated");
+  await world.linkDocument(alice, doc, archiveId);
+  expect(doc.containerIds).toEqual([folderId, archiveId]);
+  await world.unlinkDocument(alice, doc, archiveId);
+  expect(doc.containerIds).toEqual([folderId]);
 
   const group = await world.createGroup(alice, "Ops");
   await world.addToGroup(alice, group, bob);

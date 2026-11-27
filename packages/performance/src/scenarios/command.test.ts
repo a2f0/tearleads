@@ -177,3 +177,67 @@ test("supports --compare and rejects corrupted or incomplete saved reports", asy
     /compare only complete ones/u,
   );
 });
+
+test("surfaces missing optional capture warnings in console and Markdown output", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "scenario-missing-"));
+  directories.push(root);
+  const printed: string[] = [];
+  const host: ScenarioHost = {
+    discover: async () => [
+      { name: "manyRotations", file: "src/scenarios/manyRotations.test.ts" },
+    ],
+    runScenario: async (input) => {
+      await writeFile(input.log, "1 pass\n0 fail\n");
+      return {
+        scenario: input.scenario.name,
+        file: input.scenario.file,
+        sample: input.sample,
+        status: "passed",
+        exitCode: 0,
+        wallMs: 500,
+        tests: { pass: 1, fail: 0 },
+        log: input.log,
+        httpCapture: input.httpCapture,
+        http: {
+          requests: 4,
+          requestBytes: 100,
+          responseBytes: 200,
+          serverMs: 10,
+          conflicts: 0,
+          clientErrors: 0,
+          manifestCitations: 0,
+          truncated: false,
+          statuses: { "200": 4 },
+          errorCodes: {},
+          operations: {},
+          byRoute: {},
+        },
+        statements: { status: "missing", capture: input.statements?.out ?? "" },
+        clientSql: { status: "missing", capture: input.clientSql?.out ?? "" },
+        payloadAudit: {
+          status: "missing",
+          capture: input.payloadAudit?.out ?? "",
+        },
+      };
+    },
+    reportDirectory: resolve(root, "reports"),
+    print: (text) => printed.push(text),
+  };
+  expect(
+    await runScenarioCommand(
+      ["--statements", "--client-statements", "--payload-audit"],
+      host,
+    ),
+  ).toBe(0);
+  expect(printed.join("\n")).toContain("API stmts missing");
+  expect(printed.join("\n")).toContain("client SQL missing");
+  expect(printed.join("\n")).toContain("payload audit missing");
+  const mdName = (await readdir(resolve(root, "reports"))).find((f) =>
+    f.endsWith(".md"),
+  );
+  if (!mdName) throw new Error("Expected saved Markdown report.");
+  const md = await Bun.file(resolve(root, "reports", mdName)).text();
+  expect(md).toContain(
+    "Warning: requested captures produced no output for `manyRotations` (#1): API statements, client SQLite, payload audit.",
+  );
+});

@@ -327,6 +327,7 @@ const productionConfig = {
         "src/realtime/contention/index.ts!",
         "src/reload/index.ts!",
         "src/rotations/index.ts!",
+        "src/baselines/index.ts!",
         "src/canaries/index.ts!",
         "src/scenarios/index.ts!",
         "src/statements/index.ts!",

@@ -71,11 +71,18 @@ function describeRun(run: ScenarioRun): string {
       ? [
           `${run.statements.summary.statements} API stmts${run.statements.summary.truncated ? " (truncated)" : ""}`,
         ]
-      : []),
+      : run.statements.status === "missing"
+        ? ["API stmts missing"]
+        : []),
     ...(run.clientSql?.status === "captured"
       ? [
           `${run.clientSql.summary.statements} client SQL${run.clientSql.summary.truncated ? " (truncated)" : ""}`,
         ]
+      : run.clientSql?.status === "missing"
+        ? ["client SQL missing"]
+        : []),
+    ...(run.payloadAudit?.status === "missing"
+      ? ["payload audit missing"]
       : []),
   ];
   return `${base} (${parts.join(", ")})`;

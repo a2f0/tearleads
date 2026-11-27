@@ -67,7 +67,7 @@ then measures eight phases:
 | `stale-writer-repair` | Idle pre-rotation writer edits a document, triggering `409` refetch, keyring walk, content-key repair, and commit |
 | `direct-revoke` | `revokeGrant` on `level-1` carrying intermediate levels above the deeper direct grant |
 | `grantee-subtree-repair` | Deeper direct grantee holding a pre-revoke path edits and repairs its own subtree inline (when `--depth >= 2`) |
-| `subtree-move` | `moveContainer` removing inherited group access and rotating the moved folder key |
+| `subtree-move` | `moveContainer` rotating the moved folder key (and removing inherited group access when `--depth >= 2`) |
 | `fresh-reader-hydration` | Freshly logged-in install (empty SQLite DB) discovers and decrypts the document across the accumulated folder keyring |
 | `roster-vouched-share` | Fresh self-anchor admin shares a folder with a transitively enrolled member (`Alice -> Bob -> Frank`) without importing their link |
 
@@ -76,3 +76,41 @@ wire bytes, PostgreSQL statements/round trips/rows/bytes, actor local SQLite
 calls/mutation-lock holds/`EXPLAIN QUERY PLAN` flags, and process CPU/memory
 peaks. Reports are saved under `.test_files/performance/rotations-<run>.json`
 and `.md`.
+
+## Rotation baseline scaling (`perf:baselines`)
+
+```sh
+createdb tearleads_baselines_probe
+bun run --filter='@tearleads/client-sdk' build
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_baselines_probe" \
+  bun run perf:baselines --sizes-mb 1,5,13 --chunk-mb 6 --samples 1
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_baselines_probe" \
+  bun run perf:baselines --sizes-mb 13 --race --samples 1
+```
+
+Measures how multi-linked document unlink rotation baselines scale with
+incompressible history size (`--sizes-mb`, default `1,5,13` MiB) across inline
+single-segment baselines (`1 MiB`), multi-segment inline baselines (`5 MiB`),
+and staged `/baseline-stages` uploads (`13 MiB`, past the 16 MiB base64/envelope
+single-request ceiling), against local PostgreSQL through both wire-counting
+proxies.
+
+Pass `--race` to pause Bob's first `POST /documents/:id/unlink` at the HTTP
+proxy after baseline preparation/staging, have Alice commit a racing edit, and
+release the unlink so Bob receives `409 document_unlink_rotation_baseline_stale`,
+resumes the stage via `GET /baseline-stages/:id`, uploads a tail segment, and
+commits. (The racing peer's single sync request is included inside the
+`first-unlink-rotate` window.)
+
+| Phase | What it exercises |
+| --- | --- |
+| `seed-history` | Chunked creation and editing of incompressible random hex text up to `sizeMiB` |
+| `first-unlink-rotate` | Unlinking the second folder (`inline` or `/baseline-stages`), plus `409` tail retry when `--race` is enabled |
+| `fresh-reader-sync` | Freshly logged-in empty-DB install discovers, syncs across baseline pages, and decrypts the full document |
+| `second-unlink-rotate` | Re-linking into the second folder, appending one edit, and unlinking again across an existing baseline group |
+
+Each phase records wall time, baseline mode (`inline` vs. `staged`), staged
+segment upload and stage-resume counts, HTTP requests/`409`s/wire bytes,
+PostgreSQL statements/round trips/rows/bytes, actor local SQLite attribution and
+`EXPLAIN QUERY PLAN` flags, and process CPU/peak RSS delta. Reports are saved
+under `.test_files/performance/baselines-<run>.json` and `.md`.

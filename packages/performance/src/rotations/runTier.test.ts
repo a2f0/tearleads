@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { emptyHttpTraffic } from "../inProcess/httpCounterProxy";
 import type { ExportedKeyPackage } from "../inProcess/multiUserDevice";
-import type { ProbeActor } from "../inProcess/multiUserWorld";
 import { emptyTraffic } from "../inProcess/postgresWire";
 import {
   type RotationPhaseMeasurement,
@@ -12,6 +11,7 @@ import {
 
 interface FakeWorldOptions {
   readonly failShrinkRotation?: boolean;
+  readonly failPrimeText?: boolean;
   readonly failFreshText?: boolean;
   readonly throwInPhase?: "group-share" | "direct-revoke";
 }
@@ -41,9 +41,11 @@ function createFakeRotationWorld(options: FakeWorldOptions = {}) {
     },
     readDocument: async (documentId) => ({
       getSnapshot: () => ({
-        text: options.failFreshText
-          ? "wrong text"
-          : (docText.get(documentId) ?? ""),
+        text:
+          (options.failFreshText && label.endsWith("-fresh")) ||
+          (options.failPrimeText && !label.endsWith("-fresh"))
+            ? "wrong text"
+            : (docText.get(documentId) ?? ""),
       }),
     }),
   });
@@ -206,6 +208,19 @@ test("depth=1 skips grantee-subtree-repair and disposes world on failures", asyn
   ).rejects.toThrow(/Expected group-shrink to rotate/u);
   expect(staleShrink.isDisposed()).toBe(true);
 
+  const badPrime = createFakeRotationWorld({ failPrimeText: true });
+  await expect(
+    runRotationTierWithWorld(badPrime.world, {
+      rotations: 1,
+      depth: 2,
+      sample: 1,
+      http: emptyHttpTraffic,
+      traffic: emptyTraffic,
+      measured: async () => undefined,
+    }),
+  ).rejects.toThrow(/Failed to prime bob/u);
+  expect(badPrime.isDisposed()).toBe(true);
+
   const badText = createFakeRotationWorld({ failFreshText: true });
   await expect(
     runRotationTierWithWorld(badText.world, {
@@ -220,12 +235,17 @@ test("depth=1 skips grantee-subtree-repair and disposes world on failures", asyn
   expect(badText.isDisposed()).toBe(true);
 });
 
-test("satisfies ProbeActor type contract without runtime side effects", () => {
-  const actor: ProbeActor = {
-    name: "test",
-    userId: "u-1",
-    keyPackage: {} as ExportedKeyPackage,
-    devices: [],
-  };
-  expect(actor.userId).toBe("u-1");
+test("disposes world when a mid-tier phase throws", async () => {
+  const failing = createFakeRotationWorld({ throwInPhase: "direct-revoke" });
+  await expect(
+    runRotationTierWithWorld(failing.world, {
+      rotations: 1,
+      depth: 2,
+      sample: 1,
+      http: emptyHttpTraffic,
+      traffic: emptyTraffic,
+      measured: async () => undefined,
+    }),
+  ).rejects.toThrow("revoke boom");
+  expect(failing.isDisposed()).toBe(true);
 });

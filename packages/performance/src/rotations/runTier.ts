@@ -28,7 +28,7 @@ export interface RotationPhaseMeasurement extends MeasuredPhaseStats {
   readonly depth: number;
   readonly sample: number;
   readonly phase: RotationPhaseName;
-  /** Observed top-folder key epoch after the phase, when applicable. */
+  /** Observed measured-folder key epoch after the phase, when applicable. */
   readonly folderKeyEpoch?: number;
 }
 
@@ -215,16 +215,24 @@ async function primeReadersAndChurn<TDevice extends RotationTierDevice>(
   await world.shareWithUser(alice, topFolder, erin, "write");
 
   // Every active writer holds the pre-rotation path before churn begins.
-  await world
-    .primaryDevice(bob)
-    .readDocument(upperDoc.documentId, upperDoc.containerIds);
-  await world
-    .primaryDevice(erin)
-    .readDocument(upperDoc.documentId, upperDoc.containerIds);
+  const expectPrimed = async (
+    actor: ProbeActor,
+    doc: ProbeDocument,
+    expectedText: string,
+  ): Promise<void> => {
+    const store = await world
+      .primaryDevice(actor)
+      .readDocument(doc.documentId, doc.containerIds);
+    if (store?.getSnapshot().text !== expectedText) {
+      throw new Error(
+        `Failed to prime ${actor.name} with ${JSON.stringify(expectedText)}; got ${JSON.stringify(store?.getSnapshot().text)}.`,
+      );
+    }
+  };
+  await expectPrimed(bob, upperDoc, "upper v0");
+  await expectPrimed(erin, upperDoc, "upper v0");
   if (chain.length >= 2) {
-    await world
-      .primaryDevice(dave)
-      .readDocument(lowerDoc.documentId, lowerDoc.containerIds);
+    await expectPrimed(dave, lowerDoc, "lower v0");
   }
 
   for (let round = 1; round < rotations; round += 1) {

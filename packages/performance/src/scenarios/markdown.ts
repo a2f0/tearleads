@@ -266,6 +266,22 @@ export function formatScenarioReport(report: ScenarioReport): string {
       `Warning: capture limit reached for ${truncatedRuns.map((run) => `\`${cell(run.scenario)}\` (#${run.sample})`).join(", ")}; counts are lower bounds.`,
     );
   }
+  const missingCaptureNotes = report.runs.flatMap((run) => {
+    const missing = [
+      ...(run.statements.status === "missing" ? ["API statements"] : []),
+      ...(run.clientSql?.status === "missing" ? ["client SQLite"] : []),
+      ...(run.payloadAudit?.status === "missing" ? ["payload audit"] : []),
+    ];
+    return missing.length > 0
+      ? [`\`${cell(run.scenario)}\` (#${run.sample}): ${missing.join(", ")}`]
+      : [];
+  });
+  if (missingCaptureNotes.length > 0) {
+    lines.push(
+      "",
+      `Warning: requested captures produced no output for ${missingCaptureNotes.join("; ")}.`,
+    );
+  }
   if (report.summary.length > 0) {
     lines.push("", "## Summary", "", ...overviewTable(report.summary));
     for (const item of report.summary) {

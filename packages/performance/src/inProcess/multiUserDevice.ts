@@ -234,6 +234,25 @@ export class MultiUserDevice {
     return store;
   }
 
+  async readDocumentUntilText(
+    documentId: string,
+    containerIds: readonly string[],
+    expectedText: string,
+  ): Promise<DocumentStore> {
+    const store = await this.readDocument(documentId, containerIds);
+    if (!store) {
+      throw new Error(`${this.label} could not open document ${documentId}.`);
+    }
+    await waitUntil(async () => {
+      if (store.getSnapshot().text === expectedText) return true;
+      await store
+        .requestRemoteSyncAndWait(new AbortController().signal)
+        .catch(() => false);
+      return store.getSnapshot().text === expectedText;
+    }, `${this.label} document ${documentId} text`);
+    return store;
+  }
+
   private async discoverDocument(
     documentId: string,
     containerIds: readonly string[],

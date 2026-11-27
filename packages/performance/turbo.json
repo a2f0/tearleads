@@ -42,6 +42,9 @@
     "rotations": {
       "cache": false
     },
+    "baselines": {
+      "cache": false
+    },
     "canaries": {
       "cache": false
     },
