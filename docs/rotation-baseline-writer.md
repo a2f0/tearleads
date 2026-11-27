@@ -37,12 +37,11 @@ So the signer weighs each segment once it is signed
 upload that meets one deletes its stage. A heal's group sent whole is
 signed with its request, which is held to the same 16 MiB as a whole.
 
-The history is
-exported one segment ahead of the one being encrypted, so the writer knows
-which segment is the final one; each segment is exported, encrypted, signed,
-and handed on before the next is cut. Beside the snapshot it holds the
-segments it is still deciding whether to send whole (at most one request's
-worth) and two more, never the baseline.
+The history is exported one segment ahead of the one being encrypted, so
+the writer knows which segment is the final one; each segment is exported,
+encrypted, signed, and handed on before the next is cut. Beside the
+snapshot it holds the segments it is still deciding whether to send whole
+(at most one request's worth) and two more, never the baseline.
 
 ## Whole Or Staged
 
