@@ -62,6 +62,32 @@ export type ListedContainerDocumentsApply =
 const SUPERSEDED: ListedContainerDocumentsApply = { status: "superseded" };
 
 /**
+ * Owes what a listing shows, or returns null when the listing must stop.
+ * Every listed row is checked, verified or not: the debt names the server
+ * document, and the watermark passes all of them. It is checked before the
+ * rows are applied: applying a row whose access epoch moved drops the key
+ * bundle its record held, which would hide that move. A write skipped for a
+ * pause or a newer generation owed nothing, so the listing must not apply,
+ * whatever a later check would say.
+ */
+async function oweListedReads(
+  options: ContainerDocumentDiscoveryLane,
+  listedDocuments: ListedContainerDocuments,
+  isCurrent: () => Promise<boolean>,
+): Promise<ReadonlyArray<string> | null> {
+  const owed = await options.oweListedDocumentReads(
+    listedDocuments.items.map((document) => ({
+      accessEpoch: document.currentAccessEpoch,
+      accessStateHash: document.currentAccessStateHash,
+      documentId: document.id,
+      updateCount: document.updateCount,
+    })),
+    isCurrent,
+  );
+  return owed !== null && (await isCurrent()) ? owed : null;
+}
+
+/**
  * Verifies and applies one container's completed listing under a discovery
  * generation captured before the listing request, then advances its
  * watermark.
@@ -98,19 +124,12 @@ export async function applyListedContainerDocuments(
     new Set(tombstones.map((row) => row.documentId)),
   );
   if (!(await verification.isCurrent())) return SUPERSEDED;
-  // Every listed row is checked, verified or not: the debt names the server
-  // document, and the watermark below passes all of them. It is checked
-  // before the rows are applied: applying a row whose access epoch moved
-  // drops the key bundle its record held, which would hide that move.
-  const owedDocumentIds = await options.oweListedDocumentReads(
-    listedDocuments.items.map((document) => ({
-      accessStateHash: document.currentAccessStateHash,
-      documentId: document.id,
-      updateCount: document.updateCount,
-    })),
+  const owedDocumentIds = await oweListedReads(
+    options,
+    listedDocuments,
     verification.isCurrent,
   );
-  if (!(await verification.isCurrent())) return SUPERSEDED;
+  if (owedDocumentIds === null) return SUPERSEDED;
   const verifiedInputs = verification.inputs;
   const discoveredDocuments = verifiedInputs.length
     ? await upsertDiscoveredDocuments(verifiedInputs, verification.isCurrent)

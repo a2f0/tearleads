@@ -85,7 +85,12 @@ test("a catch-up asks the stores a listing owes and the stores another tab saved
   // A listing in this tab or another left this debt unsettled.
   const owed = await openStore("owed", LOADED);
   await new DocumentListingRevalidationRepository(execSql).request([
-    { documentId: owed.documentId, updateCount: 3 },
+    {
+      accessEpoch: 1,
+      documentId: owed.documentId,
+      localId: "owed",
+      updateCount: 3,
+    },
   ]);
   // Another tab listed this row, pulled the edit, and settled the debt.
   const savedElsewhere = await openStore("saved-elsewhere", SAVED_ELSEWHERE);

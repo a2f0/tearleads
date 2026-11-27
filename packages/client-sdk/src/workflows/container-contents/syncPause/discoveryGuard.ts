@@ -81,8 +81,10 @@ export function guardDocumentDiscoveryWrites(input: {
           ).holdContainerDocumentTombstones(rows),
         stillCurrent,
       ),
+    // Skipped, the write returns null rather than "nothing owed", so the
+    // listing stops here instead of relying on its next check.
     oweListedDocumentReads: (listed, stillCurrent) =>
-      whileCurrent([], oweReads(listed), stillCurrent),
+      whileCurrent(null, oweReads(listed), stillCurrent),
     refuteContainerDocumentTombstoneHolds: (rows, stillCurrent) =>
       whileCurrent(
         undefined,
