@@ -4,10 +4,10 @@ import {
   isVerifiedLocalRootReconciliationTarget,
 } from "./destination/verifiedDestination";
 import {
-  createContainerChildIndex,
   moveIndexedContainerChild,
   removeIndexedContainerChild,
 } from "./lanes/childIndex";
+import { buildLocalRootDescendantReparents } from "./rootFold/descendantReparents";
 import type {
   ContainerChildIndex,
   ContainerState,
@@ -35,78 +35,6 @@ function isLocalOnlyRootContainerState(
     !containerState.container.systemSlot &&
     !hasRemoteContainerMetadataState(containerState)
   );
-}
-
-function collectContainerSubtreeStates(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  containersById: ReadonlyMap<string, ContainerState>;
-  rootContainerId: string;
-}): ContainerState[] {
-  const { childIdsByParentId, containersById, rootContainerId } = input;
-  const subtreeStates: ContainerState[] = [];
-  const pendingContainerIds = [rootContainerId];
-  const enqueuedContainerIds = new Set<string>([rootContainerId]);
-  const index = childIdsByParentId ?? createContainerChildIndex(containersById);
-
-  while (pendingContainerIds.length > 0) {
-    const containerId = pendingContainerIds.pop();
-    if (!containerId) {
-      continue;
-    }
-
-    const childIds = index.get(containerId);
-    if (!childIds) {
-      continue;
-    }
-
-    for (const childId of childIds) {
-      if (enqueuedContainerIds.has(childId)) {
-        continue;
-      }
-      const childState = containersById.get(childId);
-      if (!childState) {
-        continue;
-      }
-
-      enqueuedContainerIds.add(childId);
-      subtreeStates.push(childState);
-      pendingContainerIds.push(childId);
-    }
-  }
-
-  return subtreeStates;
-}
-
-function buildLocalRootDescendantReparents(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  localRootState: ContainerState;
-  remoteRootState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): {
-  descendantReparents: LocalRootDescendantReparentInput[];
-  descendants: ContainerState[];
-} {
-  const { childIdsByParentId, localRootState, remoteRootState, state } = input;
-  const descendants = collectContainerSubtreeStates({
-    childIdsByParentId,
-    containersById: state.containersById,
-    rootContainerId: localRootState.container.id,
-  });
-  const descendantReparents = descendants.map((descendant) => {
-    const previousParentId = descendant.container.parentId;
-    const parentContainerId =
-      previousParentId === localRootState.container.id
-        ? remoteRootState.container.id
-        : previousParentId;
-
-    return {
-      containerId: descendant.container.id,
-      parentContainerId,
-      updateCreateIntent: !descendant.record.documentId && !!parentContainerId,
-    };
-  });
-
-  return { descendantReparents, descendants };
 }
 
 function applyLocalRootDescendantReparents(input: {
@@ -193,7 +121,6 @@ async function reconcileLocalOnlyRootContainer(input: {
   const updatedAt = new Date().toISOString();
   const { descendantReparents, descendants } =
     buildLocalRootDescendantReparents({
-      childIdsByParentId,
       localRootState,
       remoteRootState,
       state,
@@ -381,13 +308,14 @@ function applyLocalSystemContainerChildReparents(input: {
   const { childIdsByParentId, localSystemState, remoteSystemState, state } =
     input;
   const localContainerId = localSystemState.container.id;
-  const childContainerIds = childIdsByParentId
-    ? Array.from(childIdsByParentId.get(localContainerId) ?? [])
-    : Array.from(state.containersById.values()).flatMap((containerState) =>
-        containerState.container.parentId === localContainerId
-          ? [containerState.container.id]
-          : [],
-      );
+  // Read from the map, not the pass's child index, which misses a child
+  // created while the pass runs.
+  const childContainerIds = Array.from(state.containersById.values()).flatMap(
+    (containerState) =>
+      containerState.container.parentId === localContainerId
+        ? [containerState.container.id]
+        : [],
+  );
 
   for (const childContainerId of childContainerIds) {
     const childState = state.containersById.get(childContainerId);

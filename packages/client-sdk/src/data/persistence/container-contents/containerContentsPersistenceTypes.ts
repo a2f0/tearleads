@@ -98,6 +98,8 @@ export interface LocalRootDescendantReparentInput {
   containerId: string;
   parentContainerId: string | null;
   updateCreateIntent?: boolean | undefined;
+  /** The moved create waits for a listing of its new parent's children. */
+  awaitParentListing?: boolean | undefined;
 }
 
 /**

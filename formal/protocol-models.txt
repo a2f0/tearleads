@@ -48,6 +48,7 @@ formal/local-trust/MemberIdentityChain.tla|formal/local-trust/MemberIdentityChai
 formal/local-trust/MemberIdentityChain.tla|formal/local-trust/MemberIdentityChainDeeper.cfg
 formal/local-trust/RootDocumentPriming.tla|formal/local-trust/RootDocumentPriming.cfg
 formal/local-trust/SystemDestination.tla|formal/local-trust/SystemDestination.cfg
+formal/local-trust/SystemSlotFold.tla|formal/local-trust/SystemSlotFold.cfg
 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg
 formal/local-trust/ContainerCreateAdoption.tla|formal/local-trust/ContainerCreateAdoption.cfg
 formal/local-trust/ContainerMoveReplay.tla|formal/local-trust/ContainerMoveReplay.cfg

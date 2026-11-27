@@ -103,9 +103,12 @@ export async function saveContainerCreateIntent(input: {
   tx: ClientSQLiteTransactionScope;
   containerId: string;
   createIntent: ContainerCreateIntentInput;
+  /** Why the create waits, recorded with it; the pass reads it. */
+  lastError?: string | null | undefined;
   updatedAt: string;
 }) {
   const { containerId, createIntent, tx, updatedAt } = input;
+  const lastError = input.lastError ?? null;
   const id = createIntent.id ?? crypto.randomUUID();
   await tx
     .insert(localIntents)
@@ -119,7 +122,7 @@ export async function saveContainerCreateIntent(input: {
       remoteContainerId: null,
       remoteMetadataDocumentId: null,
       remoteMetadataAccessStateHash: null,
-      lastError: null,
+      lastError,
       lastAttemptedAt: null,
       createdAt: updatedAt,
       updatedAt,
@@ -136,7 +139,7 @@ export async function saveContainerCreateIntent(input: {
         remoteContainerId: null,
         remoteMetadataDocumentId: null,
         remoteMetadataAccessStateHash: null,
-        lastError: null,
+        lastError,
         lastAttemptedAt: null,
         updatedAt,
       },

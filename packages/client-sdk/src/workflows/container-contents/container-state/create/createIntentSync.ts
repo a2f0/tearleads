@@ -1,7 +1,5 @@
 import { ContainerPathTooDeepError } from "../../../../data/containers/shared/containerPathLimits";
 import { ContainerCreateIntentSupersededError } from "../../../../data/persistence/container-contents/containerIntentPersistence";
-import { errorMessage } from "../../../../data/shared/errorMessage";
-import { reportAndRethrowKeyingVerificationError } from "../../../../data/shared/securityIncidents";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -23,72 +21,41 @@ import {
   deferTooDeepCreate,
   recordRefusedTooDeepCreate,
 } from "./createIntentDepth";
+import {
+  IncompleteContainerCreateSettlementError,
+  recordContainerCreateFailure,
+} from "./createIntentFailure";
 import { settleRefusedContainerCreate } from "./createIntentRefusal";
 import {
   loadMetadataSeedUpdate,
   withPlannedMetadataDocumentId,
   withRegisteredMetadataSeed,
 } from "./createIntentSeed";
-import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
+import {
+  deferSystemSlotCreate,
+  recordTakenSystemSlotCreate,
+} from "./createIntentSlotHold";
+import {
+  CONTAINER_ALREADY_COMMITTED,
+  CONTAINER_SYSTEM_SLOT_TAKEN,
+} from "./createWithMetadata";
 
-class IncompleteContainerCreateSettlementError extends Error {}
-
-type CreateIntentSyncResult = "abandoned" | "blocked" | "created" | "failed";
+/**
+ * `blocked` waits and is retried in a later round of the pass; `parked` was
+ * refused for good, so the pass leaves it, like `failed`, until a listing or
+ * local move re-arms it.
+ */
+type CreateIntentSyncResult =
+  | "abandoned"
+  | "blocked"
+  | "created"
+  | "failed"
+  | "parked";
 
 function currentCreateResult<
   Result extends Exclude<CreateIntentSyncResult, "abandoned">,
 >(isCurrent: () => boolean, result: Result): "abandoned" | Result {
   return isCurrent() ? result : "abandoned";
-}
-
-async function reportContainerCreateIntegrityFailure(input: {
-  readonly containerId: string;
-  readonly error: unknown;
-  readonly organizationId: string;
-  readonly state: ContainerCreateIntentSyncState;
-}): Promise<void> {
-  await reportAndRethrowKeyingVerificationError(
-    input.error,
-    input.state.runtime.util.reportSecurityIncident,
-    {
-      objectId: input.containerId,
-      objectKind: "container",
-      operation: "container.create.replay",
-      organizationId: input.organizationId,
-    },
-  );
-}
-
-async function recordContainerCreateFailure(input: {
-  readonly error: unknown;
-  readonly isCurrent: () => boolean;
-  readonly intent: ContainerCreateIntentSyncInput["intent"];
-  readonly organizationId: string;
-  readonly state: ContainerCreateIntentSyncState;
-}): Promise<"abandoned" | "failed"> {
-  if (!input.isCurrent()) {
-    return "abandoned";
-  }
-  await reportContainerCreateIntegrityFailure({
-    containerId: input.intent.containerId,
-    error: input.error,
-    organizationId: input.organizationId,
-    state: input.state,
-  });
-  if (!input.isCurrent()) {
-    return "abandoned";
-  }
-  await input.state.persistence.recordCreateIntentRevisionError(
-    input.state.runtime.infra.execSql,
-    {
-      containerId: input.intent.containerId,
-      expectedIntentId: input.intent.id,
-      expectedUpdatedAt: input.intent.updatedAt,
-      message: `${input.error instanceof IncompleteContainerCreateSettlementError ? "Container create persistence failed" : "Remote container create failed"}: ${errorMessage(input.error)}`,
-      stillCurrent: input.isCurrent,
-    },
-  );
-  return currentCreateResult(input.isCurrent, "failed");
 }
 
 /** How a create's container saves: at the server's times, with its seed. */
@@ -224,6 +191,9 @@ async function settleRemoteContainerCreate(input: {
     );
     syncInput.requestRemoteReconciliation(intent.parentContainerId);
     return "blocked";
+  }
+  if (created === CONTAINER_SYSTEM_SLOT_TAKEN) {
+    return recordTakenSystemSlotCreate(syncInput);
   }
   if (!created) {
     return currentCreateResult(
@@ -401,7 +371,10 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     return "blocked";
   }
 
-  if (await deferTooDeepCreate(input)) {
+  if (
+    (await deferSystemSlotCreate(input)) ||
+    (await deferTooDeepCreate(input))
+  ) {
     return currentCreateResult(input.isCurrent, "blocked");
   }
 
@@ -417,7 +390,11 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   );
 }
 
-/** A blocked create stays for a later round; only a created one settles. */
+/**
+ * A blocked create stays for a later round. Any other result leaves the
+ * round, since the pass reruns the intent as it listed it; only a created one
+ * settles.
+ */
 function settleCreateIntentResult(
   result: CreateIntentSyncResult,
   containerId: string,
@@ -436,6 +413,7 @@ export async function syncPendingContainerCreateIntents(input: {
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;
+  requestSyncAfter?: ((delayMs: number) => void) | undefined;
   state: ContainerCreateIntentSyncState;
 }): Promise<number> {
   if (!input.isCurrent()) {
@@ -475,6 +453,7 @@ export async function syncPendingContainerCreateIntents(input: {
           isRemoteSyncBlocked: input.isRemoteSyncBlocked,
           intent,
           requestRemoteReconciliation: input.requestRemoteReconciliation,
+          requestSyncAfter: input.requestSyncAfter,
           state,
         },
       );

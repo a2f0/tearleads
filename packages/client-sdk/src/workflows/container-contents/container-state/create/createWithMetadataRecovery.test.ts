@@ -126,8 +126,7 @@ test.each([
       if (kind === "available-after-refresh") {
         const created = await result;
         expect(created).not.toBe(CONTAINER_ALREADY_COMMITTED);
-        if (created === CONTAINER_ALREADY_COMMITTED)
-          throw new Error("Expected new create");
+        if (typeof created === "symbol") throw new Error("Expected new create");
         expect(created?.containerId).toBe("history-race-child");
       } else if (kind === "expired-refresh") {
         expect(await result).toBeNull();
