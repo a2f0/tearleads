@@ -8,77 +8,18 @@ import type {
   EpochRotationRow,
   EpochScenariosMetrics,
 } from "./schema";
+import {
+  isObject,
+  requireBoolean,
+  requireFiniteNumber,
+  requireNullableString,
+  requireObject,
+  requireRealtimePass,
+  requireString,
+} from "./validate";
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function requireObject(value: unknown, label: string): Record<string, unknown> {
-  if (!isObject(value)) throw new Error(`Expected object for ${label}.`);
-  return value;
-}
-
-function requireFiniteNumber(
-  record: Record<string, unknown>,
-  field: string,
-  path: string,
-): number {
-  const value = Reflect.get(record, field);
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${path} is missing finite numeric field '${field}'.`);
-  }
-  return value;
-}
-
-function requireString(
-  record: Record<string, unknown>,
-  field: string,
-  path: string,
-): string {
-  const value = Reflect.get(record, field);
-  if (typeof value !== "string") {
-    throw new Error(`${path} is missing string field '${field}'.`);
-  }
-  return value;
-}
-
-function requireBoolean(
-  record: Record<string, unknown>,
-  field: string,
-  path: string,
-): boolean {
-  const value = Reflect.get(record, field);
-  if (typeof value !== "boolean") {
-    throw new Error(`${path} is missing boolean field '${field}'.`);
-  }
-  return value;
-}
-
-function requireNullableString(
-  record: Record<string, unknown>,
-  field: string,
-  path: string,
-): string | null {
-  const value = Reflect.get(record, field);
-  if (value !== null && typeof value !== "string") {
-    throw new Error(`${path} has invalid nullable string field '${field}'.`);
-  }
-  return value;
-}
-
-function requireRealtimePass(
-  record: Record<string, unknown>,
-  path: string,
-): "declaration" | "revalidation" {
-  const pass = requireString(record, "pass", path);
-  if (pass !== "declaration" && pass !== "revalidation") {
-    throw new Error(`${path} has invalid realtime pass '${pass}'.`);
-  }
-  return pass;
 }
 
 function sumAllOrNull(values: readonly (number | null)[]): number | null {

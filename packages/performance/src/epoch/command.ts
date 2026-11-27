@@ -121,9 +121,9 @@ async function readReportProvenance(
 async function resolveProvenance(
   options: RecordOptions,
   repoRoot: string,
-  canaries: { readonly revision: string; readonly dirty: boolean } | undefined,
 ): Promise<{ readonly revision: string; readonly dirty: boolean }> {
   const inputPaths = [
+    options.canaries,
     options.inventory,
     options.plans,
     options.scenarios,
@@ -133,14 +133,9 @@ async function resolveProvenance(
     options.baselines,
   ].filter((p): p is string => p !== undefined);
 
-  const sources: { readonly revision?: string; readonly dirty?: boolean }[] = [
-    ...(canaries
-      ? [{ revision: canaries.revision, dirty: canaries.dirty }]
-      : []),
-    ...(await Promise.all(
-      inputPaths.map((p) => readReportProvenance(resolve(repoRoot, p))),
-    )),
-  ];
+  const sources = await Promise.all(
+    inputPaths.map((p) => readReportProvenance(resolve(repoRoot, p))),
+  );
   const revisions = [
     ...new Set(
       sources
@@ -184,11 +179,7 @@ async function buildSnapshot(
     extractOptional(repoRoot, options.baselines, extractBaselineMetrics),
   ]);
 
-  const provenance = await resolveProvenance(
-    options,
-    repoRoot,
-    canariesExtracted,
-  );
+  const provenance = await resolveProvenance(options, repoRoot);
   return {
     schemaVersion: EPOCH_SCHEMA_VERSION,
     epoch: CURRENT_EPOCH,

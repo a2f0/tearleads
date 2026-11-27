@@ -222,51 +222,83 @@ describe("runEpochCommand", () => {
     await expect(
       runEpochCommand(["analyze", "--to", "missing"], host),
     ).rejects.toThrow(/Unknown --to/u);
+  });
 
-    // Malformed snapshot throws during loadAllSnapshots validation.
+  test("rejects malformed snapshots, duplicate manifest IDs, escapes, and mixed revisions", async () => {
+    const dir = await makeTempDir();
+    const resultsDir = join(dir, "results");
+    const plans0 = join(dir, "plans-0.json");
+    await writeSamplePlans(3, plans0);
+    const host = { repoRoot: dir, resultsDir, print: () => undefined };
+    await runEpochCommand(
+      [
+        "record",
+        "--id",
+        "000-baseline",
+        "--label",
+        "Base",
+        "--kind",
+        "baseline",
+        "--plans",
+        plans0,
+      ],
+      host,
+    );
+
+    const snapPath = join(resultsDir, "epoch-2/snapshots/000-baseline.json");
     await writeFile(
-      join(resultsDir, "epoch-2/snapshots/001-after.json"),
+      snapPath,
       JSON.stringify({ schemaVersion: 1, epoch: 2, id: 123 }),
     );
     await expect(runEpochCommand(["render"], host)).rejects.toThrow(
-      /not a valid Epoch 2 snapshot/u,
+      /missing string field 'id'/u,
     );
 
-    // Mismatched snapshot ID throws.
-    await writeFile(
-      join(resultsDir, "epoch-2/snapshots/001-after.json"),
-      JSON.stringify({
-        schemaVersion: 1,
-        epoch: 2,
-        id: "wrong-id",
-        label: "Wrong",
-        kind: "checkpoint",
-        recordedAt: "2026-11-27T00:00:00Z",
-        revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        dirty: false,
-        issues: [],
-        runtime: { bun: "1", platform: "darwin", arch: "arm64", cpu: null },
-      }),
+    const baseSnap = {
+      schemaVersion: 1,
+      epoch: 2,
+      id: "000-baseline",
+      label: "Base",
+      kind: "baseline",
+      recordedAt: "2026-11-27T00:00:00Z",
+      revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      dirty: false,
+      issues: [],
+      runtime: { bun: "1", platform: "darwin", arch: "arm64", cpu: null },
+    };
+    await writeFile(snapPath, JSON.stringify({ ...baseSnap, canaries: {} }));
+    await expect(runEpochCommand(["render"], host)).rejects.toThrow(
+      /canaryCount/u,
     );
+
+    await writeFile(snapPath, JSON.stringify({ ...baseSnap, id: "wrong-id" }));
     await expect(runEpochCommand(["render"], host)).rejects.toThrow(
       /does not match manifest entry/u,
     );
 
-    // Path traversal in manifest snapshotFile throws.
     const manifestPath = join(resultsDir, "epoch-2/manifest.json");
     const manifest = JSON.parse(
       await readFile(manifestPath, "utf8"),
     ) as EpochManifest;
+    const firstEntry = manifest.entries[0];
+    if (!firstEntry) throw new Error("expected first manifest entry");
+    await writeFile(
+      manifestPath,
+      JSON.stringify({ ...manifest, entries: [firstEntry, firstEntry] }),
+    );
+    await expect(runEpochCommand(["render"], host)).rejects.toThrow(
+      /duplicate manifest entry id/u,
+    );
+
     await writeFile(
       manifestPath,
       JSON.stringify({
         ...manifest,
-        entries: [{ ...manifest.entries[0], snapshotFile: "../escape.json" }],
+        entries: [{ ...firstEntry, snapshotFile: "../escape.json" }],
       }),
     );
     await expect(runEpochCommand(["render"], host)).rejects.toThrow(/escapes/u);
 
-    // Mismatched revisions across input reports throws.
     const plansRevB = join(dir, "plans-b.json");
     const reloadRevA = join(dir, "reload-a.json");
     await writeSamplePlans(

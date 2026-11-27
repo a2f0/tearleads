@@ -4,7 +4,6 @@ import {
   type CanaryRun,
   loadCanaryReport,
 } from "../canaries/report";
-import type { InventoryReport } from "../inventory/markdown";
 import { readCaptureFile } from "../statements/captureFile";
 import {
   normalizeClientSql,
@@ -23,6 +22,13 @@ import type {
   EpochClientQueryMetrics,
   EpochInventoryMetrics,
 } from "./schema";
+import {
+  isObject,
+  requireArray,
+  requireFiniteNumber,
+  requireObject,
+  requireString,
+} from "./validate";
 
 const txControlPattern =
   /^(?:begin(?:\s+(?:immediate|deferred|exclusive))?|commit|rollback|end(?:\s+transaction)?|savepoint\b|release\b)/iu;
@@ -31,28 +37,8 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function isTxControlSql(sql: string): boolean {
   return txControlPattern.test(sql.trim());
-}
-
-function assertInventoryReport(
-  value: unknown,
-  path: string,
-): asserts value is InventoryReport {
-  if (
-    !isObject(value) ||
-    Reflect.get(value, "scenario") !== "static-inventory" ||
-    !isObject(Reflect.get(value, "postgres")) ||
-    !isObject(Reflect.get(value, "sqlite")) ||
-    !isObject(Reflect.get(value, "openapi")) ||
-    !isObject(Reflect.get(value, "canaries"))
-  ) {
-    throw new Error(`${path} is not a valid perf:inventory report.`);
-  }
 }
 
 /** Extracts compact schema, OpenAPI, and canary-drift metrics from `perf:inventory`. */
@@ -60,40 +46,69 @@ export async function extractInventoryMetrics(
   path: string,
 ): Promise<EpochInventoryMetrics> {
   const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
-  assertInventoryReport(parsed, path);
-  const headrooms = parsed.canaries.ceilingDrift.map((item) => item.headroom);
+  if (
+    !isObject(parsed) ||
+    Reflect.get(parsed, "scenario") !== "static-inventory"
+  ) {
+    throw new Error(`${path} is not a valid perf:inventory report.`);
+  }
+  const pg = requireObject(Reflect.get(parsed, "postgres"), `${path} postgres`);
+  const sq = requireObject(Reflect.get(parsed, "sqlite"), `${path} sqlite`);
+  const oa = requireObject(Reflect.get(parsed, "openapi"), `${path} openapi`);
+  const ca = requireObject(Reflect.get(parsed, "canaries"), `${path} canaries`);
+  const unreadFields = requireArray(oa, "unreadResponseFields", path).map(
+    (entry, idx) =>
+      requireString(
+        requireObject(entry, `${path} unreadResponseFields[${idx}]`),
+        "field",
+        path,
+      ),
+  );
+  const headrooms = requireArray(ca, "ceilingDrift", path).map((entry, idx) =>
+    requireFiniteNumber(
+      requireObject(entry, `${path} ceilingDrift[${idx}]`),
+      "headroom",
+      path,
+    ),
+  );
   return {
     postgres: {
-      tables: parsed.postgres.tableCount,
-      columns: parsed.postgres.columnCount,
-      indexes: parsed.postgres.indexCount,
-      migrations: parsed.postgres.migrationCount,
-      duplicateIndexes: parsed.postgres.duplicateIndexes.length,
-      unreadTables: parsed.postgres.unreadTables.length,
-      unreadColumns: parsed.postgres.unreadColumns.length,
+      tables: requireFiniteNumber(pg, "tableCount", path),
+      columns: requireFiniteNumber(pg, "columnCount", path),
+      indexes: requireFiniteNumber(pg, "indexCount", path),
+      migrations: requireFiniteNumber(pg, "migrationCount", path),
+      duplicateIndexes: requireArray(pg, "duplicateIndexes", path).length,
+      unreadTables: requireArray(pg, "unreadTables", path).length,
+      unreadColumns: requireArray(pg, "unreadColumns", path).length,
     },
     sqlite: {
-      totalTables: parsed.sqlite.totalTableCount,
-      sdkTables: parsed.sqlite.sdkTableCount,
-      appProjectionTables: parsed.sqlite.appProjectionTableCount,
-      columns: parsed.sqlite.columnCount,
-      indexes: parsed.sqlite.indexCount,
-      duplicateIndexes: parsed.sqlite.duplicateIndexes.length,
-      unreadTables: parsed.sqlite.unreadTables.length,
-      unreadColumns: parsed.sqlite.unreadColumns.length,
+      totalTables: requireFiniteNumber(sq, "totalTableCount", path),
+      sdkTables: requireFiniteNumber(sq, "sdkTableCount", path),
+      appProjectionTables: requireFiniteNumber(
+        sq,
+        "appProjectionTableCount",
+        path,
+      ),
+      columns: requireFiniteNumber(sq, "columnCount", path),
+      indexes: requireFiniteNumber(sq, "indexCount", path),
+      duplicateIndexes: requireArray(sq, "duplicateIndexes", path).length,
+      unreadTables: requireArray(sq, "unreadTables", path).length,
+      unreadColumns: requireArray(sq, "unreadColumns", path).length,
     },
     openapi: {
-      paths: parsed.openapi.pathCount,
-      operations: parsed.openapi.operationCount,
-      distinctResponseFields: parsed.openapi.distinctResponseFields,
-      unreadResponseFieldLeads: parsed.openapi.unreadResponseFields.length,
-      unreadFields: parsed.openapi.unreadResponseFields.map(
-        (entry) => entry.field,
+      paths: requireFiniteNumber(oa, "pathCount", path),
+      operations: requireFiniteNumber(oa, "operationCount", path),
+      distinctResponseFields: requireFiniteNumber(
+        oa,
+        "distinctResponseFields",
+        path,
       ),
+      unreadResponseFieldLeads: unreadFields.length,
+      unreadFields,
     },
     canaries: {
-      budgetAssertions: parsed.canaries.budgetAssertionCount,
-      driftedPhases: parsed.canaries.ceilingDrift.length,
+      budgetAssertions: requireFiniteNumber(ca, "budgetAssertionCount", path),
+      driftedPhases: headrooms.length,
       maxHeadroom: headrooms.length > 0 ? Math.max(...headrooms) : 0,
       totalHeadroom: headrooms.reduce((sum, value) => sum + value, 0),
     },
@@ -435,7 +450,9 @@ export async function extractCanariesMetrics(path: string): Promise<{
 
   const topApiRoutes = [...routeMap.values()]
     .sort(
-      (a, b) => b.statements - a.statements || a.route.localeCompare(b.route),
+      (a, b) =>
+        b.statements - a.statements ||
+        (a.route < b.route ? -1 : a.route > b.route ? 1 : 0),
     )
     .slice(0, 10);
   const topClientQueries: EpochClientQueryMetrics[] = [...clientQueryMap]
@@ -444,7 +461,12 @@ export async function extractCanariesMetrics(path: string): Promise<{
       count: stat.count,
       durationMs: round1(stat.durationMs),
     }))
-    .sort((a, b) => b.count - a.count || b.durationMs - a.durationMs)
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        b.durationMs - a.durationMs ||
+        (a.sql < b.sql ? -1 : a.sql > b.sql ? 1 : 0),
+    )
     .slice(0, 10);
 
   return {

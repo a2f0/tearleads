@@ -268,5 +268,20 @@ describe("extractInventoryMetrics and probe extractors", () => {
       }),
     );
     await expect(extractRealtimeMetrics(badRow)).rejects.toThrow(/size/u);
+
+    const badInv = join(dir, "bad-inv.json");
+    await writeFile(
+      badInv,
+      JSON.stringify({
+        scenario: "static-inventory",
+        postgres: { tableCount: "bad" },
+        sqlite: {},
+        openapi: {},
+        canaries: {},
+      }),
+    );
+    await expect(extractInventoryMetrics(badInv)).rejects.toThrow(
+      /unreadResponseFields/u,
+    );
   });
 });

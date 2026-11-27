@@ -7,9 +7,33 @@ import {
 import {
   CURRENT_EPOCH,
   EPOCH_SCHEMA_VERSION,
+  type EpochEntryKind,
   type EpochManifest,
+  type EpochManifestEntry,
+  type EpochRuntimeInfo,
   type EpochSnapshot,
 } from "./schema";
+import {
+  requireArray,
+  requireBoolean,
+  requireFiniteNumber,
+  requireNullableString,
+  requireNumberArray,
+  requireObject,
+  requireOptionalPositiveInt,
+  requireOptionalString,
+  requireString,
+} from "./validate";
+import {
+  parseBaselinesSection,
+  parseCanariesSection,
+  parseInventorySection,
+  parsePlansSection,
+  parseRealtimeSection,
+  parseReloadSection,
+  parseRotationsSection,
+  parseScenariosSection,
+} from "./validateSnapshot";
 
 export function epochDir(resultsDir: string): string {
   return join(resultsDir, `epoch-${CURRENT_EPOCH}`);
@@ -35,54 +59,68 @@ function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return typeof error === "object" && error !== null && "code" in error;
 }
 
-function isValidKind(kind: unknown): boolean {
-  return kind === "baseline" || kind === "checkpoint" || kind === "final";
-}
-
-function assertManifestEntry(value: unknown, path: string, idx: number): void {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${path} entries[${idx}] must be an object.`);
-  }
-  const issues = Reflect.get(value, "issues");
-  const seq = Reflect.get(value, "seq");
-  if (
-    typeof Reflect.get(value, "id") !== "string" ||
-    typeof seq !== "number" ||
-    !Number.isFinite(seq) ||
-    typeof Reflect.get(value, "label") !== "string" ||
-    !isValidKind(Reflect.get(value, "kind")) ||
-    typeof Reflect.get(value, "recordedAt") !== "string" ||
-    typeof Reflect.get(value, "revision") !== "string" ||
-    typeof Reflect.get(value, "dirty") !== "boolean" ||
-    !Array.isArray(issues) ||
-    !issues.every((n) => typeof n === "number") ||
-    typeof Reflect.get(value, "snapshotFile") !== "string"
-  ) {
-    throw new Error(`${path} entries[${idx}] is not a valid manifest entry.`);
-  }
-}
-
-function assertEpochManifest(
-  value: unknown,
+function requireKind(
+  record: Record<string, unknown>,
   path: string,
-): asserts value is EpochManifest {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} manifest.`);
+): EpochEntryKind {
+  const kind = requireString(record, "kind", path);
+  if (kind !== "baseline" && kind !== "checkpoint" && kind !== "final") {
+    throw new Error(`${path} has invalid kind '${kind}'.`);
   }
-  const entries = Reflect.get(value, "entries");
+  return kind;
+}
+
+function parseManifestEntry(
+  raw: unknown,
+  path: string,
+  idx: number,
+): EpochManifestEntry {
+  const entry = requireObject(raw, `${path} entries[${idx}]`);
+  const pr = requireOptionalPositiveInt(entry, "pr", path);
+  const notes = requireOptionalString(entry, "notes", path);
+  return {
+    id: requireString(entry, "id", path),
+    seq: requireFiniteNumber(entry, "seq", path),
+    label: requireString(entry, "label", path),
+    kind: requireKind(entry, path),
+    recordedAt: requireString(entry, "recordedAt", path),
+    revision: requireString(entry, "revision", path),
+    dirty: requireBoolean(entry, "dirty", path),
+    ...(pr !== undefined ? { pr } : {}),
+    issues: requireNumberArray(entry, "issues", path),
+    snapshotFile: requireString(entry, "snapshotFile", path),
+    ...(notes !== undefined ? { notes } : {}),
+  };
+}
+
+function parseEpochManifest(raw: unknown, path: string): EpochManifest {
+  const obj = requireObject(raw, path);
   if (
-    Reflect.get(value, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
-    Reflect.get(value, "epoch") !== CURRENT_EPOCH ||
-    typeof Reflect.get(value, "title") !== "string" ||
-    typeof Reflect.get(value, "startedAt") !== "string" ||
-    typeof Reflect.get(value, "description") !== "string" ||
-    !Array.isArray(entries)
+    Reflect.get(obj, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
+    Reflect.get(obj, "epoch") !== CURRENT_EPOCH
   ) {
     throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} manifest.`);
   }
-  for (const [idx, entry] of entries.entries()) {
-    assertManifestEntry(entry, path, idx);
+  const entries = requireArray(obj, "entries", path).map((entry, idx) =>
+    parseManifestEntry(entry, path, idx),
+  );
+  const seenIds = new Set<string>();
+  for (const entry of entries) {
+    if (seenIds.has(entry.id)) {
+      throw new Error(
+        `${path} contains duplicate manifest entry id '${entry.id}'.`,
+      );
+    }
+    seenIds.add(entry.id);
   }
+  return {
+    schemaVersion: EPOCH_SCHEMA_VERSION,
+    epoch: CURRENT_EPOCH,
+    title: requireString(obj, "title", path),
+    startedAt: requireString(obj, "startedAt", path),
+    description: requireString(obj, "description", path),
+    entries,
+  };
 }
 
 export async function loadManifest(resultsDir: string): Promise<EpochManifest> {
@@ -96,65 +134,92 @@ export async function loadManifest(resultsDir: string): Promise<EpochManifest> {
     }
     throw error;
   }
-  const parsed: unknown = JSON.parse(raw);
-  assertEpochManifest(parsed, path);
-  return parsed;
+  return parseEpochManifest(JSON.parse(raw), path);
 }
 
-function isValidOptionalSections(value: object): boolean {
-  const objKeys = ["inventory", "canaries", "scenarios", "plans"];
-  const arrKeys = ["reload", "realtime", "rotations", "baselines"];
-  for (const key of objKeys) {
-    const field = Reflect.get(value, key);
-    if (
-      field !== undefined &&
-      (typeof field !== "object" || field === null || Array.isArray(field))
-    ) {
-      return false;
-    }
-  }
-  for (const key of arrKeys) {
-    const field = Reflect.get(value, key);
-    if (field !== undefined && !Array.isArray(field)) return false;
-  }
-  return true;
+function parseRuntime(raw: unknown, path: string): EpochRuntimeInfo {
+  const runtime = requireObject(raw, `${path} runtime`);
+  return {
+    bun: requireString(runtime, "bun", path),
+    platform: requireString(runtime, "platform", path),
+    arch: requireString(runtime, "arch", path),
+    cpu: requireNullableString(runtime, "cpu", path),
+  };
 }
 
-function isValidRuntime(runtime: unknown): boolean {
-  if (typeof runtime !== "object" || runtime === null) return false;
-  const cpu = Reflect.get(runtime, "cpu");
-  return (
-    typeof Reflect.get(runtime, "bun") === "string" &&
-    typeof Reflect.get(runtime, "platform") === "string" &&
-    typeof Reflect.get(runtime, "arch") === "string" &&
-    (cpu === null || typeof cpu === "string")
-  );
-}
-
-function assertEpochSnapshot(
-  value: unknown,
+function parseOptionalSections(
+  obj: Record<string, unknown>,
   path: string,
-): asserts value is EpochSnapshot {
-  if (typeof value !== "object" || value === null) {
-    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} snapshot.`);
-  }
-  const issues = Reflect.get(value, "issues");
+): Pick<
+  EpochSnapshot,
+  | "inventory"
+  | "canaries"
+  | "scenarios"
+  | "plans"
+  | "reload"
+  | "realtime"
+  | "rotations"
+  | "baselines"
+> {
+  const inventory = Reflect.get(obj, "inventory");
+  const canaries = Reflect.get(obj, "canaries");
+  const scenarios = Reflect.get(obj, "scenarios");
+  const plans = Reflect.get(obj, "plans");
+  const reload = Reflect.get(obj, "reload");
+  const realtime = Reflect.get(obj, "realtime");
+  const rotations = Reflect.get(obj, "rotations");
+  const baselines = Reflect.get(obj, "baselines");
+  return {
+    ...(inventory !== undefined
+      ? { inventory: parseInventorySection(inventory, path) }
+      : {}),
+    ...(canaries !== undefined
+      ? { canaries: parseCanariesSection(canaries, path) }
+      : {}),
+    ...(scenarios !== undefined
+      ? { scenarios: parseScenariosSection(scenarios, path) }
+      : {}),
+    ...(plans !== undefined ? { plans: parsePlansSection(plans, path) } : {}),
+    ...(reload !== undefined
+      ? { reload: parseReloadSection(reload, path) }
+      : {}),
+    ...(realtime !== undefined
+      ? { realtime: parseRealtimeSection(realtime, path) }
+      : {}),
+    ...(rotations !== undefined
+      ? { rotations: parseRotationsSection(rotations, path) }
+      : {}),
+    ...(baselines !== undefined
+      ? { baselines: parseBaselinesSection(baselines, path) }
+      : {}),
+  };
+}
+
+function parseEpochSnapshot(raw: unknown, path: string): EpochSnapshot {
+  const obj = requireObject(raw, path);
   if (
-    Reflect.get(value, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
-    Reflect.get(value, "epoch") !== CURRENT_EPOCH ||
-    typeof Reflect.get(value, "id") !== "string" ||
-    typeof Reflect.get(value, "label") !== "string" ||
-    typeof Reflect.get(value, "recordedAt") !== "string" ||
-    typeof Reflect.get(value, "revision") !== "string" ||
-    typeof Reflect.get(value, "dirty") !== "boolean" ||
-    !isValidKind(Reflect.get(value, "kind")) ||
-    !Array.isArray(issues) ||
-    !issues.every((n) => typeof n === "number") ||
-    !isValidRuntime(Reflect.get(value, "runtime")) ||
-    !isValidOptionalSections(value)
+    Reflect.get(obj, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
+    Reflect.get(obj, "epoch") !== CURRENT_EPOCH
   ) {
     throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} snapshot.`);
   }
+  const pr = requireOptionalPositiveInt(obj, "pr", path);
+  const notes = requireOptionalString(obj, "notes", path);
+  return {
+    schemaVersion: EPOCH_SCHEMA_VERSION,
+    epoch: CURRENT_EPOCH,
+    id: requireString(obj, "id", path),
+    label: requireString(obj, "label", path),
+    kind: requireKind(obj, path),
+    recordedAt: requireString(obj, "recordedAt", path),
+    revision: requireString(obj, "revision", path),
+    dirty: requireBoolean(obj, "dirty", path),
+    ...(pr !== undefined ? { pr } : {}),
+    issues: requireNumberArray(obj, "issues", path),
+    runtime: parseRuntime(Reflect.get(obj, "runtime"), path),
+    ...(notes !== undefined ? { notes } : {}),
+    ...parseOptionalSections(obj, path),
+  };
 }
 
 function resolveConfinedSnapshotPath(
@@ -178,14 +243,16 @@ export async function loadAllSnapshots(
   return Promise.all(
     manifest.entries.map(async (entry) => {
       const path = resolveConfinedSnapshotPath(dir, entry.snapshotFile);
-      const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
-      assertEpochSnapshot(parsed, path);
-      if (parsed.id !== entry.id) {
+      const snapshot = parseEpochSnapshot(
+        JSON.parse(await readFile(path, "utf8")),
+        path,
+      );
+      if (snapshot.id !== entry.id) {
         throw new Error(
-          `Snapshot ${path} id '${parsed.id}' does not match manifest entry '${entry.id}'.`,
+          `Snapshot ${path} id '${snapshot.id}' does not match manifest entry '${entry.id}'.`,
         );
       }
-      return parsed;
+      return snapshot;
     }),
   );
 }

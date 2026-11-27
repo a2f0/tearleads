@@ -159,38 +159,28 @@ const recordStringFlags = new Set([
 ]);
 
 function pickRecordPaths(strings: ReadonlyMap<string, string>) {
-  const keys = [
-    ["--notes", "notes"],
-    ["--canaries", "canaries"],
-    ["--inventory", "inventory"],
-    ["--plans", "plans"],
-    ["--scenarios", "scenarios"],
-    ["--reload", "reload"],
-    ["--realtime", "realtime"],
-    ["--rotations", "rotations"],
-    ["--baselines", "baselines"],
-    ["--results-dir", "resultsDir"],
-  ] as const;
-  const result: Record<string, string> = {};
-  for (const [flag, prop] of keys) {
-    const value = strings.get(flag);
-    if (value !== undefined) result[prop] = value;
-  }
-  return result as Partial<
-    Pick<
-      Extract<EpochOptions, { mode: "record" }>,
-      | "notes"
-      | "canaries"
-      | "inventory"
-      | "plans"
-      | "scenarios"
-      | "reload"
-      | "realtime"
-      | "rotations"
-      | "baselines"
-      | "resultsDir"
-    >
-  >;
+  const notes = strings.get("--notes");
+  const canaries = strings.get("--canaries");
+  const inventory = strings.get("--inventory");
+  const plans = strings.get("--plans");
+  const scenarios = strings.get("--scenarios");
+  const reload = strings.get("--reload");
+  const realtime = strings.get("--realtime");
+  const rotations = strings.get("--rotations");
+  const baselines = strings.get("--baselines");
+  const resultsDir = strings.get("--results-dir");
+  return {
+    ...(notes !== undefined ? { notes } : {}),
+    ...(canaries !== undefined ? { canaries } : {}),
+    ...(inventory !== undefined ? { inventory } : {}),
+    ...(plans !== undefined ? { plans } : {}),
+    ...(scenarios !== undefined ? { scenarios } : {}),
+    ...(reload !== undefined ? { reload } : {}),
+    ...(realtime !== undefined ? { realtime } : {}),
+    ...(rotations !== undefined ? { rotations } : {}),
+    ...(baselines !== undefined ? { baselines } : {}),
+    ...(resultsDir !== undefined ? { resultsDir } : {}),
+  };
 }
 
 function requireIdAndLabel(strings: ReadonlyMap<string, string>) {
