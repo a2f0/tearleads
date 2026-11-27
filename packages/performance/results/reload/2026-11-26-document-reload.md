@@ -1,6 +1,6 @@
 # Document reload, 2026-11-26
 
-The [document reload probe](../README.md#document-reload) counted, for
+The [document reload probe](../../README.md#document-reload) counted, for
 [issue #3256](https://github.com/a2f0/tearleads/issues/3256), the requests a
 returning client makes when it reloads, from ten to a thousand notes, with the
 notes spread over folders and with all of them in one folder:

@@ -6,5 +6,5 @@ provision the account, 152.97 s to seed it and 39.71 s to verify it. The
 plaintext bytes), including the circular saw, drill and refrigerator photos
 and receipts.
 
-See [Continuity seed round trip](../README.md#continuity-seed-round-trip) for
+See [Continuity seed round trip](../../README.md#continuity-seed-round-trip) for
 what the run measures and how to repeat it.

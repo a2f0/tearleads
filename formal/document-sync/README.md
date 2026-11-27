@@ -177,18 +177,20 @@ that the client eventually holds the server's version. See the
 [`DocumentListingConvergence.tla`](./DocumentListingConvergence.tla)
 models a client holding an ordinary document that it no longer probes on every
 restart and reconnect. Each acknowledged connection re-lists the client's lanes
-from their watermarks, and a listed update count the client's processed cursor
-does not cover owes the document a read, durably, before the watermark passes
-the row. So does a listed access head that is not the one the record's key
-bundle was issued under, before the row is applied. A store that opens later
-reads the debt, and a hint that names a document with no loaded store is
-remembered until one loads. TLC checks that some evidence of an unread edit or
-an unread access head always survives, through crashes and reads in flight,
-that evidence of an unread edit or an unread head also survives a read a
-lagging replica serves, and that the client eventually holds the server's
-version. A read settles a debt only once it saved the owed head or a later
-one. Once a launch, the initial probe lists the lane from no watermark and owes
-reads the same way, and asks the open store to make them. See the
+from their watermarks, a device-first hint also forces a lane listing, and a
+listed update count the client's processed cursor does not cover owes the
+document a read, durably, before the watermark passes the row (never lowering
+an existing debt). So does a listed access head that is not the one the
+record's key bundle was issued under, before the row is applied. A failed or
+paused listing leaves the watermark behind and retries. A store that opens
+later reads the debt, probes when its record holds no key bundle or its cursor
+is withheld, and reads remembered closed-store hints. TLC checks that some
+evidence of an unread edit or an unread access head always survives, through
+crashes, failed listings, and reads in flight, that evidence also survives a
+read a lagging replica serves, and that the client eventually holds the
+server's version and settles debts and withheld cursors. Once a launch, the
+initial probe lists the lane from no watermark and owes reads the same way, and
+asks the open store to make them. See the
 [production mapping and negative controls](./DocumentListingConvergence.md).
 
 [`DocumentLanePolling.tla`](./DocumentLanePolling.tla) models the step
@@ -196,21 +198,33 @@ before that listing: which lanes a catch-up lists. Every server write that
 changes what a container's document lane returns republishes the container's
 row, so the tree crawl that follows an acknowledged connection is served the
 row and owes the lane a listing, durably, before the serving lane's watermark
-passes it. The catch-up lists the owed lanes alone, and a listing settles only
-the request it read before it was sent. TLC checks that an unlisted change
-always leaves something to oblige a listing, through crashes and listings in
-flight, and that the client eventually lists every change. See the
+passes it. Tree listings outside a catch-up owe the lane the same way with no
+sweep behind them. The catch-up lists the owed lanes alone, and a listing
+settles only the request it read before it was sent, and only when the listing
+succeeds. TLC checks that an unlisted change always leaves something to oblige
+a listing, through crashes, failed listings, and listings in flight, that the
+client eventually lists every change, and that owed listings settle by the next
+acknowledged connection. See the
 [production mapping and negative controls](./DocumentLanePolling.md).
+
+[`CatchUpCoordination.tla`](./CatchUpCoordination.tla) models the catch-up
+state machine (`catchUpMachine.ts`) that defers unforced document-lane listings
+while a reconnect crawl or sweep turn is pending, bounds the turn wait with an
+overdue transition, ignores late completions from superseded waits, and fences
+incomplete-crawl fallback vouching against shared acknowledgements and
+per-container pending discovery retries. See the
+[production mapping and negative controls](./CatchUpCoordination.md).
 
 [`SharedDatabaseListing.tla`](./SharedDatabaseListing.tla) adds a second
 runtime on the same database, such as a second browser tab. The two share the
 lane watermark, the debt and the saved record, and each keeps its own copy of
 the open document. One runtime's listing consumes the row for both and its
 pull settles the debt for both, so a catch-up also asks a store for a pull
-when the saved record holds content its copy lacks. TLC checks that a
-connected runtime's stale copy always has something of its own left to oblige
+when the saved record holds content its copy lacks, and a failed catch-up
+listing leaves the lane uncovered while still running the ask. TLC checks that
+a connected runtime's stale copy always has something of its own left to oblige
 a read, and that every runtime's copy converges. See the
-[production mapping and negative control](./SharedDatabaseListing.md).
+[production mapping and negative controls](./SharedDatabaseListing.md).
 
 ## Epoch Advances Without a Covering Baseline
 

@@ -1,6 +1,6 @@
 # Realtime hub interest authorization, 2026-11-25
 
-The [realtime hub interest probe](../README.md#realtime-hub-interest-authorization)
+The [realtime hub interest probe](../../README.md#realtime-hub-interest-authorization)
 measured one socket's declaration and revalidation passes for
 [issue #3272](https://github.com/a2f0/tearleads/issues/3272), with
 `bun run perf:realtime --sizes 100,1000,10000 --samples 3`.
