@@ -184,10 +184,11 @@ bundle was issued under, before the row is applied. A store that opens later
 reads the debt, and a hint that names a document with no loaded store is
 remembered until one loads. TLC checks that some evidence of an unread edit or
 an unread access head always survives, through crashes and reads in flight,
-that evidence of an unread edit also survives a read a lagging replica
-serves, and that the client eventually holds the server's version. The head a
-lagging replica returns is assumed current: a debt owed for a head alone is
-settled by any completed pull. See the
+that evidence of an unread edit or an unread head also survives a read a
+lagging replica serves, and that the client eventually holds the server's
+version. A read settles a debt only once it saved the owed head or a later
+one. Once a launch, the initial probe lists the lane from no watermark and owes
+reads the same way, and asks the open store to make them. See the
 [production mapping and negative controls](./DocumentListingConvergence.md).
 
 [`DocumentLanePolling.tla`](./DocumentLanePolling.tla) models the step

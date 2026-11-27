@@ -242,13 +242,13 @@ untouchable by any later writer, and re-anchor a repair rekey from there.
 
 That backstop has one documented bound. A **group- or organization-addressed**
 envelope additionally requires the principal secret key for the key epoch it was
-addressed to, which resolves only through principal-policy bundles the client
-can reach; after a principal key rotation a pristine client cannot reach the
-older ones. The client fails closed with a distinct
-`HistoricalWrapUnavailableError` (reason `principal-key-unreachable`) rather
-than reporting corruption, so the condition is diagnosable. The API serves no
-historical principal-key envelopes by design
-([protocol-specification.md](../protocol-specification/container-access.md#container-access-and-kek-protocol)).
+addressed to, which KEK-log wrap recovery resolves only through locally held or
+current principal-policy bundles; after a principal key rotation a pristine
+client cannot unwrap the older ones, and deleted groups erase their envelopes.
+The client fails closed with a distinct `HistoricalWrapUnavailableError` (reason
+`principal-key-unreachable`) rather than reporting corruption, so the condition
+is diagnosable (see
+[protocol-specification.md](../protocol-specification/container-access.md#container-access-and-kek-protocol)).
 The only wholly unrecoverable case is a sole-ever member destroying their own
 history.
 [`formal/container-keying/KeyringReachability.tla`](../../formal/container-keying/KeyringReachability.tla)

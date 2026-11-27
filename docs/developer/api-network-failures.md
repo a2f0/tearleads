@@ -94,10 +94,10 @@ event any of whose tags leaves this vocabulary.
 | elapsed time | coarsen | `lt-100ms`, `lt-1s`, `lt-3s`, `lt-10s`, `lt-30s`, `gte-30s` |
 | connectivity | send | `online`, `offline`, `unknown` |
 | cross-origin, preflight | send | `true`, `false` (cross-origin also `unknown`) |
-| API origin | coarsen | `default` for https `tearleads.com` hosts, else `custom` |
-| page origin | coarsen | `default` for the app's own origin, else `custom` |
+| API origin | coarsen | `default` for https `tearleads.com` hosts, `unknown` when absent, else `custom` |
+| page origin | coarsen | `default` for the app's own origin, `unknown` when absent, else `custom` |
 | probe result | send | `reachable`, `unreachable`, `not-run` |
-| error and cause names | coarsen | a fixed list of runtime error names, else `other` |
+| error and cause names | coarsen | a fixed list of runtime error names, `none` for an absent cause, else `other` |
 | error message | coarsen | a label for a known browser phrasing, else `other` |
 | hint, cause message | drop | never sent: they can name an origin or a URL path |
 
@@ -133,8 +133,8 @@ the API, with its reason:
 - Sentry envelopes and the packaged `sentry-assets.json`
   ([`packages/diagnostics`](../../packages/diagnostics/));
 - the Capacitor scanner reading a captured photo from a local file URL;
-- the Electrobun download bridge to its local Bun host, and that host's own
-  request handlers;
+- the Electrobun download and telemetry-consent bridges to its local Bun host,
+  and that host's own request handlers;
 - app-web's Worker script, which answers requests that match no static asset;
 - sqlite-worker's `file:` wasm loads under Bun;
 - the website's installer metadata from the downloads bucket.

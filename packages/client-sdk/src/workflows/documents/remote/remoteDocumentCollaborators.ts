@@ -56,4 +56,6 @@ export interface RemoteDocumentCollaborators {
    * billing block, both directions for a sync pause.
    */
   readonly isRemoteSyncBlocked?: WorkflowRuntimeUtilInput["isRemoteSyncBlocked"];
+  /** Reports a failure the workflow recovers from, such as a cache write. */
+  readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
 }

@@ -292,6 +292,104 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 15,
   },
+  {
+    // A listing's debt now belongs to the record it found behind, not to the
+    // document (#3339). Two records can name one server document after an
+    // identity recovery or a relink, and a pull settled the document's debt
+    // against one record's cursor while the other stayed behind. The debt
+    // also keeps the listed access head's epoch, so a pull a replica
+    // answered from before the head moved settles nothing. Each debt passes
+    // to every record of its document; the head an old row never kept is
+    // epoch 0, which any key bundle covers, as it did before. A debt of a
+    // document no record holds is dropped, as the catch-up would. No step
+    // creates the table: its ensure does, after migrating.
+    name: "owe_listing_reads_per_record",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("document_listing_revalidations"))) return;
+      await execSql(`CREATE TABLE "document_listing_revalidations_by_record" (
+        "local_id" TEXT NOT NULL PRIMARY KEY,
+        "document_id" TEXT NOT NULL,
+        "advertised_update_count" INTEGER NOT NULL,
+        "advertised_access_epoch" INTEGER NOT NULL,
+        "revision" TEXT NOT NULL,
+        "requested_at" TEXT NOT NULL
+      )`);
+      if (await context.hasTable("documents")) {
+        await execSql(
+          `INSERT INTO "document_listing_revalidations_by_record"
+             (local_id, document_id, advertised_update_count,
+              advertised_access_epoch, revision, requested_at)
+           SELECT record.local_id, debt.document_id,
+                  debt.advertised_update_count, 0, debt.revision,
+                  debt.requested_at
+             FROM "document_listing_revalidations" AS debt
+             JOIN "documents" AS record
+               ON record.app_kind = 'documents'
+              AND record.document_id = debt.document_id`,
+        );
+      }
+      await execSql('DROP TABLE "document_listing_revalidations"');
+      await execSql(
+        'ALTER TABLE "document_listing_revalidations_by_record" RENAME TO "document_listing_revalidations"',
+      );
+    },
+    version: 16,
+  },
+  {
+    // Container create holds (awaiting a parent listing after a root fold,
+    // taken system slot, or too-deep path) moved from sentinel strings in
+    // `last_error` into typed `hold_kind` / `hold_since` columns (#3374), so
+    // `last_error` holds only real replay failures. Backfill any pending
+    // container create row carrying the v16 sentinel messages and clear its
+    // `last_error`.
+    name: "type_container_create_intent_holds",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("local_intents"))) return;
+      const columns = new Set(
+        (await execSql("SELECT name FROM pragma_table_info('local_intents')"))
+          .map(({ name }) => name)
+          .filter((name): name is string => typeof name === "string"),
+      );
+      if (!columns.has("hold_kind")) {
+        await execSql(
+          'ALTER TABLE "local_intents" ADD COLUMN "hold_kind" TEXT',
+        );
+      }
+      if (!columns.has("hold_since")) {
+        await execSql(
+          'ALTER TABLE "local_intents" ADD COLUMN "hold_since" TEXT',
+        );
+      }
+      await execSql(
+        `UPDATE "local_intents"
+            SET "hold_kind" = 'awaiting_parent_listing',
+                "hold_since" = "updated_at",
+                "last_error" = NULL
+          WHERE "lane" = 'container.create'
+            AND "sync_status" = 'pending'
+            AND "last_error" = 'Container create waits for a listing of its parent'`,
+      );
+      await execSql(
+        `UPDATE "local_intents"
+            SET "hold_kind" = 'slot_taken',
+                "hold_since" = NULL,
+                "last_error" = NULL
+          WHERE "lane" = 'container.create'
+            AND "sync_status" = 'pending'
+            AND "last_error" = 'Container system slot is already taken'`,
+      );
+      await execSql(
+        `UPDATE "local_intents"
+            SET "hold_kind" = 'path_too_deep',
+                "hold_since" = NULL,
+                "last_error" = NULL
+          WHERE "lane" = 'container.create'
+            AND "sync_status" = 'pending'
+            AND "last_error" = 'Container path exceeds maximum depth'`,
+      );
+    },
+    version: 17,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

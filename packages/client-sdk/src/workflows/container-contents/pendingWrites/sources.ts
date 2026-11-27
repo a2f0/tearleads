@@ -1,3 +1,4 @@
+import { CREATE_INTENT_HOLD_KINDS } from "../../../data/containers/shared/createIntentHoldMachine";
 import { LOCAL_INTENT_LANES } from "../../../data/sqlite/schema";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -8,6 +9,7 @@ import type {
   PendingWriteCandidate,
   PendingWriteCandidateInclusion,
 } from "./aggregation";
+import type { PendingWriteQueueOperationBlockedReason } from "./pendingWritesTypes";
 import { readNumber, readString } from "./rowReaders";
 
 const CONTAINER_DISPLAY_NAME_SQL = getContainerDisplayNameSql("container");
@@ -15,6 +17,27 @@ const DOCUMENT_ORGANIZATION_SQL = getContainerOrganizationAttributionSql({
   containerAlias: "container",
   projectionAlias: "projection",
 });
+
+const KNOWN_CREATE_HOLD_KINDS_SQL = `intent.hold_kind IN (${Object.values(
+  CREATE_INTENT_HOLD_KINDS,
+)
+  .map((kind) => `'${kind}'`)
+  .join(", ")})`;
+
+function parseBlockedReason(
+  holdKind: string | null,
+): PendingWriteQueueOperationBlockedReason | undefined {
+  switch (holdKind) {
+    case CREATE_INTENT_HOLD_KINDS.awaitingParentListing:
+      return "awaiting-parent-listing";
+    case CREATE_INTENT_HOLD_KINDS.slotTaken:
+      return "slot-taken";
+    case CREATE_INTENT_HOLD_KINDS.pathTooDeep:
+      return "path-too-deep";
+    default:
+      return undefined;
+  }
+}
 
 const PENDING_WRITE_SOURCE_SQL = `
   WITH pending_update_groups AS (
@@ -43,6 +66,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     updates.updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
+    NULL AS hold_kind,
     stored.sync_failure_message AS last_error,
     stored.sync_failure_attempted_at AS last_attempted_at,
     'always' AS inclusion
@@ -79,6 +103,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     stored.sync_failure_attempted_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
+    NULL AS hold_kind,
     stored.sync_failure_message AS last_error,
     stored.sync_failure_attempted_at AS last_attempted_at,
     'unless-item-covered' AS inclusion
@@ -107,6 +132,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     updates.updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
+    NULL AS hold_kind,
     metadata.sync_failure_message AS last_error,
     metadata.sync_failure_attempted_at AS last_attempted_at,
     'always' AS inclusion
@@ -141,6 +167,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     metadata.sync_failure_attempted_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
+    NULL AS hold_kind,
     metadata.sync_failure_message AS last_error,
     metadata.sync_failure_attempted_at AS last_attempted_at,
     'unless-item-covered' AS inclusion
@@ -166,6 +193,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     updates.updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
+    NULL AS hold_kind,
     stored.sync_failure_message AS last_error,
     stored.sync_failure_attempted_at AS last_attempted_at,
     'always' AS inclusion
@@ -192,6 +220,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     MAX(attachment.created_at) AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
+    NULL AS hold_kind,
     stored.sync_failure_message AS last_error,
     stored.sync_failure_attempted_at AS last_attempted_at,
     'always' AS inclusion
@@ -221,7 +250,8 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.created_at AS created_at,
     intent.updated_at AS updated_at,
     intent.target_container_id AS target_container_id,
-    'pending' AS operation_status,
+    CASE WHEN ${KNOWN_CREATE_HOLD_KINDS_SQL} THEN 'blocked' ELSE 'pending' END AS operation_status,
+    CASE WHEN ${KNOWN_CREATE_HOLD_KINDS_SQL} THEN intent.hold_kind ELSE NULL END AS hold_kind,
     intent.last_error AS last_error,
     intent.last_attempted_at AS last_attempted_at,
     'always' AS inclusion
@@ -248,6 +278,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.updated_at AS updated_at,
     intent.target_container_id AS target_container_id,
     CASE WHEN intent.sync_status = 'blocked' THEN 'blocked' ELSE 'pending' END AS operation_status,
+    NULL AS hold_kind,
     intent.last_error AS last_error,
     intent.last_attempted_at AS last_attempted_at,
     'always' AS inclusion
@@ -273,6 +304,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.updated_at AS updated_at,
     intent.target_container_id AS target_container_id,
     CASE WHEN intent.sync_status IN ('blocked', 'unavailable') THEN 'blocked' ELSE 'pending' END AS operation_status,
+    NULL AS hold_kind,
     COALESCE(NULLIF(intent.last_error, ''), stored.sync_failure_message) AS last_error,
     COALESCE(intent.last_attempted_at, stored.sync_failure_attempted_at) AS last_attempted_at,
     'always' AS inclusion
@@ -304,6 +336,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     stored.updated_at AS updated_at,
     projection.container_id AS target_container_id,
     'pending' AS operation_status,
+    NULL AS hold_kind,
     stored.sync_failure_message AS last_error,
     stored.sync_failure_attempted_at AS last_attempted_at,
     'unless-operation-covered' AS inclusion
@@ -332,6 +365,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     container.local_updated_at AS updated_at,
     container.parent_id AS target_container_id,
     'pending' AS operation_status,
+    NULL AS hold_kind,
     NULL AS last_error,
     NULL AS last_attempted_at,
     'unless-operation-covered' AS inclusion
@@ -360,6 +394,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     container.local_updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
+    NULL AS hold_kind,
     NULL AS last_error,
     NULL AS last_attempted_at,
     'unless-item-covered' AS inclusion
@@ -398,7 +433,10 @@ function mapPendingWriteSourceRow(
       ? rawInclusion
       : "always";
 
+  const blockedReason = parseBlockedReason(readString(row, "hold_kind"));
+
   return {
+    ...(blockedReason ? { blockedReason } : {}),
     byteLength: readNumber(row, "byte_length"),
     containerId: readString(row, "container_id"),
     // Diagnostic-only revalidation items carry NO local operations; clamping

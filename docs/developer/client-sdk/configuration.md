@@ -16,6 +16,7 @@ Client capabilities:
 | `tearleads.identity` | signing and encapsulation key pairs, seed phrase state |
 | `tearleads.blobs` | local blob byte storage |
 | `tearleads.session` | registration, auth token, personal-org identity, and active context |
+| `tearleads.twoFactor` | TOTP two-factor enrollment, confirmation, recovery codes, and status (see [local keyring](./local-keyring.md)) |
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.apiVersion` | latest `X-Tearleads-Api-Version` response header, for diagnostics |
 | `tearleads.subscribeApiNetworkFailures` | every API request that got no response (plain cancellations excluded), with its secret-free `ApiNetworkFailureDetails`, for diagnostics (see [API network failures](../api-network-failures.md#reporting-to-sentry)) |
@@ -27,7 +28,7 @@ Client capabilities:
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, server-authoritative billing eligibility, and the user's own memberships with per-organization sync pauses (`memberships`; see [organization memberships](../../organization-memberships.md)) |
-| `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, billing with the latest 50 billing events, data usage), the ops-health report, RevenueCat webhook deliveries, the root audit trail, and identity suspension, offered only when the session is root |
+| `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, billing with the latest 50 billing events, data usage), pending blob deletions, the ops-health report, RevenueCat webhook deliveries, the root audit trail, and identity suspension, offered only when the session is root |
 | `tearleads.userIdentities` | identity-link `createLink` / `verifyLink`; `resolveVerified` and `createLinkFor` (link- or self-established pins only); independent anchors for direct or Members-chain admission |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
@@ -344,7 +345,7 @@ Runtime input snapshots expose only these capability groups:
 | `auth` | `userId`, `defaultOrganizationId`, `organizationId`, `rootContainerId`, `isAuthenticated`, `isRoot` |
 | `crypto` | `signingKeyPair`, `signingFingerprint`, `encapsulationKeyPair` |
 | `infra` | `dbStatus`, `execSql`, `blobStore`, `documentProjectors` |
-| `state` | `containerId`, `domainScope`, `events`, `online`, `serverEventsConnectionGeneration`, `peerScope` |
+| `state` | `containerId`, `domainScope`, `events`, `online`, `serverEventsConnected`, `serverEventsConnectionGeneration`, `serverEventsPendingConnectAttempt`, `peerScope` |
 | `util` | `log`, `logError`, `isRemoteSyncBlocked` |
 
 `util.logError` is optional for document/container runtimes. Quarantines,
@@ -431,23 +432,13 @@ and initial runtime state; its `database` field is `TearleadsDatabaseOptions`:
 
 ```ts
 const tearleads = new Tearleads({
-  apiBaseUrl,
-  apiRequestMetrics,
-  blobStore,
-  blobStoreFactory,
-  database,
-  documentProjectors,
-  events,
-  identity,
-  identityProvisioning,
-  identityTrustDomain,
-  logger,
-  onSecurityIncident,
-  online,
-  peerScope,
-  principalHistoryKeyProvider,
-  principalMutationTimeoutMs,
-  provisionedSystemContainers,
+  apiBaseUrl, apiRequestMetrics, automaticSessionRenewal,
+  blobStore, blobStoreFactory, database, documentProjectors, events,
+  identity, identityProvisioning, identityTrustDomain, logger,
+  onSecurityIncident, online, peerScope, principalHistoryKeyProvider,
+  principalMutationTimeoutMs, probeApiNetworkFailures,
+  provisionedSystemContainers, requestSignal, streamingDownloads,
+  verificationDeadline,
 });
 ```
 
@@ -458,43 +449,37 @@ blob storage (OPFS after identity setup), manual identity provisioning, ignored
 `documentProjectors` takes a prebuilt `DocumentProjectorRegistry` or a readonly
 array of `DocumentProjectorDefinition` values; prefer definitions for an
 app-owned document type list, and the SDK normalizes and caches the registry.
-`peerScope` gives each pane distinct Loro peer ids; omit it for a single pane.
-Within a pane, each document and container is written under its own peer id
-for the signed-in user.
-`provisionedSystemContainers` names app-owned system containers, such as a
-trash bin, that every new organization is created with.
-`principalHistoryKeyProvider` is covered in
-[history recovery](../principal-history-recovery.md), and
-`principalMutationTimeoutMs` (default 60 seconds) in
-[policy outcomes](../principal-policy-outcomes.md).
+`peerScope` gives each pane distinct Loro peer ids (within a pane, each document
+and container uses its own peer id for the signed-in user).
+`provisionedSystemContainers` names app-owned system containers, such as Trash,
+created for every new organization. `principalHistoryKeyProvider` is covered in
+[history recovery](../principal-history-recovery.md),
+`principalMutationTimeoutMs` (default 60 s) in
+[policy outcomes](../principal-policy-outcomes.md), `probeApiNetworkFailures`
+in [API network failures](../api-network-failures.md), and `requestSignal` stops
+command work while allowing authenticated remote logout to finish.
 
-HTTP uses `apiBaseUrl`; see [SDK hosting](../sdk-hosting.md).
-`identityTrustDomain` overrides the canonical API base URL for identity pins,
-links, and signed member bundle commitments. It must match the API's configured
-domain, including base paths; see
-[identity trust configuration](../trusted-user-identity.md#trust-domain-configuration).
-Use `database.client` for a SQLite worker client that implements
-`ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
-Use `database.execSql` only when the host already owns executor construction.
+HTTP uses `apiBaseUrl` ([SDK hosting](../sdk-hosting.md));
+`identityTrustDomain` overrides it for identity pins, links, and member bundle
+commitments and must match the API's configured domain
+([trust domain](../trusted-user-identity.md#trust-domain-configuration)).
+Pass `database.client` (`ExecSqlClientLike`) so the SDK builds the canonical
+`ExecSql` adapter, or `database.execSql` when the host owns it.
 
-`onSecurityIncident` is called after a typed keying-verification failure is
-durably appended. Read rows with `await tearleads.securityIncidents.list()`,
-watch them with `tearleads.securityIncidents.subscribe(listener)`, and append a
-host-found failure (two purge proofs for one document in a local backup merge)
-with `securityIncidents.record(error, context)`, given a
-`KeyingVerificationError` and `SecurityIncidentContext`; it resolves
-`"recorded"` once durable, else `"buffered"` (retry pending) or `"failed"`, so
-claim a recording only on `"recorded"`. An incident holds the code, operation,
-first/last timestamps, repeat count, protocol hashes, and object identity and
-[trust domain](../../glossary/principals.md#identity-trust-domain) when known; equivalent
-repeats coalesce, the newest 1,000 rows per trust domain are kept, and no error
-text or content is stored. `list()` is `null` while the database is unavailable;
-startup detections wait in a bounded, redacted buffer. Transport errors add
-none.
+`onSecurityIncident` fires after a typed keying-verification failure is durably
+appended. Read rows with `await tearleads.securityIncidents.list()`, watch them
+with `subscribe(listener)`, and append a host-found failure (such as two purge
+proofs in a backup merge) with `record(error, context)` given a
+`KeyingVerificationError` and `SecurityIncidentContext` (`"recorded"` once
+durable, else `"buffered"` or `"failed"`). Incidents hold code, operation,
+timestamps, repeat count, protocol hashes, and object identity/trust domain;
+repeats coalesce, the newest 1,000 per trust domain are kept, and no error text
+or content is stored. `list()` returns `null` while the database is unavailable;
+startup detections wait in a bounded buffer and transport errors add none.
 
-For SQLite initialization, runtime lifecycle methods, identity generation, and
-blob storage selection, see [SDK initialization](../sdk-initialization.md).
-
-For a disposable streaming verifier, pass `verificationDeadline` in the SDK
-options. Its signal bounds API calls across discovery continuations and caps
-document writer projections at 8 MiB. Logout can still revoke the session.
+For SQLite initialization, lifecycle methods, identity generation, and blob
+storage, see [SDK initialization](../sdk-initialization.md). For disposable
+verifiers, `verificationDeadline` bounds API calls across discovery and caps
+document writer projections at 8 MiB (logout still revokes the session);
+`automaticSessionRenewal: false` keeps one sign-in for a bounded command, and
+`streamingDownloads` controls streaming attachment downloads.

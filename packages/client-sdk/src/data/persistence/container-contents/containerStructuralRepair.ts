@@ -1,5 +1,9 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
+  NO_CREATE_INTENT_HOLD,
+  transitionCreateIntentHold,
+} from "../../containers/shared/createIntentHoldMachine";
+import {
   containers,
   inContainerIntentLanes,
   inLocalIntentLane,
@@ -221,6 +225,12 @@ export async function updateReparentedDescendantContainers(input: {
       await saveContainerCreateIntent({
         containerId: reparent.containerId,
         createIntent: { parentContainerId: reparent.parentContainerId },
+        hold: reparent.awaitParentListing
+          ? transitionCreateIntentHold(NO_CREATE_INTENT_HOLD, {
+              since: updatedAt,
+              type: "rehomedSystemSlot",
+            })
+          : NO_CREATE_INTENT_HOLD,
         tx,
         updatedAt,
       });
@@ -279,6 +289,8 @@ export async function reparentLocalContainerChildren(input: {
     await tx
       .update(localIntents)
       .set({
+        holdKind: null,
+        holdSince: null,
         id: crypto.randomUUID(),
         targetContainerId: toContainerId,
         updatedAt,

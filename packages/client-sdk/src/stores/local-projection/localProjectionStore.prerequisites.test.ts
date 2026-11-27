@@ -85,6 +85,7 @@ test("regaining the encapsulation key pair raises prerequisites-regained", async
       "hydrated",
       "owed-discovery",
       "prerequisites-regained",
+      "idle-backfill",
     ]);
   } finally {
     close();
@@ -121,7 +122,7 @@ test("a prerequisite regain before tree readiness is latched until hydration", a
     const containerIdsAtRegain: string[][] = [];
     store.onReconcileSignal((signal) => {
       signals.push(signal.reason);
-      if (signal.reason === "prerequisites-regained") {
+      if (signal.reason === "idle-backfill") {
         // The backfill this signal triggers enumerates containers from the
         // snapshot synchronously; it must already see the hydrated tree.
         containerIdsAtRegain.push(
@@ -149,10 +150,12 @@ test("a prerequisite regain before tree readiness is latched until hydration", a
     nodes = [cachedRoot];
     emitContainerStore();
 
-    // No connect attempt is pending, so the start also resumes owed lanes.
+    // No connect attempt is pending, so the regain's backfill is raised at
+    // once and the start also resumes owed lanes.
     expect(signals).toEqual([
       "hydrated",
       "prerequisites-regained",
+      "idle-backfill",
       "owed-discovery",
     ]);
     expect(containerIdsAtRegain).toEqual([["cached-root"]]);

@@ -39,6 +39,11 @@ export class ReconnectRefresh {
     );
   }
 
+  /** Whether that crawl's listing is in flight. */
+  get crawling(): boolean {
+    return this.state.status === "crawling";
+  }
+
   reset(type: "acknowledged" | "runtimeChanged" | "disposed"): void {
     clearTimeout(this.timer);
     this.timer = undefined;

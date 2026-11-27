@@ -3,6 +3,10 @@ import { createTestUser } from "@tearleads/test-utils";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  buildCreateRequest,
+  buildMetadataDocumentCreateRequest,
+} from "../../../test/helpers/containerCreateRequests";
 import { buildChildCreateRequest } from "../../../test/helpers/containerMutationArtifactKit";
 import {
   accessManifestFromContainerResponse,
@@ -187,4 +191,83 @@ test("duplicate signed system slots return a conflict", async () => {
   expect(responses.map((response) => response.status).sort()).toEqual([
     200, 409,
   ]);
+});
+
+test("a create for a taken system slot returns a final conflict without SQL", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const systemSlot = `sys_v1_${"e".repeat(43)}`;
+  const statuses: number[] = [];
+  let refusal: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const request = await buildChildCreateRequest({
+      root,
+      signer: owner,
+      systemSlot,
+    });
+    const response = await routeApp.request("/containers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${owner.token}`,
+      },
+      body: JSON.stringify(request),
+    });
+    statuses.push(response.status);
+    if (response.status === 409) refusal = await response.json();
+  }
+  expect(statuses).toEqual([200, 409]);
+  expect(refusal).toEqual({
+    error: "Container system slot is already taken",
+    systemSlotTaken: true,
+  });
+});
+
+test("a compound create for a taken system slot returns the same final conflict", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const systemSlot = `sys_v1_${"f".repeat(43)}`;
+  const statuses: number[] = [];
+  let refusal: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const containerId = crypto.randomUUID();
+    const container = await buildCreateRequest({
+      containerId,
+      parent: root.bundle,
+      parentKekState: root.kekState,
+      signer: owner,
+      systemSlot,
+    });
+    const response = await routeApp.request(
+      "/containers/with-metadata-document",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          systemSlot,
+          container,
+          metadataDocument: await buildMetadataDocumentCreateRequest({
+            containerId,
+            containerRequest: container,
+            parent: root.bundle,
+            signer: owner,
+          }),
+        }),
+      },
+    );
+    statuses.push(response.status);
+    if (response.status === 409) refusal = await response.json();
+  }
+  expect(statuses).toEqual([200, 409]);
+  expect(refusal).toEqual({
+    error: "Container system slot is already taken",
+    systemSlotTaken: true,
+  });
 });

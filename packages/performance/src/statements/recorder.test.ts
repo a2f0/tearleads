@@ -3,6 +3,7 @@ import {
   createStatementRecorder,
   defaultCaptureLimit,
   phaseFromConsole,
+  phaseStartFromConsole,
   readCaptureEnvironment,
 } from "./recorder";
 
@@ -78,6 +79,42 @@ test("numbers request scopes in the order they first send a statement", () => {
   ).toEqual([1, 2, undefined, 1]);
 });
 
+test("numbers transactions, records phase starts, and attaches route metadata", () => {
+  const { instance, records } = recorder();
+  const reqScope = {};
+  const txA = {};
+  const txB = {};
+  instance.phaseStart("sync");
+  instance.statement("select 1", [], reqScope, undefined);
+  instance.statement("select 2", [], reqScope, txA);
+  instance.statement("select 3", [], reqScope, txA);
+  instance.statement("select 4", [], reqScope, txB);
+  instance.requestScope(reqScope, {
+    method: "POST",
+    route: "/documents/{documentId}/sync",
+    status: 200,
+  });
+  instance.phaseEnd("sync", 1);
+  expect(records()).toEqual([
+    { phaseStart: "sync" },
+    { label: "test-0", sql: "select 1", params: 0, request: 1 },
+    { label: "test-0", sql: "select 2", params: 0, request: 1, tx: 1 },
+    { label: "test-0", sql: "select 3", params: 0, request: 1, tx: 1 },
+    { label: "test-0", sql: "select 4", params: 0, request: 1, tx: 2 },
+    {
+      requestScope: 1,
+      method: "POST",
+      route: "/documents/{documentId}/sync",
+      status: 200,
+    },
+    { phaseEnd: "sync", requests: 1 },
+  ]);
+  expect(
+    phaseStartFromConsole(['[dual-pane-request-phase-start] {"label":"sync"}']),
+  ).toBe("sync");
+  expect(phaseStartFromConsole(["[other]"])).toBeNull();
+});
+
 test("stops at the limit with one truncation record", () => {
   const { instance, records } = recorder({ limit: 2 });
   for (let index = 0; index < 5; index += 1)
@@ -101,6 +138,9 @@ test("reads phase ends from canary metrics lines only", () => {
   expect(phaseFromConsole([{ label: "p" }])).toBeNull();
   expect(
     phaseFromConsole(['[dual-pane-request-metrics] {"label":"p"}']),
+  ).toBeNull();
+  expect(
+    phaseFromConsole(['[dual-pane-request-metrics] {"label":']),
   ).toBeNull();
 });
 

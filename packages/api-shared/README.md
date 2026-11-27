@@ -14,7 +14,7 @@ never import each other. It stays below them and depends only on
 | `@tearleads/api-shared/postgres` | The database adapter, selected by `API_DATABASE` |
 | `@tearleads/api-shared/postgres-transport` | The Workers Postgres transport, without initializing a database |
 | `@tearleads/api-shared/schema` | Drizzle table definitions |
-| `@tearleads/api-shared/statement-observer` | Every statement the ORM sends, for measurement harnesses; it initializes no database |
+| `@tearleads/api-shared/statement-observer` | Every statement the ORM sends, for measurement harnesses: only `packages/performance` and tests may import it. It initializes no database |
 
 [`src/adapters`](src/adapters/) holds the PGlite (memory) and Postgres
 adapters, request-scoped transactions, and the statement counters behind the

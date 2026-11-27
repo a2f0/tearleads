@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { NO_CREATE_INTENT_HOLD } from "../../containers/shared/createIntentHoldMachine";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 import { DocumentMoveIntentRepository } from "./documentMoveIntentPersistence";
@@ -275,6 +276,78 @@ test("same-timestamp system repair gives every child intent a fresh revision", a
       expect(current.parentContainerId).toBe("remote-system");
       expect(current.updatedAt).toBe(SAME_UPDATED_AT);
     }
+  } finally {
+    close();
+  }
+});
+
+test("a root fold records the hold on a re-homed create that waits for its parent's listing", async () => {
+  const { close, execSql } = await createTestExecSql("root-repair-held-create");
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await saveContainer({
+      containerId: "local-root",
+      execSql,
+      parentContainerId: null,
+    });
+    await saveContainer({
+      containerId: "remote-root",
+      execSql,
+      parentContainerId: null,
+    });
+    for (const containerId of ["contacts", "folder"]) {
+      await saveContainerWithIntents({
+        containerId,
+        execSql,
+        parentContainerId: "local-root",
+      });
+    }
+
+    await sqlContainerContentsPersistence.reconcileLocalRootContainer(execSql, {
+      descendantReparents: [
+        {
+          awaitParentListing: true,
+          containerId: "contacts",
+          parentContainerId: "remote-root",
+          updateCreateIntent: true,
+        },
+        {
+          containerId: "folder",
+          parentContainerId: "remote-root",
+          updateCreateIntent: true,
+        },
+      ],
+      localRootContainerId: "local-root",
+      remoteOrganizationId: "organization",
+      remoteRootContainerId: "remote-root",
+      updatedAt: SAME_UPDATED_AT,
+    });
+
+    const creates =
+      await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
+    expect(
+      creates
+        .map(({ containerId, hold, lastError, parentContainerId }) => ({
+          containerId,
+          hold,
+          lastError,
+          parentContainerId,
+        }))
+        .sort((left, right) => (left.containerId < right.containerId ? -1 : 1)),
+    ).toEqual([
+      {
+        containerId: "contacts",
+        hold: { since: SAME_UPDATED_AT, status: "awaitingParentListing" },
+        lastError: null,
+        parentContainerId: "remote-root",
+      },
+      {
+        containerId: "folder",
+        hold: NO_CREATE_INTENT_HOLD,
+        lastError: null,
+        parentContainerId: "remote-root",
+      },
+    ]);
   } finally {
     close();
   }

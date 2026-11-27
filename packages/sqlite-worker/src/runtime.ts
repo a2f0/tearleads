@@ -13,6 +13,7 @@ import {
   type DatabaseRuntimeMessagePort,
   disconnectMessagePort,
 } from "./renewedClientTransport";
+import { portFromModuleSharedWorker } from "./sharedWorkerPort";
 import { workerCrashErrorFromEvent } from "./workerCrash";
 
 export {
@@ -140,37 +141,6 @@ function createModuleWorker(
   workerConstructor: ModuleWorkerConstructor = globalThis.Worker,
 ): ModuleWorkerLike {
   return new workerConstructor(workerUrl, { type: "module" });
-}
-
-function portFromModuleSharedWorker(
-  sharedWorker: ModuleSharedWorkerLike,
-): CloseableWorkerLike {
-  sharedWorker.port.start?.();
-
-  return {
-    postMessage(message) {
-      sharedWorker.port.postMessage(message);
-    },
-    addEventListener(type, listener) {
-      if (type === "error" && sharedWorker.addEventListener) {
-        sharedWorker.addEventListener(type, listener);
-        return;
-      }
-
-      sharedWorker.port.addEventListener(type, listener);
-    },
-    removeEventListener(type, listener) {
-      if (type === "error" && sharedWorker.removeEventListener) {
-        sharedWorker.removeEventListener(type, listener);
-        return;
-      }
-
-      sharedWorker.port.removeEventListener(type, listener);
-    },
-    close() {
-      sharedWorker.port.close();
-    },
-  };
 }
 
 function createModuleSharedWorkerPort(

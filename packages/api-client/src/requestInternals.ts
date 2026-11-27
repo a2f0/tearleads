@@ -24,6 +24,7 @@ import {
   peerFrontiersField,
   type RequestFailureHints,
   stalePrincipalHeadsField,
+  systemSlotTakenField,
 } from "./failureResponseHints";
 import type { RequestBody } from "./types";
 
@@ -158,6 +159,7 @@ function parsedErrorResponseDescription(
     ...stalePrincipalHeadsField(value, schema),
     ...peerFrontiersField(value, schema),
     ...baselineStageFields(value, schema),
+    ...systemSlotTakenField(value, schema),
     ...((code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
       code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysInaccessible) &&
     "requiredContainerIds" in value &&

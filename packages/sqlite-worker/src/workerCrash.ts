@@ -7,6 +7,8 @@
 // one the diagnostics allowlist admits — and a single, stable location that
 // tells "the database worker crashed" apart from every other database failure.
 
+import { DATABASE_TRANSACTION_REVOKED_MESSAGE } from "./types";
+
 const WORKER_CRASH_MESSAGE = "Database worker failed.";
 
 export interface WorkerCrashDetail {
@@ -41,10 +43,34 @@ const CONNECTION_LOST_DETAIL =
  * classifiers matching it.
  */
 export class DatabaseConnectionLostError extends DatabaseWorkerCrashError {
-  constructor() {
-    super({ message: CONNECTION_LOST_DETAIL });
+  constructor(detail: string = CONNECTION_LOST_DETAIL) {
+    super({ message: detail });
     this.name = "DatabaseConnectionLostError";
   }
+}
+
+/**
+ * The worker rolled back this client's transaction because the client sent
+ * nothing for the lease's idle bound while another connection waited, and
+ * retired its connection. A lost connection like any other: hosts open the
+ * database again. `detail` is the worker's answer, which names the database,
+ * how long the client was idle, and how many statements waited.
+ */
+export class DatabaseTransactionRevokedError extends DatabaseConnectionLostError {
+  constructor(detail: string) {
+    super(detail);
+    this.name = "DatabaseTransactionRevokedError";
+  }
+}
+
+/**
+ * The error a worker's refusal rejects its request with. A revocation is typed,
+ * so callers handle it as a lost connection rather than as their own failure.
+ */
+export function workerRefusalError(message: string): Error {
+  return message.startsWith(DATABASE_TRANSACTION_REVOKED_MESSAGE)
+    ? new DatabaseTransactionRevokedError(message)
+    : new Error(message);
 }
 
 export function isDatabaseConnectionLostError(

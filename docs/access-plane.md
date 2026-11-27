@@ -193,10 +193,14 @@ includes:
 - `containerId`
 - `organizationId`
 - `epoch`
+- `previousManifestHash`
+- `eventHash`
 - `parentContainerId`
 - `parentManifestHash`
 - `metadataDocumentId`
+- `systemSlot`
 - `containerKeyEpochId`
+- `containerKeyPublicKey`
 - `directGrants`
 - `referencedPrincipalHeads`
 
@@ -240,7 +244,8 @@ Blob encrypted bytes are also stored apart from
 The encrypted payload record commits to the blob id, content-key epoch,
 content-record id, metadata hash, nonce-domain hash, IV, suite, and ciphertext.
 The key package lives in blob content-key epoch/target rows and is returned by
-attachment listing or bind responses for authorized document readers.
+attachment listing responses for authorized document readers (bind responses
+acknowledge by hash).
 
 Attachment bind and detach mutations store signed access events and update the
 live `attachment_bindings` projection. Detached bindings are transient live
@@ -266,11 +271,15 @@ key-target material.
 
 Blob bind writes submit:
 
-- signed attachment event and body
-- verified document manifest
-- [authorizing container paths](./glossary/access.md#authorizing-container-path)
+- signed attachment event and body (the server resolves the current document
+  link-set manifest from its own store)
+- `authorizingContainerPathRefs`
+  ([authorizing container paths](./glossary/access.md#authorizing-container-path)
+  cited by `{containerId, manifestHash}`)
 - optional signed `containerRekeys[]`
 - blob content-key bundle
+- `documentVersionVector`, plus optional `processedThroughUpdateId` and
+  `documentSync`
 - optional staged blob write header
 
 [Blob stages](./glossary/content.md#blob-stage) are created through the

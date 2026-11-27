@@ -10,17 +10,21 @@ import {
   containerContentsSyncLane,
 } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
+import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { documentContainerProjection } from "../../data/sqlite/schema/documentProjectionSchema";
 import { documents } from "../../data/sqlite/schema/documentRecordSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
+import * as containerDocumentListing from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { laneApi } from "../../workflows/container-contents/documentDiscovery/documentDiscovery.testUtils";
+import * as documentLaneDiscovery from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import * as tombstoneEvidence from "../../workflows/container-contents/tombstones/documentTombstoneEvidence";
 import {
   type ContainerDocumentDiscoveryOutcome,
   discoverContainerDocumentLanesForRuntime,
 } from "./documentDiscovery";
+import * as owedRecordSyncs from "./owedRecordSyncs";
 
 const AT = "2026-10-14T00:00:00.000Z";
 const LANES = ["lane-a", "lane-b", "lane-c"] as const;
@@ -91,10 +95,12 @@ async function createLanes() {
     });
   const discover = (
     onOutcome?: (outcome: ContainerDocumentDiscoveryOutcome) => Promise<void>,
+    logError?: (message: string | Error, cause?: unknown) => void,
   ) => {
     const input = createWorkflowInputFixture({
       apiClient: laneApiFor(LANES) as never,
       execSql: native.execSql,
+      ...(logError ? { logError } : {}),
     });
     return discoverContainerDocumentLanesForRuntime({
       onOutcome,
@@ -189,6 +195,114 @@ test("a runtime lane whose verification fails leaves healthy lanes applied", asy
       documentIds: ["lane-a:doc", "lane-c:doc"],
       links: ["lane-a:doc@lane-a", "lane-c:doc@lane-c"],
     });
+  } finally {
+    native.close();
+  }
+});
+
+test("a lane request that cannot be settled is reported unless the database closed", async () => {
+  stubSignedHeads();
+  const { discover, native } = await createLanes();
+  try {
+    await documentLaneDiscovery.requestDocumentLaneListings(native.execSql, [
+      "lane-a",
+      "lane-b",
+    ]);
+    const failure = new Error("settle failed");
+    const spy = spyOn(
+      documentLaneDiscovery,
+      "settleOwedDocumentLaneListing",
+    ).mockImplementation(async (_execSql, owed) => {
+      throw owed.containerId === "lane-a"
+        ? new DatabaseUnavailableError("database closed")
+        : failure;
+    });
+    restorers.push(() => spy.mockRestore());
+    const logged: unknown[] = [];
+
+    const outcomes = await discover(undefined, (message, error) => {
+      logged.push([message, error]);
+    });
+
+    // Each listing applied all the same; only lane b's failure is news.
+    expect(outcomes.map(({ status }) => status)).toEqual([
+      "fulfilled",
+      "fulfilled",
+      "fulfilled",
+    ]);
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(logged).toEqual([["Document lane request settle failed", failure]]);
+  } finally {
+    native.close();
+  }
+});
+
+test("an owed read that cannot be requested is reported unless the database closed", async () => {
+  stubSignedHeads();
+  const { db, discover, native } = await createLanes();
+  try {
+    // Lanes a and b list a document this device holds under an older head,
+    // so each listing owes its record a read.
+    for (const id of ["lane-a", "lane-b"]) {
+      await db.insert(documents).values({
+        appKind: "documents",
+        contentKeyBundle: JSON.stringify({ linkSetManifestHash: "head:old" }),
+        documentId: `${id}:doc`,
+        localId: `local-${id}`,
+        updatedAt: AT,
+      });
+    }
+    const failure = new Error("owed read request failed");
+    const spy = spyOn(
+      owedRecordSyncs,
+      "requestRegisteredDocumentRemoteSyncs",
+    ).mockImplementation(async (_domainScope, _execSql, documentIds) => {
+      throw documentIds.includes("lane-a:doc")
+        ? new DatabaseUnavailableError("database closed")
+        : failure;
+    });
+    restorers.push(() => spy.mockRestore());
+    const logged: unknown[] = [];
+
+    const outcomes = await discover(undefined, (message, error) => {
+      logged.push([message, error]);
+    });
+    await Promise.resolve();
+
+    // The listings applied all the same; only lane b's failure is news.
+    expect(outcomes.map(({ status }) => status)).toEqual([
+      "fulfilled",
+      "fulfilled",
+      "fulfilled",
+    ]);
+    expect(spy.mock.calls.map(([, , documentIds]) => documentIds)).toEqual([
+      ["lane-a:doc"],
+      ["lane-b:doc"],
+    ]);
+    expect(logged).toEqual([
+      ["Owed document reads were not requested", failure],
+    ]);
+  } finally {
+    native.close();
+  }
+});
+
+test("a runtime listing is never answered from a request sent before it", async () => {
+  stubSignedHeads();
+  const { discover, native } = await createLanes();
+  try {
+    const spy = spyOn(
+      containerDocumentListing,
+      "listContainerDocumentLanesFromApi",
+    );
+    restorers.push(() => spy.mockRestore());
+
+    await discover();
+
+    // It settles lane requests, so it is a request of its own.
+    expect(spy.mock.calls.map(([, , , inFlight]) => inFlight)).toEqual([
+      "ownRequest",
+    ]);
   } finally {
     native.close();
   }

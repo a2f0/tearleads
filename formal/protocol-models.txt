@@ -48,6 +48,7 @@ formal/local-trust/MemberIdentityChain.tla|formal/local-trust/MemberIdentityChai
 formal/local-trust/MemberIdentityChain.tla|formal/local-trust/MemberIdentityChainDeeper.cfg
 formal/local-trust/RootDocumentPriming.tla|formal/local-trust/RootDocumentPriming.cfg
 formal/local-trust/SystemDestination.tla|formal/local-trust/SystemDestination.cfg
+formal/local-trust/SystemSlotFold.tla|formal/local-trust/SystemSlotFold.cfg
 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg
 formal/local-trust/ContainerCreateAdoption.tla|formal/local-trust/ContainerCreateAdoption.cfg
 formal/local-trust/ContainerMoveReplay.tla|formal/local-trust/ContainerMoveReplay.cfg
@@ -63,6 +64,7 @@ formal/local-trust/DocumentMovePlacement.tla|formal/local-trust/DocumentMovePlac
 formal/local-trust/PurgeRecovery.tla|formal/local-trust/PurgeRecovery.cfg
 formal/local-trust/SubtreePurgeScope.tla|formal/local-trust/SubtreePurgeScope.cfg
 formal/local-trust/SessionRetryIdentity.tla|formal/local-trust/SessionRetryIdentity.cfg
+formal/local-trust/TransactionLease.tla|formal/local-trust/TransactionLease.cfg
 formal/local-trust/PrincipalAcknowledgementRace.tla|formal/local-trust/PrincipalAcknowledgementRace.cfg
 formal/blob-attachments/AttachmentBindDocumentVersion.tla|formal/blob-attachments/AttachmentBindDocumentVersion.cfg
 formal/blob-attachments/PendingAttachmentDetach.tla|formal/blob-attachments/PendingAttachmentDetach.cfg
@@ -71,5 +73,6 @@ formal/blob-attachments/AttachmentRemovedSlotDetach.tla|formal/blob-attachments/
 formal/blob-attachments/StagePromotion.tla|formal/blob-attachments/StagePromotion.cfg
 formal/document-sync/SyncLaneConcurrency.tla|formal/document-sync/SyncLaneConcurrency.cfg
 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergence.cfg
+formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergenceProbe.cfg
 formal/document-sync/SharedDatabaseListing.tla|formal/document-sync/SharedDatabaseListing.cfg
 formal/document-sync/DocumentLanePolling.tla|formal/document-sync/DocumentLanePolling.cfg

@@ -30,7 +30,12 @@ that arrives while the start waits lists each owed lane once, in its
 catch-up; the resume lists them when the attempt ends without one or none
 was pending. That is all the deferral promises: once the resume has run, a
 connection that starts or is acknowledged later is a new catch-up and may
-list any lane again, which the model allows.
+list any lane again, which the model allows. The regain at a start also
+queues every known lane for an idle backfill, and that backfill waits for a
+pending attempt the same way, through the same transition
+(`transitionConnectAttemptWait`); it is raised behind the acknowledgement's
+catch-up, which takes the queued lanes over, so it adds no listing the model
+does not already make.
 
 Issue #3255 was this gap. The reload that follows an identity restore cut the
 sign-in boot short after its one listing named every lane but before the
@@ -44,7 +49,7 @@ The seams of [`DiscoveryLaneResumption.tla`](./DiscoveryLaneResumption.tla):
 | `ResumeOwed` / `Owed` | the owed-discovery signal, which `connectReconciliationTriggers` maps to `resumeOwedDiscovery`, queueing `listOwedDocumentLaneContainerIds` at idle priority |
 | `Connect` | `beginConnectAttempt`, which sets `serverEventsPendingConnectAttempt` |
 | `Acknowledge` | `setConnected` advancing `serverEventsConnectionGeneration`; the connection-acknowledged signal runs `reconcileAcknowledgedConnection`, whose `sweepKnownContainers` lists every owed lane |
-| `AttemptEnds` | `endConnectAttempt` clearing the pending attempt; the runtime event of `transitionOwedDiscoveryResume` then resumes a waiting start |
+| `AttemptEnds` | `endConnectAttempt` clearing the pending attempt, or the app's acknowledgement deadline doing so; the runtime event of `transitionOwedDiscoveryResume`, decided by `transitionConnectAttemptWait`, then resumes a waiting start |
 | `Disconnect` | `setConnected` with false |
 | `BeginListing` | `discoverContainerDocumentLanes` paging every lane through `listAllContainerDocumentLanes` |
 | `ApplyLane` | `applyListedContainerDocuments`: `verifyDiscoveredDocuments`, the projection upserts, then `recordContainerDocumentListing` writing the cursor and the settled mark in one `recordLaneFetch` statement |

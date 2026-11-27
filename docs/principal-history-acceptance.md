@@ -34,11 +34,13 @@ replace private runtime recovery.
 ## Reproduction
 
 [Build the SDK](./developer/client-sdk/public-api.md#package-contract) before
-API tests. Initialize a dedicated PostgreSQL database with
-[`packages/api-shared/drizzle/0000_greenfield_baseline.sql`](../packages/api-shared/drizzle/0000_greenfield_baseline.sql),
-then from [`packages/api`](../packages/api/) run:
+API tests. From [`packages/api`](../packages/api/), apply the PostgreSQL
+migrations in [`packages/api-shared/drizzle/`](../packages/api-shared/drizzle/)
+to a dedicated database and run the acceptance test:
 
 ```sh
+API_DATABASE=postgres DATABASE_URL=postgres://localhost:5432/<fixture-db> \
+  bun run db:migrate
 API_DATABASE=postgres DATABASE_URL=postgres://localhost:5432/<fixture-db> \
   PRINCIPAL_HISTORY_ISOLATED_SERVER=1 \
   bun test test/slow/principalHistoryAvailability.test.ts

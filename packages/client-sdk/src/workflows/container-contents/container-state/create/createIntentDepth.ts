@@ -1,20 +1,24 @@
-import { CONTAINER_PATH_TOO_DEEP_MESSAGE } from "../../../../data/containers/shared/containerPathLimits";
+import { transitionCreateIntentHold } from "../../../../data/containers/shared/createIntentHoldMachine";
 import { localChildPathFits } from "../localPathDepth";
 import type { ContainerCreateIntentSyncInput } from "../types";
 
-/** Record the depth refusal once; the intent then waits for a local move. */
+/** Record the depth hold once; the intent then waits for a local move. */
 async function recordTooDeepCreate(
   input: ContainerCreateIntentSyncInput,
 ): Promise<void> {
   const { intent, state } = input;
-  if (intent.lastError === CONTAINER_PATH_TOO_DEEP_MESSAGE) return;
-  await state.persistence.recordCreateIntentRevisionError(
+  if (intent.hold.status === "pathTooDeep") return;
+  const nextHold = transitionCreateIntentHold(intent.hold, {
+    type: "pathTooDeep",
+  });
+  if (nextHold.status === "none") return;
+  await state.persistence.recordCreateIntentRevisionHold(
     state.runtime.infra.execSql,
     {
       containerId: intent.containerId,
       expectedIntentId: intent.id,
       expectedUpdatedAt: intent.updatedAt,
-      message: CONTAINER_PATH_TOO_DEEP_MESSAGE,
+      hold: nextHold,
       stillCurrent: input.isCurrent,
     },
   );
@@ -23,7 +27,7 @@ async function recordTooDeepCreate(
 /**
  * A create already refused for path length, or whose path is too deep here,
  * can never succeed, so waiting costs no request. Re-queuing the folder under
- * another parent (a local move) clears the recorded refusal and re-arms it.
+ * another parent (a local move) clears the recorded hold and re-arms it.
  * Returns whether the create was deferred.
  */
 export async function deferTooDeepCreate(
@@ -31,7 +35,7 @@ export async function deferTooDeepCreate(
 ): Promise<boolean> {
   const { intent, state } = input;
   if (
-    intent.lastError !== CONTAINER_PATH_TOO_DEEP_MESSAGE &&
+    intent.hold.status !== "pathTooDeep" &&
     localChildPathFits(state.containersById, intent.parentContainerId)
   ) {
     return false;
@@ -43,7 +47,7 @@ export async function deferTooDeepCreate(
 /** Record a refusal from the verified plan or the API; it is final too. */
 export async function recordRefusedTooDeepCreate(
   input: ContainerCreateIntentSyncInput,
-): Promise<"blocked"> {
+): Promise<"parked"> {
   await recordTooDeepCreate(input);
-  return "blocked";
+  return "parked";
 }

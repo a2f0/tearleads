@@ -33,7 +33,6 @@ import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
 } from "../../workflows/container-contents";
-import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { listOwedDocumentLaneContainerIds } from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
 import {
@@ -48,6 +47,7 @@ import {
 } from "./discoveredDocumentPrimer";
 import {
   createListingCoverageHost,
+  createProbeLaneListing,
   installDocumentListingAuthority,
   listReconcilableContainerIds,
 } from "./listingCoverageHost";
@@ -114,21 +114,28 @@ function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
 function createInitialDocumentProbeHost(
   runtimeService: InternalRuntime,
   domainScope: ReconciliationHost["domainScope"],
+  store: LocalProjectionStore,
 ): Pick<
   ReconciliationHost,
   | "listContainerDocumentIds"
   | "probeUndiscoveredDocumentsBatch"
   | "reportInitialDocumentProbeComplete"
 > {
+  const syncPauses = getOrCreateOrganizationSyncPauses(domainScope);
   return {
-    listContainerDocumentIds: (containerIds) => {
-      const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
-      return listAllContainerDocumentIdsFromApi({
-        apiClient: runtime.apiClient,
-        containerIds,
-        reportErrors: false,
-      });
-    },
+    listContainerDocumentIds: createProbeLaneListing(
+      runtimeService,
+      domainScope,
+      {
+        isContainerPaused: (containerId) => {
+          const container = store
+            .getSnapshot()
+            .containers.find((node) => node.id === containerId);
+          return !container || syncPauses.isContainerPaused(container);
+        },
+        loadSyncPauses: (execSql) => syncPauses.load(execSql),
+      },
+    ),
     probeUndiscoveredDocumentsBatch: async (input) => {
       const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
       return probeUndiscoveredRemoteDocumentBatch({
@@ -402,7 +409,7 @@ class DeviceFirstService implements DeviceFirst {
       applyReconciled: (delta) => store.applyReconciled(delta),
       requestDocumentContentPull,
       ...createListingCoverageHost(runtimeService, domainScope),
-      ...createInitialDocumentProbeHost(runtimeService, domainScope),
+      ...createInitialDocumentProbeHost(runtimeService, domainScope, store),
       refreshTree: () =>
         refreshContainerTree((onListingUnavailable) =>
           store.getContainerStore().refresh({ onListingUnavailable }),

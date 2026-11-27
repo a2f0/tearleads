@@ -264,3 +264,37 @@ export function awaitingCrawl(input: {
   service.start();
   return { ...fixture, crawl, service };
 }
+
+/** A lane on the scope's coordinator that records each request to run. */
+export function recordingLane(
+  wakes: string[],
+  options?: {
+    readonly onRequestSyncAfter?: (delayMs: number, runNow: () => void) => void;
+  },
+): Partial<ReconciliationHost> {
+  const domainScope = createDomainScope();
+  return {
+    domainScope,
+    registerLane: (key, config) => {
+      const lane = getOrCreateDomainSyncCoordinator(domainScope).registerLane(
+        key,
+        config,
+      );
+      return {
+        ...lane,
+        requestSync: () => {
+          wakes.push("now");
+          lane.requestSync();
+        },
+        requestSyncAfter: (delayMs) => {
+          wakes.push(`after ${delayMs} ms`);
+          if (options?.onRequestSyncAfter) {
+            options.onRequestSyncAfter(delayMs, () => lane.requestSync());
+          } else {
+            lane.requestSyncAfter(delayMs);
+          }
+        },
+      };
+    },
+  };
+}

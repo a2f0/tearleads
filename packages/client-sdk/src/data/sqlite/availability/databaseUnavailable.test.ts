@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import {
   DatabaseUnavailableError,
+  isDatabaseTransactionBusyError,
   isDatabaseUnavailableError,
 } from "./databaseUnavailable";
 
@@ -53,4 +55,25 @@ test("isDatabaseUnavailableError does not swallow keying failures", () => {
       ),
     ),
   ).toBe(false);
+});
+
+test("isDatabaseTransactionBusyError finds the worker's refusal through its wrappers", () => {
+  const busy = new Error(DATABASE_TRANSACTION_BUSY_MESSAGE);
+  expect(isDatabaseTransactionBusyError(busy)).toBe(true);
+  expect(
+    isDatabaseTransactionBusyError(
+      new Error("Failed query: SELECT 1", { cause: busy }),
+    ),
+  ).toBe(true);
+  // A busy database is open and will serve the work: not "unavailable", whose
+  // callers wait for the database to come back instead of retrying.
+  expect(isDatabaseUnavailableError(busy)).toBe(false);
+  expect(isDatabaseTransactionBusyError(new Error("no such table: t"))).toBe(
+    false,
+  );
+  expect(isDatabaseTransactionBusyError("a foreign string throw")).toBe(false);
+
+  const cycle = new Error("cyclic");
+  Object.defineProperty(cycle, "cause", { value: cycle });
+  expect(isDatabaseTransactionBusyError(cycle)).toBe(false);
 });

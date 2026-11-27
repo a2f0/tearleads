@@ -386,6 +386,7 @@ export async function runContainerContentsStoreSyncIteration(
     isCurrent,
     isRemoteSyncBlocked: isOrganizationBlocked,
     requestRemoteReconciliation,
+    requestSyncAfter: (delayMs) => state.syncLane?.requestSyncAfter(delayMs),
     state,
   });
   if (!isCurrent()) {

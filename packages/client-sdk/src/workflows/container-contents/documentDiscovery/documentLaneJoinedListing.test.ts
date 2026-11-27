@@ -120,3 +120,27 @@ test("a listing that settles a request never joins one sent before it", async ()
     ).listOwedContainerIds(),
   ).toEqual(new Set());
 });
+
+test("only a listing that may join one in flight shares its request", async () => {
+  const api = serveListings();
+  const lanes = [{ containerId: CONTAINER_ID, watermark: null }];
+  const list = (inFlight: "mayJoin" | "ownRequest") =>
+    listContainerDocumentLanesFromApi(api.apiClient, lanes, true, inFlight);
+
+  // Two identical probe listings while the first is in flight: one request.
+  const first = list("mayJoin");
+  await api.firstReceived;
+  const joined = list("mayJoin");
+  // A listing that must be its own request is sent beside them and answers
+  // while the first request is still held.
+  const own = list("ownRequest");
+  try {
+    expect(await own).toHaveLength(1);
+    expect(api.received()).toBe(2);
+  } finally {
+    api.answerFirst();
+  }
+  await Promise.all([first, joined]);
+
+  expect(api.received()).toBe(2);
+});

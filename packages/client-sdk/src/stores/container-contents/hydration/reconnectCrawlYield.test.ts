@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { RemoteContainerHydrationHost } from "../../../workflows/container-contents/remoteHydration";
-import { releaseSettledConnectAttemptWaits } from "./connectAttemptGate";
+import { ConnectAttemptGate } from "./connectAttemptGate";
 import {
   requestContainerContentsRemoteHydration,
   resumeContainerContentsRecoveryHydration,
@@ -79,6 +79,19 @@ function createRegainedStore(pendingConnectAttempt?: number) {
     snapshot: { ready: true },
     structuralGeneration: 0,
   } as unknown as RequestState;
+  // The reconnect crawl the acknowledgement owes is never started here.
+  const reconnectRefresh = {
+    crawling: false,
+    get owesCrawl() {
+      return connection.reconnectCrawlOwed;
+    },
+  };
+  state.connectAttemptGate = new ConnectAttemptGate(
+    { reconnectRefresh, runtime: state.runtime },
+    () => undefined,
+  );
+  /** A runtime update: the store observes its connection. */
+  const observe = () => state.connectAttemptGate?.observe();
   const host = {
     persistContainerState: async () => {
       throw new Error("an empty root lane persists no container");
@@ -102,12 +115,12 @@ function createRegainedStore(pendingConnectAttempt?: number) {
     connection.pendingConnectAttempt = undefined;
     connection.reconnectCrawlOwed = true;
     state.structuralGeneration += 1;
-    releaseSettledConnectAttemptWaits(state);
+    observe();
   };
   const settle = async () => {
     for (let turn = 0; turn < 20; turn += 1) await Bun.sleep(1);
   };
-  return { acknowledge, connection, crawl, releases, settle, state };
+  return { acknowledge, connection, crawl, observe, releases, settle, state };
 }
 
 test("a regained crawl superseded by an acknowledgement is not retried", async () => {
@@ -164,7 +177,7 @@ test("a regained crawl lists once its connect attempt ends unacknowledged", asyn
   expect(store.releases).toHaveLength(0);
 
   store.connection.pendingConnectAttempt = undefined;
-  releaseSettledConnectAttemptWaits(store.state);
+  store.observe();
   await store.settle();
   expect(store.releases).toHaveLength(1);
   store.releases[0]?.();
@@ -196,7 +209,7 @@ test("a held crawl holds no other request back", async () => {
 
   // The attempt ends unacknowledged: the held crawl now lists too.
   store.connection.pendingConnectAttempt = undefined;
-  releaseSettledConnectAttemptWaits(store.state);
+  store.observe();
   await store.settle();
   expect(store.releases).toHaveLength(2);
   store.releases[1]?.();
@@ -212,7 +225,7 @@ test("a held crawl superseded without an acknowledgement lists in the new genera
   // and then the attempt ends: no acknowledged crawl is owed.
   store.state.structuralGeneration += 1;
   store.connection.pendingConnectAttempt = undefined;
-  releaseSettledConnectAttemptWaits(store.state);
+  store.observe();
   await store.settle();
   expect(store.releases).toHaveLength(1);
   store.releases[0]?.();
@@ -228,7 +241,7 @@ test("a held crawl superseded while a new attempt is pending waits for it", asyn
   // a new attempt replaces the one the crawl waited on.
   store.state.structuralGeneration += 1;
   store.connection.pendingConnectAttempt = 8;
-  releaseSettledConnectAttemptWaits(store.state);
+  store.observe();
   await store.settle();
   expect(store.releases).toHaveLength(0);
 

@@ -25,6 +25,7 @@ export type RequestFailureHints = Pick<
   | "peerFrontiers"
   | "requiredContainerIds"
   | "stalePrincipalHeads"
+  | "systemSlotTaken"
 >;
 
 // Container mutations and document sync with inline container rekeys can
@@ -91,6 +92,18 @@ export function baselineStageFields(
   };
 }
 
+// A container create refused because its organization already holds the
+// system slot. Final for that create; the client folds its copy instead.
+export function systemSlotTakenField(
+  value: object,
+  schema?: FailureResponseSchema,
+) {
+  return schema === ContainerMutationFailureResponseSchema &&
+    Reflect.get(value, "systemSlotTaken") === true
+    ? { systemSlotTaken: true as const }
+    : {};
+}
+
 /** A failure's recovery hints, each set only when its body carried it. */
 export function requestFailureHints(
   input: RequestFailureHints,
@@ -110,5 +123,6 @@ export function requestFailureHints(
       ? {}
       : { nextSegmentIndex: input.nextSegmentIndex }),
     ...(input.openStages ? { openStages: input.openStages } : {}),
+    ...(input.systemSlotTaken ? { systemSlotTaken: true } : {}),
   };
 }

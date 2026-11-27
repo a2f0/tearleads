@@ -4,7 +4,6 @@ import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence
 import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { isDatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
-import { requestRegisteredDocumentRemoteSyncs } from "../../stores/documents/registry";
 import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { createDiscoveredDocumentVerifier } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryEvidence";
 import {
@@ -33,6 +32,7 @@ import {
   type PrincipalPolicyOperation,
 } from "../../workflows/principals/principalPolicyService";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
+import { requestRegisteredDocumentRemoteSyncs } from "./owedRecordSyncs";
 
 export type { ContainerDocumentDiscoveryOutcome } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryLanes";
 
@@ -47,12 +47,26 @@ export interface ContainerDocumentDiscoveryRequest {
 
 type ExecSql = ReturnType<InternalRuntime["workflowInput"]>["infra"]["execSql"];
 
+/**
+ * Reports a failure the listing does not wait on, unless the database closed
+ * under it: the runtime is going away, and the next one reads what is owed.
+ */
+function reportUnlessDatabaseClosed(
+  logError: (message: string, error: unknown) => void,
+  message: string,
+): (error: unknown) => void {
+  return (error) => {
+    if (!isDatabaseUnavailableError(error)) logError(message, error);
+  };
+}
+
 function createDiscoveryLane(input: {
   readonly containerOrganizationId: string | undefined;
   readonly isContainerPaused: () => boolean;
   readonly evidenceStore: DocumentDiscoveryEvidenceRepository;
   readonly execSql: ExecSql;
   readonly holdRepository: ContainerDocumentTombstoneHoldRepository;
+  readonly logError: (message: string, error: unknown) => void;
   /** The discovery pass's token: its lanes share one directory discovery. */
   readonly policyOperation: PrincipalPolicyOperation;
   readonly queries: ReturnType<
@@ -84,13 +98,20 @@ function createDiscoveryLane(input: {
           })
         : Promise.resolve(),
     containerId: request.containerId,
-    // The debts are durable by now. A registered store probes at once; one
-    // that opens later reads its document's debt when it loads.
-    onDocumentReadsOwed: (documentIds) =>
-      requestRegisteredDocumentRemoteSyncs(
+    // The debts are durable by now. A loaded store whose own record owes
+    // probes at once; one that loads later reads its record's debt itself.
+    onDocumentReadsOwed: (documentIds) => {
+      void requestRegisteredDocumentRemoteSyncs(
         runtime.state.domainScope,
+        execSql,
         documentIds,
-      ),
+      ).catch(
+        reportUnlessDatabaseClosed(
+          input.logError,
+          "Owed document reads were not requested",
+        ),
+      );
+    },
     listHeldContainerDocumentTombstones: (containerIds) =>
       holdRepository.listRetryableHeldContainerDocumentTombstones(containerIds),
     listKnownContainerDocumentPlacements: (placements) =>
@@ -176,6 +197,7 @@ export async function discoverContainerDocumentLanesForRuntime({
           evidenceStore,
           execSql,
           holdRepository,
+          logError: input.util.logError,
           policyOperation,
           queries,
           request,
@@ -186,16 +208,23 @@ export async function discoverContainerDocumentLanesForRuntime({
   const outcomes = await discoverContainerDocumentLanes({
     generation,
     lanes,
+    // A listing settles lane requests and acknowledges hints: it is never
+    // answered from a request sent before it.
     listContainerDocumentLanes: (listed) =>
-      listContainerDocumentLanesFromApi(runtime.apiClient, listed),
+      listContainerDocumentLanesFromApi(
+        runtime.apiClient,
+        listed,
+        true,
+        "ownRequest",
+      ),
     loadContainerDocumentWatermark: queries.loadContainerDocumentWatermark,
     loadOwedLaneListings: (containerIds) =>
       findOwedDocumentLaneListings(execSql, containerIds),
     onOutcome,
-    reportSettleFailure: (error) => {
-      if (isDatabaseUnavailableError(error)) return;
-      input.util.logError("Document lane request settle failed", error);
-    },
+    reportSettleFailure: reportUnlessDatabaseClosed(
+      input.util.logError,
+      "Document lane request settle failed",
+    ),
     settleOwedLaneListing: (owed) =>
       settleOwedDocumentLaneListing(execSql, owed),
   });

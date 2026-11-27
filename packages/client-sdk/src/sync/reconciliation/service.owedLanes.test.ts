@@ -135,7 +135,9 @@ test("a catch-up that cannot read what is owed lists every known lane", async ()
   await service.reconcileAcknowledgedConnection();
 
   expect(listings).toEqual([[...KNOWN]]);
-  expect(errors).toEqual([failure]);
+  // The release of lanes already owed and the plan each read it, and each
+  // reports the failure.
+  expect(errors).toEqual([failure, failure]);
   service.stop();
 });
 
@@ -231,8 +233,9 @@ test("a refresh runs beside a catch-up that waits on its crawl", async () => {
   await service.reconcileNow();
   expect(listings).toEqual([[...KNOWN]]);
 
-  // Once the wait is over nothing vouches for the catch-up's lanes.
+  // Once the wait is over no crawl vouches for the catch-up's lanes, but the
+  // refresh listed each of them after the acknowledgement.
   clock.advance(TREE_CRAWL_WAIT_MS);
   await catchUp;
-  expect(listings).toEqual([[...KNOWN], [...KNOWN]]);
+  expect(listings).toEqual([[...KNOWN]]);
 });

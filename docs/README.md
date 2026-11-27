@@ -19,8 +19,11 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 - [Access plane](access-plane.md): signed
   [access events](./glossary/access.md#access-event), manifests, and
   [effective access](./glossary/access.md#effective-access).
-- [Client SDK](developer/client-sdk.md): the SDK's public API and runtime.
-- [SQLite setup for SDK hosts](developer/sqlite-setup.md).
+- [Client SDK](developer/client-sdk.md): the SDK's public API and runtime,
+  including [initialization](developer/sdk-initialization.md) and
+  [primary-only reads](developer/primary-only-reads.md).
+- [SQLite setup for SDK hosts](developer/sqlite-setup.md) and
+  [backup and restore](backup-and-restore.md).
 - [Choosing a document creation API](developer/document-creation.md).
 - [Container views](developer/container-views.md): primary documents, reusable
   renderers and list fallback.
@@ -35,11 +38,14 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 
 - [Keying design](keying-design.md):
   [access manifests](./glossary/access.md#access-manifest) and the
-  [container KEK](./glossary/keys.md#container-kek) hierarchy.
+  [container KEK](./glossary/keys.md#container-kek) hierarchy; see also
+  [how re-keying works](re-keying.md).
 - [Cipher suites](cipher-suites.md): cryptographic primitives and where they
   apply.
 - [Keying onboarding](container-dek-onboarding.md): registration's identity and
-  access bootstrap.
+  access bootstrap, plus the
+  [registration artifact batch](developer/registration-artifact-batch.md)
+  benchmark.
 - [Durable user identity trust](developer/trusted-user-identity.md).
 - [Organization memberships](organization-memberships.md).
 - [Historical policy evidence](projection-policy-evidence.md) in
@@ -106,7 +112,8 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 ## Operations
 
 - [Infrastructure and deployment](developer/infrastructure.md).
-- [Environment reset](developer/greenfield-reset.md) and
+- [Environment reset](developer/greenfield-reset.md),
+  [soft-reset drift](developer/soft-reset-drift.md), and
   [reset releases](developer/greenfield-reset-releases.md).
 - [Root operator API](root-operator-api.md).
 - [Private error diagnostics](developer/sentry.md) and
@@ -120,7 +127,9 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
   [CI and merge requirements](developer/ci-merge-gate.md).
 - [Dependency maintenance](dependency-upgrades.md) and
   [dependency audit policy](developer/dependency-audit.md).
-- [Test optimization findings](developer/test-optimization.md).
+- [Test optimization findings](developer/test-optimization.md),
+  [combined efficiency audits](developer/combined-efficiency-audits.md), and
+  [audit usage receipts](developer/audit-usage-receipts.md).
 - [Multi-party keying scenarios](../packages/bob-and-alice/README.md): real
   SDK clients against the real API, checked against a reference access model.
 - [Local Scope evaluations](developer/scope.md) and the

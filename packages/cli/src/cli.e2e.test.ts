@@ -65,13 +65,16 @@ test("login verifies and saves the key; later commands sign in with it", async (
   output.stdout.length = 0;
   expect(await runCli(["ls"], context)).toBe(0);
   expect(output.stderr).toEqual([]);
-  // Registration provisions the root and two system folders; all three load
-  // before `ls` prints.
-  expect(output.stdout).toHaveLength(3);
+  // Registration provisions the root, its Roster Profiles and Organization
+  // Metadata folders, and the app's Trash; all four load before `ls` prints.
+  expect(output.stdout).toHaveLength(4);
   expect(output.stdout[0]).toEndWith(`  ${account.rootContainerId}`);
   expect(
     output.stdout.filter((line) => line.includes("[system]")),
-  ).toHaveLength(2);
+  ).toHaveLength(3);
+  expect(
+    output.stdout.filter((line) => line.includes("Trash [system]")),
+  ).toHaveLength(1);
 }, 60_000);
 
 test("each command revokes the session it opened", async () => {

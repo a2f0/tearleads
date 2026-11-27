@@ -138,6 +138,20 @@ export const DATABASE_NOT_INITIALIZED_MESSAGE =
 export const DATABASE_DELETED_MESSAGE =
   "Database was deleted by another connection.";
 
+// The worker's answer to a statement that waited the transaction lease's bound
+// while another connection held a transaction on the same database. The
+// statement did not run, and the next one is accepted once the lease is free.
+export const DATABASE_TRANSACTION_BUSY_MESSAGE =
+  "Another connection held a transaction on this database; the statement did not run.";
+
+// The start of the worker's answer to every statement on a connection whose
+// transaction it rolled back because the connection sent nothing for the
+// lease's idle bound while another connection waited. The connection stays
+// retired until it opens the database again; the cross-tab coordinator
+// matches this prefix to retire the client.
+export const DATABASE_TRANSACTION_REVOKED_MESSAGE =
+  "This connection's transaction was rolled back after it sat idle while another connection waited. Open the database again.";
+
 // Posted unprompted on each other connection to a database the moment one
 // connection deletes it, so a client learns of the delete before its owner tab
 // can go away, even when it sends nothing in between.

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { CREATE_INTENT_HOLD_KINDS } from "../../../data/containers/shared/createIntentHoldMachine";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -330,6 +331,90 @@ test("retry keeps a failure-only row and clears it with queued work", async () =
     expect(
       cleared.find((item) => item.localId === "local-document"),
     ).toMatchObject({ status: "pending" });
+  } finally {
+    close();
+  }
+});
+
+test.each([
+  [CREATE_INTENT_HOLD_KINDS.awaitingParentListing, "awaiting-parent-listing"],
+  [CREATE_INTENT_HOLD_KINDS.slotTaken, "slot-taken"],
+  [CREATE_INTENT_HOLD_KINDS.pathTooDeep, "path-too-deep"],
+] as const)(
+  "a held create intent surfaces as blocked with its typed reason: %s",
+  async (holdKind, blockedReason) => {
+    const { close, execSql } = await createTestExecSql(
+      "pending-writes-held-system-create",
+    );
+    try {
+      await ensurePendingWriteSchema(execSql);
+      await execSql(
+        `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, intent_type, sync_status,
+        hold_kind, hold_since, last_error, created_at, updated_at
+      ) VALUES (?, 'container.create', ?, ?, 'container.create', 'pending', ?, ?, NULL, ?, ?)`,
+        [
+          "create-contacts",
+          "local-contacts",
+          "account-root",
+          holdKind,
+          holdKind === CREATE_INTENT_HOLD_KINDS.awaitingParentListing
+            ? T1
+            : null,
+          T0,
+          T1,
+        ],
+      );
+
+      const items = await listPendingWrites(execSql);
+      const contacts = items.find((item) => item.localId === "local-contacts");
+      expect(contacts).toMatchObject({ status: "blocked" });
+      expect(contacts?.operations).toEqual([
+        expect.objectContaining({
+          blockedReason,
+          kind: "create",
+          lastError: null,
+          status: "blocked",
+        }),
+      ]);
+    } finally {
+      close();
+    }
+  },
+);
+
+test("a create intent with real error text and no hold surfaces as error, not blocked", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "pending-writes-create-real-error",
+  );
+  try {
+    await ensurePendingWriteSchema(execSql);
+    await execSql(
+      `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, intent_type, sync_status,
+        hold_kind, hold_since, last_error, created_at, updated_at
+      ) VALUES (?, 'container.create', ?, ?, 'container.create', 'pending', NULL, NULL, ?, ?, ?)`,
+      [
+        "create-folder",
+        "local-folder",
+        "account-root",
+        "Container create waits for a listing of its parent",
+        T0,
+        T1,
+      ],
+    );
+
+    const items = await listPendingWrites(execSql);
+    const folder = items.find((item) => item.localId === "local-folder");
+    expect(folder).toMatchObject({ status: "error" });
+    expect(folder?.operations).toEqual([
+      expect.objectContaining({
+        kind: "create",
+        lastError: "Container create waits for a listing of its parent",
+        status: "pending",
+      }),
+    ]);
+    expect(folder?.operations[0]?.blockedReason).toBeUndefined();
   } finally {
     close();
   }

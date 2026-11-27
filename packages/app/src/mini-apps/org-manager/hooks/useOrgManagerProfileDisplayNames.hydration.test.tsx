@@ -4,6 +4,8 @@ import {
   getRosterProfileDocumentLocalId,
   type OrganizationDirectory,
 } from "@tearleads/client-sdk";
+import { DATABASE_BUSY_RUN_LIMIT } from "@tearleads/client-sdk/sqlite";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { getRosterProfileHydrationLocalId } from "../../../stores/org-manager/rosterProfileHydration";
 import { MAX_ROSTER_PROFILE_PULL_FAILURES } from "../../../stores/org-manager/rosterProfilePullLedger";
@@ -267,6 +269,42 @@ test("a profile that keeps failing goes last, then waits for a new session", asy
     "profile-document-1",
   ]);
 });
+
+// #3360: a pull the worker refuses behind another tab's transaction is not the
+// profile's failure. It spends none of the profile's budget and stops the pass,
+// which resumes at that profile once a pause ends, without another load.
+test("a profile refused as busy is pulled again in the same load, then the rest", async () => {
+  const harness = createTearleadsHarness();
+  let refusals = 2 * DATABASE_BUSY_RUN_LIMIT;
+  const busyPull = mock((_signal?: AbortSignal) => {
+    refusals -= 1;
+    return refusals >= 0
+      ? Promise.reject(new Error(DATABASE_TRANSACTION_BUSY_MESSAGE))
+      : Promise.resolve(true);
+  });
+  harness.open.mockImplementation((input: object) => ({
+    requestRemoteSyncAndWait:
+      Reflect.get(input, "documentId") === "profile-document-0"
+        ? busyPull
+        : harness.requestRemoteSyncAndWait,
+    requestSync: harness.requestSync,
+  }));
+  renderDisplayNames({ activeDirectory: directory(rosterUsers(2)), harness });
+
+  await waitFor(() =>
+    expect(busyPull).toHaveBeenCalledTimes(DATABASE_BUSY_RUN_LIMIT),
+  );
+  // The refusal holds the whole database, so the pass stops at that profile.
+  expect(harness.requestRemoteSyncAndWait).not.toHaveBeenCalled();
+  await waitFor(
+    () => expect(harness.requestRemoteSyncAndWait).toHaveBeenCalledTimes(1),
+    { timeout: 6_000 },
+  );
+  expect(busyPull).toHaveBeenCalledTimes(2 * DATABASE_BUSY_RUN_LIMIT + 1);
+  // Refusals stay in the local log and out of diagnostics.
+  expect(harness.log).toHaveBeenCalledTimes(2);
+  expect(harness.logError).not.toHaveBeenCalled();
+}, 10_000);
 
 test("a member who is not an admin pulls no roster profiles", async () => {
   const harness = createTearleadsHarness();

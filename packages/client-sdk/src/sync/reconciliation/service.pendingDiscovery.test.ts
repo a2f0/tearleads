@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { type CatchUpState, IDLE_CATCH_UP } from "./catchUpMachine";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import { reconcileMarkedContainers } from "./knownContainerSweep";
 import { createReconcileQueue } from "./queue";
@@ -68,6 +69,7 @@ test("a pending discovery for the open container retries ahead of idle work", as
     active: true,
     activeContainerId: "open",
     automaticRetryGenerations: new Map<string, number>(),
+    catchUp: IDLE_CATCH_UP as CatchUpState,
     discoveredContainerIds: new Set(["open"]),
     forcedDocumentIds: new Map(),
     forcedContainerGenerations: new Map<string, number>(),

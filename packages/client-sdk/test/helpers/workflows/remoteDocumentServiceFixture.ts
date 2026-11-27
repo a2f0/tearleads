@@ -2,7 +2,10 @@ import type { SyncRemoteDocumentResult } from "../../../src/data/documents/share
 import type { CreateRemoteDocumentResult } from "../../../src/data/documents/shared/types";
 import type { ExecSql } from "../../../src/data/sqlite/sqlSchema";
 import type { RemoteDocumentCreateInput } from "../../../src/workflows/documents/create/remoteDocumentCreateRequest";
-import type { RemoteDocumentServiceApi } from "../../../src/workflows/documents/remote/remoteDocumentCollaborators";
+import type {
+  RemoteDocumentCollaborators,
+  RemoteDocumentServiceApi,
+} from "../../../src/workflows/documents/remote/remoteDocumentCollaborators";
 import { RemoteDocumentService } from "../../../src/workflows/documents/remote/remoteDocumentService";
 import type { RemoteDocumentSyncPass } from "../../../src/workflows/documents/sync/remoteDocumentSyncPass";
 
@@ -19,12 +22,14 @@ export function createRemoteDocumentServiceFixture(input: {
   readonly isRemoteSyncBlocked?:
     | ((organizationId: string) => boolean)
     | undefined;
+  readonly logError?: RemoteDocumentCollaborators["logError"];
 }): RemoteDocumentService {
   return new RemoteDocumentService({
     api: input.api as RemoteDocumentServiceApi,
     encapsulationSecretKey: input.encapsulationSecretKey ?? null,
     execSql: input.execSql,
     isRemoteSyncBlocked: input.isRemoteSyncBlocked,
+    logError: input.logError,
   });
 }
 
@@ -49,6 +54,7 @@ export function createRemoteDocumentForTest({
   apiClient,
   execSql,
   isRemoteSyncBlocked,
+  logError,
   targetSecretKey,
   ...request
 }: RemoteDocumentCreateInput): Promise<CreateRemoteDocumentResult | null> {
@@ -57,5 +63,6 @@ export function createRemoteDocumentForTest({
     encapsulationSecretKey: targetSecretKey,
     execSql,
     isRemoteSyncBlocked,
+    logError,
   }).createRemoteDocument(request);
 }

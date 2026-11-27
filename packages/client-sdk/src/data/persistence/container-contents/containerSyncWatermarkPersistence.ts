@@ -1,5 +1,18 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { and, eq, inArray, isNotNull, or, type SQL } from "drizzle-orm";
+import {
+  and,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
+import {
+  containers,
+  containerTableSchemas,
+} from "../../sqlite/schema/containerSchema";
 import {
   containerSyncWatermarks,
   containerSyncWatermarkTables,
@@ -159,6 +172,59 @@ function mapSelectedWatermarkRecord(
       updatedAt: row.watermarkUpdatedAt,
     },
   };
+}
+
+const CONTAINER_SYNC_WATERMARK_COLUMNS = Object.keys(
+  getTableColumns(containerSyncWatermarks),
+);
+
+/**
+ * `row`, selected from the stored container its lane id names, so that a
+ * container this device does not store gets no row: a listing in flight
+ * across the container's delete would otherwise write one after the cascade
+ * removed it.
+ *
+ * Drizzle's `insert(...).select(...)` lists every table column in schema
+ * order, so the select keys below are checked against the table's columns to
+ * prevent silent swaps or missing optional columns on schema edits.
+ */
+function storedContainerLaneRow(
+  db: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
+  row: typeof containerSyncWatermarks.$inferInsert,
+) {
+  const value = <T>(column: { name: string }, bound: T) =>
+    sql<T>`${bound}`.as(column.name);
+  const columns = containerSyncWatermarks;
+  const selection = {
+    laneKind: value(columns.laneKind, row.laneKind),
+    laneId: containers.id,
+    watermarkUpdatedAt: value(
+      columns.watermarkUpdatedAt,
+      row.watermarkUpdatedAt ?? null,
+    ),
+    watermarkId: value(columns.watermarkId, row.watermarkId ?? null),
+    cursorFormat: value(
+      columns.cursorFormat,
+      row.cursorFormat ?? columns.cursorFormat.default,
+    ),
+    updatedAt: value(columns.updatedAt, row.updatedAt ?? null),
+    checkedAt: value(columns.checkedAt, row.checkedAt ?? null),
+  };
+  const selectedKeys = Object.keys(selection);
+  if (
+    selectedKeys.length !== CONTAINER_SYNC_WATERMARK_COLUMNS.length ||
+    selectedKeys.some(
+      (key, index) => key !== CONTAINER_SYNC_WATERMARK_COLUMNS[index],
+    )
+  ) {
+    throw new Error(
+      `storedContainerLaneRow columns (${selectedKeys.join(", ")}) do not match container_sync_watermarks (${CONTAINER_SYNC_WATERMARK_COLUMNS.join(", ")})`,
+    );
+  }
+  return db
+    .select(selection)
+    .from(containers)
+    .where(eq(containers.id, row.laneId));
 }
 
 function laneKeyString(input: { laneId: string; laneKind: string }): string {
@@ -371,6 +437,10 @@ export class ContainerSyncWatermarkRepository {
   /**
    * Upserts one lane row in a single statement: the cursor when `watermark`
    * is set and the freshness marker when `checked`; the other half is kept.
+   * A document lane's row is written only while its container is stored.
+   * Resolves false only when `stillCurrent` refused the write: a document
+   * lane of a container not stored has no row to record, which is not a
+   * refusal.
    */
   async recordLaneFetch(
     lane: ContainerSyncWatermarkLane,
@@ -381,7 +451,10 @@ export class ContainerSyncWatermarkRepository {
     options?: ContainerSyncMarkerMutationOptions,
   ): Promise<boolean> {
     if (!fetch.checked && !fetch.watermark) return true;
-    await ensureSqlTables(this.execSql, containerSyncWatermarkTables);
+    await ensureSqlTables(this.execSql, [
+      ...containerSyncWatermarkTables,
+      ...containerTableSchemas,
+    ]);
     const now = this.now().toISOString();
     const changed = {
       ...(fetch.watermark
@@ -394,12 +467,15 @@ export class ContainerSyncWatermarkRepository {
         : {}),
       ...(fetch.checked ? { checkedAt: now } : {}),
     };
+    const row = { ...containerSyncWatermarkLaneKey(lane), ...changed };
     const record = async (
       db: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
     ) => {
-      await db
-        .insert(containerSyncWatermarks)
-        .values({ ...containerSyncWatermarkLaneKey(lane), ...changed })
+      const insert = db.insert(containerSyncWatermarks);
+      await (lane.kind === CONTAINER_DOCUMENTS_LANE
+        ? insert.select(storedContainerLaneRow(db, row))
+        : insert.values(row)
+      )
         .onConflictDoUpdate({
           target: [
             containerSyncWatermarks.laneKind,

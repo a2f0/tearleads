@@ -19,6 +19,7 @@ import {
 } from "./crossTabProtocol";
 import {
   DatabaseConnectionLostError,
+  DatabaseTransactionRevokedError,
   type DatabaseWorkerCrashError,
 } from "./workerCrash";
 
@@ -102,8 +103,16 @@ export function admitLocalClientRequest(
  */
 export function assertLocalClientConnected(localClient: LocalClient): void {
   if (localClient.connection.status === "lost") {
-    throw new DatabaseConnectionLostError();
+    throw lostConnectionError(localClient.connection);
   }
+}
+
+function lostConnectionError(
+  connection: Extract<CrossTabConnectionState, { status: "lost" }>,
+): DatabaseConnectionLostError {
+  return connection.reason === "transactionRevoked"
+    ? new DatabaseTransactionRevokedError(connection.detail)
+    : new DatabaseConnectionLostError();
 }
 
 /** Whether the client still needs an owner to serve it. */
@@ -145,9 +154,12 @@ export function dispatchResponseToLocalClient(
   }
 
   const event = connectionEventForResponse(method, response);
-  if (applyConnectionEvent(localClient, event)) {
+  if (
+    applyConnectionEvent(localClient, event) &&
+    localClient.connection.status === "lost"
+  ) {
     // This answer and every other outstanding request fail as one loss.
-    crashLocalClient(localClient, new DatabaseConnectionLostError());
+    crashLocalClient(localClient, lostConnectionError(localClient.connection));
     return;
   }
 

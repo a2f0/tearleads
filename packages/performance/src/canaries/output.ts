@@ -9,6 +9,21 @@ export interface EndpointMetrics {
   readonly bodyBytes: BodyBytes;
 }
 
+export interface PhaseBudgetCeiling {
+  readonly measuredTotal: number;
+  readonly ceilingTotal: number;
+  readonly measuredBodyBytes?: BodyBytes;
+  readonly ceilingBodyBytes?: BodyBytes;
+}
+
+export interface PhaseSocketMetrics {
+  readonly total: number;
+  readonly bytes: number;
+  readonly byType: Readonly<
+    Record<string, { readonly count: number; readonly bytes: number }>
+  >;
+}
+
 /** One `[dual-pane-request-metrics]` line: a measured phase of a canary. */
 export interface PhaseMetrics {
   readonly label: string;
@@ -25,6 +40,10 @@ export interface PhaseMetrics {
     readonly count: number;
     readonly request: string;
   }[];
+  /** Asserted ceiling vs. measured total when `expectProxiedApiRequestBudget` ran. */
+  readonly budget?: PhaseBudgetCeiling;
+  /** Delivered WebSocket hint frames during the phase, when recorded. */
+  readonly ws?: PhaseSocketMetrics;
 }
 
 export interface TestCounts {
@@ -40,6 +59,8 @@ export interface CanaryOutput {
 
 const metricsMarker = "[dual-pane-request-metrics] ";
 const detailMarker = "[dual-pane-request-profile-detail] ";
+const budgetMarker = "[dual-pane-request-budget] ";
+const wsMarker = "[dual-pane-ws-metrics] ";
 const detailSuffix = " repeated-paths";
 const repeatedPathLine = /^\s*(\d+) (\S+ \S+)$/u;
 
@@ -133,6 +154,105 @@ function isDetailHeading(line: string, phase: PhaseMetrics): boolean {
   );
 }
 
+function parseBudgetLine(
+  json: string,
+): { readonly label: string; readonly budget: PhaseBudgetCeiling } | null {
+  try {
+    const value: unknown = JSON.parse(json);
+    if (!isRecord(value)) return null;
+    const label = Reflect.get(value, "label");
+    const measured = Reflect.get(value, "measured");
+    const ceiling = Reflect.get(value, "ceiling");
+    if (typeof label !== "string" || !isRecord(measured) || !isRecord(ceiling))
+      return null;
+    const measuredTotal = count(
+      Reflect.get(measured, "total"),
+      "measured.total",
+    );
+    const ceilingTotal = count(Reflect.get(ceiling, "total"), "ceiling.total");
+    const mBytes = Reflect.get(measured, "bodyBytes");
+    const cBytes = Reflect.get(ceiling, "bodyBytes");
+    return {
+      label,
+      budget: {
+        measuredTotal,
+        ceilingTotal,
+        ...(isRecord(mBytes)
+          ? { measuredBodyBytes: bodyBytes(mBytes, "measured.bodyBytes") }
+          : {}),
+        ...(isRecord(cBytes)
+          ? { ceilingBodyBytes: bodyBytes(cBytes, "ceiling.bodyBytes") }
+          : {}),
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseWsLine(
+  json: string,
+): { readonly label: string; readonly ws: PhaseSocketMetrics } | null {
+  try {
+    const value: unknown = JSON.parse(json);
+    if (!isRecord(value)) return null;
+    const label = Reflect.get(value, "label");
+    const rawByType = Reflect.get(value, "byType");
+    if (typeof label !== "string" || !isRecord(rawByType)) return null;
+    const byType = Object.fromEntries(
+      Object.entries(rawByType).map(([type, entry]) => {
+        if (!isRecord(entry)) throw new Error(`WS metrics for ${type}.`);
+        return [
+          type,
+          {
+            count: count(Reflect.get(entry, "count"), `${type}.count`),
+            bytes: count(Reflect.get(entry, "bytes"), `${type}.bytes`),
+          },
+        ];
+      }),
+    );
+    return {
+      label,
+      ws: {
+        total: count(Reflect.get(value, "total"), "ws.total"),
+        bytes: count(Reflect.get(value, "bytes"), "ws.bytes"),
+        byType,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function attachToMatchingPhase(
+  phases: PhaseMetrics[],
+  label: string,
+  patch: Partial<Pick<PhaseMetrics, "budget" | "ws">>,
+): void {
+  for (let i = phases.length - 1; i >= 0; i -= 1) {
+    const target = phases[i];
+    if (target && target.label === label) {
+      phases[i] = { ...target, ...patch };
+      return;
+    }
+  }
+}
+
+function attachMarkerLine(phases: PhaseMetrics[], line: string): void {
+  const budgetAt = line.indexOf(budgetMarker);
+  if (budgetAt !== -1) {
+    const parsed = parseBudgetLine(line.slice(budgetAt + budgetMarker.length));
+    if (parsed)
+      attachToMatchingPhase(phases, parsed.label, { budget: parsed.budget });
+    return;
+  }
+  const wsAt = line.indexOf(wsMarker);
+  if (wsAt !== -1) {
+    const parsed = parseWsLine(line.slice(wsAt + wsMarker.length));
+    if (parsed) attachToMatchingPhase(phases, parsed.label, { ws: parsed.ws });
+  }
+}
+
 /**
  * Reads the profile lines a request-volume canary prints with
  * `DUAL_PANE_REQUEST_PROFILE=1` and `DUAL_PANE_REQUEST_PROFILE_DETAIL=1`.
@@ -155,6 +275,8 @@ export function parseCanaryOutput(text: string): CanaryOutput {
       const { paths, next } = readRepeatedPaths(lines, index);
       phases[phases.length - 1] = { ...phase, repeatedPaths: paths };
       index = next;
+    } else {
+      attachMarkerLine(phases, line);
     }
   }
   const pass = testCount(text, "pass");

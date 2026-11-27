@@ -51,7 +51,13 @@ export function parseStatementOptions(args: string[]): StatementOptions | null {
   if (positionals.length > 0)
     throw new Error(`Unexpected argument ${positionals[0]}; use --file.`);
   if (values.summarize !== undefined) {
-    if (values.package !== undefined || values.file.length > 0)
+    if (
+      values.package !== undefined ||
+      values.file.length > 0 ||
+      values.name !== undefined ||
+      values["param-hash"] ||
+      values.limit !== undefined
+    )
       throw new Error("--summarize reads a saved capture; it runs no tests.");
     return { mode: "summarize", capture: values.summarize };
   }

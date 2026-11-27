@@ -1,8 +1,15 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { readCaptureFile } from "./captureFile";
+import { createCaptureWriter, readCaptureFile } from "./captureFile";
 
 const directories: string[] = [];
 
@@ -31,4 +38,18 @@ test("a capture that was never written reads as null", async () => {
 
 test("any other read error is thrown", async () => {
   await expect(readCaptureFile(await directory())).rejects.toThrow();
+});
+
+test("a capture writer opens its file once, at the first write", async () => {
+  const path = resolve(await directory(), "capture.jsonl");
+  const write = createCaptureWriter(path);
+  expect(await readCaptureFile(path)).toBeNull();
+  write("first\n");
+  write("second\n");
+  expect(await readFile(path, "utf8")).toBe("first\nsecond\n");
+  expect((await stat(path)).mode & 0o777).toBe(0o600);
+  // Writes go to the descriptor it opened, not to a file reopened by name.
+  await unlink(path);
+  write("third\n");
+  expect(await readCaptureFile(path)).toBeNull();
 });

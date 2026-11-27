@@ -1,3 +1,4 @@
+import type { LocalSqlAttribution } from "../localDatabase";
 import { type PostgresTraffic, trafficSince } from "../realtime/postgresWire";
 import type { ReloadAccount, ReloadOutcome } from "./reloadAccount";
 
@@ -9,7 +10,11 @@ export interface ReloadMeasurement extends ReloadOutcome {
   readonly sample: number;
   readonly database: PostgresTraffic;
   /** Statements the client ran against its local SQLite database. */
-  readonly localSql: { readonly calls: number; readonly durationMs: number };
+  readonly localSql: {
+    readonly calls: number;
+    readonly durationMs: number;
+    readonly attribution?: LocalSqlAttribution;
+  };
 }
 
 /**
@@ -20,7 +25,8 @@ export async function measureReloads(input: {
   readonly account: Pick<
     ReloadAccount,
     "grow" | "reload" | "folders" | "localSql"
-  >;
+  > &
+    Partial<Pick<ReloadAccount, "captureSqlWindow">>;
   readonly options: {
     readonly documents: readonly number[];
     readonly perFolder: number;
@@ -47,7 +53,14 @@ export async function measureReloads(input: {
     for (const { reload, sample } of reloads) {
       const traffic = input.traffic();
       const localSql = account.localSql();
-      const outcome = await account.reload();
+      const sqlWindow = account.captureSqlWindow?.();
+      let outcome: ReloadOutcome;
+      let attribution: LocalSqlAttribution | undefined;
+      try {
+        outcome = await account.reload();
+      } finally {
+        attribution = sqlWindow?.finish();
+      }
       const localAfter = account.localSql();
       await input.measured({
         documents,
@@ -59,6 +72,7 @@ export async function measureReloads(input: {
         localSql: {
           calls: localAfter.calls - localSql.calls,
           durationMs: Math.round(localAfter.durationMs - localSql.durationMs),
+          ...(attribution ? { attribution } : {}),
         },
       });
     }

@@ -95,9 +95,10 @@ test("a window whose row cannot be deleted no longer counts its death", async ()
   expect(await pageLimit(MAIN)).toBe(1);
 });
 
-// The database worker does not isolate one tab's transaction from another
-// tab's statements, so another tab may claim an orphan between this claim's
-// read and its delete. Only the claim whose delete removed the row settles it.
+// A host's database worker may not keep one tab's statements out of another
+// tab's transaction (the SDK's own worker does), so another tab may claim an
+// orphan between this claim's read and its delete. Only the claim whose delete
+// removed the row settles it.
 test("an orphan another tab claims mid-claim is not counted again", async () => {
   const host = device();
   const { update } = await honest(FIRST);

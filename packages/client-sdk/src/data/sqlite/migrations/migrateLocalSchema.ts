@@ -38,6 +38,57 @@ interface MigrateLocalSchemaOptions {
   readonly verify?: VerifyLocalSchema;
   /** The caller already holds {@link withLocalSchemaMigrationLock}. */
   readonly crossTabLockHeld?: boolean;
+  /**
+   * Upper bound (ms) for waiting on the cross-tab migration Web Lock when
+   * `crossTabLockHeld` is not set. Defaults to
+   * {@link LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MS}.
+   */
+  readonly lockWaitTimeoutMs?: number | undefined;
+}
+
+/**
+ * Default upper bound on waiting for the cross-tab migration Web Lock. Matches
+ * the worker transaction lease wait bound so a booting tab surfaces a retrying
+ * state instead of hanging indefinitely behind another tab's backup restore.
+ */
+export const LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MS = 5_000;
+
+export const LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MESSAGE =
+  "Timed out waiting for the local schema migration lock; another tab may be restoring or migrating the database.";
+
+export class LocalSchemaMigrationLockTimeoutError extends Error {
+  readonly waitTimeoutMs: number;
+
+  constructor(waitTimeoutMs: number) {
+    super(
+      `${LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MESSAGE} (${waitTimeoutMs}ms)`,
+    );
+    this.name = "LocalSchemaMigrationLockTimeoutError";
+    this.waitTimeoutMs = waitTimeoutMs;
+  }
+}
+
+/**
+ * Whether `error` (or any wrapped `cause`) is a bounded timeout waiting for
+ * the cross-tab local schema migration lock.
+ */
+export function isLocalSchemaMigrationLockTimeoutError(
+  error: unknown,
+): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current instanceof Error && !seen.has(current)) {
+    seen.add(current);
+    if (
+      current instanceof LocalSchemaMigrationLockTimeoutError ||
+      current.name === "LocalSchemaMigrationLockTimeoutError" ||
+      current.message.includes(LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MESSAGE)
+    ) {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
 }
 
 // Whether the ledger exists and whether any other user table does: a
@@ -160,19 +211,65 @@ function webLocks(): LockManager | null {
 
 /**
  * Holds the cross-tab migration lock while `run` executes. Browser tabs share
- * one worker handle but not their mutation queues, so a tab could read another
- * tab's uncommitted ledger as current and write rows that tab's rollback then
- * deletes; every migration check waits on this Web Lock. A caller that
- * rewrites the schema in its own transaction (a backup restore) holds it from
- * BEGIN through COMMIT and passes `crossTabLockHeld` to the migration it runs
- * inside. Take the connection's mutation lock first. Hosts without Web Locks
- * have no second tab on the handle.
+ * one worker handle but not their mutation queues. The worker's transaction
+ * lease keeps a tab's statements out of another tab's open transaction, but a
+ * migration check reads the ledger before its savepoint opens, so two tabs
+ * could both read it as behind; every migration check waits on this Web Lock
+ * instead. A caller that rewrites the schema in its own transaction (a backup
+ * restore) holds it from BEGIN through COMMIT and passes `crossTabLockHeld` to
+ * the migration it runs inside. Take the connection's mutation lock first.
+ * Hosts without Web Locks have no second tab on the handle.
+ *
+ * When `waitTimeoutMs` is given, waiting to *acquire* the lock is aborted with
+ * {@link LocalSchemaMigrationLockTimeoutError} once that bound elapses; once
+ * acquired, the running callback is never aborted.
  */
-export function withLocalSchemaMigrationLock<T>(
+export async function withLocalSchemaMigrationLock<T>(
   run: () => Promise<T>,
+  options?: { readonly waitTimeoutMs?: number | undefined },
 ): Promise<T> {
   const locks = webLocks();
-  return locks ? locks.request(CROSS_TAB_MIGRATION_LOCK, run) : run();
+  if (!locks) {
+    return run();
+  }
+  const waitTimeoutMs = options?.waitTimeoutMs;
+  if (
+    waitTimeoutMs === undefined ||
+    !Number.isFinite(waitTimeoutMs) ||
+    waitTimeoutMs <= 0
+  ) {
+    return locks.request(CROSS_TAB_MIGRATION_LOCK, run);
+  }
+
+  const controller = new AbortController();
+  let acquired = false;
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    if (!acquired) {
+      timedOut = true;
+      controller.abort(new LocalSchemaMigrationLockTimeoutError(waitTimeoutMs));
+    }
+  }, waitTimeoutMs);
+
+  try {
+    return await locks.request(
+      CROSS_TAB_MIGRATION_LOCK,
+      { signal: controller.signal },
+      async () => {
+        acquired = true;
+        timedOut = false;
+        clearTimeout(timer);
+        return run();
+      },
+    );
+  } catch (error) {
+    if (timedOut && !acquired) {
+      throw new LocalSchemaMigrationLockTimeoutError(waitTimeoutMs);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function runUnderHeldLock<T>(run: () => Promise<T>): Promise<T> {
@@ -194,9 +291,12 @@ export async function migrateLocalSchema(
   const now = options.now ?? Date.now;
   const verify = options.verify ?? (async () => {});
   assertLocalSchemaMigrations(migrations);
+  const lockWaitTimeoutMs =
+    options.lockWaitTimeoutMs ?? LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MS;
   const withLock = options.crossTabLockHeld
     ? runUnderHeldLock
-    : withLocalSchemaMigrationLock;
+    : <T>(run: () => Promise<T>) =>
+        withLocalSchemaMigrationLock(run, { waitTimeoutMs: lockWaitTimeoutMs });
   // The connection's mutation lock first, then the Web Lock: a table ensure
   // already holds the former when it migrates, so the reverse order could
   // deadlock against a direct call on the same connection.
@@ -238,12 +338,16 @@ export async function migrateLocalSchema(
 export async function ensureLocalSchemaMigrated(
   execSql: ExecSql,
   verify: VerifyLocalSchema = async () => {},
+  options?: { readonly lockWaitTimeoutMs?: number | undefined },
 ): Promise<void> {
   if (hasCompletedConnectionOnce(execSql, ENSURE_KEY)) {
     await verify(execSql);
     return;
   }
-  await migrateLocalSchema(execSql, { verify });
+  await migrateLocalSchema(execSql, {
+    lockWaitTimeoutMs: options?.lockWaitTimeoutMs,
+    verify,
+  });
   markCompletedConnectionOnce(execSql, ENSURE_KEY);
 }
 

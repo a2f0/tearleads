@@ -53,12 +53,14 @@ type AccessEvent = {
 };
 ```
 
-The event body is type-specific. For example, `container.grant` includes the
-subject principal, access level, current referenced principal policy head, and
-the container manifest hash being advanced. `document.link` includes the
-document manifest hash and target container manifest hash. `attachment.bind`
-includes document id, [slot](../glossary/content.md#attachment-slot) id, blob id,
-expected binding id, and document manifest hash. Attachment events use
+The event body is type-specific (the object's own predecessor manifest hash is
+carried on `AccessEvent.previousManifestHash`). For example, `container.grant`
+includes the subject principal, access level, current referenced principal
+policy head, and container key epoch/public key. `document.link` includes
+`containerId`, the target `containerManifestHash`, and `blobRewraps`.
+`attachment.bind` includes document id,
+[slot](../glossary/content.md#attachment-slot) id, blob id, expected binding id,
+and document manifest hash. Attachment events use
 `objectKind: "blob"` when they advance the blob target/binding manifest; the
 attachment-specific identity lives in the event body, not in a separate fourth
 manifest kind.
@@ -122,10 +124,10 @@ Container manifest inputs:
 
 - container id and organization id;
 - parent container id and parent manifest hash;
-- authoritative metadata document id for the container;
+- authoritative metadata document id and optional `systemSlot` for the container;
 - direct grants on this container;
 - referenced principal policy heads for direct managed-principal grants;
-- current container KEK epoch id;
+- current container KEK epoch id and `containerKeyPublicKey`;
 - previous container manifest hash;
 - authorizing signed event hash.
 
@@ -200,13 +202,16 @@ attachment binding events plus the linked documents' verified target sets.
  may only advance the KEK epoch for an already-authorized manifest. It cannot
  change grants, parentage, or linked objects.
 - `container.move`: signer must have admin access to the moved container and
- write access to the destination parent; the event references both manifest
- heads.
+  write access to the destination parent; the event references both manifest
+  heads.
+- `container.recite`: signer must have admin access to the container path.
 - `document.link`: signer must have write access to the document through at
- least one current linked container and write access to the target container.
+  least one current linked container and write access to the target container.
 - `document.unlink`: signer must have write access to the document through at
- least one remaining linked container and write or admin access to the
- unlinked container.
+  least one remaining linked container and write or admin access to the
+  unlinked container.
+- `document.purge`: signer must have write access on the sole linked container
+  path.
 - `attachment.bind` / `attachment.detach`: signer must have write access to the
  document under the current document manifest.
 

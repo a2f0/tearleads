@@ -1,5 +1,6 @@
 import { deriveStableDocumentId } from "../../../../data/documents/shared/stableDocumentId";
 import {
+  classifyDatabaseFailure,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   DocumentRecordRepository,
@@ -9,6 +10,7 @@ import {
   type PendingUpdateRecord,
   RemoteDocumentService,
   resolveDocumentCreateAuthor,
+  retryWhileDatabaseBusy,
   runSerializedSqlMutation,
 } from "../../../../workflows/documents";
 import { reportDocumentSyncQuarantine } from "../../../../workflows/documents/sync/reportDocumentSyncQuarantine";
@@ -172,9 +174,12 @@ export function shouldSkipCleanScheduledDocumentSync(input: {
  * spurious sync error; the container-contents lane re-arms document sync once
  * the container lands. An unknown or unqueryable container resolves false so
  * store-level consumers without container persistence keep creating eagerly.
+ * A read refused behind another tab's transaction says nothing about the
+ * container, so it is retried and, past the retry bound, thrown (#3360).
  */
 export async function isContainerAwaitingRemoteCreate(
   state: DocumentStoreState,
+  isCurrent?: () => boolean,
 ): Promise<boolean> {
   const containerId = state.runtime.state.containerId;
   if (!containerId) {
@@ -182,13 +187,18 @@ export async function isContainerAwaitingRemoteCreate(
   }
 
   try {
-    const rows = await state.runtime.infra.execSql(
-      "SELECT server_created_at FROM containers WHERE id = :containerId",
-      { ":containerId": containerId },
+    const rows = await retryWhileDatabaseBusy(
+      () =>
+        state.runtime.infra.execSql(
+          "SELECT server_created_at FROM containers WHERE id = :containerId",
+          { ":containerId": containerId },
+        ),
+      { isCurrent },
     );
     const row = rows[0];
     return row !== undefined && Reflect.get(row, "server_created_at") == null;
-  } catch {
+  } catch (error) {
+    if (classifyDatabaseFailure(error) === "busy") throw error;
     return false;
   }
 }
@@ -273,6 +283,7 @@ export async function ensureRemoteDocument(
     encapsulationSecretKey: encapsulationKeyPair.secretKey,
     execSql: runtime.infra.execSql,
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
+    logError: runtime.util.logError,
   });
   const created = await remoteDocuments.createRemoteDocument({
     author,

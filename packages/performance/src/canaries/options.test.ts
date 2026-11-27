@@ -9,6 +9,9 @@ test("runs every canary once by default", () => {
     baseline: null,
     statements: false,
     paramHash: false,
+    clientStatements: false,
+    payloadAudit: false,
+    stacks: false,
   });
   expect(parseCanaryOptions(["--help"])).toBeNull();
   expect(
@@ -29,12 +32,23 @@ test("runs every canary once by default", () => {
     baseline: "before.json",
     statements: false,
     paramHash: false,
+    clientStatements: false,
+    payloadAudit: false,
+    stacks: false,
   });
   expect(parseCanaryOptions(["--statements", "--param-hash"])).toMatchObject({
     statements: true,
     paramHash: true,
   });
+  expect(
+    parseCanaryOptions(["--client-statements", "--payload-audit", "--stacks"]),
+  ).toMatchObject({
+    clientStatements: true,
+    payloadAudit: true,
+    stacks: true,
+  });
   expect(() => parseCanaryOptions(["--param-hash"])).toThrow(/--statements/);
+  expect(() => parseCanaryOptions(["--stacks"])).toThrow(/--payload-audit/);
 });
 
 test("compares exactly two reports and runs nothing", () => {
@@ -47,9 +61,15 @@ test("compares exactly two reports and runs nothing", () => {
   expect(() =>
     parseCanaryOptions(["--compare", "a.json", "b.json", "c.json"]),
   ).toThrow(/two/);
-  expect(() =>
-    parseCanaryOptions(["--compare", "--canary", "x", "a.json", "b.json"]),
-  ).toThrow(/runs no canaries/);
+  for (const flag of [
+    ["--canary", "x"],
+    ["--samples", "2"],
+    ["--baseline", "c.json"],
+    ["--statements"],
+  ])
+    expect(() =>
+      parseCanaryOptions(["--compare", ...flag, "a.json", "b.json"]),
+    ).toThrow(/runs no canaries/);
 });
 
 test("rejects stray arguments and out-of-range samples", () => {

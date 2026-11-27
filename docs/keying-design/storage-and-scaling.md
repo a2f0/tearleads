@@ -45,8 +45,8 @@ Expected costs:
 | --- | --- |
 | Create container | `O(1)` plus parent manifest verification and one container KEK epoch. |
 | Additive share on container | `O(new recipient key wraps)`; no document/blob rewrite. |
-| Revoke on container | `O(remaining direct wrap targets for that container)` plus one new container KEK epoch; descendants rekey lazily before future writes. |
-| Move container | `O(1)` manifest/key update for moved container, unless policy chooses eager descendant rekey. |
+| Revoke on container | `O(remaining direct wrap targets)` plus one new container KEK epoch (`O(keyEpoch)` sealed keyring) and carried rekeys for descendants above directly granted containers (up to 64); other descendants rekey lazily before future writes. |
+| Move container | `O(1)` manifest/key update (`O(keyEpoch)` sealed keyring) plus carried rekeys for descendants above directly granted containers (up to 64); other descendants rekey lazily. |
 | Link document to container | `O(number of linked containers for that document)`, usually small. |
 | Document write | `O(number of linked containers for that document)`, not `O(users)`. |
 | Blob attach/write | `O(number of active document/container target domains for that blob)`, not `O(users)`. |

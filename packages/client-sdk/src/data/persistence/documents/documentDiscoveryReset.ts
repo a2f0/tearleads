@@ -14,6 +14,18 @@ export async function isDocumentDiscoveryGenerationCurrent(
   return generation > (row?.invalidatedThrough ?? 0);
 }
 
+/**
+ * The cache's eviction mark: every eviction raises it, so a writer that read
+ * it before its work began can tell, under the write lock, whether an
+ * eviction landed since.
+ */
+export async function readDocumentDiscoveryEvictionMark(
+  db: ClientSQLiteTransactionScope,
+): Promise<number> {
+  const [row] = await db.select().from(documentDiscoverySequence).limit(1);
+  return row?.invalidatedThrough ?? 0;
+}
+
 export async function clearDocumentDiscoveryEvidenceOnRemoteReset(
   tx: ClientSQLiteTransactionScope,
   input: { containerIds: readonly string[]; documentIds: readonly string[] },
@@ -23,10 +35,17 @@ export async function clearDocumentDiscoveryEvidenceOnRemoteReset(
   await tx.delete(documentDiscoveryHeads).run();
   // Keep local request ordinals monotone. Reusing ordinals would let a request
   // started before the trust reset repopulate the verified cache afterward.
+  // The eviction takes an ordinal of its own, so each one raises the mark
+  // past every earlier one, even with no request begun in between.
   await tx
-    .update(documentDiscoverySequence)
-    .set({
-      invalidatedThrough: sql`${documentDiscoverySequence.generation}`,
+    .insert(documentDiscoverySequence)
+    .values({ id: "requests", generation: 1, invalidatedThrough: 1 })
+    .onConflictDoUpdate({
+      target: documentDiscoverySequence.id,
+      set: {
+        generation: sql`${documentDiscoverySequence.generation} + 1`,
+        invalidatedThrough: sql`${documentDiscoverySequence.generation} + 1`,
+      },
     })
     .run();
   for (const [ids, column] of [

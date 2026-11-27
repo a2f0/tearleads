@@ -52,11 +52,14 @@ container.
 
 The model abstracts cryptography, content, network failures, and SQL internals.
 Its verified evidence also covers the exact-head cache that organization
-provisioning seeds for documents the client signed and the server acknowledged;
-those heads are pinned as verification
-[checkpoints](../../docs/glossary/sync.md#checkpoint) in the same transaction,
-so the seeding adds no model action. The local relink transaction includes intent
-enqueue or settlement and link writes. The server still performs link and unlink
+provisioning and document creation seed for documents the client signed and
+the server acknowledged. Each such head is pinned as a verification
+[checkpoint](../../docs/glossary/sync.md#checkpoint) first: provisioning pins
+it in the same transaction, and a create's acknowledgement pins it before the
+head is seeded. The cache serves a head only while its checkpoint still names
+that hash and epoch, so the seeding adds no model action. The local relink
+transaction includes intent enqueue or settlement and link writes. The server
+still performs link and unlink
 separately; waiting in the unlink phase models a failed request awaiting retry.
 The two destinations are distinct, and each replay completes before another
 begins. Read sets abstract membership while `readSummary` models a separately

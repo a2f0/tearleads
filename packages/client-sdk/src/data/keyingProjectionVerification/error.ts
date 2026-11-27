@@ -2,7 +2,10 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { ProjectionDependencyUnavailableError } from "../shared/dependencyUnavailable";
 import { errorMessage } from "../shared/errorMessage";
 import { isKeyingVerificationError } from "../shared/securityIncidents";
-import { isDatabaseUnavailableError } from "../sqlite/availability/databaseUnavailable";
+import {
+  isDatabaseTransactionBusyError,
+  isDatabaseUnavailableError,
+} from "../sqlite/availability/databaseUnavailable";
 import { rethrowProjectionVerificationCancelled } from "./types";
 
 const KEYING_VERIFICATION_CONTEXT_LIMIT = 16;
@@ -29,10 +32,22 @@ export function rethrowDatabaseUnavailableError(error: unknown): void {
   }
 }
 
+/**
+ * Another tab held the database's transaction lease, so a statement this pass
+ * needed did not run. That says nothing about the received material: keep it
+ * out of the verdict, so the pass re-runs instead of recording tampering.
+ */
+function rethrowDatabaseTransactionBusyError(error: unknown): void {
+  if (isDatabaseTransactionBusyError(error)) {
+    throw error;
+  }
+}
+
 export function rethrowProjectionVerificationBoundaryError(
   error: unknown,
 ): void {
   rethrowDatabaseUnavailableError(error);
+  rethrowDatabaseTransactionBusyError(error);
   rethrowProjectionVerificationCancelled(error);
   if (error instanceof ProjectionDependencyUnavailableError) throw error;
 }

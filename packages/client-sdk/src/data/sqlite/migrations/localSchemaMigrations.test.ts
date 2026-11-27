@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import {
   ContainerSyncWatermarkRepository,
   containerContentsSyncLane,
@@ -162,7 +163,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {
@@ -200,6 +201,7 @@ test("step 4 replays publication cursors saved before unlink and restored-folder
     expect(
       await repository.loadWatermark(containerParentSyncLane(null)),
     ).toBeNull();
+    await storeContainerRows(execSql, ["replay"]);
     const next = { id: "124/doc", updatedAt: CREATED_AT };
     await repository.saveWatermark(lane, next);
     expect(

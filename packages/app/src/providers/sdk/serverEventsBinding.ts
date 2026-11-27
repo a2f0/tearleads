@@ -327,7 +327,10 @@ export function useServerEventsBinding(
         // has synchronously installed the authoritative current set.
         interestHandle?.stop();
         interestHandle = startContainerInterestDeclaration(tearleads, ws);
-        // An unready tree holds the declaration unboundedly: stop deferring.
+        // A declaration waiting for the local tree to load sends once it is
+        // ready, usually milliseconds later: work that defers to this attempt
+        // keeps waiting, bounded by the acknowledgement deadline. A socket
+        // with no declaration will never be acknowledged.
         if (interestHandle.awaitingInitialAcknowledgement()) {
           attempts.awaitAcknowledgement();
         } else attempts.end();

@@ -1,7 +1,15 @@
+import {
+  type ConnectAttemptWait,
+  NO_CONNECT_ATTEMPT_WAIT,
+  transitionConnectAttemptWait,
+} from "../../../../workflows/shared/connectAttemptWaitMachine";
+
 /**
  * Whether a store's openers want the one remote probe an opened document
  * needs after a restart, and whether that probe is waiting on a connect
- * attempt. See `startupProbeDeferral.ts` for why it waits.
+ * attempt. See `startupProbeDeferral.ts` for why it waits; whether it waits
+ * is decided by `connectAttemptWaitMachine.ts`, as for the other work an
+ * acknowledgement does.
  *
  * | state      | event            | condition                             | next          | arm |
  * | ---------- | ---------------- | ------------------------------------- | ------------- | --- |
@@ -15,8 +23,8 @@
  * | deferred   | loaded           | local-only record, or one a listing covers | deferred | no  |
  * | deferred   | loaded           | connect attempt `a` open              | deferred(a)   | no  |
  * | deferred   | loaded           | no connect attempt                    | wanted        | yes |
- * | deferred   | runtimeInstalled | server events reconnected             | wanted        | no  |
  * | deferred(a)| runtimeInstalled | attempt `a` still open                | deferred(a)   | no  |
+ * | deferred(a)| runtimeInstalled | `a` settled, server events reconnected | wanted       | no  |
  * | deferred   | runtimeInstalled | otherwise                             | wanted        | yes |
  * | deferred   | reset            |                                       | wanted        | no  |
  *
@@ -30,6 +38,9 @@
  * its own. "wanted" stays after arming: it says the next load probes again. A
  * store loads again only after a reset, which leaves "deferred", so the
  * deferred load rows keep the old behavior for a load that does not happen.
+ * An acknowledgement settles the attempt it acknowledges in the same runtime
+ * snapshot (`setConnected(true)`), so a reconnect never arrives while that
+ * attempt is still open.
  */
 export type StartupProbeState =
   | { readonly status: "onDemand" }
@@ -67,34 +78,53 @@ export interface StartupProbeTransition {
 }
 
 const WANTED: StartupProbeState = { status: "wanted" };
+/** What a deferred probe waits to do: run. */
+const PROBE = "probe" as const;
 
 function stay(state: StartupProbeState): StartupProbeTransition {
   return { arm: false, state };
 }
 
-// A probe owed now either waits on the open connect attempt, whose
-// acknowledgement arms a reconnect probe that covers it, or runs.
+// The probe's state once the wait moved: still deferred to its attempt,
+// handed to the reconnect probe the acknowledgement arms (which covers
+// strictly more), or run because no reconnect probe will come.
+function afterWait(
+  wait: ConnectAttemptWait<typeof PROBE>,
+  released: typeof PROBE | undefined,
+): StartupProbeTransition {
+  if (wait.status === "waiting") {
+    return { arm: false, state: { attempt: wait.attempt, status: "deferred" } };
+  }
+  return released ? { arm: true, state: WANTED } : stay(WANTED);
+}
+
+// A probe owed now either waits on the open connect attempt or runs.
 function runOrDefer(
   pendingConnectAttempt: number | undefined,
 ): StartupProbeTransition {
-  return pendingConnectAttempt === undefined
-    ? { arm: true, state: WANTED }
-    : {
-        arm: false,
-        state: { attempt: pendingConnectAttempt, status: "deferred" },
-      };
+  const next = transitionConnectAttemptWait(NO_CONNECT_ATTEMPT_WAIT, {
+    pendingConnectAttempt,
+    request: PROBE,
+    type: "hold",
+  });
+  return afterWait(next.state, next.released);
 }
 
-// A deferred probe the new runtime settles: handed to the reconnect probe,
-// still waiting on its attempt, or run because no reconnect probe will come.
+// A deferred probe the new runtime settles.
 function settleDeferred(
   state: StartupProbeState,
   event: Extract<StartupProbeEvent, { type: "runtimeInstalled" }>,
 ): StartupProbeTransition {
   if (state.status !== "deferred") return stay(state);
-  if (event.reconnected) return stay(WANTED);
-  if (event.pendingConnectAttempt === state.attempt) return stay(state);
-  return { arm: true, state: WANTED };
+  const next = transitionConnectAttemptWait(
+    { attempt: state.attempt, request: PROBE, status: "waiting" },
+    {
+      acknowledged: event.reconnected,
+      pendingConnectAttempt: event.pendingConnectAttempt,
+      type: "observe",
+    },
+  );
+  return afterWait(next.state, next.released);
 }
 
 export function initialStartupProbeState(

@@ -397,12 +397,16 @@ HTTP remains authoritative after hints, reconnects, explicit refreshes, and
 cursor-gap recovery.
 
 Provisioned system-container polling stops when the active organization's signed
-slot appears in the tree. Every member derives the Trash slot from the same
-organization ID, including when the folder's display name changes. This is a
-fresh-data cutover. Organizations with founder-derived Trash slots require
-reprovisioning before using this version. Moving a document requires write
-access. Moving a folder into Trash changes its inherited access and requires
-admin access on the folder and write access on Trash.
+slot appears in the tree. It polls only when the tree lacks the slot and the
+device is online, and it stops after two root-lane listings that do not show
+it, logs the slot, and does not poll for that organization again while the
+same container store serves it, normally the rest of the load. Every member
+derives the Trash slot from the same organization ID, including when the
+folder's display name changes. This is a fresh-data cutover. Organizations with
+founder-derived Trash slots require reprovisioning before using this version.
+Moving a document requires write access. Moving a folder into Trash changes its
+inherited access and requires admin access on the folder and write access on
+Trash.
 
 ## Organization policy history
 

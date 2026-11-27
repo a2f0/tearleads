@@ -268,12 +268,14 @@ async function purgeSQLiteRuntime(params: {
 
 function usePurgeSQLiteRuntime({
   log,
+  onResetWaitingForAnotherTab,
   refs,
   reuseWorker,
   targetDbNameRef,
   tearleads,
 }: {
   readonly log: (message: string) => void;
+  readonly onResetWaitingForAnotherTab?: (() => void) | undefined;
   readonly refs: RuntimeRefs;
   readonly reuseWorker: boolean;
   readonly targetDbNameRef: RefObject<string>;
@@ -300,6 +302,7 @@ function usePurgeSQLiteRuntime({
           "purge",
         );
       }
+      onResetWaitingForAnotherTab?.();
       return purgeSQLiteRuntime({
         current,
         dbName,
@@ -310,7 +313,14 @@ function usePurgeSQLiteRuntime({
         tearleads,
       });
     },
-    [log, refs, reuseWorker, targetDbNameRef, tearleads],
+    [
+      log,
+      onResetWaitingForAnotherTab,
+      refs,
+      reuseWorker,
+      targetDbNameRef,
+      tearleads,
+    ],
   );
 }
 
@@ -319,6 +329,7 @@ export function useSQLiteRuntimeActions(params: {
   readonly bootingRef: RefObject<boolean>;
   readonly currentDbNameRef: RefObject<string | null>;
   readonly log: (message: string) => void;
+  readonly onResetWaitingForAnotherTab?: (() => void) | undefined;
   readonly reuseWorker: boolean;
   readonly runtimeOperationRef: RefObject<SQLiteRuntimeOperation | null>;
   readonly runtimeRef: RefObject<SQLiteRuntime | null>;
@@ -330,6 +341,7 @@ export function useSQLiteRuntimeActions(params: {
     bootingRef,
     currentDbNameRef,
     log,
+    onResetWaitingForAnotherTab,
     reuseWorker,
     runtimeOperationRef,
     runtimeRef,
@@ -355,13 +367,15 @@ export function useSQLiteRuntimeActions(params: {
 
   const destroyCurrentRuntime = useCallback(
     (status: DatabaseStatus) => {
+      onResetWaitingForAnotherTab?.();
       terminateRuntime(refs, tearleads, status);
     },
-    [refs, tearleads],
+    [onResetWaitingForAnotherTab, refs, tearleads],
   );
 
   const clearCurrentRuntime = useCallback(
     (status: DatabaseStatus) => {
+      onResetWaitingForAnotherTab?.();
       const runtime = runtimeRef.current;
       const wasBooting = bootingRef.current;
       clearRuntimeState(refs, tearleads, status);
@@ -385,6 +399,7 @@ export function useSQLiteRuntimeActions(params: {
     [
       bootingRef,
       log,
+      onResetWaitingForAnotherTab,
       refs,
       reuseWorker,
       runtimeOperationRef,
@@ -395,6 +410,7 @@ export function useSQLiteRuntimeActions(params: {
 
   const purgeCurrentRuntime = usePurgeSQLiteRuntime({
     log,
+    onResetWaitingForAnotherTab,
     refs,
     reuseWorker,
     targetDbNameRef,
