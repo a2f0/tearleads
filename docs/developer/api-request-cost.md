@@ -14,18 +14,21 @@ because [`packages/api/wrangler.jsonc`](../../packages/api/wrangler.jsonc) sets
 stay quiet unless that variable is set.
 
 ```json
-{"event":"api.request.cost","method":"POST","route":"/documents/{documentId}/sync","status":200,"statements":44,"wallMs":182.4,"dbMs":171.9}
+{"event":"api.request.cost","method":"POST","route":"/documents/{documentId}/sync","status":200,"statements":44,"txStatements":38,"wallMs":182.4,"dbMs":171.9,"reqBytes":14208,"resBytes":6144}
 ```
 
-| Field        | Meaning                                                   |
-| ------------ | --------------------------------------------------------- |
-| `event`      | Always `api.request.cost`; filter on it.                  |
-| `method`     | HTTP method.                                              |
-| `route`      | Matched route template, or `unmatched`.                   |
-| `status`     | Response status, including error-handler responses.       |
-| `statements` | ORM statements executed, including transaction controls.  |
-| `wallMs`     | Time from after CORS until the handler returned.          |
-| `dbMs`       | Time spent in database driver calls.                      |
+| Field          | Meaning                                                                |
+| -------------- | ---------------------------------------------------------------------- |
+| `event`        | Always `api.request.cost`; filter on it.                               |
+| `method`       | HTTP method.                                                           |
+| `route`        | Matched route template, or `unmatched`.                                |
+| `status`       | Response status, including error-handler responses.                    |
+| `statements`   | ORM statements executed, including transaction controls.               |
+| `txStatements` | Subset of `statements` executed inside a database transaction.         |
+| `wallMs`       | Time from after CORS until the handler returned.                       |
+| `dbMs`         | Time spent in database driver calls.                                   |
+| `reqBytes`     | Optional request `Content-Length` in bytes, omitted when absent.       |
+| `resBytes`     | Optional response `Content-Length` in bytes, omitted when absent.      |
 
 The middleware lives in [`packages/api/src/diagnostics/requestCost.ts`](../../packages/api/src/diagnostics/requestCost.ts).
 

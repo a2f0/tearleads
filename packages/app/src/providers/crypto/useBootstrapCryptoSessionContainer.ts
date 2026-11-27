@@ -64,15 +64,17 @@ async function runRootBootstrap(
   tearleads: ReturnType<typeof useTearleads>,
   logError: (message: string, error: unknown) => void,
 ): Promise<void> {
+  let sawLapse = false;
   const current = () => {
     const state = driver.state();
-    return (
+    const active =
       state.status === "running" &&
       state.attempt === attempt &&
       state.wanted &&
       tearleads.domainScope === attempt.scope &&
-      attempt.signIn()
-    );
+      attempt.signIn();
+    if (!active) sawLapse = true;
+    return active;
   };
   try {
     await retryWhileDatabaseBusy(
@@ -83,7 +85,17 @@ async function runRootBootstrap(
   } catch (error: unknown) {
     const failure = classifyDatabaseFailure(error);
     const wasCurrent = current();
-    driver.dispatch({ type: failure === "busy" ? "busy" : "failed", attempt });
+    if (sawLapse && wasCurrent && failure === "failed") {
+      // A brief lapse stopped the run in flight, then the same inputs were
+      // wanted again before the rejection landed: restart with a fresh attempt
+      // instead of logging a superseded failure and leaving bootstrap idle.
+      driver.dispatch({ type: "start", attempt: { ...attempt } });
+      return;
+    }
+    driver.dispatch({
+      type: wasCurrent && failure === "busy" ? "busy" : "failed",
+      attempt,
+    });
     // Reloads and identity transitions retire the worker beneath pending
     // queries. The next ready client retries; real SQL failures still log.
     if (wasCurrent && failure === "failed") {

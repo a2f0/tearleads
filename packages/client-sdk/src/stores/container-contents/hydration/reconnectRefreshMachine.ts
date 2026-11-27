@@ -21,7 +21,7 @@ export type ReconnectRefreshState =
   | (RetryProgress & { status: "pending" })
   | ActiveCrawl;
 
-export type ReconnectOutcome = HydrationOutcome | "unexpectedFailure";
+export type ReconnectOutcome = HydrationOutcome | "busy" | "unexpectedFailure";
 
 type ReconnectRefreshEvent =
   | { type: "acknowledged" | "runtimeChanged" | "disposed" }
@@ -35,6 +35,11 @@ function afterCrawl(
 ): ReconnectRefreshState {
   if (outcome === "complete") return { status: "idle" };
   if (outcome === "unexpectedFailure") return { status: "deferred" };
+  if (outcome === "busy") {
+    // A busy SQLite refusal never counts toward the proof-refusal limit and
+    // never forgives prior proof refusals; schedule a bounded retry instead.
+    return { ...state, status: "backoff" };
+  }
   const refusals = outcome === "refused" ? state.refusals + 1 : 0;
   if (refusals >= PROOF_REFUSAL_LIMIT) return { status: "deferred" };
   return { ...state, status: "backoff", refusals };

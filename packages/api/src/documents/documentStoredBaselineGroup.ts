@@ -203,6 +203,10 @@ export async function findLatestWholeStoredBaselineGroup(
  * when none below the highest is missing. A group whose spans no longer do
  * covers nothing it can be trusted for, and the answer is null. No vector a
  * segment declares is read.
+ *
+ * No signature covers a span row. One whose end was moved up in the
+ * database, its run still gapless, enlarges the coverage and is not
+ * detected here: only the missing row is.
  */
 export async function readStoredBaselineGroupCoverage(
   executor: DatabaseSession,

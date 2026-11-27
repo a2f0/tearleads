@@ -122,10 +122,14 @@ export class DeviceTransport {
     for (const entry of rewrites) body = entry.rewrite(body);
     const headers = new Headers(request.headers);
     headers.delete("content-length");
+    // Everything of the SDK's request but its body: a rewritten request is
+    // still cancelled with its sender and follows redirects as it would.
     return new Request(url, {
       body: JSON.stringify(body),
       headers,
       method: request.method,
+      redirect: request.redirect,
+      signal: request.signal,
     });
   }
 

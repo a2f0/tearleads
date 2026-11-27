@@ -87,3 +87,39 @@ test("surfaces a read failure instead of claiming the entry finished", () => {
   expect(view.getByRole("alert")).toBeTruthy();
   expect(view.queryByText(EXPLORER_LABELS.writeQueueEntryNotQueued)).toBeNull();
 });
+
+test.each([
+  [
+    "awaiting-parent-listing",
+    EXPLORER_LABELS.writeQueueEntryReasonAwaitingParentListing,
+  ],
+  ["slot-taken", EXPLORER_LABELS.writeQueueEntryReasonSlotTaken],
+  ["path-too-deep", EXPLORER_LABELS.writeQueueEntryReasonPathTooDeep],
+] as const)(
+  "explains why a blocked create is held (%s)",
+  (blockedReason, expectedText) => {
+    const view = renderEntry({
+      items: [
+        item({
+          localId: "contacts-local",
+          name: "Contacts",
+          objectKind: "container",
+          operations: [
+            operation({
+              blockedReason,
+              kind: "create",
+              status: "blocked",
+            }),
+          ],
+          status: "blocked",
+        }),
+      ],
+      selectedEntryKey: "container::contacts-local",
+    });
+
+    expect(view.getAllByText(expectedText).length).toBeGreaterThan(0);
+    expect(
+      view.getByText(EXPLORER_LABELS.writeQueueEntryBlockedReasonRow),
+    ).toBeTruthy();
+  },
+);

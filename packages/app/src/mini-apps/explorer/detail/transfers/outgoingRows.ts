@@ -7,7 +7,7 @@ import type { ExplorerUploadItem } from "../../../../stores/explorer/explorerUpl
 import { EXPLORER_LABELS } from "../../labels";
 import {
   getStatusLabel,
-  getWriteQueueItemError,
+  getWriteQueueItemDetail,
   getWriteQueueItemKey,
 } from "../sync/writeQueueItems";
 import {
@@ -91,7 +91,7 @@ function getWriteTransfer(
     detail:
       billingBlocked && write.status === "pending"
         ? EXPLORER_LABELS.writeQueueBillingPaused
-        : getWriteQueueItemError(write),
+        : getWriteQueueItemDetail(write),
     label: getStatusLabel(write.status),
     percent: getExplorerTransferStatusPercent(status),
     status,

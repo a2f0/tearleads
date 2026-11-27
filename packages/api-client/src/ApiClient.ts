@@ -163,6 +163,18 @@ export class ApiClient extends ApiClientAreas {
   syncDocument = this.documents.syncDocument;
   syncDocumentResult = this.documents.syncDocumentResult;
 
+  // Rotation baseline stages: open, read, abandon, stage, re-sign.
+  openDocumentBaselineStageResult =
+    this.baselineStages.openDocumentBaselineStageResult;
+  getDocumentBaselineStageResult =
+    this.baselineStages.getDocumentBaselineStageResult;
+  abandonDocumentBaselineStageResult =
+    this.baselineStages.abandonDocumentBaselineStageResult;
+  stageDocumentBaselineSegmentResult =
+    this.baselineStages.stageDocumentBaselineSegmentResult;
+  resignDocumentBaselineSegmentHeaderResult =
+    this.baselineStages.resignDocumentBaselineSegmentHeaderResult;
+
   // Blobs and document attachments.
   initiateMultipartBlobStage = this.blobs.initiateMultipartBlobStage;
   getMultipartBlobStage = this.blobs.getMultipartBlobStage;

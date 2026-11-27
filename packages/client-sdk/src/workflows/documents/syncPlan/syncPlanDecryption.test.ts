@@ -14,11 +14,11 @@ import {
 import { replaceEncryptedPlaintext } from "../../../../test/helpers/data/replaceEncryptedPlaintext";
 import { servedUpdateFromOutgoing } from "../../../../test/helpers/data/rotationBaselineFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
+import { encryptRotationBaselineGroup } from "../../../../test/helpers/workflows/rotationBaselineGroup";
 import { decryptDocumentSyncUpdates } from "../../../data/documents/shared/crypto";
 import { authorizingContainerPathRefs } from "../../../data/documents/shared/projection";
 import { openDocumentContentKey } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
-import { encryptRotationBaselineGroup } from "./rotationBaselineGroup";
 import { signDocumentOutgoingUpdate } from "./syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 

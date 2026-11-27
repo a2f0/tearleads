@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { integer } from "../realtime/optionValues";
+import { integer } from "../inProcess/optionValues";
 
 export type CanaryOptions =
   | {
@@ -13,6 +13,8 @@ export type CanaryOptions =
       readonly statements: boolean;
       /** Hash each statement's bind values, to tell keys apart. */
       readonly paramHash: boolean;
+      /** Record local client SQLite statements and mutation-lock holds. */
+      readonly clientStatements: boolean;
       /** Record sanitized per-pane field bytes, echoes, redeliveries, and head re-reads. */
       readonly payloadAudit: boolean;
       /** Capture filtered issuer call stacks beside `--payload-audit`. */
@@ -27,7 +29,8 @@ export type CanaryOptions =
 export const canaryUsage = `Run the app's request-volume canaries and record their request profiles.
 
 bun run perf:canaries [--canary <name>]... [--samples 1..5] [--baseline <report.json>]
-                      [--statements [--param-hash]] [--payload-audit [--stacks]]
+                      [--statements [--param-hash]] [--client-statements]
+                      [--payload-audit [--stacks]]
 bun run perf:canaries --compare <before.json> <after.json>
 
 Finds every packages/app test that profiles its proxied API requests, runs
@@ -55,6 +58,7 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
       compare: { type: "boolean", default: false },
       statements: { type: "boolean", default: false },
       "param-hash": { type: "boolean", default: false },
+      "client-statements": { type: "boolean", default: false },
       "payload-audit": { type: "boolean", default: false },
       stacks: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
@@ -73,6 +77,7 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
       values.baseline !== undefined ||
       values.statements ||
       values["param-hash"] ||
+      values["client-statements"] ||
       values["payload-audit"] ||
       values.stacks
     )
@@ -95,6 +100,7 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
     baseline: values.baseline ?? null,
     statements: values.statements,
     paramHash: values["param-hash"],
+    clientStatements: values["client-statements"],
     payloadAudit: values["payload-audit"],
     stacks: values.stacks,
   };

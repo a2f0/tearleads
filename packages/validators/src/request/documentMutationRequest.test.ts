@@ -274,7 +274,7 @@ test("isDocumentLinkSetMutationRequest", () => {
         finalSegment,
       ],
     }),
-  ).toBe(true);
+  ).toBe(false);
   const largeRotationVector = "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1);
   expect(
     isDocumentLinkSetMutationRequest({
@@ -291,7 +291,7 @@ test("isDocumentLinkSetMutationRequest", () => {
         },
       ],
     }),
-  ).toBe(true);
+  ).toBe(false);
   // One baseline is a list of its segments: never one bare update, never
   // empty, never more than a group may hold, and each entry a valid segment.
   for (const invalid of [

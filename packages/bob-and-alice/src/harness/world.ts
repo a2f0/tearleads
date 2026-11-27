@@ -59,6 +59,24 @@ function primary(user: User): Device {
  * Admitting a user takes their identity link: `member` shares one, and the
  * acting device verifies it, as the product's Add by Identity Link does.
  */
+/**
+ * A write the actor may make settles with nothing of it left queued. One
+ * that is still queued once the device is idle never reached the API: it
+ * was refused, or it is too large for one request and is never sent.
+ */
+async function requireWriteReachedApi(
+  device: Device,
+  documentId: string,
+  write: "create" | "edit",
+): Promise<void> {
+  const pending = await device.sdk.containerContents
+    .documentQueries()
+    .listPendingWrites();
+  if (pending.some((item) => item.remoteId === documentId)) {
+    throw device.failure(`${write} did not reach the API`);
+  }
+}
+
 async function admit(device: Device, member: User): Promise<void> {
   const link = await primary(member).sdk.userIdentities.createLink(
     "https://app.example.test",
@@ -199,6 +217,10 @@ export class World {
     await device.idle();
     const documentId = store.getSnapshot().documentId;
     if (!documentId) throw new Error(`${actor.name}'s document has no id`);
+    // A first write too large for one request leaves the document created
+    // empty with its text still queued: that is not the document a scenario
+    // asked for.
+    await requireWriteReachedApi(device, documentId, "create");
     this.model.addDocument(documentId, folder.id, text);
     return { documentId, containerId: folder.id };
   }
@@ -235,12 +257,7 @@ export class World {
     if (store.getSnapshot().text !== text) {
       throw device.failure("edit was not applied locally");
     }
-    const pending = await device.sdk.containerContents
-      .documentQueries()
-      .listPendingWrites();
-    if (pending.some((item) => item.remoteId === document.documentId)) {
-      throw device.failure("edit did not reach the API");
-    }
+    await requireWriteReachedApi(device, document.documentId, "edit");
     this.refusedEdits.get(device)?.delete(document.documentId);
   }
 

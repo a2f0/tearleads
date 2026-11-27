@@ -136,7 +136,7 @@ test("mutations on a past version change nothing", async () => {
 
   await store.setText("rewritten");
   await store.setStructuredFields("contact", { firstName: "Eve" });
-  await store.addRow({ street: "1 Way" });
+  expect(await store.addRow({ street: "1 Way" })).toBeNull();
   await store.updateRowFields("row", { street: "2 Way" });
   await store.removeRow("row");
   store.removeAttachment("kept");

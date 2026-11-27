@@ -23,10 +23,16 @@ client makes when it reloads, as its account grows. Run it with
 `bun run perf:reload`.
 
 The [request-volume canaries](#request-volume-canaries) record what the app's
-canary tests send to the API, per phase and endpoint. Run them with
+canary tests send to the API, per phase and endpoint, plus optional payload
+attribution (`--payload-audit`, `--stacks`), API statements (`--statements`),
+and client SQLite statements (`--client-statements`). Run them with
 `bun run perf:canaries`. The [statement capture](#statement-capture) records
-every statement the API sends while tests run. Run it with
-`bun run perf:statements`, or add `--statements` to the canaries.
+every statement the API sends while tests run (`bun run perf:statements`).
+
+The [PostgreSQL plan analyzer and static inventory](plans-and-inventory.md)
+screen captured `SELECT`s with `EXPLAIN (GENERIC_PLAN)` (`bun run perf:plans`)
+and census API/SQLite tables, indexes, OpenAPI response fields, and canary
+ceilings statically (`bun run perf:inventory`).
 
 ## Skills that use these tasks
 
@@ -37,8 +43,8 @@ as this README describes, and record a run that supports a shipped change in
 
 | Skill | Tasks |
 | --- | --- |
-| `protocol-efficiency-audit` | `perf:canaries` for its request and byte baseline; `perf:reload` for the requests a reload makes at sizes the canaries do not reach; `perf:realtime` and `perf:realtime-contention` for the hub; `perf:provision`, `perf:seed` and `perf:database` results for deployed costs |
-| `database-efficiency-audit` | `perf:canaries --statements` and `perf:statements` for its statement baseline and probes; `perf:realtime` and `perf:realtime-contention` for the hub's statements and stalls; `perf:reload` for a reload's statements on the API and in the client's SQLite; `perf:database` and `perf:provision` results for deployed costs |
+| `protocol-efficiency-audit` | `perf:canaries --payload-audit [--stacks]` for requests, wire bytes, WS hints, ceiling drift, and pane/field/echo attribution; `perf:reload` (`--ack-delay-ms`, `--peer-edits`) for scaled reload requests; `perf:inventory` for static route/table/field census; `perf:realtime` and `perf:realtime-contention` for the hub; `perf:provision`, `perf:seed --cloudflare`, and `perf:database` results for deployed costs |
+| `database-efficiency-audit` | `perf:canaries --statements --param-hash --client-statements` and `perf:statements` for API route/tx/lock-hold/pure-repeat and client SQLite baselines; `perf:plans` for Postgres generic-plan screening; `perf:inventory` for schema/index/unread-column census; `perf:realtime` and `perf:realtime-contention` for hub statements and stalls; `perf:reload` for scaled API and client SQLite statements/plans; `perf:database`, `perf:provision --cloudflare`, and `perf:seed --cloudflare` results for deployed costs |
 
 The audits run local tasks themselves. A task that touches a deployed tier
 (`perf:provision`, `perf:seed`, `perf:database`) creates accounts or a
@@ -50,7 +56,7 @@ approves a new run.
 ```sh
 bun run build:runtime
 bun run perf:seed --env staging
-bun run perf:seed --env production --trace
+bun run perf:seed --env production --trace --cloudflare
 ```
 
 Each run creates one persistent test account in the selected environment. It
@@ -60,7 +66,10 @@ The reader checks every fixture and compares the decrypted bytes in each slot.
 The round-trip time includes both CLI startups, sign-ins and session revocations.
 Each CLI phase uses one sign-in and has a 65-minute time limit. An expired
 session fails the phase. A timeout or a missing or changed
-fixture exits nonzero. The report goes to the terminal.
+fixture exits nonzero. Each run prints a summary and saves a structured JSON
+report under `.test_files/performance/seed-<run>.json`; pass `--cloudflare` to
+attach correlated `api.request.cost` Worker logs (requiring the same Cloudflare
+credentials as `perf:provision --cloudflare`).
 Keys travel over stdin and are discarded. This exercises the deployed API and
 blob storage through the SDK. Browser rendering and OPFS require a web test.
 See the [2026-11-20 production run](results/2026-11-20-continuity-seed-round-trip.md).
@@ -226,7 +235,8 @@ createdb tearleads_reload_probe
 DATABASE_URL="postgres://$USER@localhost:5432/tearleads_reload_probe" \
   bun run perf:reload
 DATABASE_URL="postgres://$USER@localhost:5432/tearleads_reload_probe" \
-  bun run perf:reload --documents 100,1000 --per-folder 1000
+  bun run perf:reload --documents 100,1000 --per-folder 1000 \
+    --ack-delay-ms 250 --peer-edits 5
 ```
 
 It boots the API in this process, as the realtime probes do, and registers a
@@ -255,7 +265,12 @@ against the first reload.
 | `requests`, `byRoute` | The SDK's API requests, by route template, from `ApiRequestMetrics` |
 | `settledMs` | From building the SDK until a request was last seen starting, running or finishing; the probe looks 25 ms after each time the sync coordinator is idle |
 | `database` | PostgreSQL traffic through the counting proxy, as in the realtime probes |
-| `localSql` | Statements the client ran against its local SQLite database |
+| `localSql` | Client SQLite statement count, top normalized queries, mutation-lock waits/holds, and `EXPLAIN QUERY PLAN` scan/temp-B-tree warnings |
+
+Pass `--ack-delay-ms <ms>` to delay marking the server-events connection
+acknowledged (exposing pre-ack startup polling), and `--peer-edits <n>` to
+apply `n` remote note edits from a second client before each settled reload so
+incremental catch-up is measured at scale.
 
 Request counts should repeat on any machine; times will not, and against a
 local API with no network they are lower bounds. The app shell's own startup
@@ -271,7 +286,8 @@ that folder is counted. Reports are saved as
 ```sh
 bun run --filter='@tearleads/client-sdk' build
 bun run perf:canaries
-bun run perf:canaries --canary GroupMutation --canary sharing --samples 3
+bun run perf:canaries --payload-audit --statements --param-hash --client-statements
+bun run perf:canaries --canary GroupMutation --canary sharing --payload-audit --stacks --samples 3
 bun run perf:canaries --baseline .test_files/performance/canaries-<run>.json
 bun run perf:canaries --compare <before.json> <after.json>
 ```
@@ -300,8 +316,10 @@ printed twice is two phases.
 | Field | What it measures |
 | --- | --- |
 | `runs[].status` | `passed`, `failed`, `timed-out`, or `unprofiled` (passed, printed no phase) |
-| `runs[].phases` | Every metrics line the file printed, with its repeated exact paths |
-| `runs[].statements` | With `--statements`: `captured` with statements per phase, `unmatched` when the capture's phase markers do not match the profile, or `off` (no capture, or the run did not pass) |
+| `runs[].phases` | Every metrics line the file printed, with repeated exact paths, delivered WebSocket hint counts (`ws`), and asserted ceiling vs. measured headroom (`budget`) |
+| `runs[].statements` | With `--statements`: `captured` with API statements per phase (scoped by `phaseStart`/`phaseEnd`), `unmatched`, or `off` |
+| `runs[].clientSql` | With `--client-statements`: client SQLite statement counts, top normalized queries, and mutation-lock wait/hold summaries per run |
+| `runs[].payloadAudit` | With `--payload-audit` (and optional `--stacks`): per-pane HMAC attribution, field byte breakdown, echo/redelivery/re-downloaded upload bytes, exact-head re-reads, `x-known-manifests` citations, and filtered issuer stacks |
 | `summary[].requests` | Proxied API requests in the phase |
 | `summary[].requestBytes`, `responseBytes` | Request and response body bytes, headers excluded |
 | `summary[].byRequest` | Per `METHOD /normalized/path`: count and body bytes |
@@ -343,8 +361,8 @@ refuses the flags that only a run uses.
 
 | Record | Fields |
 | --- | --- |
-| Statement | `label`, `sql`, `params` (bind value count), `request` (see below), and with `--param-hash` a 12-character `paramHash`, keyed per capture |
-| Phase end | `phaseEnd` (a canary phase label) and `requests` |
+| Statement | `label`, `sql`, `params` (bind value count), `request`, `route` (matched route template), `tx` (in-transaction flag), `lockHold` (`FOR UPDATE` / advisory-lock hold flag), and with `--param-hash` a 12-character `paramHash`, keyed per capture |
+| Phase markers | `phaseStart` / `phaseEnd` (exact canary phase window) and `requests` |
 | Truncation | `truncated`: the record limit (`--limit`, default 1,000,000) was reached |
 
 A statement's label is `globalThis.sqlCaptureLabel` when a probe set it
@@ -363,15 +381,20 @@ counts the requests under each label.
 PGlite runs transactions outside the ORM, so a capture on PGlite has no
 `begin` or `commit`; on `API_DATABASE=postgres` it does.
 
-The summary ranks normalized statements, with whitespace collapsed and
-placeholder lists folded, per label and per canary phase. A phase counts the
-statements since the previous phase ended. The first phase therefore includes
-the canary's setup, and a phase whose window spans earlier ones, such as
-`test total`, counts only what came after the previous marker. The capture,
-its summary as JSON and Markdown, and the test output are saved under
-`.test_files/performance/statements-<run>.*`. With `perf:canaries
---statements`, each canary's capture is kept beside its log and the report
-adds statements per phase. Summarize one in detail with `--summarize`.
+The summary ranks normalized statements per label, per route, and per canary
+phase. With `--param-hash`, same-key repeats within one request split into
+**pure read repeats** (no intervening write) and **read-after-write repeats**;
+in-transaction and lock-hold counts appear beside totals. Canary phases use
+`phaseStart` and `phaseEnd` so setup prior to the phase is excluded. Captures,
+JSON/Markdown summaries, and logs live under
+`.test_files/performance/statements-<run>.*`.
+
+## PostgreSQL query plans and static inventory
+
+See [plans-and-inventory.md](plans-and-inventory.md) for `bun run perf:plans`
+(`EXPLAIN (GENERIC_PLAN)` over saved statement captures) and
+`bun run perf:inventory` (static Postgres/SQLite/OpenAPI/canary-ceiling
+census).
 
 ## Account provisioning
 
@@ -388,30 +411,17 @@ bun run perf:provision --env production --samples 3 --cloudflare
 
 The environment is required; there is no implicit production target. Each
 sample creates a fresh identity, local database, remote account, and personal
-organization. Samples run serially, one second apart. The default is one,
-with a hard maximum of ten. There are no hidden warmups or parallel load tests.
-The runner stops on the first failed sample, cancels HTTP at a 60-second sample
-deadline, and exits nonzero on failure or interruption. The deadline cannot
-preempt synchronous JavaScript or WASM. The SDK's normal transport retries are
-included as separate attempts; the harness adds no retries.
+organization, running serially one second apart (default 1, max 10, 60s HTTP
+deadline, exiting nonzero on failure; normal SDK transport retries remain
+included). **Remote accounts persist**, though sessions are revoked after
+measurement and private keys/local databases are discarded; account and
+organization IDs stay in the report for follow-up, and each account records
+`LEGAL_TERMS_VERSION`.
 
-**Remote accounts persist.** Login sessions are revoked after measurement.
-Account and organization IDs remain in the report for operator follow-up.
-Private keys and the local database are discarded. A lost registration response
-can leave an account whose ID was never acknowledged; a failed login or logout
-may leave a session until server expiry. The harness does not delete accounts,
-purchase subscriptions, or exercise existing identities. Each account records
-the current Privacy Policy and Terms of Service revision
-(`LEGAL_TERMS_VERSION`), which the operator running the harness agrees to on
-its behalf.
-
-The scenario calls `identity.generate()`, `session.registerIdentity()`, and
-`session.login(challenge)` on `Tearleads`, with the app's Trash system-container
-specification. It measures logout separately. It uses the same encrypted SQLite
-WASM engine with memory storage, and a memory blob store. It excludes browser
-startup, OPFS, worker-message overhead, UI rendering, Contacts/self-contact
-bootstrap, and background sync. Thus it diagnoses the registration path without
-claiming to measure the entire browser onboarding experience.
+The scenario runs `identity.generate()`, `session.registerIdentity()`,
+`session.login(challenge)` (with the Trash container spec), and logout using
+memory SQLite WASM and memory blob storage, excluding browser startup, OPFS,
+UI rendering, Contacts bootstrap, and background sync.
 
 ## Cloudflare correlation
 
@@ -429,34 +439,21 @@ credentials.
 
 The runner opens a temporary
 [Cloudflare tail session](https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/tail/methods/create/)
-before creating identities, using the same `trace-v1` protocol and header filter
-as the repository's pinned Wrangler. Each API attempt carries random run and
-request correlation headers. An exact client-side match discards unrelated
-events, including subrequests. No API deployment or logging configuration change
-is needed. The connection and tail session are closed afterward; the tail also
-expires server-side if the process is killed.
-
-Only numeric `api.request.cost` fields and correlation metadata reach disk.
-Raw invocation URLs, headers, arbitrary console messages, exceptions, SQL,
-request/response bodies, tokens, seeds, and keys are not saved. The runner waits
-up to ten seconds for delayed invocation logs and records unmatched request IDs
-and tail warnings. Missing logs are unavailable measurements, not zero cost.
-Transport failures are also correlated: a lost response may follow a committed
-registration, so an unmatched attempt does not establish whether it reached the
-Worker.
-CPU and invocation wall time are retained only if supplied by the tail; otherwise
-use the response's `cf-ray`, timestamp, and Worker in Workers Logs to investigate.
+using the pinned Wrangler `trace-v1` protocol and per-attempt correlation
+headers, discarding unrelated events and closing the tail afterward (no API
+deployment change is needed). Only numeric `api.request.cost` fields and
+correlation metadata reach disk — never URLs, headers, SQL, bodies, tokens,
+or keys. The runner waits up to 10s for delayed logs, recording unmatched IDs
+and warnings (missing logs mean unavailable, not zero cost); CPU/invocation
+wall time are kept only if supplied by the tail.
 
 ## Reports and interpretation
 
-Reports are written atomically after each sample to the ignored directory
-`.test_files/performance/` at the repository root, with owner-only file
-permissions. They contain the target, runtime, source revision and dirty flag,
-individual phase spans and HTTP attempts, server API version, and a summary.
-Inspect individual samples before interpreting p50/p95 from a small run. The
-first sample includes cold process/connection behavior; subsequent samples use
-fresh identities but can reuse the process, network connections, and WASM module.
-The deployment and database caches are not reset.
+Reports are written atomically to `.test_files/performance/` (owner-only,
+git-ignored) with target, runtime, revision/dirty flag, spans, attempts,
+server version, and summary. Inspect individual samples before interpreting
+percentiles from small runs, as the first sample includes cold process and
+connection behavior while later samples reuse the process and WASM module.
 
 | Measurement | Boundary |
 | --- | --- |

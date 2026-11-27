@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createContainerContentsWorkflowRuntime } from "../../../../../test/helpers/workflows/containerContentsWorkflowRuntime";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
+import { NO_CREATE_INTENT_HOLD } from "../../../../data/containers/shared/createIntentHoldMachine";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
@@ -17,6 +18,7 @@ function createIntent(containerId: string): ContainerCreateIntentRecord {
   return {
     containerId,
     createdAt: "2026-07-15T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: `create-${containerId}`,
     intentType: "container.create",
     lastAttemptedAt: null,

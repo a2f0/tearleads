@@ -72,7 +72,7 @@ export function createHistoricalDocumentStore(
   let snapshot = initial;
   const listeners = new Set<() => void>();
   const store: DocumentStore = {
-    addRow: () => Promise.resolve(""),
+    addRow: () => Promise.resolve(null),
     assertCanRotateContentKey: () =>
       Promise.reject(new Error("A past version cannot rotate keys.")),
     attachFiles: () => undefined,

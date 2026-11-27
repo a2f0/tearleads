@@ -124,3 +124,35 @@ test("listing failures do not use the next proof's retry attempts", () => {
     state = move(state, { type: "retry", crawl });
   }
 });
+
+test("busy SQLite refusals back off without counting toward or resetting the proof refusal limit", () => {
+  let state: ReconnectRefreshState = move(
+    { status: "idle" },
+    { type: "acknowledged" },
+  );
+  // Two proof refusals leave one attempt before deferral.
+  for (let i = 0; i < 2; i++) {
+    const crawl = {};
+    state = move(state, { type: "start", crawl });
+    state = move(state, { type: "finish", crawl, outcome: "refused" });
+    expect(state.status).toBe("backoff");
+    state = move(state, { type: "retry", crawl });
+  }
+  // Five busy refusals keep backing off and preserve refusals = 2.
+  for (let i = 0; i < 5; i++) {
+    const crawl = {};
+    state = move(state, { type: "start", crawl });
+    state = move(state, { type: "finish", crawl, outcome: "busy" });
+    expect(state).toMatchObject({ refusals: 2, status: "backoff" });
+    state = move(state, { type: "retry", crawl });
+  }
+  // The third real proof refusal still defers.
+  const finalCrawl = {};
+  state = move(state, { type: "start", crawl: finalCrawl });
+  state = move(state, {
+    type: "finish",
+    crawl: finalCrawl,
+    outcome: "refused",
+  });
+  expect(state.status).toBe("deferred");
+});

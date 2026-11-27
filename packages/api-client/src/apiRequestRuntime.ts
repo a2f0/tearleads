@@ -184,9 +184,9 @@ export class ApiRequestRuntime {
     networkError?: ApiNetworkError | undefined;
     path: string;
     reportErrors: boolean;
-    hints?: RequestFailureHints | undefined;
     status: number | null;
     statusText: string;
+    hints?: RequestFailureHints | undefined;
   }): RequestFailure {
     const failure: RequestFailure = {
       ...(input.code === undefined ? {} : { code: input.code }),

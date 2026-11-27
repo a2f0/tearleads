@@ -1,7 +1,7 @@
+import type { PostgresTraffic } from "../inProcess/postgresWire";
+import { trafficSince } from "../inProcess/postgresWire";
 import type { AuthorizationCall } from "./hubSocket";
 import { productionBudgetMs } from "./hubSocket";
-import type { PostgresTraffic } from "./postgresWire";
-import { trafficSince } from "./postgresWire";
 import { type ResourceUse, startResourceSampler } from "./resources";
 
 export type HubPass = "declaration" | "revalidation";

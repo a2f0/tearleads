@@ -112,6 +112,7 @@ export type {
   PendingWriteQueueItemStatus,
   PendingWriteQueueObjectKind,
   PendingWriteQueueOperation,
+  PendingWriteQueueOperationBlockedReason,
   PendingWriteQueueOperationKind,
   PendingWriteQueueOperationStatus,
 } from "../../workflows/container-contents/pendingWrites";

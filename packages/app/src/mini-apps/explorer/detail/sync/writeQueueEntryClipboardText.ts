@@ -19,6 +19,9 @@ function formatOperation(
   if (operation.targetContainerId !== null) {
     lines.push(`  Target Container ID: ${operation.targetContainerId}`);
   }
+  if (operation.blockedReason !== undefined) {
+    lines.push(`  Blocked Reason: ${operation.blockedReason}`);
+  }
   if (operation.lastError !== null) {
     lines.push(`  Last Error: ${operation.lastError}`);
   }

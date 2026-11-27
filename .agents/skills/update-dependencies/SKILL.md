@@ -53,9 +53,9 @@ For each ownership manifest they do not refresh, run its installer directly:
 `.agent-tool-skills.json`, and `agent-tool permissions install --apply` for
 `.agent-tool-permissions.json`, which keeps the scope that manifest records.
 Preserve each harness scope, and commit the ownership manifests with any
-generated files. When `all` gains a harness, the install adds that harness's
-rules file, such as `.gemini/policies/agent-tool.toml`; name it in the PR so the
-reviewer sees the new allow rules. A permissions manifest from before scopes
+generated files. When a release adds or retires a harness's rules file, name
+the added or removed file in the PR so the reviewer sees the permission change.
+A permissions manifest from before scopes
 that records Claude and Codex, what `all` then wrote, gains `all`; when the
 repository kept those two on purpose, install each with `--harness` instead,
 and ask when its guidance does not say.

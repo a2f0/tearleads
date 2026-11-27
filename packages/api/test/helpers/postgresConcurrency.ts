@@ -107,3 +107,25 @@ export async function waitForPostgresLockWait(input: {
     `Timed out waiting for ${minimumWaiters} PostgreSQL lock waiter(s) behind backend ${input.blockerPid}: ${input.queryFragment}`,
   );
 }
+
+/**
+ * The value, if it arrives while the caller still holds its lock: a request
+ * that waits for that lock would settle only after the test let go. The
+ * timer is cleared either way, so none outlives the test.
+ */
+export async function settledWithoutWaiting<Value>(
+  pending: Value | Promise<Value>,
+): Promise<Value> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error("The request waited for a lock")),
+      5_000,
+    );
+  });
+  try {
+    return await Promise.race([Promise.resolve(pending), late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}

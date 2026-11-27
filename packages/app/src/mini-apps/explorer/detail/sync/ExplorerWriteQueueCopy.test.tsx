@@ -154,3 +154,23 @@ test("copies a healthy entry's status", async () => {
     ].join("\n"),
   ]);
 });
+
+test("copies a blocked create's typed hold reason", async () => {
+  const written = await copyEntry(
+    item({
+      objectKind: "container",
+      operations: [
+        operation({
+          blockedReason: "slot-taken",
+          kind: "create",
+          status: "blocked",
+          targetContainerId: ARCHIVE_NODE.id,
+        }),
+      ],
+      remoteId: null,
+      status: "blocked",
+    }),
+  );
+
+  expect(written[0]).toContain("  Blocked Reason: slot-taken");
+});

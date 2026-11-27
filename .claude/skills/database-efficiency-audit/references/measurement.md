@@ -20,9 +20,11 @@ revision makes a proposal Measured.
 | --- | --- | --- |
 | `bun run perf:realtime` | Statements, round trips, rows, and bytes per realtime hub interest pass, counted at the PostgreSQL wire of a local database | The hub's container-interest reads (`realtime/containerInterest*`) in `api-access-and-projections`. They never reach `api.request.cost` or the canaries |
 | `bun run perf:realtime-contention` | How long other sockets wait while those passes run | Whether a statement or row saving there also shortens the hub's stalls |
-| `bun run perf:reload` | PostgreSQL traffic and the client's local SQLite statements for one returning client's reload, by account size, against a local database | `client-sync-persistence` and `api-listings-and-sync-reads`: how a reload's statements on both sides grow with the account. The app canaries have no client statement hook |
+| `bun run perf:reload` | PostgreSQL traffic and attributed client SQLite statements, mutation-lock waits/holds, and `EXPLAIN QUERY PLAN` flags for one returning client's reload, by account size, against a local database (`--ack-delay-ms`, `--peer-edits`) | `client-sync-persistence` and `api-listings-and-sync-reads`: how a reload's statements on both sides grow with the account |
+| `bun run perf:plans` | PostgreSQL `EXPLAIN (GENERIC_PLAN, FORMAT JSON)` over top normalized SELECTs from a saved `perf:statements` or `perf:canaries --statements` capture, flagging `Seq Scan`, `Sort`, and `Materialize` nodes | `api-indexes` and every API slice: rapid generic-plan screening against a local migrated scratch database |
+| `bun run perf:inventory` | Static census of API Postgres tables/columns/indexes, client SQLite tables/columns/indexes, left-prefix duplicate index leads, and unreferenced tables/columns | `api-indexes`, `client-indexes`, and every slice: automated schema, index, and zero-reader inventory |
 | `bun run perf:database` | One warm driver exchange through Hyperdrive, against the same statements batched in one exchange | Turning a serial round-trip saving into production latency |
-| `bun run perf:provision --cloudflare` | Statements and database wait per registration and login request on a deployed tier | Production statements per request in `api-auth-and-registration`, beside the PGlite capture |
+| `bun run perf:provision --cloudflare` / `perf:seed --cloudflare` | Statements, in-transaction statements, payload bytes, and database wait per request on a deployed tier | Production statements per request in `api-auth-and-registration` and recovery flows, beside the PGlite capture |
 
 The realtime probes and `perf:reload` are local. They create a scratch
 database and write git-ignored reports under the measured checkout's
@@ -41,18 +43,19 @@ latency, labelled Estimated unless the change itself was measured.
 
 ## Inventories
 
-Take these once per revision:
+Run `bun run perf:inventory [--canaries <canary-report.json>]` once per
+revision and copy its saved JSON and Markdown reports into `measurements/`:
 
-- **API tables and indexes per dialect:** `CREATE TABLE` statements,
-  the indexes their `PRIMARY KEY` and `UNIQUE` constraints create, and
-  `CREATE [UNIQUE] INDEX` statements in
-  `packages/api-shared/drizzle/0000_greenfield_baseline.sql`. Constraint
-  indexes count: they can cover a narrower index or serve a query. Record
-  each index's table, columns, uniqueness, and partial predicate.
-- **Client tables and indexes:** `sqliteTable(`, `index(`, and
-  `uniqueIndex(` under `packages/client-sdk/src/data/sqlite` and
-  `packages/app/src/document-projectors`, excluding tests. DDL is rendered
-  by `defineSqlTableSchema` in
+- **API Postgres tables and indexes:** replayed in migration order across all
+  SQL files in `packages/api-shared/drizzle/` (including `PRIMARY KEY` and
+  `UNIQUE` constraints and `CREATE [UNIQUE] INDEX` statements), mapped to
+  Drizzle schema exports in `packages/api-shared/src/schema` and
+  `packages/loro/src/server`, with automated left-prefix duplicate index and
+  unreferenced column leads.
+- **Client SQLite tables and indexes:** `sqliteTable(`, `index(`, and
+  `uniqueIndex(` under `packages/client-sdk/src/data/sqlite/schema` and
+  `packages/app/src/document-projectors`, with left-prefix duplicate index and
+  unreferenced column leads. DDL is rendered by `defineSqlTableSchema` in
   `packages/client-sdk/src/data/sqlite/sqlTableSchema.ts`, which also
   enforces required columns.
 - **Existing budgets and plans:** non-snapshot tests that call
@@ -116,16 +119,20 @@ jq -r 'select(.label == "<label>") | .sql | gsub("\\s+"; " ")' <file> \
   | sort | uniq -c | sort -rn | head -20
 ```
 
-Each record carries `request`, a number for the request it ran in, and the
-summary counts same-key repeats within one request: a per-phase total hides
-one key read twice inside a request. On 2026-11-10 the first auditor to
-group a capture by request found the single-walk and listing-lane repeats.
-The number comes from the scope the request-cost middleware marks, so it
-stays one per request inside a counter a test opens around several requests.
-Outside every request it numbers the outermost counter, such as a budget
-test's around one workflow call.
-`API_REQUEST_COST_LOG=true` also makes the API print one `api.request.cost`
-line per request with its route and statement count (see
+Each record carries `request`, a number for the request it ran in, `route`
+(the matched route template), `tx` (whether the statement ran inside a
+transaction), and `lockHold` (whether it ran inside a `FOR UPDATE` or
+advisory-lock hold within that transaction). The summary attributes statements
+by route, reports in-transaction and lock-hold statement counts, and with
+`--param-hash` splits same-key repeats within one request into **pure read
+repeats** (no intervening write in that request) versus **read-after-write
+repeats** (a mutation ran between the two reads). The request number comes
+from the scope the request-cost middleware marks, so it stays one per request
+inside a counter a test opens around several requests. Outside every request
+it numbers the outermost counter, such as a budget test's around one workflow
+call. `API_REQUEST_COST_LOG=true` also makes the API print one
+`api.request.cost` line per request with its route, `statements`,
+`txStatements`, `reqBytes`, and `resBytes` (see
 `docs/developer/api-request-cost.md`).
 
 `jq -r` prints multi-line SQL across several lines, so `jq -r ... | wc -l`
@@ -151,20 +158,21 @@ ceilings, with their measurements in a comment, are in
 Capture once per revision, in the background, and keep one log and one
 capture file per run. When the protocol audit runs at the same revision,
 run the canaries once for both with
-`bun run perf:canaries --statements --param-hash`: each canary's log holds
-the request profile, its capture the statements, and the report adds
-statements per phase. Keep `--param-hash` on that shared pass: without the
-hashes neither audit can split a repeated statement into same-key and
-different-key reads afterwards.
+`bun run perf:canaries --statements --param-hash --client-statements --payload-audit`:
+each canary's log holds the request profile, its captures hold the API and
+client SQLite statements plus payload attribution, and the report adds
+API and client statements per phase. Keep `--param-hash` on that shared pass:
+without the hashes neither audit can split a repeated statement into pure
+read repeats, read-after-write repeats, and different-key reads afterwards.
 
 - The request-volume canaries `perf:canaries` runs, listed in the
   `protocol-efficiency-audit` measurement reference (upload, organization
   bootstrap, folder and group mutations, device-first offline, groups,
-  sharing, reconnect, restart), with `--statements`. They drive the real SDK
-  against the in-process test API on PGlite, so their statement mix
-  approximates production. Statements between two `phaseEnd` markers
-  include any setup the canary ran before the phase started; use a probe
-  for exact per-operation numbers.
+  sharing, reconnect, restart), with `--statements --client-statements`. They
+  drive the real SDK against the in-process test API on PGlite, so their
+  statement mix approximates production. Canary phases emit `phaseStart` and
+  `phaseEnd` markers so statements are scoped strictly to the measured phase
+  window without pulling in earlier fixture setup.
 - The API statement-budget tests from the inventory, through
   `perf:statements`, for registration, read-model, projection, and
   verification-marker counts.
@@ -179,22 +187,34 @@ hot path, and disagreement is itself a lead.
 
 ## Statement capture on the client
 
-There is no client statement counter. Every SDK statement, including
-transaction control and schema ensures, passes through `createExecSql` in
-`packages/client-sdk/src/data/sqlite/sqlExec.ts`, and each one is a separate
-worker message: `packages/sqlite-worker/src/types.ts` has no batch request.
-A probe in `packages/client-sdk` builds its own executor around a real
-SQLite wasm database from `createTestExecSql` in
-`packages/test-utils/src/createTestExecSql.ts` and records every call, as
+`@tearleads/client-sdk/sqlite` exports opt-in, zero-overhead-when-unused
+observers (`registerClientSqlStatementObserver` and
+`registerClientSqlMutationObserver`) wired into `createExecSql`
+(`packages/client-sdk/src/data/sqlite/sqlExec.ts`) and the local database
+mutation-lock queue (`packages/client-sdk/src/data/sqlite/localDatabase.ts`).
+Each statement is still a separate worker message
+(`packages/sqlite-worker/src/types.ts` has no batch request).
+
+Use the built-in harness hooks to capture client SQLite activity across whole
+canary and reload flows:
+
+- **`bun run perf:canaries --client-statements`**: loads
+  `packages/performance/src/statements/clientSqlPreload.ts` (with built-in
+  recursion guards and record caps), records every client SQLite statement
+  (normalized SQL, duration, transaction flag, database tag) and mutation-lock
+  wait/hold duration per canary phase, and summarizes top queries and lock
+  contention in the canary report.
+- **`bun run perf:reload`**: enables the same observer during scaled reloads,
+  reporting top normalized SQLite queries, mutation-lock wait/hold peaks, and
+  automatic `EXPLAIN QUERY PLAN` `SCAN` / `USE TEMP B-TREE` flags on the top
+  SELECTs.
+
+For isolated single-operation SDK probes outside the checkout, wrap
+`createTestExecSql` in `packages/test-utils/src/createTestExecSql.ts` (as
 `packages/client-sdk/src/data/persistence/principalHistory/principalHistoryStageRetention.plan.test.ts`
-does. Use a fresh executor per measurement: executors are cached per client,
-and the first call on a connection also runs the schema ensure. A preload
-that wraps the executor for a whole test run needs a recursion guard (its
-own writes must not be captured) and a line cap: an unguarded one wrote a
-34 GB file on 2026-11-10. Because
-the app canaries have no client hook, how often an SDK operation runs in a
-real flow is not measured; report client savings per operation and list
-the frequency under Not measured.
+does) or register a temporary observer through
+`@tearleads/client-sdk/sqlite`. Use a fresh executor per measurement when
+separating first-call schema-ensure statements from steady-state work.
 
 ## Query plans
 
@@ -202,7 +222,20 @@ At fixture sizes a planner may scan a table it would search at scale, so a
 plan proves whether an index **can** serve a query, and a scaled fixture
 proves whether it **does**.
 
-- **API Postgres, local.** Create a scratch database
+- **API Postgres generic-plan screening (`perf:plans`).** Run `perf:plans`
+  against a scratch PostgreSQL database (`DATABASE_URL` pointing to localhost):
+
+  ```sh
+  DATABASE_URL=postgres://$USER@localhost:5432/<scratch> \
+    bun run perf:plans --capture .test_files/performance/<capture>.jsonl \
+      [--limit 20] [--disable-seqscan]
+  ```
+
+  It migrates the database, runs `EXPLAIN (GENERIC_PLAN, FORMAT JSON)` over
+  the top normalized `SELECT` queries in the capture, flags `Seq Scan`, `Sort`,
+  and `Materialize` nodes, and saves JSON and Markdown reports under
+  `.test_files/performance/`.
+- **API Postgres, scaled local.** Create a scratch database
   (`createdb -h localhost -p 5432 tearleads_db_audit_<short-sha>`), run the
   probe from `packages/api` with `API_DATABASE=postgres` and
   `DATABASE_URL=postgres://localhost:5432/<that database>` (the test preload
@@ -215,9 +248,10 @@ proves whether it **does**.
   statement with `db.execute`. PGlite's plans on tiny tables say little about
   scale, so plan tests check the statement shape the index depends on, as
   `packages/api/src/access/read/currentPrincipalHeadsPlan.test.ts` does.
-- **Client SQLite.** `EXPLAIN QUERY PLAN` through `createTestExecSql`. A
-  `SCAN` of a growing table or `USE TEMP B-TREE` for an `ORDER BY` marks a
-  missing or mis-ordered index.
+- **Client SQLite.** Check `perf:reload`'s `EXPLAIN QUERY PLAN` warnings or
+  run `EXPLAIN QUERY PLAN` directly through `createTestExecSql`. A `SCAN` of
+  a growing table or `USE TEMP B-TREE` for an `ORDER BY` marks a missing or
+  mis-ordered index.
 - **Production statistics.** See `planetscale.md` for `hypopg` and the
   limits of small production data.
 

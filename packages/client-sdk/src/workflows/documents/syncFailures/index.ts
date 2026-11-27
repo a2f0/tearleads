@@ -99,6 +99,7 @@ async function resolveFailedDocumentSyncAction(input: {
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
+  replansStagedBaseline: boolean;
 }): Promise<FailedDocumentSyncAction> {
   const action = await classifyFailedDocumentSyncAction(input);
   traceSubmitFailed(input.onSyncTrace, {
@@ -123,6 +124,8 @@ async function classifyFailedDocumentSyncAction(input: {
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
+  /** The refusal left a staged baseline that planning again answers. */
+  replansStagedBaseline: boolean;
 }): Promise<FailedDocumentSyncAction> {
   if (
     await handleUpstreamDeletedDocumentSyncFailure({
@@ -153,6 +156,10 @@ async function classifyFailedDocumentSyncAction(input: {
     input.failure.code === DOCUMENT_SYNC_ERROR_CODES.descendantRekeysRequired
   ) {
     input.onInlineRepairRefused();
+    return "retry";
+  }
+
+  if (input.attempt < input.maxAttempts && input.replansStagedBaseline) {
     return "retry";
   }
 
@@ -200,6 +207,10 @@ async function submitDocumentSyncAttempt(input: {
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   plan: DocumentSyncPlan;
+  /** Settles a staged baseline; true when planning again answers. */
+  settleBaselineCommit?:
+    | ((outcome: DocumentSyncSubmitFailure | { ok: true }) => Promise<boolean>)
+    | undefined;
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<DocumentSyncAttemptSubmission> {
@@ -210,6 +221,13 @@ async function submitDocumentSyncAttempt(input: {
     plan: input.plan,
     stillCurrent: input.stillCurrent,
   });
+  // Told first: a commit the server took must not leave its upload waiting.
+  const replansStagedBaseline =
+    (submitted &&
+      (await input.settleBaselineCommit?.(
+        submitted.ok ? { ok: true } : submitted,
+      ))) ??
+    false;
   if (input.stillCurrent?.() === false) return "cancelled";
   if (!submitted) {
     return "stop";
@@ -241,6 +259,7 @@ async function submitDocumentSyncAttempt(input: {
     onSyncTrace: input.onSyncTrace,
     onTerminalSubmitFailure: input.onTerminalSubmitFailure,
     pendingUpdates: input.pendingUpdates,
+    replansStagedBaseline,
   });
 }
 

@@ -179,6 +179,8 @@ test("a header's citations and device id are bounded where it is parsed", async 
   // shape before any signature is read.
   const TOO_MANY = `write header dependencyManifestHashes may cite at most ${MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS} container manifests`;
   const TOO_LONG = `write header.writerDeviceId may be at most ${MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH} characters`;
+  const CONTROL =
+    "write header.writerDeviceId may not hold a control character";
   const pastBounds = (header: Record<string, unknown>) =>
     [
       [
@@ -190,6 +192,9 @@ test("a header's citations and device id are bounded where it is parsed", async 
         400,
       ],
       [{ ...header, writerDeviceId: `${longest}x` }, TOO_LONG, 400],
+      // U+0000 is a string no jsonb column holds: left to the store, the
+      // header would be a server error where it is written.
+      [{ ...header, writerDeviceId: "dev\u0000ice" }, CONTROL, 400],
       // A signature is canonical base64: the decoder forgives whitespace,
       // which must not let a header that verifies carry any amount of it.
       [

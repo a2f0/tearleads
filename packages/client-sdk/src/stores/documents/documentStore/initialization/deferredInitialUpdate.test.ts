@@ -14,7 +14,8 @@ import {
   PDF_UPLOAD,
   readQueuedUpdates,
 } from "./deferredInitialUpdate.testFixtures";
-import { ensureDocumentStoreReady, relinkDocumentStore } from "./index";
+import { ensureDocumentStoreReady } from "./index";
+import { relinkDocumentStore } from "./relinkDocumentStore";
 
 const noopSchedule = () => undefined;
 const SCOPE = (localId: string) => ({ appKind: "documents", localId });

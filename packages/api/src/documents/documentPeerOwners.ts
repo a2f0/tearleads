@@ -9,9 +9,11 @@ import {
   type CommittedDocumentPeer,
   type DocumentPeerDependency,
   type DocumentPeerRefusal,
+  type DocumentPeerSpan,
   judgeDocumentPeerSpans,
 } from "@tearleads/validators/documentPeerSpans";
 import { and, type Column, eq, max, type SQL, sql } from "drizzle-orm";
+import { readStagedBaselineFrontier } from "./documentBaselineStageStore";
 import { chunkDocumentPeerRows } from "./documentPeerRowChunks";
 
 interface DocumentUpdatePeerSource {
@@ -91,6 +93,68 @@ async function readCommittedDocumentPeers(
 }
 
 /**
+ * Whether a write of `spans` by `userId` would extend, past its committed
+ * frontier, a peer another user owns: the ownership refusal of
+ * `judgeDocumentPeerSpans`, by that rule itself. It reads only the named
+ * peers. A caller that does not hold the document head lock learns what
+ * held when it asked, not what will hold at its commit.
+ */
+export async function extendsPeerOwnedByOthers(
+  executor: DatabaseSession,
+  input: {
+    readonly documentId: string;
+    readonly spans: readonly DocumentPeerSpan[];
+    readonly userId: string;
+  },
+): Promise<boolean> {
+  if (input.spans.length === 0) return false;
+  const verdict = judgeDocumentPeerSpans({
+    committedPeers: await readCommittedDocumentPeers(
+      executor,
+      input.documentId,
+      [...new Set(input.spans.map((span) => span.peerId))],
+    ),
+    updates: [{ dependencies: [], spans: input.spans }],
+    userId: input.userId,
+  });
+  return verdict.kind === "peer_owned";
+}
+
+/**
+ * The committed peers as they will stand once the staged baseline the
+ * request commits is promoted: each peer the stage extends ends where the
+ * stage leaves it and is its writer's. The caller has refused a stage that
+ * extends another user's peer, so an extended peer is the writer's already
+ * or nobody's. The request's own updates are judged against this before
+ * the stage is promoted, so a request that will be refused is refused
+ * without the promotion's writes.
+ */
+async function overlayStagedBaseline(
+  executor: DatabaseSession,
+  committedPeers: Map<string, CommittedDocumentPeer>,
+  input: {
+    readonly baselineId: string;
+    readonly documentId: string;
+    readonly peerIds: readonly string[];
+    readonly userId: string;
+  },
+): Promise<void> {
+  const staged = await readStagedBaselineFrontier(
+    executor,
+    input,
+    input.peerIds,
+  );
+  for (const [peerId, endCounter] of staged) {
+    const peer = committedPeers.get(peerId);
+    if (endCounter <= (peer?.committedEndCounter ?? 0)) continue;
+    committedPeers.set(peerId, {
+      committedEndCounter: endCounter,
+      ownerUserId: peer?.ownerUserId ?? input.userId,
+    });
+  }
+}
+
+/**
  * Claims every unowned peer a write extends for its writer, unless the write
  * extends a peer another user owns or depends on an op nobody committed: then
  * it claims nothing and returns the refusal, and the caller refuses the whole
@@ -106,6 +170,8 @@ export async function claimDocumentPeers(
   input: {
     readonly documentId: string;
     readonly documentInsertedInTransaction: boolean;
+    /** The stage the request commits, not yet promoted, if it commits one. */
+    readonly stagedBaselineId?: string | undefined;
     readonly updates: readonly DocumentUpdatePeerSource[];
     readonly userId: string;
   },
@@ -127,10 +193,19 @@ export async function claimDocumentPeers(
   ].sort(compareCanonicalStrings);
   if (peerIds.length === 0) return null;
 
+  const committedPeers = input.documentInsertedInTransaction
+    ? new Map<string, CommittedDocumentPeer>()
+    : await readCommittedDocumentPeers(executor, input.documentId, peerIds);
+  if (input.stagedBaselineId !== undefined) {
+    await overlayStagedBaseline(executor, committedPeers, {
+      baselineId: input.stagedBaselineId,
+      documentId: input.documentId,
+      peerIds,
+      userId: input.userId,
+    });
+  }
   const verdict = judgeDocumentPeerSpans({
-    committedPeers: input.documentInsertedInTransaction
-      ? new Map()
-      : await readCommittedDocumentPeers(executor, input.documentId, peerIds),
+    committedPeers,
     updates,
     userId: input.userId,
   });

@@ -10,7 +10,7 @@ import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { BaselineGroupRun } from "./baselineGroupMachine";
 import { settleBaselineGroupVerdicts } from "./baselineGroupProgress";
 import {
-  unappliedOperationSpans,
+  carriedUnappliedOperations,
   unappliedOperationsOf,
   unappliedSegmentsDeclared,
   withUnappliedSegment,
@@ -130,7 +130,7 @@ test("unapplied segments that follow each other on a peer make one span", () => 
     new Map(),
     declares({ "7": 10 }, { "7": 20, "9": 4 }),
   );
-  expect(unappliedOperationSpans(unapplied)).toEqual([
+  expect(carriedUnappliedOperations(unapplied)).toEqual([
     span("7", 10, 20),
     span("9", 0, 4),
   ]);
@@ -140,7 +140,7 @@ test("unapplied segments that follow each other on a peer make one span", () => 
     unapplied,
     declares({ "7": 20 }, { "18": 3, "7": 26 }),
   );
-  expect(unappliedOperationSpans(unapplied)).toEqual([
+  expect(carriedUnappliedOperations(unapplied)).toEqual([
     span("18", 0, 3),
     span("7", 10, 26),
     span("9", 0, 4),
@@ -151,7 +151,7 @@ test("unapplied segments that follow each other on a peer make one span", () => 
     unapplied,
     declares({ "7": 30 }, { "7": 40 }),
   );
-  expect(unappliedOperationSpans(unapplied)).toEqual([
+  expect(carriedUnappliedOperations(unapplied)).toEqual([
     span("18", 0, 3),
     span("7", 30, 40),
     span("9", 0, 4),
@@ -165,8 +165,8 @@ test("unapplied segments that follow each other on a peer make one span", () => 
     declares({}, {}),
   ]) {
     expect(
-      unappliedOperationSpans(withUnappliedSegment(unapplied, vectors)),
-    ).toEqual(unappliedOperationSpans(unapplied));
+      carriedUnappliedOperations(withUnappliedSegment(unapplied, vectors)),
+    ).toEqual(carriedUnappliedOperations(unapplied));
   }
 });
 

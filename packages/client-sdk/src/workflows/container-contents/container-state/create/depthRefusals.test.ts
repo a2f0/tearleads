@@ -10,10 +10,11 @@ import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { createAuthor } from "../../../../../test/helpers/data/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/data/trustedUserIdentity";
 import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
+import { ContainerPathTooDeepError } from "../../../../data/containers/shared/containerPathLimits";
 import {
-  CONTAINER_PATH_TOO_DEEP_MESSAGE,
-  ContainerPathTooDeepError,
-} from "../../../../data/containers/shared/containerPathLimits";
+  type ContainerCreateIntentHold,
+  NO_CREATE_INTENT_HOLD,
+} from "../../../../data/containers/shared/createIntentHoldMachine";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { containerContentsOrganizationHost } from "../../../organizations/containerContentsHost";
@@ -109,6 +110,7 @@ test("a queued create whose local path is too deep waits without a request", asy
   const intent: ContainerCreateIntentRecord = {
     containerId: "child",
     createdAt: "2026-09-29T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: "create-child",
     intentType: "container.create",
     lastAttemptedAt: null,
@@ -120,7 +122,8 @@ test("a queued create whose local path is too deep waits without a request", asy
     syncStatus: "pending",
     updatedAt: "2026-09-29T00:00:00.000Z",
   };
-  const recorded: string[] = [];
+  const recordedHolds: ContainerCreateIntentHold[] = [];
+  const recordedErrors: string[] = [];
   let projectionRequests = 0;
   const state = syncState({
     containersById,
@@ -131,7 +134,10 @@ test("a queued create whose local path is too deep waits without a request", asy
       ...defaultContainerContentsPersistence,
       listPendingCreateIntents: async () => [intent],
       recordCreateIntentRevisionError: async (_execSql, input) => {
-        recorded.push(input.message);
+        recordedErrors.push(input.message);
+      },
+      recordCreateIntentRevisionHold: async (_execSql, input) => {
+        recordedHolds.push(input.hold);
       },
     },
   });
@@ -146,7 +152,8 @@ test("a queued create whose local path is too deep waits without a request", asy
     }),
   ).resolves.toBe(0);
   expect(projectionRequests).toBe(0);
-  expect(recorded).toEqual(["Container path exceeds maximum depth"]);
+  expect(recordedErrors).toEqual([]);
+  expect(recordedHolds).toEqual([{ status: "pathTooDeep" }]);
 });
 
 test("a create refused for path length waits for a local move instead of refetching", async () => {
@@ -160,6 +167,7 @@ test("a create refused for path length waits for a local move instead of refetch
   let intent: ContainerCreateIntentRecord = {
     containerId: "child",
     createdAt: "2026-09-29T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: "create-child",
     intentType: "container.create",
     lastAttemptedAt: null,
@@ -171,7 +179,8 @@ test("a create refused for path length waits for a local move instead of refetch
     syncStatus: "pending",
     updatedAt: "2026-09-29T00:00:00.000Z",
   };
-  const recorded: string[] = [];
+  const recordedHolds: ContainerCreateIntentHold[] = [];
+  const recordedErrors: string[] = [];
   let projectionRequests = 0;
   const state = syncState({
     containersById,
@@ -182,8 +191,11 @@ test("a create refused for path length waits for a local move instead of refetch
       ...defaultContainerContentsPersistence,
       listPendingCreateIntents: async () => [intent],
       recordCreateIntentRevisionError: async (_execSql, input) => {
-        recorded.push(input.message);
-        intent = { ...intent, lastError: input.message };
+        recordedErrors.push(input.message);
+      },
+      recordCreateIntentRevisionHold: async (_execSql, input) => {
+        recordedHolds.push(input.hold);
+        intent = { ...intent, hold: input.hold };
       },
     },
   });
@@ -199,7 +211,8 @@ test("a create refused for path length waits for a local move instead of refetch
   await expect(pass()).resolves.toBe(0);
   await expect(pass()).resolves.toBe(0);
   expect(projectionRequests).toBe(1);
-  expect(recorded).toEqual([CONTAINER_PATH_TOO_DEEP_MESSAGE]);
+  expect(recordedErrors).toEqual([]);
+  expect(recordedHolds).toEqual([{ status: "pathTooDeep" }]);
 });
 
 test("a queued move the server refuses for path length is abandoned, not retried", async () => {

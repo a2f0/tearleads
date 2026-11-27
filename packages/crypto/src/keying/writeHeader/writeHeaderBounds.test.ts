@@ -90,6 +90,49 @@ test("a header names its device in a bounded string", async () => {
   );
 });
 
+// A header is stored as JSON, and Postgres refuses U+0000 in `jsonb`: a
+// device name that verified and could not be stored would fail its write
+// in the store, not at the parser.
+test("a header's device name holds no control character", async () => {
+  const { signature: _, ...unsigned } = await header({ citations: 1 });
+  const named = (writerDeviceId: string) =>
+    signWriteHeader({ ...unsigned, writerDeviceId }, signing.signingPrivateKey);
+  const plain = await named("signing-key:\u20ac \u00e9\u{1f600}");
+  expect((await verify(plain)).ok).toBe(true);
+  for (const control of ["\u0000", "\n", "\u001f", "\u007f", "\u009f"]) {
+    await expect(named(`dev${control}ice`)).rejects.toThrow(
+      "writerDeviceId may not hold a control character",
+    );
+    expectVerificationError(
+      await verify({ ...plain, writerDeviceId: `dev${control}ice` }),
+      "invalid_shape",
+    );
+  }
+});
+
+// A lone surrogate is no character: a store either refuses it or keeps
+// another string than the one that was signed.
+test("a header's device name is well-formed Unicode", async () => {
+  const { signature: _, ...unsigned } = await header({ citations: 1 });
+  const plain = await signWriteHeader(unsigned, signing.signingPrivateKey);
+  for (const lone of ["\ud800", "\udfff", "\udc00\ud800"]) {
+    const writerDeviceId = `dev${lone}ice`;
+    await expect(
+      signWriteHeader(
+        { ...unsigned, writerDeviceId },
+        signing.signingPrivateKey,
+      ),
+    ).rejects.toThrow(
+      "write header.writerDeviceId must be well-formed Unicode",
+    );
+    const refused = await verify({ ...plain, writerDeviceId });
+    expectVerificationError(refused, "invalid_shape");
+    expect(refused.ok ? "" : refused.error.message).toBe(
+      "write header.writerDeviceId must be well-formed Unicode",
+    );
+  }
+});
+
 // The base64 decoder forgives whitespace. A signature that verifies only
 // after it is stripped would let a verified header carry any amount of it.
 test("a header's signature is canonical base64", async () => {

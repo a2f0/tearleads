@@ -1,26 +1,7 @@
-import {
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
-  MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH,
-} from "@tearleads/validators/util";
+import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS } from "@tearleads/validators/util";
 import type { VerifiedContainerAccessManifest } from "../containerAccess/containerAccessTypes";
-import { readHashArray, readString, throwVerification } from "../core/shared";
+import { readHashArray, throwVerification } from "../core/shared";
 import type { ContentObjectKind, WriteHeader } from "./writeHeaderTypes";
-
-/**
- * The device a header's writer signed on: any non-empty name up to a fixed
- * length. Nothing else in a header is a free string its writer chooses, so
- * with the citation bound this bounds every header.
- */
-export function readWriterDeviceId(record: Record<string, unknown>): string {
-  const deviceId = readString(record, "writerDeviceId", "write header");
-  if (deviceId.length > MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH) {
-    throwVerification(
-      "invalid_shape",
-      `write header.writerDeviceId may be at most ${MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH} characters`,
-    );
-  }
-  return deviceId;
-}
 
 /**
  * A document write header cites the container manifests of its authorizing

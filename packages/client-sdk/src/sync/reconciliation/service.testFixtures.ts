@@ -1,7 +1,10 @@
 import { expect } from "bun:test";
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { createDomainScope } from "../../data/shared/domainScope";
-import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
+import {
+  classifyDatabaseFailure,
+  getOrCreateDomainSyncCoordinator,
+} from "../../data/sync/syncCoordinator";
 import { type ReconciliationClock, systemReconciliationClock } from "./clock";
 import { createReconciliationService } from "./service";
 import type {
@@ -81,6 +84,7 @@ export function createReconciliationTestHost(
       isAuthenticated: true,
       online: true,
     }),
+    isBusyError: (error) => classifyDatabaseFailure(error) === "busy",
     isIgnorableError: () => false,
     listAutomaticRootCatchupContainerIds: () => [],
     listContainerDocumentIds: perContainerListing(async () => []),

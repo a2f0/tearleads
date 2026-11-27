@@ -62,9 +62,11 @@ API walks a baseline group's declared spans by the rule
   on. `historySegmentsImportInOrder` checks both properties from the declared
   vectors of any list of segments. It cannot tell that a tail is missing.
 - **Size.** A segment aims for `targetBytes` and never exceeds `maxBytes`,
-  both measured on the plaintext blob: 4 MiB and 16 MiB unless the caller
+  both measured on the plaintext blob: 4 MiB and 11 MiB unless the caller
   says otherwise (`DEFAULT_HISTORY_SEGMENT_TARGET_BYTES`,
-  `DEFAULT_HISTORY_SEGMENT_MAX_BYTES`). A size is known only after an export,
+  `DEFAULT_HISTORY_SEGMENT_MAX_BYTES`). The cap is what fits a 16 MiB
+  request once the segment is base64 inside its envelope, with room for the
+  update's vectors and header. A size is known only after an export,
   and a counter is one code point, one list element or one whole operation,
   not a number of bytes. So a candidate is a number of counters, sized from
   the bytes per counter of the last export, and kept when it fits the cap. A

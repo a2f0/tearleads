@@ -48,6 +48,7 @@ for (const rowType of ["future", ""]) {
         recordType: rowType,
         street: "preserve",
       });
+      if (!rowId) throw new Error("Expected added row id");
       await expect(
         harness.store.updateContactAddress(id, rowId, { street: "changed" }),
       ).rejects.toThrow();
@@ -69,16 +70,21 @@ test("row persistence refusal is observable and does not poison later address wr
   const harness = await createContactAddressHarness((store) => ({
     ...store,
     addRow: (...args) =>
-      refuse ? Promise.resolve("not-saved") : store.addRow(...args),
+      refuse ? Promise.resolve(null) : store.addRow(...args),
   }));
   try {
     const id = await harness.store.createContact({ firstName: "Ada" });
     if (!id) throw new Error("Missing contact");
     const fields = readContactAddressFields({ street: "Main" });
-    await expect(harness.store.addContactAddress(id, fields)).rejects.toThrow();
+    const intent = {};
+    await expect(
+      harness.store.addContactAddress(id, fields, intent),
+    ).rejects.toThrow();
     expect(harness.documentStores.get(id)?.getSnapshot().rows).toEqual([]);
     refuse = false;
-    expect(await harness.store.addContactAddress(id, fields)).toBeString();
+    expect(
+      await harness.store.addContactAddress(id, fields, intent),
+    ).toBeString();
   } finally {
     harness.close();
   }

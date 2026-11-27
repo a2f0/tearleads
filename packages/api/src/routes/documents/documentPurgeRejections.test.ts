@@ -3,7 +3,10 @@ import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import type { CreatedDocumentFixture } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
-import { postDocumentPurge } from "../../../test/helpers/documentPurge";
+import {
+  buildDocumentPurgeRequest,
+  postDocumentPurge,
+} from "../../../test/helpers/documentPurge";
 import {
   countDocumentRows,
   countTombstones,
@@ -128,4 +131,48 @@ test("POST document purge returns 404 for an unknown document id", async () => {
 
   expect(response.status).toBe(404);
   expect(await response.json()).toEqual({ error: "Document not found" });
+});
+
+// An access event is stored as it was signed, and Postgres takes no U+0000
+// in `text`: left to the store, such an event would be a server error. The
+// event parser bounds the two strings a signer chooses freely, so the
+// request is refused for its shape. The signer holds an event to the same
+// bounds, so each is sent here under the signature it had.
+test("POST document purge refuses an event whose names no store holds", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const request = await buildDocumentPurgeRequest({
+    documentId: created.id,
+    documentManifestHash: created.manifestHash,
+    owner,
+    root,
+  });
+  const before = await countDocumentRows(created.id);
+
+  for (const [key, name, reason] of [
+    ["signerDeviceId", "dev\u0000ice", "may not hold a control character"],
+    ["eventId", "ev\u0000ent", "may not hold a control character"],
+    ["signerDeviceId", "dev\ud800ice", "must be well-formed Unicode"],
+    ["signerDeviceId", "d".repeat(129), "may be at most 128 characters"],
+    ["eventId", "e".repeat(129), "may be at most 128 characters"],
+  ] as const) {
+    const response = await routeApp.request(`/documents/${created.id}/purge`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...request,
+        event: { ...request.event, [key]: name },
+      }),
+    });
+    expect([response.status, await response.json()]).toEqual([
+      400,
+      { error: `access event.${key} ${reason}` },
+    ]);
+  }
+  expect(await countDocumentRows(created.id)).toEqual(before);
 });

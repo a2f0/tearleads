@@ -130,6 +130,8 @@
     "perf:reload": "bun run --cwd packages/performance reload",
     "perf:canaries": "bun run --cwd packages/performance canaries",
     "perf:statements": "bun run --cwd packages/performance statements",
+    "perf:plans": "bun run --cwd packages/performance plans",
+    "perf:inventory": "bun run --cwd packages/performance inventory",
     "tearleads": "bun run --cwd packages/cli start"
   },
   "workspaces": [
@@ -163,7 +165,7 @@
     "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {
-    "@a2f0/agent-tool": "0.1.78",
+    "@a2f0/agent-tool": "0.1.83",
     "@azure/storage-blob": "12.34.0",
     "@biomejs/biome": "2.5.15",
     "@commitlint/cli": "21.2.4",

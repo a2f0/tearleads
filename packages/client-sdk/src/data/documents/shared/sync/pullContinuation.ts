@@ -8,6 +8,11 @@ import {
   baselineGroupStateFromRun,
   continuesWholeBaselineGroup,
 } from "./baselineGroupMachine";
+import {
+  type CarriedUnappliedOperations,
+  EVERY_OPERATION_UNAPPLIED,
+  MAX_UNAPPLIED_BASELINE_SPANS,
+} from "./baselineGroupUnapplied";
 import type { DocumentOperationSpan } from "./documentUpdateVerdict";
 
 export type DocumentSyncCommitLsnMode = "tracked" | "untracked";
@@ -51,6 +56,19 @@ function operationSpansEqual(
   );
 }
 
+function unappliedOperationsEqual(
+  left: CarriedUnappliedOperations,
+  right: CarriedUnappliedOperations,
+): boolean {
+  if (typeof left === "string" || typeof right === "string") {
+    return left === right;
+  }
+  return (
+    left.length === right.length &&
+    left.every((span, index) => operationSpansEqual(span, right[index]))
+  );
+}
+
 function baselineGroupRunsEqual(
   left: BaselineGroupRun | null | undefined,
   right: BaselineGroupRun | null | undefined,
@@ -60,10 +78,7 @@ function baselineGroupRunsEqual(
     left.baselineId === right.baselineId &&
     left.digest === right.digest &&
     left.nextIndex === right.nextIndex &&
-    left.unapplied.length === right.unapplied.length &&
-    left.unapplied.every((span, index) =>
-      operationSpansEqual(span, right.unapplied[index]),
-    )
+    unappliedOperationsEqual(left.unapplied, right.unapplied)
   );
 }
 
@@ -90,38 +105,67 @@ type PersistedBaselineGroupRun = readonly [
   baselineId: string,
   nextIndex: number,
   digest: string | null,
-  unapplied: readonly PersistedOperationSpan[],
+  unapplied:
+    | readonly PersistedOperationSpan[]
+    | typeof EVERY_OPERATION_UNAPPLIED,
 ];
 
+/**
+ * The format of a stored continuation. A reader takes only its own: a
+ * continuation stored in another format restarts its pull from page one.
+ * Format 4 stores a run's unapplied operations as one span a peer, or as
+ * the word for every operation once they are more than a run lists.
+ */
+const PULL_CONTINUATION_FORMAT = 4;
+
 type PersistedDocumentSyncPullContinuation = readonly [
-  version: 2,
+  version: typeof PULL_CONTINUATION_FORMAT,
   commitLsnMode: DocumentSyncCommitLsnMode,
   commitLsn: string,
   cursor: string,
   baselineGroupRun: PersistedBaselineGroupRun | null,
 ];
 
+const MAX_PEER_ID = 18_446_744_073_709_551_615n;
+
+/**
+ * Whether `value` is a Loro peer id as Loro writes one: an unsigned 64-bit
+ * integer in decimal with no leading zero. Spans are kept one a peer, in
+ * peer order, by this string, so another spelling of a peer would be
+ * another peer.
+ */
+function isCanonicalPeerId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^(?:0|[1-9]\d{0,19})$/u.test(value) &&
+    BigInt(value) <= MAX_PEER_ID
+  );
+}
+
 function isCounter(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 /**
- * Decodes a persisted run's unapplied operations: spans that hold at least
- * one operation, one a peer, in peer order. Null when they are anything
- * else.
+ * Decodes a persisted run's unapplied operations: the word for every
+ * operation, or at most `MAX_UNAPPLIED_BASELINE_SPANS` spans that each hold
+ * at least one operation, one a canonical peer id, in peer order. Null when
+ * they are anything else.
  */
 function readUnappliedOperations(
   value: unknown,
-): DocumentOperationSpan[] | null {
-  if (!Array.isArray(value)) return null;
+): CarriedUnappliedOperations | null {
+  if (value === EVERY_OPERATION_UNAPPLIED) return value;
+  if (!Array.isArray(value) || value.length > MAX_UNAPPLIED_BASELINE_SPANS) {
+    return null;
+  }
   const spans: DocumentOperationSpan[] = [];
   for (const entry of value) {
     if (!Array.isArray(entry) || entry.length !== 3) return null;
     const [peerId, startCounter, endCounter] = entry;
     const before = spans.at(-1);
     if (
-      typeof peerId !== "string" ||
-      !/^\d+$/u.test(peerId) ||
+      !isCanonicalPeerId(peerId) ||
       !isCounter(startCounter) ||
       !isCounter(endCounter) ||
       startCounter >= endCounter ||
@@ -186,7 +230,7 @@ export function deserializeDocumentSyncPullContinuation(
     const [version, commitLsnMode, commitLsn, cursor, run] = parsed;
     const baselineGroupRun = readBaselineGroupRun(run);
     if (
-      version !== 2 ||
+      version !== PULL_CONTINUATION_FORMAT ||
       baselineGroupRun === undefined ||
       !isValidCheckpoint(commitLsnMode, commitLsn) ||
       typeof commitLsn !== "string" ||
@@ -244,7 +288,7 @@ export function serializeDocumentSyncPullContinuation(
   if (continuation === null) return null;
   const run = continuation.baselineGroupRun;
   return JSON.stringify([
-    2,
+    PULL_CONTINUATION_FORMAT,
     continuation.commitLsnMode,
     continuation.commitLsn,
     continuation.cursor,
@@ -253,13 +297,15 @@ export function serializeDocumentSyncPullContinuation(
           run.baselineId,
           run.nextIndex,
           run.digest,
-          run.unapplied.map(
-            (span): PersistedOperationSpan => [
-              span.peerId,
-              span.startCounter,
-              span.endCounter,
-            ],
-          ),
+          typeof run.unapplied === "string"
+            ? run.unapplied
+            : run.unapplied.map(
+                (span): PersistedOperationSpan => [
+                  span.peerId,
+                  span.startCounter,
+                  span.endCounter,
+                ],
+              ),
         ]
       : null,
   ] satisfies PersistedDocumentSyncPullContinuation);

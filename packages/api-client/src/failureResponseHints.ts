@@ -1,7 +1,11 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
 import {
   ContainerMutationFailureResponseSchema,
+  DocumentBaselineStageConflictErrorResponseSchema,
+  DocumentMutationFailureResponseSchema,
   DocumentSyncErrorResponseSchema,
+  isDocumentBaselineStageConflictErrorResponse,
+  isDocumentBaselineStageErrorCode,
   isDocumentPeerRebaseErrorCode,
   isDocumentSyncErrorResponse,
   isDocumentSyncStateStaleErrorResponse,
@@ -15,6 +19,9 @@ type FailureResponseSchema = NonNullable<
 
 export type RequestFailureHints = Pick<
   RequestFailure,
+  | "baselineStageCode"
+  | "nextSegmentIndex"
+  | "openStages"
   | "peerFrontiers"
   | "requiredContainerIds"
   | "stalePrincipalHeads"
@@ -52,6 +59,39 @@ export function peerFrontiersField(
     : {};
 }
 
+// A sync or unlink that commits a staged rotation baseline names what the
+// refusal means for the stage beside its own code, and a stage route that
+// refuses a segment out of order names the index it expects, so the writer
+// knows whether to re-sign, resume, append or start over.
+export function baselineStageFields(
+  value: object,
+  schema?: FailureResponseSchema,
+): Pick<
+  RequestFailureHints,
+  "baselineStageCode" | "nextSegmentIndex" | "openStages"
+> {
+  if (
+    (schema === DocumentSyncErrorResponseSchema ||
+      schema === DocumentMutationFailureResponseSchema) &&
+    "baselineStageCode" in value &&
+    isDocumentBaselineStageErrorCode(value.baselineStageCode)
+  ) {
+    return { baselineStageCode: value.baselineStageCode };
+  }
+  if (
+    schema !== DocumentBaselineStageConflictErrorResponseSchema ||
+    !isDocumentBaselineStageConflictErrorResponse(value)
+  ) {
+    return {};
+  }
+  return {
+    ...(value.nextSegmentIndex === undefined
+      ? {}
+      : { nextSegmentIndex: value.nextSegmentIndex }),
+    ...(value.openStages === undefined ? {} : { openStages: value.openStages }),
+  };
+}
+
 // A container create refused because its organization already holds the
 // system slot. Final for that create; the client folds its copy instead.
 export function systemSlotTakenField(
@@ -76,6 +116,13 @@ export function requestFailureHints(
       ? { requiredContainerIds: input.requiredContainerIds }
       : {}),
     ...(input.peerFrontiers ? { peerFrontiers: input.peerFrontiers } : {}),
+    ...(input.baselineStageCode
+      ? { baselineStageCode: input.baselineStageCode }
+      : {}),
+    ...(input.nextSegmentIndex === undefined
+      ? {}
+      : { nextSegmentIndex: input.nextSegmentIndex }),
+    ...(input.openStages ? { openStages: input.openStages } : {}),
     ...(input.systemSlotTaken ? { systemSlotTaken: true } : {}),
   };
 }

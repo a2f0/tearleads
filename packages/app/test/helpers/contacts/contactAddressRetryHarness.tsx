@@ -35,7 +35,7 @@ export async function createAddressRetryHarness(
       ...store,
       async addRow(...args) {
         const id = await store.addRow(...args);
-        generatedIds.push(id);
+        if (id !== null) generatedIds.push(id);
         return id;
       },
     }),
