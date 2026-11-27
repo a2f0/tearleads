@@ -10,7 +10,9 @@
         "$TURBO_ROOT$/packages/app/test/helpers/proxiedApiRequestBudget.ts",
         "$TURBO_ROOT$/packages/app/test/helpers/workflowRequestBudget.ts",
         "$TURBO_ROOT$/packages/api/bunfig.toml",
-        "$TURBO_ROOT$/packages/app/bunfig.toml"
+        "$TURBO_ROOT$/packages/app/bunfig.toml",
+        "$TURBO_ROOT$/packages/bob-and-alice/src/harness/apiServer.ts",
+        "$TURBO_ROOT$/packages/bob-and-alice/src/harness/trace.ts"
       ],
       "dependsOn": [
         "$TURBO_EXTENDS$",
@@ -38,6 +40,9 @@
       "cache": false
     },
     "canaries": {
+      "cache": false
+    },
+    "scenarios": {
       "cache": false
     },
     "statements": {

@@ -16,6 +16,11 @@ import {
   testFileArgument,
 } from "../testProcess";
 import { readCaptureFile } from "./captureFile";
+import {
+  formatClientSqlMarkdown,
+  parseClientSqlCapture,
+  summarizeClientSqlCapture,
+} from "./clientSqlSummary";
 import { formatStatementSummary } from "./markdown";
 import {
   parseStatementOptions,
@@ -25,6 +30,8 @@ import {
 import { parseCapture, summarizeCapture } from "./summary";
 
 const capturePreload = resolve(import.meta.dir, "capturePreload.ts");
+const clientSqlPreload = resolve(import.meta.dir, "clientSqlPreload.ts");
+const memoryApiPackages = new Set(["api", "bob-and-alice"]);
 /** A focused run takes seconds to minutes; this stops one that hangs. */
 const timeoutMs = 30 * 60_000;
 
@@ -53,7 +60,75 @@ async function summarizeFile(path: string) {
   return capture === null ? null : summarizeCapture(parseCapture(capture));
 }
 
+async function summarizeClientFile(path: string) {
+  const capture = await readCaptureFile(path);
+  return capture === null
+    ? null
+    : summarizeClientSqlCapture(parseClientSqlCapture(capture));
+}
+
 type RunOptions = Extract<StatementOptions, { mode: "run" }>;
+
+function buildCaptureEnv(
+  options: RunOptions,
+  env: StatementHost["env"],
+  out: string,
+  clientOut: string | null,
+): Record<string, string | undefined> {
+  const {
+    PERF_CLIENT_SQL_LIMIT: _clientLimit,
+    PERF_CLIENT_SQL_OUT: _clientOut,
+    PERF_STATEMENTS_LIMIT: _stmtLimit,
+    PERF_STATEMENTS_OUT: _stmtOut,
+    PERF_STATEMENTS_PARAM_HASH: _stmtParamHash,
+    ...cleanEnv
+  } = env;
+  const { API_DATABASE: apiDatabase } = env;
+  return {
+    ...cleanEnv,
+    ...(memoryApiPackages.has(options.package) && {
+      API_DATABASE: apiDatabase ?? "memory",
+    }),
+    PERF_STATEMENTS_OUT: out,
+    PERF_STATEMENTS_PARAM_HASH: options.paramHash ? "1" : "0",
+    ...(options.limit !== null && {
+      PERF_STATEMENTS_LIMIT: `${options.limit}`,
+    }),
+    ...(clientOut !== null && {
+      PERF_CLIENT_SQL_OUT: clientOut,
+      ...(options.limit !== null && {
+        PERF_CLIENT_SQL_LIMIT: `${options.limit}`,
+      }),
+    }),
+  };
+}
+
+function buildCaptureMarkdown(input: {
+  readonly options: RunOptions;
+  readonly source: ReturnType<typeof sourceIdentity>;
+  readonly summary: Awaited<ReturnType<typeof summarizeFile>>;
+  readonly clientSql: Awaited<ReturnType<typeof summarizeClientFile>>;
+}): string {
+  const name = input.options.name === null ? "" : ` (-t ${input.options.name})`;
+  const dirty = input.source.dirty ? " with uncommitted changes" : "";
+  const intro = `packages/${input.options.package}: ${input.options.files.join(", ")}${name}, at \`${input.source.revision}\`${dirty}.`;
+  const sections: string[] = [];
+  if (input.summary) {
+    sections.push(formatStatementSummary(input.summary, intro).trimEnd());
+  } else {
+    sections.push(
+      `# Statement capture\n\n${intro}\n\nNo API ORM statements were recorded.`,
+    );
+  }
+  if (input.clientSql) {
+    sections.push(
+      formatClientSqlMarkdown("Client SQLite statements", input.clientSql).join(
+        "\n",
+      ),
+    );
+  }
+  return `${sections.join("\n")}\n`;
+}
 
 /** Runs the tests under the capture preload and saves what it recorded. */
 async function capture(
@@ -66,9 +141,15 @@ async function capture(
   const runId = crypto.randomUUID();
   const directory = await privateDirectory(host.reportDirectory);
   const out = resolve(directory, `statements-${runId}.jsonl`);
+  const clientOut = options.clientStatements
+    ? resolve(directory, `statements-${runId}.client-sql.jsonl`)
+    : null;
   const log = resolve(directory, `statements-${runId}.log`);
-  const preloads = [...(await packagePreloads(packageRoot)), capturePreload];
-  const { API_DATABASE: apiDatabase } = host.env;
+  const preloads = [
+    ...(await packagePreloads(packageRoot)),
+    capturePreload,
+    ...(clientOut ? [clientSqlPreload] : []),
+  ];
   const result = await host.runTests({
     cwd: packageRoot,
     args: [
@@ -76,22 +157,15 @@ async function capture(
       ...options.files.map(testFileArgument),
       ...(options.name === null ? [] : ["-t", options.name]),
     ],
-    env: {
-      ...host.env,
-      ...(options.package === "api" && {
-        API_DATABASE: apiDatabase ?? "memory",
-      }),
-      PERF_STATEMENTS_OUT: out,
-      PERF_STATEMENTS_PARAM_HASH: options.paramHash ? "1" : "0",
-      ...(options.limit !== null && {
-        PERF_STATEMENTS_LIMIT: `${options.limit}`,
-      }),
-    },
+    env: buildCaptureEnv(options, host.env, out, clientOut),
     log,
     timeoutMs,
   });
   const passed = result.exitCode === 0 && !result.timedOut;
-  const summary = await summarizeFile(out);
+  const [summary, clientSql] = await Promise.all([
+    summarizeFile(out),
+    clientOut !== null ? summarizeClientFile(clientOut) : Promise.resolve(null),
+  ]);
   const source = sourceIdentity();
   const jsonPath = await saveJson(
     `statements-${runId}.json`,
@@ -109,30 +183,38 @@ async function capture(
       options,
       result,
       capture: out,
+      ...(clientOut !== null && { clientCapture: clientOut }),
       log,
       summary,
+      ...(clientOut !== null && { clientSql }),
     },
     directory,
   );
   if (!passed) host.print(await logTail(log));
-  if (!summary) {
+  if (!summary && !clientSql) {
     host.print(`No statements were recorded. Test output: ${log}`);
     return 1;
   }
-  const name = options.name === null ? "" : ` (-t ${options.name})`;
-  const markdown = formatStatementSummary(
+  const markdown = buildCaptureMarkdown({
+    options,
+    source,
     summary,
-    `packages/${options.package}: ${options.files.join(", ")}${name}, at \`${source.revision}\`${source.dirty ? " with uncommitted changes" : ""}.`,
-  );
+    clientSql,
+  });
   const markdownPath = await saveReportFile(
     `statements-${runId}.md`,
     markdown,
     directory,
   );
   host.print(markdown);
-  host.print(
-    `Capture: ${out}\nReport: ${jsonPath}\nMarkdown: ${markdownPath}\nTest output: ${log}`,
-  );
+  const paths = [
+    `Capture: ${out}`,
+    ...(clientOut !== null ? [`Client capture: ${clientOut}`] : []),
+    `Report: ${jsonPath}`,
+    `Markdown: ${markdownPath}`,
+    `Test output: ${log}`,
+  ];
+  host.print(paths.join("\n"));
   return passed ? 0 : 1;
 }
 

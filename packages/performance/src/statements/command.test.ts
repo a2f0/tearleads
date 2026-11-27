@@ -14,23 +14,26 @@ afterEach(async () => {
 type TestRun = Parameters<typeof runTestProcess>[0];
 
 const record = '{"label":"test-1","sql":"select 1","params":0}\n';
+const clientRecord =
+  '{"kind":"stmt","label":"test-1","sql":"SELECT 1","bindCount":0,"durationMs":0.5,"rows":1,"inLock":false,"failed":false}\n';
 
 /**
- * A host with `api` and `app` packages under a temporary root, whose test
- * process writes `capture` to the capture file, when given, and exits with
- * `exitCode`.
+ * A host with `api`, `app`, and `bob-and-alice` packages under a temporary
+ * root, whose test process writes `capture` and `clientCapture` when given,
+ * and exits with `exitCode`.
  */
 async function fakeHost(
   input: {
     env?: Record<string, string>;
     capture?: string;
+    clientCapture?: string;
     exitCode?: number;
   } = {},
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "statement-command-"));
   directories.push(root);
   const packagesRoot = resolve(root, "packages");
-  for (const name of ["api", "app"])
+  for (const name of ["api", "app", "bob-and-alice"])
     await mkdir(resolve(packagesRoot, name), { recursive: true });
   await writeFile(resolve(packagesRoot, "notes"), "not a package");
   const runs: TestRun[] = [];
@@ -42,9 +45,12 @@ async function fakeHost(
     runTests: async (run) => {
       runs.push(run);
       await writeFile(run.log, "test output\n");
-      const { PERF_STATEMENTS_OUT: out } = run.env;
+      const { PERF_STATEMENTS_OUT: out, PERF_CLIENT_SQL_OUT: clientOut } =
+        run.env;
       if (input.capture !== undefined && out)
         await writeFile(out, input.capture);
+      if (input.clientCapture !== undefined && clientOut)
+        await writeFile(clientOut, input.clientCapture);
       return { exitCode: input.exitCode ?? 0, timedOut: false, wallMs: 1 };
     },
     print: (text) => printed.push(text),
@@ -136,4 +142,50 @@ test("summarizes a saved capture without running tests", async () => {
       fake.host,
     ),
   ).rejects.toThrow(/There is no capture at/u);
+});
+
+test("captures client SQLite statements and defaults bob-and-alice to memory DB", async () => {
+  const fake = await fakeHost({
+    capture: record,
+    clientCapture: clientRecord,
+  });
+  expect(
+    await runStatementCommand(
+      ["--package", "bob-and-alice", ...run("--client-statements")],
+      fake.host,
+    ),
+  ).toBe(0);
+  const [only] = fake.runs;
+  expect(only?.args).toEqual([
+    "--preload",
+    expect.stringMatching(/\/statements\/capturePreload\.ts$/u),
+    "--preload",
+    expect.stringMatching(/\/statements\/clientSqlPreload\.ts$/u),
+    "./src/a.test.ts",
+  ]);
+  expect(only?.env).toMatchObject({
+    API_DATABASE: "memory",
+    PERF_CLIENT_SQL_OUT: expect.stringMatching(/\.client-sql\.jsonl$/u),
+  });
+  expect(fake.printed.join("\n")).toContain("Client SQLite statements");
+});
+
+test("succeeds when only client SQLite statements are recorded", async () => {
+  const fake = await fakeHost({
+    clientCapture: clientRecord,
+    env: {
+      API_DATABASE: "postgres",
+      PERF_STATEMENTS_LIMIT: "99",
+    },
+  });
+  expect(
+    await runStatementCommand(
+      ["--package", "app", ...run("--client-statements")],
+      fake.host,
+    ),
+  ).toBe(0);
+  expect(fake.runs[0]?.env).toMatchObject({ API_DATABASE: "postgres" });
+  expect(fake.runs[0]?.env).not.toHaveProperty("PERF_STATEMENTS_LIMIT");
+  expect(fake.printed.join("\n")).toContain("No API ORM statements");
+  expect(fake.printed.join("\n")).toContain("Client SQLite statements");
 });
