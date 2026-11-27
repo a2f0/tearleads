@@ -1,4 +1,13 @@
 import {
+  canOpenDatabaseConnection,
+  type DatabaseConnectionEvent,
+  type DatabaseConnectionState,
+  databaseConnectionDbName,
+  databaseConnectionRefusal,
+  transitionDatabaseConnection,
+  UNOPENED_DATABASE_CONNECTION,
+} from "./databaseConnectionMachine";
+import {
   closeDatabase,
   deleteDatabase,
   execDatabaseStatement,
@@ -6,7 +15,6 @@ import {
   initDatabase,
 } from "./loadSqlite3";
 import {
-  DATABASE_DELETED_MESSAGE,
   DATABASE_NOT_INITIALIZED_MESSAGE,
   type DatabaseWorkerExecOptions,
   type DatabaseWorkerExecResult,
@@ -19,21 +27,17 @@ import type { RegisterDatabaseWorkerOptions } from "./workerCore";
 
 type DatabaseHandle = Awaited<ReturnType<typeof initDatabase>>;
 
+interface ConnectionRecord {
+  state: DatabaseConnectionState;
+  readonly notify: DatabaseWorkerNotify;
+}
+
 interface DatabaseEntry {
   readonly dbName: string;
   readonly db: DatabaseHandle;
   readonly optionsKey: string;
   refCount: number;
   queue: Promise<void>;
-}
-
-interface ConnectionState {
-  dbName: string | null;
-  // Another connection deleted this one's database; cleared by a later init.
-  databaseDeleted: boolean;
-  readonly notify: DatabaseWorkerNotify;
-  generation: number;
-  initializing: boolean;
 }
 
 function initOptionsKey(options: DatabaseWorkerInitOptions): string {
@@ -57,11 +61,22 @@ function runQueued<T>(
   return queued;
 }
 
+// The events that take a connection off its open database.
+type DetachEvent = Extract<
+  DatabaseConnectionEvent,
+  { type: "released" | "databaseClosed" }
+>;
+
+function apply(record: ConnectionRecord, event: DatabaseConnectionEvent): void {
+  record.state = transitionDatabaseConnection(record.state, event);
+}
+
 class DatabaseConnectionRegistry {
   private readonly databasesByName = new Map<string, DatabaseEntry>();
-  private readonly connectionsByName = new Map<string, Set<ConnectionState>>();
+  private readonly connectionsByName = new Map<string, Set<ConnectionRecord>>();
   private readonly lifecycleByName = new Map<string, Promise<void>>();
   private initializingConnections = 0;
+  private openAttempts = 0;
   // Wipes run one after another, and opening waits on the last of them, so no
   // database lands in storage while any wipe is still deleting.
   private storageWipe: Promise<void> = Promise.resolve();
@@ -69,79 +84,82 @@ class DatabaseConnectionRegistry {
   createConnection(
     notify: DatabaseWorkerNotify = () => {},
   ): RegisterDatabaseWorkerOptions {
-    const state: ConnectionState = {
-      dbName: null,
-      databaseDeleted: false,
-      generation: 0,
-      initializing: false,
+    const record: ConnectionRecord = {
       notify,
+      state: UNOPENED_DATABASE_CONNECTION,
     };
 
     return {
-      onInit: (options) => this.initConnection(state, options),
-      onExec: (options) => this.execForConnection(state, options),
-      onClose: () => this.closeConnection(state),
+      onInit: (options) => this.initConnection(record, options),
+      onExec: (options) => this.execForConnection(record, options),
+      onClose: () => this.closeConnection(record),
       // Opening a replacement database waits for the app's reset operation.
       // Drain the live worker before the host commits to closing or wiping it.
-      onPrepareDelete: () =>
-        state.dbName
-          ? this.databasesByName.get(state.dbName)?.queue
-          : undefined,
-      onDelete: () => this.deleteConnection(state),
+      onPrepareDelete: () => this.drainConnection(record),
+      onDelete: () => this.deleteConnection(record),
       onWipeStorage: () => this.wipeStorage(),
     };
   }
 
   private async initConnection(
-    state: ConnectionState,
+    record: ConnectionRecord,
     options: DatabaseWorkerInitOptions,
   ): Promise<void> {
-    if (state.dbName || state.initializing) {
+    if (!canOpenDatabaseConnection(record.state)) {
       throw new Error("Database has already been initialized.");
     }
 
-    const generation = state.generation;
-    state.initializing = true;
+    this.openAttempts += 1;
+    const attempt = this.openAttempts;
+    apply(record, { type: "openStarted", attempt });
     this.initializingConnections += 1;
 
     try {
       const entry = await this.acquireDatabase(options);
-      if (state.generation !== generation || state.dbName) {
+      // A close or delete overtook the open. Give back what it acquired
+      // while the connection is still opening, so no second init starts
+      // before the release finishes.
+      if (
+        record.state.status !== "opening" ||
+        record.state.attempt !== attempt ||
+        record.state.released
+      ) {
         await this.releaseDatabase(entry.dbName);
         throw new Error(
           "Database connection closed before initialization completed.",
         );
       }
 
-      state.dbName = entry.dbName;
-      state.databaseDeleted = false;
-      this.addConnection(entry.dbName, state);
+      apply(record, { type: "openSucceeded", attempt, dbName: entry.dbName });
+      this.addConnection(entry.dbName, record);
+    } catch (error) {
+      apply(record, { type: "openFailed", attempt });
+      throw error;
     } finally {
-      state.initializing = false;
       this.initializingConnections -= 1;
     }
   }
 
   private async execForConnection(
-    state: ConnectionState,
+    record: ConnectionRecord,
     options: DatabaseWorkerExecOptions,
   ): Promise<DatabaseWorkerExecResult["rows"]> {
-    const dbName = state.dbName;
-    if (!dbName) {
-      throw new Error(
-        state.databaseDeleted
-          ? DATABASE_DELETED_MESSAGE
-          : DATABASE_NOT_INITIALIZED_MESSAGE,
-      );
+    if (record.state.status !== "open") {
+      throw new Error(databaseConnectionRefusal(record.state));
     }
 
-    const entry = this.databasesByName.get(dbName);
+    const entry = this.databasesByName.get(record.state.dbName);
     if (!entry) {
-      this.detachConnection(state);
+      this.detachConnection(record, { type: "databaseClosed" });
       throw new Error(DATABASE_NOT_INITIALIZED_MESSAGE);
     }
 
     return runQueued(entry, () => execDatabaseStatement(entry.db, options));
+  }
+
+  private async drainConnection(record: ConnectionRecord): Promise<void> {
+    const dbName = databaseConnectionDbName(record.state);
+    await (dbName ? this.databasesByName.get(dbName)?.queue : undefined);
   }
 
   private async wipeStorage(): Promise<void> {
@@ -213,22 +231,21 @@ class DatabaseConnectionRegistry {
     return entry;
   }
 
-  private async closeConnection(state: ConnectionState): Promise<void> {
-    state.generation += 1;
-    const dbName = this.detachConnection(state);
+  private async closeConnection(record: ConnectionRecord): Promise<void> {
+    const dbName = this.detachConnection(record, { type: "released" });
     if (dbName) {
       await this.releaseDatabase(dbName);
     }
   }
 
-  private async deleteConnection(state: ConnectionState): Promise<void> {
-    state.generation += 1;
-    const dbName = state.dbName;
+  private async deleteConnection(record: ConnectionRecord): Promise<void> {
+    const dbName = databaseConnectionDbName(record.state);
+    apply(record, { type: "released" });
     if (!dbName) {
       return;
     }
 
-    await this.deleteDatabase(dbName, state);
+    await this.deleteDatabase(dbName, record);
   }
 
   private async releaseDatabase(dbName: string): Promise<void> {
@@ -250,15 +267,13 @@ class DatabaseConnectionRegistry {
 
   private async deleteDatabase(
     dbName: string,
-    deleting: ConnectionState,
+    deleting: ConnectionRecord,
   ): Promise<void> {
     const connections = this.connectionsByName.get(dbName);
     if (connections) {
       for (const connection of connections) {
-        connection.dbName = null;
-        connection.generation += 1;
         if (connection !== deleting) {
-          connection.databaseDeleted = true;
+          apply(connection, { type: "deletedElsewhere" });
           connection.notify({ type: WORKER_DATABASE_DELETED_MESSAGE_TYPE });
         }
       }
@@ -277,21 +292,26 @@ class DatabaseConnectionRegistry {
     );
   }
 
-  private addConnection(dbName: string, state: ConnectionState): void {
+  private addConnection(dbName: string, record: ConnectionRecord): void {
     const connections = this.connectionsByName.get(dbName) ?? new Set();
-    connections.add(state);
+    connections.add(record);
     this.connectionsByName.set(dbName, connections);
   }
 
-  private detachConnection(state: ConnectionState): string | null {
-    const dbName = state.dbName;
-    state.dbName = null;
+  // Leave the connection's open database. Returns the database it had open;
+  // only an open connection holds a share of one.
+  private detachConnection(
+    record: ConnectionRecord,
+    event: DetachEvent,
+  ): string | null {
+    const dbName = record.state.status === "open" ? record.state.dbName : null;
+    apply(record, event);
     if (!dbName) {
       return null;
     }
 
     const connections = this.connectionsByName.get(dbName);
-    connections?.delete(state);
+    connections?.delete(record);
     if (connections?.size === 0) {
       this.connectionsByName.delete(dbName);
     }
