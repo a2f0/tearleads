@@ -117,3 +117,31 @@ test("holds matching request before upstream while letting concurrent requests p
     seen.indexOf("POST /documents/d-1/unlink"),
   );
 });
+
+test("supports cancel, pre-arrival release, and unblocking held requests on proxy.stop", async () => {
+  const upstream = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: () => new Response("ok", { status: 200 }),
+  });
+  cleanups.push(() => upstream.stop(true));
+
+  const proxy = startHttpCounterProxy(upstream.url.origin);
+  cleanups.push(() => proxy.stop());
+
+  // Cancelling or releasing before arrival must not pause a subsequent request.
+  const cancelled = proxy.holdBeforeRequest(() => true);
+  cancelled.cancel();
+  const earlyReleased = proxy.holdBeforeRequest(() => true);
+  earlyReleased.release();
+  expect((await fetch(`${proxy.origin}/ping`)).status).toBe(200);
+
+  // Stopping the proxy while a request is held must unblock it rather than hang.
+  const heldGate = proxy.holdBeforeRequest(
+    ({ pathname }) => pathname === "/held",
+  );
+  const inFlight = fetch(`${proxy.origin}/held`).catch(() => null);
+  await heldGate.wait();
+  await proxy.stop();
+  await inFlight;
+});

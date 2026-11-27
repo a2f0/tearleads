@@ -80,6 +80,10 @@ const routeRules: readonly [RegExp, string][] = [
     /^\/containers\/[^/]+\/replacement-authorizations\/[^/]+$/u,
     "/containers/:containerId/replacement-authorizations/:replacesOrganizationId",
   ],
+  [
+    /^\/containers\/with-metadata-document$/u,
+    "/containers/with-metadata-document",
+  ],
   [/^\/containers\/[^/]+$/u, "/containers/:containerId"],
   [
     /^\/documents\/[^/]+\/baseline-stages\/[^/]+\/segments\/\d+\/write-header$/u,
@@ -111,6 +115,11 @@ const routeRules: readonly [RegExp, string][] = [
     "/documents/:documentId/attachments/:attachmentId",
   ],
   [/^\/documents\/[^/]+\/attachments$/u, "/documents/:documentId/attachments"],
+  [
+    /^\/documents\/[^/]+\/attribution\/ranges$/u,
+    "/documents/:documentId/attribution/ranges",
+  ],
+  [/^\/documents\/[^/]+\/attribution$/u, "/documents/:documentId/attribution"],
   [/^\/documents\/[^/]+$/u, "/documents/:documentId"],
   [
     /^\/blobs\/[^/]+\/attachment-bindings$/u,

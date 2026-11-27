@@ -1,4 +1,10 @@
 import { normalizeScenarioRoute } from "../scenarios/routeNormalize";
+import {
+  initialRequestGateState,
+  type RequestGateEvent,
+  type RequestGateState,
+  transitionRequestGate,
+} from "./requestGateMachine";
 
 export interface HttpRouteTraffic {
   readonly count: number;
@@ -80,19 +86,31 @@ export interface HttpCounterProxy {
   readonly stop: () => Promise<void>;
 }
 
-interface PendingGate {
+interface ActiveGate {
   readonly predicate: (request: {
     readonly method: string;
     readonly pathname: string;
   }) => boolean;
   readonly arrived: () => void;
   readonly released: Promise<void>;
-  readonly release: () => void;
-  consumed: boolean;
+  readonly resolveRelease: () => void;
+  state: RequestGateState;
 }
 
 function createGateQueue() {
-  const gates: PendingGate[] = [];
+  const activeGates = new Set<ActiveGate>();
+
+  const dispatch = (gate: ActiveGate, event: RequestGateEvent): void => {
+    const next = transitionRequestGate(gate.state, event);
+    gate.state = next.state;
+    if (next.state.status === "done") {
+      activeGates.delete(gate);
+    }
+    for (const effect of next.effects) {
+      if (effect === "notify-arrived") gate.arrived();
+      if (effect === "resolve-release") gate.resolveRelease();
+    }
+  };
 
   const holdBeforeRequest = (
     predicate: (request: {
@@ -104,30 +122,22 @@ function createGateQueue() {
     const arrivedPromise = new Promise<void>((resolve) => {
       arrived = resolve;
     });
-    let release: () => void = () => undefined;
+    let resolveRelease: () => void = () => undefined;
     const released = new Promise<void>((resolve) => {
-      release = resolve;
+      resolveRelease = resolve;
     });
-    const gate: PendingGate = {
+    const gate: ActiveGate = {
       predicate,
       arrived,
       released,
-      release,
-      consumed: false,
+      resolveRelease,
+      state: initialRequestGateState,
     };
-    gates.push(gate);
+    activeGates.add(gate);
     return {
       wait: () => arrivedPromise,
-      release: () => {
-        gate.consumed = true;
-        release();
-      },
-      cancel: () => {
-        gate.consumed = true;
-        const idx = gates.indexOf(gate);
-        if (idx >= 0) gates.splice(idx, 1);
-        release();
-      },
+      release: () => dispatch(gate, { type: "release" }),
+      cancel: () => dispatch(gate, { type: "cancel" }),
     };
   };
 
@@ -135,21 +145,24 @@ function createGateQueue() {
     method: string,
     pathname: string,
   ): Promise<void> => {
-    const idx = gates.findIndex(
-      (gate) => !gate.consumed && gate.predicate({ method, pathname }),
-    );
-    if (idx < 0) return;
-    const [gate] = gates.splice(idx, 1);
-    if (!gate) return;
-    gate.consumed = true;
-    gate.arrived();
-    await gate.released;
+    let matched: ActiveGate | null = null;
+    for (const gate of activeGates) {
+      if (
+        gate.state.status === "pending" &&
+        gate.predicate({ method, pathname })
+      ) {
+        matched = gate;
+        break;
+      }
+    }
+    if (!matched) return;
+    dispatch(matched, { type: "match" });
+    await matched.released;
   };
 
   const releaseAll = (): void => {
-    for (const gate of gates.splice(0)) {
-      gate.consumed = true;
-      gate.release();
+    for (const gate of [...activeGates]) {
+      dispatch(gate, { type: "cancel" });
     }
   };
 

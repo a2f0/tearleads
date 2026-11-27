@@ -177,9 +177,12 @@ async function runFirstUnlink<TDevice extends BaselineTierDevice>(input: {
     if (outcome === "held") {
       try {
         await world.editDocument(alice, document, racedText);
-      } finally {
+      } catch (error) {
         gate.release();
+        await unlinking.catch(() => undefined);
+        throw error;
       }
+      gate.release();
     }
     await unlinking;
     return racedText;
@@ -243,6 +246,7 @@ async function seedAndPrimeRotator<TDevice extends BaselineTierDevice>(
   world: BaselineTierWorld<TDevice>,
   recorder: BaselinePhaseRecorder,
   chunks: readonly string[],
+  race: boolean,
 ) {
   const [firstChunk, ...restChunks] = chunks;
   if (firstChunk === undefined) {
@@ -280,6 +284,18 @@ async function seedAndPrimeRotator<TDevice extends BaselineTierDevice>(
     .readDocumentUntilText(document.documentId, document.containerIds, history);
   const bobEdited = `${history}bob\n`;
   await world.editDocument(bob, document, bobEdited);
+  if (race) {
+    // Prime Alice with Bob's edit before the measured race phase so Alice's
+    // racing edit sends only her appended line rather than pulling Bob's edit
+    // inside `first-unlink-rotate`.
+    await world
+      .primaryDevice(alice)
+      .readDocumentUntilText(
+        document.documentId,
+        document.containerIds,
+        bobEdited,
+      );
+  }
   return { alice, bob, handoffId, document, bobEdited };
 }
 
@@ -369,7 +385,7 @@ export async function runBaselineTierWithWorld<
   const recorder = createBaselineRecorder(input);
   try {
     const { alice, bob, handoffId, document, bobEdited } =
-      await seedAndPrimeRotator(world, recorder, chunks);
+      await seedAndPrimeRotator(world, recorder, chunks, input.race);
     const expectedAfterFirst = await recorder.record(
       "first-unlink-rotate",
       () => world.primaryDevice(bob),

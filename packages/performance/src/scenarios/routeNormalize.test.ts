@@ -90,4 +90,16 @@ test("normalizes keying, revocation, and baseline staging routes", () => {
   expect(
     normalizeScenarioRoute("DELETE", "http://127.0.0.1:4123/containers/c-1"),
   ).toBe("DELETE /containers/:containerId");
+  expect(
+    normalizeScenarioRoute(
+      "POST",
+      "http://127.0.0.1:4123/containers/with-metadata-document",
+    ),
+  ).toBe("POST /containers/with-metadata-document");
+  expect(
+    normalizeScenarioRoute(
+      "GET",
+      "http://127.0.0.1:4123/documents/d-1/attribution/ranges",
+    ),
+  ).toBe("GET /documents/:documentId/attribution/ranges");
 });

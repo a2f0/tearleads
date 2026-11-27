@@ -18,6 +18,7 @@ interface FakeBaselineOptions {
   readonly conflictOnRace?: boolean;
   readonly badFreshText?: boolean;
   readonly failBeforeUnlink?: boolean;
+  readonly failRacingEdit?: boolean;
 }
 
 function createFakeBaselineHarness(options: FakeBaselineOptions = {}) {
@@ -154,6 +155,12 @@ function createFakeBaselineHarness(options: FakeBaselineOptions = {}) {
       return { documentId: "doc-1", containerIds: [folderId] };
     },
     async editDocument(_actor, document, text) {
+      if (
+        options.failRacingEdit &&
+        text.includes("alice wrote while bob rotated")
+      ) {
+        throw new Error("racing edit boom");
+      }
       docText.set(document.documentId, text);
       bumpRoute("POST /documents/:documentId/sync");
       events.push(`edit:${text.slice(-12).trim()}`);
@@ -209,6 +216,7 @@ function createFakeBaselineHarness(options: FakeBaselineOptions = {}) {
     },
     dispose() {
       disposed = true;
+      events.push("dispose");
     },
   };
 
@@ -318,4 +326,30 @@ test("fails cleanly and disposes world on missing 409, early throw, or text mism
     }),
   ).rejects.toThrow(/Fresh reader text mismatch/u);
   expect(badText.isDisposed()).toBe(true);
+
+  const racingEditFail = createFakeBaselineHarness({
+    staged: true,
+    failRacingEdit: true,
+  });
+  await expect(
+    runBaselineTierWithWorld(racingEditFail.world, {
+      sizeMiB: 13,
+      chunkMiB: 6,
+      race: true,
+      sample: 1,
+      http: racingEditFail.http,
+      traffic: emptyTraffic,
+      holdBeforeRequest: racingEditFail.holdBeforeRequest,
+      measured: async () => undefined,
+      generateChunks: () => ["chunk1\n"],
+    }),
+  ).rejects.toThrow("racing edit boom");
+  expect(racingEditFail.isDisposed()).toBe(true);
+  // The held unlink must finish settling before world.dispose() runs.
+  expect(
+    racingEditFail.events.indexOf("unlink:folder-handoff"),
+  ).toBeGreaterThan(-1);
+  expect(racingEditFail.events.indexOf("unlink:folder-handoff")).toBeLessThan(
+    racingEditFail.events.indexOf("dispose"),
+  );
 });

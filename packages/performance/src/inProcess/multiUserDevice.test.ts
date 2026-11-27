@@ -103,3 +103,84 @@ test("disposes SDK and local database when register or login fails", async () =>
   ).rejects.toThrow("bob could not log in.");
   expect(events).toEqual(["sdk.dispose", "db.close"]);
 });
+
+test("readDocumentUntilText converges across retries, matches immediately, and throws when missing", async () => {
+  const events: string[] = [];
+  let syncAttempts = 0;
+  let docPresent = true;
+  let currentText = "initial";
+
+  const makeDevice = () =>
+    MultiUserDevice.login(
+      "http://127.0.0.1:4001",
+      "http://127.0.0.1:4000",
+      "alice",
+      fakeKeyPackage(),
+      {
+        openLocalDatabase: async () => fakeLocalDb(events),
+        createSdkHost: () =>
+          ({
+            identity: {
+              importKeyPackage: async () => undefined,
+            },
+            session: {
+              login: async () => true,
+            },
+            containerContents: {
+              openTree: () => ({
+                updateRuntime: () => undefined,
+                getSnapshot: () => ({ ready: true, nodes: [] }),
+                refresh: async () => true,
+              }),
+              workflowRuntime: () => ({}),
+              discoverContainerDocuments: async () => [],
+            },
+            documents: {
+              findLocalIdByDocumentId: async () =>
+                docPresent ? "local-1" : null,
+              list: async () => ({
+                rows: docPresent ? [{ id: "local-1", containerId: "c-1" }] : [],
+              }),
+              open: () => ({
+                getSnapshot: () => ({ text: currentText }),
+                requestRemoteSyncAndWait: async () => {
+                  syncAttempts += 1;
+                  if (syncAttempts >= 2) currentText = "converged";
+                  return true;
+                },
+              }),
+            },
+            dispose: () => undefined,
+          }) as unknown as Tearleads,
+      },
+    );
+
+  const device = await makeDevice();
+  try {
+    // Immediate match without extra retry loop.
+    const immediate = await device.readDocumentUntilText(
+      "doc-1",
+      ["c-1"],
+      "initial",
+    );
+    expect(immediate.getSnapshot().text).toBe("initial");
+    expect(syncAttempts).toBe(1);
+
+    // Retries remote sync until target text arrives.
+    const converged = await device.readDocumentUntilText(
+      "doc-1",
+      ["c-1"],
+      "converged",
+    );
+    expect(converged.getSnapshot().text).toBe("converged");
+    expect(syncAttempts).toBeGreaterThanOrEqual(2);
+
+    // Throws cleanly when document cannot be found.
+    docPresent = false;
+    await expect(
+      device.readDocumentUntilText("doc-missing", ["c-1"], "anything"),
+    ).rejects.toThrow(/could not open document doc-missing/u);
+  } finally {
+    device.dispose();
+  }
+});
