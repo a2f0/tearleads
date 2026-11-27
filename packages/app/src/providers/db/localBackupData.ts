@@ -167,13 +167,18 @@ function summarizeBackup(input: {
   };
 }
 
-async function readBackupPayload({
-  blobStore,
-  databaseId,
+interface BackupDatabaseSnapshot {
+  readonly database: BackupPayload["database"];
+  readonly storageKeys: ReadonlyArray<string>;
+}
+
+async function readBackupSnapshot({
   execSql,
   onProgress,
-  signingFingerprint,
-}: CreateBackupPayloadInput): Promise<BackupPayload> {
+}: Pick<
+  CreateBackupPayloadInput,
+  "execSql" | "onProgress"
+>): Promise<BackupDatabaseSnapshot> {
   onProgress?.({ current: 0, phase: "preparing", total: 1 });
   const { indexes, tableNames, tables } = await readBackupDatabase({
     execSql,
@@ -185,30 +190,7 @@ async function readBackupPayload({
     execSql,
     tableNames,
   });
-  const { blobs, missingBlobStorageKeys } = await readBackupBlobs({
-    blobStore,
-    onProgress,
-    storageKeys,
-  });
-  const summary = summarizeBackup({ blobs, missingBlobStorageKeys, tables });
-
-  return {
-    blobs,
-    createdAt: new Date().toISOString(),
-    database: {
-      indexes,
-      tables,
-    },
-    format: BACKUP_PAYLOAD_FORMAT,
-    missingBlobStorageKeys,
-    source: {
-      databaseId,
-      signingFingerprint,
-      userAgent: readUserAgent(),
-    },
-    summary,
-    version: BACKUP_FORMAT_VERSION,
-  };
+  return { database: { indexes, tables }, storageKeys };
 }
 
 export async function createBackupPayload(
@@ -216,16 +198,45 @@ export async function createBackupPayload(
 ): Promise<BackupPayload> {
   return runSerializedSqlMutation(input.execSql, async (execSql) => {
     await execSql("BEGIN IMMEDIATE");
+    let snapshot: BackupDatabaseSnapshot;
     try {
-      // Keep tables, attachment references, and bytes in one snapshot while
-      // sync and purge mutations wait on the shared connection lock.
-      const payload = await readBackupPayload({ ...input, execSql });
+      // Tables and attachment references come from one snapshot.
+      snapshot = await readBackupSnapshot({ ...input, execSql });
       await execSql("COMMIT");
-      return payload;
     } catch (error) {
       await execSql("ROLLBACK").catch(() => undefined);
       throw error;
     }
+
+    // The bytes are read after the commit: a transaction left open across
+    // blob reads would hold every other tab's statements behind it, and the
+    // database worker rolls back a transaction that sends nothing while
+    // another tab waits. This tab's sync and purge mutations still wait on the
+    // connection lock, so none of them deletes a referenced blob first; a
+    // blob gone when it is read is recorded as missing.
+    const { blobs, missingBlobStorageKeys } = await readBackupBlobs({
+      blobStore: input.blobStore,
+      onProgress: input.onProgress,
+      storageKeys: snapshot.storageKeys,
+    });
+    return {
+      blobs,
+      createdAt: new Date().toISOString(),
+      database: snapshot.database,
+      format: BACKUP_PAYLOAD_FORMAT,
+      missingBlobStorageKeys,
+      source: {
+        databaseId: input.databaseId,
+        signingFingerprint: input.signingFingerprint,
+        userAgent: readUserAgent(),
+      },
+      summary: summarizeBackup({
+        blobs,
+        missingBlobStorageKeys,
+        tables: snapshot.database.tables,
+      }),
+      version: BACKUP_FORMAT_VERSION,
+    };
   });
 }
 

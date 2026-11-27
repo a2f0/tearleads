@@ -1,3 +1,5 @@
+import type { Sqlite3Static } from "@tearleads/sqlite-instance";
+import { isDatabaseInAutocommit } from "./autocommit";
 import {
   canOpenDatabaseConnection,
   type DatabaseConnectionEvent,
@@ -13,9 +15,21 @@ import {
   execDatabaseStatement,
   hasPersistentVfs,
   initDatabase,
+  loadSqlite3,
 } from "./loadSqlite3";
 import {
+  TransactionLease,
+  type TransactionLeaseBounds,
+  type TransactionLeaseRevocation,
+} from "./transactionLease";
+import {
+  TRANSACTION_LEASE_IDLE_MS,
+  TRANSACTION_LEASE_WAIT_MS,
+} from "./transactionLeaseMachine";
+import {
+  DATABASE_DELETED_MESSAGE,
   DATABASE_NOT_INITIALIZED_MESSAGE,
+  DATABASE_TRANSACTION_REVOKED_MESSAGE,
   type DatabaseWorkerExecOptions,
   type DatabaseWorkerExecResult,
   type DatabaseWorkerInitOptions,
@@ -36,8 +50,15 @@ interface DatabaseEntry {
   readonly dbName: string;
   readonly db: DatabaseHandle;
   readonly optionsKey: string;
+  readonly lease: TransactionLease<ConnectionRecord>;
   refCount: number;
   queue: Promise<void>;
+}
+
+export interface DatabaseConnectionRegistryOptions {
+  readonly leaseBounds?: Partial<TransactionLeaseBounds>;
+  /** Where revocations are reported. No SQL text or bind values reach it. */
+  readonly log?: (message: string) => void;
 }
 
 function initOptionsKey(options: DatabaseWorkerInitOptions): string {
@@ -50,7 +71,7 @@ function initOptionsKey(options: DatabaseWorkerInitOptions): string {
 }
 
 function runQueued<T>(
-  entry: DatabaseEntry,
+  entry: Pick<DatabaseEntry, "queue">,
   operation: () => Promise<T> | T,
 ): Promise<T> {
   const queued = entry.queue.then(operation, operation);
@@ -64,7 +85,7 @@ function runQueued<T>(
 // The events that take a connection off its open database.
 type DetachEvent = Extract<
   DatabaseConnectionEvent,
-  { type: "released" | "databaseClosed" }
+  { type: "released" | "databaseClosed" | "transactionRevoked" }
 >;
 
 function apply(record: ConnectionRecord, event: DatabaseConnectionEvent): void {
@@ -75,11 +96,21 @@ class DatabaseConnectionRegistry {
   private readonly databasesByName = new Map<string, DatabaseEntry>();
   private readonly connectionsByName = new Map<string, Set<ConnectionRecord>>();
   private readonly lifecycleByName = new Map<string, Promise<void>>();
+  private readonly leaseBounds: TransactionLeaseBounds;
+  private readonly log: (message: string) => void;
   private initializingConnections = 0;
   private openAttempts = 0;
   // Wipes run one after another, and opening waits on the last of them, so no
   // database lands in storage while any wipe is still deleting.
   private storageWipe: Promise<void> = Promise.resolve();
+
+  constructor(options: DatabaseConnectionRegistryOptions) {
+    this.leaseBounds = {
+      idleMs: options.leaseBounds?.idleMs ?? TRANSACTION_LEASE_IDLE_MS,
+      waitMs: options.leaseBounds?.waitMs ?? TRANSACTION_LEASE_WAIT_MS,
+    };
+    this.log = options.log ?? ((message) => console.warn(message));
+  }
 
   createConnection(
     notify: DatabaseWorkerNotify = () => {},
@@ -154,12 +185,19 @@ class DatabaseConnectionRegistry {
       throw new Error(DATABASE_NOT_INITIALIZED_MESSAGE);
     }
 
-    return runQueued(entry, () => execDatabaseStatement(entry.db, options));
+    return entry.lease.submit(record, () =>
+      execDatabaseStatement(entry.db, options),
+    );
   }
 
   private async drainConnection(record: ConnectionRecord): Promise<void> {
     const dbName = databaseConnectionDbName(record.state);
-    await (dbName ? this.databasesByName.get(dbName)?.queue : undefined);
+    const entry = dbName ? this.databasesByName.get(dbName) : undefined;
+    if (!entry) {
+      return;
+    }
+    await entry.lease.settled(record);
+    await entry.queue;
   }
 
   private async wipeStorage(): Promise<void> {
@@ -203,18 +241,44 @@ class DatabaseConnectionRegistry {
       }
 
       const db = await initDatabase(options);
-      const created: DatabaseEntry = {
-        db,
-        dbName,
-        optionsKey,
-        refCount: 0,
-        queue: Promise.resolve(),
-      };
+      // Opening loaded SQLite, so this resolves to the loaded module at once.
+      const { capi } = await loadSqlite3();
+      const created = this.createEntry(dbName, db, optionsKey, capi);
       this.databasesByName.set(dbName, created);
       return created;
     });
 
     return this.attachDatabase(entry, optionsKey);
+  }
+
+  private createEntry(
+    dbName: string,
+    db: DatabaseHandle,
+    optionsKey: string,
+    capi: Sqlite3Static["capi"],
+  ): DatabaseEntry {
+    const entry: DatabaseEntry = {
+      db,
+      dbName,
+      lease: new TransactionLease<ConnectionRecord>({
+        bounds: this.leaseBounds,
+        enqueue: (operation) => {
+          void runQueued(entry, operation);
+        },
+        fail: () => this.failDatabase(entry),
+        isAutocommit: () => isDatabaseInAutocommit(capi, db),
+        now: () => Date.now(),
+        revoke: (holder, revocation) =>
+          this.revokeConnection(entry, holder, revocation),
+        rollback: () => {
+          db.exec("ROLLBACK");
+        },
+      }),
+      optionsKey,
+      queue: Promise.resolve(),
+      refCount: 0,
+    };
+    return entry;
   }
 
   private attachDatabase(
@@ -248,6 +312,8 @@ class DatabaseConnectionRegistry {
     await this.deleteDatabase(dbName, record);
   }
 
+  // A revoked holder's open was already released, and a delete removes the
+  // whole database, so only an open connection gives its share back here.
   private async releaseDatabase(dbName: string): Promise<void> {
     const entry = this.databasesByName.get(dbName);
     if (!entry) {
@@ -260,6 +326,7 @@ class DatabaseConnectionRegistry {
     }
 
     this.databasesByName.delete(dbName);
+    entry.lease.dispose(() => DATABASE_NOT_INITIALIZED_MESSAGE);
     await this.runLifecycle(dbName, () =>
       runQueued(entry, () => closeDatabase(entry.db)),
     );
@@ -287,8 +354,56 @@ class DatabaseConnectionRegistry {
 
     entry.refCount = 0;
     this.databasesByName.delete(dbName);
+    entry.lease.dispose((connection) =>
+      connection === deleting
+        ? DATABASE_NOT_INITIALIZED_MESSAGE
+        : DATABASE_DELETED_MESSAGE,
+    );
     await this.runLifecycle(dbName, () =>
       runQueued(entry, () => deleteDatabase(entry.db)),
+    );
+  }
+
+  // The holder sent nothing for the idle bound while another connection
+  // waited, and its transaction is rolled back. Retire the connection so its
+  // next statement cannot run as if the transaction were still open; it
+  // recovers by opening the database again.
+  private revokeConnection(
+    entry: DatabaseEntry,
+    holder: ConnectionRecord,
+    revocation: TransactionLeaseRevocation,
+  ): void {
+    const detail = `database ${entry.dbName}, idle ${revocation.idleMs} ms, ${revocation.waiting} statement(s) waiting`;
+    this.log(`SQLite transaction lease revoked (${detail}).`);
+    const refusal = `${DATABASE_TRANSACTION_REVOKED_MESSAGE} (${detail})`;
+    entry.lease.refuseConnection(holder, refusal);
+    if (
+      this.detachConnection(holder, { type: "transactionRevoked", refusal })
+    ) {
+      void this.releaseDatabase(entry.dbName);
+    }
+  }
+
+  // The forced rollback left the handle inside a transaction: close the
+  // database, so every connection opens it again and SQLite's journal rolls
+  // the transaction back.
+  private failDatabase(entry: DatabaseEntry): void {
+    this.log(
+      `SQLite transaction lease could not end a transaction (database ${entry.dbName}); closing it.`,
+    );
+    if (this.databasesByName.get(entry.dbName) !== entry) {
+      // The last connection already closed it.
+      return;
+    }
+    for (const connection of this.connectionsByName.get(entry.dbName) ?? []) {
+      apply(connection, { type: "databaseClosed" });
+    }
+    this.connectionsByName.delete(entry.dbName);
+    entry.refCount = 0;
+    this.databasesByName.delete(entry.dbName);
+    entry.lease.dispose(() => DATABASE_NOT_INITIALIZED_MESSAGE);
+    void this.runLifecycle(entry.dbName, () =>
+      runQueued(entry, () => closeDatabase(entry.db)),
     );
   }
 
@@ -298,8 +413,10 @@ class DatabaseConnectionRegistry {
     this.connectionsByName.set(dbName, connections);
   }
 
-  // Leave the connection's open database. Returns the database it had open;
-  // only an open connection holds a share of one.
+  // Leave the connection's open database: refuse its waiting statements and
+  // end any transaction it holds. Returns the database it had open; only an
+  // open connection holds a share of one, so a revoked connection's close
+  // gives nothing back twice.
   private detachConnection(
     record: ConnectionRecord,
     event: DetachEvent,
@@ -314,6 +431,11 @@ class DatabaseConnectionRegistry {
     connections?.delete(record);
     if (connections?.size === 0) {
       this.connectionsByName.delete(dbName);
+    }
+    if (event.type !== "transactionRevoked") {
+      this.databasesByName
+        .get(dbName)
+        ?.lease.close(record, DATABASE_NOT_INITIALIZED_MESSAGE);
     }
 
     return dbName;
@@ -345,9 +467,9 @@ class DatabaseConnectionRegistry {
   }
 }
 
-export function createDatabaseWorkerConnectionFactory(): (
-  notify?: DatabaseWorkerNotify,
-) => RegisterDatabaseWorkerOptions {
-  const registry = new DatabaseConnectionRegistry();
+export function createDatabaseWorkerConnectionFactory(
+  options: DatabaseConnectionRegistryOptions = {},
+): (notify?: DatabaseWorkerNotify) => RegisterDatabaseWorkerOptions {
+  const registry = new DatabaseConnectionRegistry(options);
   return (notify) => registry.createConnection(notify);
 }

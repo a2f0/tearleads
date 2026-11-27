@@ -371,6 +371,10 @@
 1 tombstone-purges-local-work
 1 tombstone-reuses-fence-generation
 1 tombstone-trusts-unsigned-clock
+1 transaction-lease-frozen-holder-blocks
+1 transaction-lease-refused-statement-runs
+1 transaction-lease-shared-handle
+1 transaction-lease-sweep-keeps-dead-holder
 1 void-update-counts-every-runtime-failure
 1 void-update-hidden-kill-counts
 1 void-update-imports-carried-ops

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createCrossTabDatabaseWorker } from "../src/crossTabRuntime";
+import { WORKER_DISCONNECT_PORT_MESSAGE_TYPE } from "../src/types";
 import {
   MockLockManager,
   PortAwareWorker,
@@ -139,6 +140,16 @@ test("cross-tab owner drops a client whose lifetime lock disappears", async () =
         ![...locks.heldLockNames].some((name) =>
           name.startsWith("tearleads-sqlite-worker-client:"),
         ),
+    );
+
+    // The worker is told, so it closes the client's connection and rolls back
+    // a transaction the vanished tab left open.
+    await waitUntil(() =>
+      (ownerWorker.portMessages[0] ?? []).some(
+        (message) =>
+          Reflect.get(Object(message), "type") ===
+          WORKER_DISCONNECT_PORT_MESSAGE_TYPE,
+      ),
     );
 
     // The owner worker stays alive even with no clients: under the single lifelong

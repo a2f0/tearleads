@@ -15,6 +15,11 @@ import {
 
 const open: DatabaseConnectionState = { dbName: "a.db", status: "open" };
 const deleted = { status: "deleted" } as const;
+const revoked = {
+  dbName: "a.db",
+  refusal: "revoked",
+  status: "revoked",
+} as const;
 const opening = (
   attempt: number,
   { afterDelete = false, released = false } = {},
@@ -44,6 +49,12 @@ test.each<
     deleted,
     { attempt: 2, type: "openStarted" },
     opening(2, { afterDelete: true }),
+  ],
+  [
+    "an open starts again after a revocation",
+    revoked,
+    { attempt: 2, type: "openStarted" },
+    opening(2),
   ],
   [
     "the open's own attempt succeeding opens the database",
@@ -112,6 +123,12 @@ test.each<
     UNOPENED_DATABASE_CONNECTION,
   ],
   [
+    "a close releases a revoked connection",
+    revoked,
+    { type: "released" },
+    UNOPENED_DATABASE_CONNECTION,
+  ],
+  [
     "a deleted connection keeps saying so after a close",
     deleted,
     { type: "released" },
@@ -128,6 +145,30 @@ test.each<
     UNOPENED_DATABASE_CONNECTION,
     { type: "deletedElsewhere" },
     UNOPENED_DATABASE_CONNECTION,
+  ],
+  [
+    "a revocation retires an open connection with its refusal",
+    open,
+    { refusal: "revoked", type: "transactionRevoked" },
+    revoked,
+  ],
+  [
+    "a revocation of a closed connection changes nothing",
+    UNOPENED_DATABASE_CONNECTION,
+    { refusal: "revoked", type: "transactionRevoked" },
+    UNOPENED_DATABASE_CONNECTION,
+  ],
+  [
+    "a revocation during an open changes nothing",
+    opening(1),
+    { refusal: "revoked", type: "transactionRevoked" },
+    opening(1),
+  ],
+  [
+    "a delete elsewhere leaves a revoked connection revoked",
+    revoked,
+    { type: "deletedElsewhere" },
+    revoked,
   ],
   [
     "a database the worker no longer has open leaves the connection unopened",
@@ -196,6 +237,7 @@ test.each<
 
 test("each state answers statements and opens as the registry did before", () => {
   expect(databaseConnectionRefusal(deleted)).toBe(DATABASE_DELETED_MESSAGE);
+  expect(databaseConnectionRefusal(revoked)).toBe("revoked");
   expect(databaseConnectionRefusal({ status: "unopened" })).toBe(
     DATABASE_NOT_INITIALIZED_MESSAGE,
   );
@@ -210,7 +252,9 @@ test("each state answers statements and opens as the registry did before", () =>
   expect(canOpenDatabaseConnection(opening(1))).toBe(false);
   expect(canOpenDatabaseConnection(opening(1, { released: true }))).toBe(false);
   expect(canOpenDatabaseConnection(deleted)).toBe(true);
+  expect(canOpenDatabaseConnection(revoked)).toBe(true);
 
   expect(databaseConnectionDbName(open)).toBe("a.db");
+  expect(databaseConnectionDbName(revoked)).toBe("a.db");
   expect(databaseConnectionDbName(deleted)).toBeNull();
 });

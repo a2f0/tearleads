@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError, toFingerprint } from "@tearleads/crypto";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/data/trustedUserIdentity";
 import { DatabaseUnavailableError } from "../../data/sqlite/availability/databaseUnavailable";
 import { createDocumentWriterPublicKeyResolver } from "./writerKeys";
@@ -144,4 +145,32 @@ test("createDocumentWriterPublicKeyResolver preserves identity integrity errors"
       writerUserId: "user-2",
     }),
   ).rejects.toBe(integrityError);
+});
+
+test("createDocumentWriterPublicKeyResolver preserves a busy refusal and does not cache it", async () => {
+  // Another tab's transaction held the trust store's read off. Nulling it would
+  // reject the writer's material as "writer public key missing".
+  const busyError = new Error("Failed query: SELECT pins", {
+    cause: new Error(DATABASE_TRANSACTION_BUSY_MESSAGE),
+  });
+  let attempts = 0;
+  const resolver = createDocumentWriterPublicKeyResolver({
+    logPrefix: "Documents",
+    runtime: {
+      resolveTrustedUserIdentity: async () => {
+        attempts += 1;
+        throw busyError;
+      },
+      util: { log: () => {} },
+    },
+    writerKeyLabel: "writer key",
+  });
+  const request = {
+    writerSigningKeyFingerprint: "fingerprint",
+    writerUserId: "user-2",
+  };
+
+  await expect(resolver(request)).rejects.toBe(busyError);
+  await expect(resolver(request)).rejects.toBe(busyError);
+  expect(attempts).toBe(2);
 });

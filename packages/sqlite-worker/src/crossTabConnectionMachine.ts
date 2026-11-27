@@ -2,6 +2,7 @@ import { isDatabaseDeletedNotice, responseOutcome } from "./crossTabProtocol";
 import {
   DATABASE_DELETED_MESSAGE,
   DATABASE_NOT_INITIALIZED_MESSAGE,
+  DATABASE_TRANSACTION_REVOKED_MESSAGE,
 } from "./types";
 
 /**
@@ -22,10 +23,12 @@ import {
  * - `closing`: the client sent `close` or `delete`, so it is being retired.
  *   A missing database is the expected end of its last statements racing the
  *   teardown, and the client no longer needs an owner.
- * - `lost`: the client's database went away with the owner that held it.
- *   Terminal: the host must open a new client. The coordinator answers this
- *   one's requests itself, so they never reach an owner that did not open its
- *   database.
+ * - `lost`: the client's database went away with the owner that held it
+ *   (`ownerGone`), or the worker rolled back the client's transaction after it
+ *   sat idle while another tab waited (`transactionRevoked`, with the worker's
+ *   answer as `detail`). Terminal: the host must open a new client. The
+ *   coordinator answers this one's requests itself, so they never reach an
+ *   owner that did not open its database.
  *
  * A database another connection deleted is not lost: the worker tells every
  * other connection at once, and answers their later statements that it was
@@ -37,7 +40,12 @@ export type CrossTabConnectionState =
   | { readonly status: "unbound" }
   | { readonly status: "bound" }
   | { readonly status: "closing" }
-  | { readonly status: "lost" };
+  | { readonly status: "lost"; readonly reason: "ownerGone" }
+  | {
+      readonly status: "lost";
+      readonly reason: "transactionRevoked";
+      readonly detail: string;
+    };
 
 export type CrossTabConnectionEvent =
   // An `init` succeeded.
@@ -48,6 +56,8 @@ export type CrossTabConnectionEvent =
   | { readonly type: "databaseMissing" }
   // A worker said another connection deleted the client's database.
   | { readonly type: "databaseDeleted" }
+  // A worker said it rolled back the client's transaction and retired it.
+  | { readonly type: "transactionRevoked"; readonly detail: string }
   // The owner worker that served this tab is gone: this tab took the owner
   // lock from it, or the owner worker crashed.
   | { readonly type: "ownerGone" };
@@ -57,7 +67,10 @@ export const UNBOUND_CONNECTION: CrossTabConnectionState = {
 };
 const BOUND_CONNECTION: CrossTabConnectionState = { status: "bound" };
 const CLOSING_CONNECTION: CrossTabConnectionState = { status: "closing" };
-const LOST_CONNECTION: CrossTabConnectionState = { status: "lost" };
+const LOST_CONNECTION: CrossTabConnectionState = {
+  status: "lost",
+  reason: "ownerGone",
+};
 
 function transitionOpenConnection(
   state: CrossTabConnectionState,
@@ -73,6 +86,10 @@ function transitionOpenConnection(
     case "databaseMissing":
     case "ownerGone":
       return state.status === "bound" ? LOST_CONNECTION : state;
+    case "transactionRevoked":
+      return state.status === "bound"
+        ? { status: "lost", reason: "transactionRevoked", detail: event.detail }
+        : state;
   }
 }
 
@@ -132,6 +149,9 @@ export function connectionEventForResponse(
 
   if (outcome.message === DATABASE_DELETED_MESSAGE) {
     return { type: "databaseDeleted" };
+  }
+  if (outcome.message?.startsWith(DATABASE_TRANSACTION_REVOKED_MESSAGE)) {
+    return { type: "transactionRevoked", detail: outcome.message };
   }
   return outcome.message === DATABASE_NOT_INITIALIZED_MESSAGE
     ? { type: "databaseMissing" }

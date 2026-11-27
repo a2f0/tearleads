@@ -61,11 +61,11 @@
     },
     "docs/developer/client-sdk/public-api.md": {
       "lines": 547,
-      "bytes": 37688
+      "bytes": 37828
     },
     "docs/limits.md": {
-      "lines": 368,
-      "bytes": 50874
+      "lines": 370,
+      "bytes": 51619
     },
     "formal/blob-attachments/StagePromotion.tla": {
       "lines": 503,
