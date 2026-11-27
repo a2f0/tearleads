@@ -183,31 +183,84 @@ function extendedPeers(input: PromoteStagedBaselineSegmentsInput): SQL {
  * The peer rule of `judgeDocumentPeerSpans`, over the stage's spans as sets:
  * a span that ends at or below a peer's committed frontier re-asserts
  * committed counters, which any writer may do; one that ends past it extends
- * the peer, so the peer must be the writer's or unowned, and an unowned one
- * becomes the writer's. A staged segment depends only on earlier staged
- * segments, so no dependency is uncommitted once they are. The final
- * segment and the request's other updates go through the ordinary walk
- * after this, against the frontier this leaves.
+ * the peer, so the peer must be the writer's or unowned. A staged segment
+ * depends only on earlier staged segments, so no dependency is uncommitted
+ * once they are.
+ *
+ * A stage this refuses stays as it was, so its writer can send the commit
+ * again, and the check also runs ahead of every commit that is accepted:
+ * what it reads is what a writer can make the server read under the head
+ * lock. A stage with no span extends nothing and is not read.
+ *
+ * Otherwise the stage is reduced to one row a peer first, materialized by
+ * one pass over the index that holds its spans in peer order. A history
+ * staged in many segments names the same peers in every segment, and
+ * judging each span would look a peer's committed frontier up once for
+ * every span of it. The peers are then joined with the document's peer
+ * owners and filtered by the committed spans in a second materialized CTE
+ * before `order by ... limit 64`, so the small limit does not lure the
+ * planner into a nested-loop anti-join over hundreds of thousands of
+ * re-asserted peers. The cost grows with the stage's spans, with the
+ * staged peers other users own, and with the refused peers before the
+ * limit — never with spans times foreign peers.
  */
-async function claimStagedPeers(
+async function assertStagedPeersNotOwnedByOthers(
   input: PromoteStagedBaselineSegmentsInput,
 ): Promise<void> {
+  if (input.commit.stage.stagedSpans === 0) return;
+  const documentId = uuidValue(input.documentId);
   const owned = await input.executor.execute(sql`
-    select extended.peer_id as "peerId",
-      extended.committed_end as "committedEndCounter"
-    from (${extendedPeers(input)}) extended
-    join ${documentPeerOwners} peer_owner
-      on peer_owner.document_id = ${uuidValue(input.documentId)}
-      and peer_owner.peer_id = extended.peer_id
-    where peer_owner.owner_user_id <> ${uuidValue(input.userId)}
-    order by extended.peer_id collate "C"
-    limit ${MAX_DOCUMENT_PEER_FRONTIERS}
+    with staged as materialized (
+      select peer_id, max(end_counter) as end_counter
+      from ${documentBaselineSegmentSpans}
+      where ${stagedSegmentsOf(input)}
+      group by peer_id
+    ),
+    all_refused as materialized (
+      select staged.peer_id
+      from staged
+      join ${documentPeerOwners} peer_owner
+        on peer_owner.document_id = ${documentId}
+        and peer_owner.peer_id = staged.peer_id
+      where peer_owner.owner_user_id <> ${uuidValue(input.userId)}
+        and not exists (
+          select 1 from ${documentUpdateSpans} committed
+          where committed.document_id = ${documentId}
+            and committed.peer_id = staged.peer_id
+            and committed.end_counter >= staged.end_counter
+        )
+    )
+    select refused.peer_id as "peerId",
+      coalesce((
+        select max(span.end_counter)
+        from ${documentUpdateSpans} span
+        where span.document_id = ${documentId}
+          and span.peer_id = refused.peer_id
+      ), 0) as "committedEndCounter"
+    from (
+      select peer_id
+      from all_refused
+      order by peer_id collate "C"
+      limit ${MAX_DOCUMENT_PEER_FRONTIERS}
+    ) refused
+    order by refused.peer_id collate "C"
   `);
   if (owned.rows.length > 0) {
     throw documentPeerOwned(
       owned.rows.map((row) => refusedPeerSchema.parse(row)),
     );
   }
+}
+
+/**
+ * Every unowned peer the stage extends becomes the writer's. The caller has
+ * refused a stage that extends another user's peer, so each extended peer is
+ * the writer's already or nobody's. The final segment and the request's
+ * other updates were judged against the frontier this leaves, before it.
+ */
+async function claimStagedPeers(
+  input: PromoteStagedBaselineSegmentsInput,
+): Promise<void> {
   await input.executor.execute(sql`
     insert into ${documentPeerOwners} (document_id, peer_id, owner_user_id)
     select ${uuidValue(input.documentId)}, extended.peer_id,
@@ -222,25 +275,11 @@ async function claimStagedPeers(
 }
 
 /**
- * Insert one update row per staged segment, in segment order, with no
- * payload: the ciphertext stays in the staged row, which readers join by
- * update id, so no ciphertext is copied under the document head lock.
- *
  * An update id names one update everywhere. A staged id that an update has
- * taken since it was staged is read first and refused as an id conflict. The
- * head lock keeps this document's writers out, but not another document's:
- * one can commit the same id between that read and the insert, and the
- * insert's unique violation is then the same conflict. It is the only
- * unique rule the insert can break: a group's places are unique within its
- * document, and `lockStagedBaselineForCommit` found the stage's baseline id
- * uncommitted under the head lock.
- *
- * `order by segment_index` feeds the insert in segment order, and the
- * identity column takes its values as rows arrive, so sequences rise with
- * the index; Postgres does not promise that, so the returned rows are
- * checked, and so is that every staged index from zero was inserted once.
+ * taken since it was staged is read here and refused as an id conflict,
+ * before the stage's rows are written.
  */
-async function insertStagedUpdateRows(
+async function assertStagedUpdateIdsUncommitted(
   input: PromoteStagedBaselineSegmentsInput,
 ): Promise<void> {
   const [taken] = await input.executor
@@ -258,6 +297,29 @@ async function insertStagedUpdateRows(
     )
     .limit(1);
   if (taken) throw documentUpdateIdConflict();
+}
+
+/**
+ * Insert one update row per staged segment, in segment order, with no
+ * payload: the ciphertext stays in the staged row, which readers join by
+ * update id, so no ciphertext is copied under the document head lock.
+ *
+ * `assertStagedUpdateIdsUncommitted` found every staged id free. The head
+ * lock keeps this document's writers out, but not another document's: one
+ * can commit the same id between that read and the insert, and the
+ * insert's unique violation is then the same conflict. It is the only
+ * unique rule the insert can break: a group's places are unique within its
+ * document, and `lockStagedBaselineForCommit` found the stage's baseline id
+ * uncommitted under the head lock.
+ *
+ * `order by segment_index` feeds the insert in segment order, and the
+ * identity column takes its values as rows arrive, so sequences rise with
+ * the index; Postgres does not promise that, so the returned rows are
+ * checked, and so is that every staged index from zero was inserted once.
+ */
+async function insertStagedUpdateRows(
+  input: PromoteStagedBaselineSegmentsInput,
+): Promise<void> {
   const inserted = await input.executor
     .execute(sql`
     insert into ${documentUpdates} (
@@ -319,26 +381,45 @@ async function moveStagedHeadersAndSpans(
 }
 
 /**
- * Commit a stage's segments as the document's updates, ahead of the final
- * segment the request carries. The caller holds the document head lock and
- * the stage's row lock and has verified the final segment's header, held it
- * to the stage (`lockStagedBaselineForCommit`), and proved the group covers
- * the committed frontier. In this order: the staged headers are authorized
- * by the final one, and none repeats a committed content record; the peers
- * the stage extends are the writer's or become so; the update rows are
- * inserted in segment order by reference; headers and spans follow them;
- * and the stage is deleted, which leaves the staged rows as the committed
- * updates' payloads. The rows written here under the head lock are one
- * update row and one header row per staged segment, one span row per staged
- * span, and at most one peer-owner row per span: the stage's segment and
- * span caps bound them, whatever the ciphertext's size. Every step is in the request's
- * transaction, so a stage commits whole with the rotation or not at all.
+ * Whether a stage can be committed ahead of the final segment the request
+ * carries. The caller holds the document head lock and the stage's row lock
+ * and has verified the final segment's header, held it to the stage
+ * (`lockStagedBaselineForCommit`), and proved the group covers the
+ * committed frontier. Here: the staged headers are authorized by the final
+ * one, none repeats a committed content record, no staged span extends
+ * another user's peer, and no staged update id is taken.
+ *
+ * Nothing is written; only a non-empty stage's spans are read, once,
+ * aggregated per peer before joining with peer owners. A refused commit
+ * leaves its stage as it was and can be sent again, so what a refusal
+ * costs is what a writer can make the server repeat.
  */
-export async function promoteStagedBaselineSegments(
+export async function assertStagedBaselinePromotable(
   input: PromoteStagedBaselineSegmentsInput,
 ): Promise<void> {
   await assertStagedHeadersAuthorized(input);
   await assertStagedContentRecordsUnused(input);
+  await assertStagedPeersNotOwnedByOthers(input);
+  await assertStagedUpdateIdsUncommitted(input);
+}
+
+/**
+ * Commit a stage's segments as the document's updates. The caller found the
+ * stage promotable (`assertStagedBaselinePromotable`) and the request's own
+ * updates acceptable on top of it (`claimDocumentPeers`), in this
+ * transaction, under the document head lock. The unowned peers the stage
+ * extends become the writer's; the update rows are inserted in segment
+ * order by reference; headers and spans follow them; and the stage is
+ * deleted, which leaves the staged rows as the committed updates' payloads.
+ * These are one update row and one header row per staged segment, one span
+ * row per staged span, and at most one peer-owner row per span: the stage's
+ * segment and span caps bound them, whatever the ciphertext's size. Every
+ * step is in the request's transaction, so a stage commits whole with the
+ * rotation or not at all.
+ */
+export async function promoteStagedBaselineSegments(
+  input: PromoteStagedBaselineSegmentsInput,
+): Promise<void> {
   await claimStagedPeers(input);
   await insertStagedUpdateRows(input);
   await moveStagedHeadersAndSpans(input);

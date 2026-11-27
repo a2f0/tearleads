@@ -21,6 +21,7 @@ import { ErrorResponseSchema } from "../response/error";
 import { PaymentRequiredErrorResponseSchema } from "../response/organizationBilling";
 import { uuidV4StringSchema } from "../schema";
 import {
+  DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS,
   DOCUMENT_BASELINE_STAGE_IDLE_SECONDS,
   DOCUMENT_BASELINE_STAGE_MAX_SECONDS,
   MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
@@ -99,20 +100,35 @@ const stageFailureResponses = {
 
 const stageFailureStatuses = [400, 401, 402, 403, 404, 409, 500] as const;
 
+/**
+ * What an open's 503 carries. The header is optional because every route's
+ * 503 is also the outer boundary's answer to a database it could not
+ * reach, which names no delay.
+ */
+const DocumentBaselineStageBusyHeadersSchema = z.strictObject({
+  "retry-after": z
+    .literal(String(DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS))
+    .optional(),
+});
+
 const IDLE_MINUTES = DOCUMENT_BASELINE_STAGE_IDLE_SECONDS / 60;
 const MAX_HOURS = DOCUMENT_BASELINE_STAGE_MAX_SECONDS / (60 * 60);
 
 export const openDocumentBaselineStageOperation = defineJsonOperation({
   auth: "session",
   body: DocumentBaselineStageOpenRequestSchema,
-  failureResponses: stageFailureResponses,
-  failureStatuses: stageFailureStatuses,
+  failureResponses: { ...stageFailureResponses, 503: ErrorResponseSchema },
+  failureStatuses: [...stageFailureStatuses, 503],
   id: "documents.baselineStages.open",
   summary: "Open a rotation baseline stage",
-  description: `Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document, as every later stage request does, and replaces the caller's earlier stage for it; a user holds at most ${MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER} open stages, and one more returns 409 \`document_baseline_stage_limit_reached\`. The stage expires ${IDLE_MINUTES} minutes after its last upload and at most ${MAX_HOURS} hours after it opened; nothing staged is served until a rotating request commits it.`,
+  description: `Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document, as every later stage request does, and replaces the caller's earlier stage for it; a user holds at most ${MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER} open stages, and one more returns 409 \`document_baseline_stage_limit_reached\`. The stage expires ${IDLE_MINUTES} minutes after its last upload and at most ${MAX_HOURS} hours after it opened; nothing staged is served until a rotating request commits it. An open does not wait for the caller's own stage on the document: while another of the caller's requests holds it (a segment being staged, a header being re-signed, a commit) the open returns 503 with \`Retry-After\` and changes nothing, so a writer lets its other requests to that stage finish before it opens again.`,
   method: "POST",
   params: DocumentBaselineStagesPathParamsSchema,
   path: "/documents/{documentId}/baseline-stages",
+  responseDescriptions: {
+    503: `Another request of the caller's holds its stage on the document, and the open did not wait for it. Nothing changed. Retry after the \`Retry-After\` delay (${DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS} second), once the writer's other requests to that stage have finished. Also the answer when the database cannot be reached, as on every route.`,
+  },
+  responseHeaders: { 503: DocumentBaselineStageBusyHeadersSchema },
   responses: { 200: DocumentBaselineStageStatusResponseSchema },
 });
 

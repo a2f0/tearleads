@@ -82,6 +82,7 @@ exec bun test \
   src/routes/documents/lostAcknowledgmentConcurrency.pg.test.ts \
   src/routes/documents/purgeSyncConcurrency.pg.test.ts \
   src/routes/documents/unlinkSyncConcurrency.pg.test.ts \
+  src/routes/documents/baselineStageOpenLocks.pg.test.ts \
   src/routes/documents/baselineStagePurgeRace.pg.test.ts \
   src/routes/documents/baselineStageSweepRace.pg.test.ts \
   src/routes/documents/baselineStageCommit.test.ts \

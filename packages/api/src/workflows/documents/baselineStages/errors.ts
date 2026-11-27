@@ -2,6 +2,7 @@ import {
   DOCUMENT_BASELINE_STAGE_ERROR_CODES,
   type DocumentBaselineStageConflictCode,
 } from "@tearleads/validators/response";
+import { DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS } from "@tearleads/validators/util";
 import type { DocumentBaselineStageState } from "../../../documents/documentBaselineStageState";
 import { isUniqueViolation } from "../../../utils/databaseErrors";
 import { toMutationError } from "../mutations/errors";
@@ -89,6 +90,28 @@ export function documentBaselineStageLimitReached(
     undefined,
     openStages,
   );
+}
+
+/**
+ * A request of the caller's own holds the stage this open would return or
+ * replace, and an open does not wait for it. Nothing changed. The open has
+ * no place in a queue: sent again while the writer keeps staging to that
+ * stage, it may find it held again every time, so a writer lets its other
+ * requests to the stage finish first. It is the one stage refusal that
+ * names a delay, which the route sends as `Retry-After`; a 503 for a
+ * transaction the database aborted names none.
+ */
+export class DocumentBaselineStageBusyError extends DocumentBaselineStageError {
+  readonly retryAfterSeconds = DOCUMENT_BASELINE_STAGE_BUSY_RETRY_AFTER_SECONDS;
+
+  constructor() {
+    super("Document baseline stage is in use by another request; retry", 503);
+    this.name = "DocumentBaselineStageBusyError";
+  }
+}
+
+export function documentBaselineStageBusy(): DocumentBaselineStageError {
+  return new DocumentBaselineStageBusyError();
 }
 
 /** The segment would take the stage past what one stage may store. */

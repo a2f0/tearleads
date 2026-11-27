@@ -29,6 +29,7 @@ import {
   runVerifier,
   throwVerification,
 } from "../core/shared";
+import { readAccessEventName } from "../core/signedName";
 import type { KeyingVerificationResult } from "../core/verificationError";
 import type { ReferencedPrincipalHead } from "../principalPolicy/principalPolicyTypes";
 import type {
@@ -85,7 +86,7 @@ function normalizeUnsignedAccessEvent(value: unknown): UnsignedAccessEvent {
 
   return {
     version: readVersion(record, "access event"),
-    eventId: readString(record, "eventId", "access event"),
+    eventId: readAccessEventName(record, "eventId"),
     eventType,
     objectKind,
     objectId: readString(record, "objectId", "access event"),
@@ -101,7 +102,7 @@ function normalizeUnsignedAccessEvent(value: unknown): UnsignedAccessEvent {
     ),
     bodyHash: readHashString(record, "bodyHash", "access event"),
     signerUserId: readString(record, "signerUserId", "access event"),
-    signerDeviceId: readString(record, "signerDeviceId", "access event"),
+    signerDeviceId: readAccessEventName(record, "signerDeviceId"),
     signerKeyFingerprint: readHashString(
       record,
       "signerKeyFingerprint",

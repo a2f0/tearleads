@@ -7,7 +7,7 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { documents } from "@tearleads/api-shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { documentWithHistory } from "../../../test/helpers/baselineGroupRouteKit";
 import { openStage, stagedRows } from "../../../test/helpers/baselineStageKit";
 import { buildDocumentPurgeRequest } from "../../../test/helpers/documentPurge";
@@ -15,11 +15,11 @@ import { createDocument } from "../../../test/helpers/keyingWriterProjectionKit"
 import {
   holdAccessManifestHeadForUpdate,
   holdPostgresLock,
+  settledWithoutWaiting,
   waitForPostgresLockWait,
 } from "../../../test/helpers/postgresConcurrency";
 import { lockDocumentBaselineStageRow } from "../../documents/documentBaselineStageStore";
 import { routeApp } from "../../routeApp";
-import { deriveDocumentLifecycleLockKeys } from "../../workflows/documents/mutations/documentLifecycleLock";
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "a stage opened while its document is purged is not stored",
@@ -101,12 +101,11 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   60_000,
 );
 
-// An open locks the caller's stages on other documents, to count them. One
-// of those rows may be held by a long request of the caller's own. The open
-// waits for it before it takes this document's lifecycle lock, so nobody
-// else's open, and no purge of this document, waits behind it.
+// An open counts the caller's stages on other documents and locks none of
+// them. One of those rows may be held by a long request of the caller's
+// own; the open does not wait for it, and counts it as it stands.
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
-  "an open that waits for the caller's stage elsewhere holds no lock on this document",
+  "an open does not wait for the caller's stage elsewhere",
   async () => {
     const { created, owner, root } = await documentWithHistory();
     const other = await createDocument({ owner, root });
@@ -127,31 +126,20 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         documentId: other.id,
       });
     });
-    let opening: Promise<Response> | undefined;
     try {
-      opening = Promise.resolve(
+      const opened = await settledWithoutWaiting(
         openStage(owner, created.id, {
           baselineId: crypto.randomUUID(),
           contentKeyEpoch: created.contentKeyEpoch,
         }),
       );
-      await waitForPostgresLockWait({
-        blockerPid: busy.backendPid,
-        queryFragment: "document_baseline_stages",
-      });
-      const [first, second] = await deriveDocumentLifecycleLockKeys(created.id);
-      const free = await db.transaction(async (tx) => {
-        const result = await tx.execute(
-          sql`select pg_try_advisory_xact_lock(${first}, ${second}) as free`,
-        );
-        return Reflect.get(result.rows[0] ?? {}, "free");
-      });
-      expect(free).toBe(true);
+      expect(opened.status).toBe(200);
     } finally {
       await busy.release();
     }
-    if (!opening) throw new Error("Expected the open");
-    expect((await opening).status).toBe(200);
+    expect((await stagedRows(other.id)).stages).toEqual([
+      { id: elsewhere, nextSegmentIndex: 0 },
+    ]);
   },
   60_000,
 );
