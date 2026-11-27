@@ -389,9 +389,10 @@ async function moveStagedHeadersAndSpans(
  * one, none repeats a committed content record, no staged span extends
  * another user's peer, and no staged update id is taken.
  *
- * Nothing is written, and none of these reads the stage's spans as a whole.
- * A refused commit leaves its stage as it was and can be sent again, so
- * what a refusal costs is what a writer can make the server repeat.
+ * Nothing is written; only a non-empty stage's spans are read, once,
+ * aggregated per peer before joining with peer owners. A refused commit
+ * leaves its stage as it was and can be sent again, so what a refusal
+ * costs is what a writer can make the server repeat.
  */
 export async function assertStagedBaselinePromotable(
   input: PromoteStagedBaselineSegmentsInput,

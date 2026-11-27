@@ -339,7 +339,7 @@ test("a stage with no span is not read for peer ownership", async () => {
   });
   await promote();
   const ownershipRead = (text: string) =>
-    /^\s*select/iu.test(text) && /"document_peer_owners"/u.test(text);
+    /^\s*(?:with|select)/iu.test(text) && /"document_peer_owners"/u.test(text);
   expect(statements.filter(ownershipRead)).toEqual([]);
   expect(await committedRows(documentId)).toHaveLength(SEGMENTS);
 

@@ -199,8 +199,8 @@ most one open stage per document: opening another deletes the earlier one and
 what it staged, and repeating an open returns the stage as it stands. A user
 holds at most four open stages across documents
 (`MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER`); a fifth is refused with
-`document_baseline_stage_limit_reached`, which names the four (`openStages`) so
-a writer that lost one's id can abandon it. A `baselineId` the document
+`document_baseline_stage_limit_reached`, naming the still-open ones
+(`openStages`) so a writer can abandon one. A `baselineId` the document
 committed, or that another user's stage there holds, is refused. An open checks
 access before any lock and again under the document's lifecycle lock, which a
 purge holds until it commits: no stage is stored for a purged document. Under
@@ -250,9 +250,9 @@ its plaintext hash, and its write header (the status's `stagedBytes`). It
 stores at most 1,048,576 span rows (`MAX_DOCUMENT_BASELINE_STAGE_SPANS`),
 one for each peer a segment carries. A segment or header that would pass
 either bound is refused with `document_baseline_stage_too_large`, the stage
-unchanged. A header is bounded wherever one is parsed: a document's cites
-at most 6,400 container manifests; any header names its device in at most
-128 characters, none a control character, and signs in canonical base64.
+unchanged. A header is bounded wherever parsed: a document's cites at most
+6,400 container manifests; a device name is at most 128 characters, well-formed
+Unicode with no control character; and its signature is canonical base64.
 
 A stage expires an hour after its last staged segment or re-signed header
 (`DOCUMENT_BASELINE_STAGE_IDLE_SECONDS`) and never later than 24 hours after
@@ -279,7 +279,7 @@ writer what its stage is worth:
 | `document_baseline_stage_expired` | 409 | The stage passed its expiry. | opens a new stage |
 | `document_baseline_stage_epoch_stale` | 409 | The document moved past the stage's content-key epoch, or the stage names another key for it. | abandons it and plans again |
 | `document_baseline_stage_id_conflict` | 409 | The `baselineId` is a committed baseline's or another user's stage. At a commit: a request committed a baseline under the id after the stage opened. | chooses another id |
-| `document_baseline_stage_limit_reached` | 409 | Only at an open: the caller holds four open stages on other documents. The body names each one's `baselineId`, `documentId`, and `expiresAt` as `openStages`. | abandons one, or waits |
+| `document_baseline_stage_limit_reached` | 409 | Only at an open: the caller holds four stage rows on other documents. The body names each still-open one's `baselineId`, `documentId`, and `expiresAt` as `openStages`. | abandons one, or waits |
 | `document_baseline_stage_too_large` | 409 | The segment would take the stage past its byte or span bound. The stage is unchanged. | cannot stage this history whole |
 | `document_baseline_stage_segment_out_of_order` | 409 | The index is not the stage's next; the body names `nextSegmentIndex`. | resumes from that index |
 | `document_baseline_stage_segment_conflict` | 409 | The index, the update id, or the content record is taken by other bytes. At a commit: a staged segment's content record was committed since. | signs the segment again under its own ids, or abandons the stage |
