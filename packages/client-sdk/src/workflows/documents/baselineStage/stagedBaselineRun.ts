@@ -6,6 +6,7 @@ import type {
   DocumentBaselineStageApi,
   DocumentBaselineStageFailure,
 } from "../../../data/documents/shared/sync/baselineStageApi";
+import { isDocumentSyncRequestLimitError } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
 import type { DocumentSyncPreparedUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import {
   type DocumentSyncTraceEmitter,
@@ -305,13 +306,23 @@ async function stageNext(
     upload.dispatch({ attempt, type: "segmentLimitExceeded" });
     return;
   }
+  const signed = await run.context.signer
+    .sign(segment.prepared)
+    .catch(async (error: unknown) => {
+      // A segment no request carries ends the upload, and its stage with it.
+      if (isDocumentSyncRequestLimitError(error)) {
+        upload.dispatch({ attempt, type: "released" });
+        await dropStagedBaselineUpload(run.context, upload);
+      }
+      throw error;
+    });
   upload.records.length = segmentIndex;
   upload.records.push(stagedSegmentRecord(segment));
   const result = await run.context.api.stageDocumentBaselineSegmentResult(
     upload.documentId,
     state.baselineId,
     segmentIndex,
-    await run.context.signer.sign(segment.prepared),
+    signed,
     requestOptions(run),
   );
   if (!result.ok) return refuse(run, result);

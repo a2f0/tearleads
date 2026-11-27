@@ -1,7 +1,10 @@
 import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
+import { serializedBytes } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
 import type { DocumentSyncPreparedUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { signDocumentOutgoingUpdate } from "../syncPlan/syncPlanIdentity";
+import { DocumentRotationBaselineLimitError } from "./rotationBaselineErrors";
 import type { StagedSegmentRecord } from "./stagedBaselineUploads";
 
 type SigningContext = Omit<
@@ -17,6 +20,13 @@ type SigningContext = Omit<
  * `identity` is those fields. A stage whose headers were signed under
  * another identity has to sign them again before it can commit; the signed
  * time and the device are free.
+ *
+ * A segment is one update, and the API takes no update that serializes to
+ * more than a sync request holds (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`): not
+ * as a staged segment's request, nor as a segment an unlink carries. The
+ * cap a segment is cut at leaves about 1.3 MiB for its vectors and header;
+ * a segment that is still over, signed, is refused here and never sent,
+ * with `DocumentRotationBaselineLimitError`.
  */
 export interface RotationBaselineSigner {
   readonly identity: string;
@@ -41,7 +51,13 @@ export function rotationBaselineSigner(
       writerKeyFingerprint: context.author.signerKeyFingerprint,
       writerUserId: context.author.signerUserId,
     }),
-    sign: (update) => signDocumentOutgoingUpdate({ ...context, update }),
+    async sign(update) {
+      const signed = await signDocumentOutgoingUpdate({ ...context, update });
+      if (serializedBytes(signed) > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
+        throw new DocumentRotationBaselineLimitError("segment_too_large");
+      }
+      return signed;
+    },
   };
 }
 

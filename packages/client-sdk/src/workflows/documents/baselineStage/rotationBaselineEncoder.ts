@@ -5,6 +5,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createReadOnlyDocument,
+  DEFAULT_HISTORY_SEGMENT_MAX_BYTES,
   DEFAULT_HISTORY_SEGMENT_TARGET_BYTES,
   emptyVersionVector,
   exportAllUpdates,
@@ -27,14 +28,6 @@ import type { RotationHistory } from "./rotationHistory";
 import type { StagedSegmentRecord } from "./stagedBaselineUploads";
 
 const MEBIBYTE = 1024 * 1024;
-
-/**
- * The most plaintext one segment holds unless the caller says otherwise. A
- * staged segment travels alone in a request of at most 16 MiB
- * (`MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES`), base64 inside its
- * envelope, which leaves this much with room for its header and vectors.
- */
-const ROTATION_BASELINE_SEGMENT_MAX_BYTES = 11 * MEBIBYTE;
 
 /**
  * The plaintext a staged baseline's final segment aims for. That segment
@@ -184,10 +177,21 @@ export class RotationBaselineEncoder {
     this.segments = start.history.segments(this.sizes(), start.after);
   }
 
-  private sizes(): HistorySegmentSizes {
+  /**
+   * The caller's sizes, within the most plaintext one segment may hold
+   * (`DEFAULT_HISTORY_SEGMENT_MAX_BYTES`): a segment is one update, and an
+   * update travels in a request of at most 16 MiB, staged or sent whole. A
+   * caller can cut smaller and never larger.
+   */
+  private sizes(): Required<HistorySegmentSizes> {
+    const { maxBytes, targetBytes } = this.start.segmentSizes ?? {};
+    const cap = DEFAULT_HISTORY_SEGMENT_MAX_BYTES;
     return {
-      maxBytes: ROTATION_BASELINE_SEGMENT_MAX_BYTES,
-      ...this.start.segmentSizes,
+      maxBytes: Math.min(maxBytes ?? cap, cap),
+      targetBytes: Math.min(
+        targetBytes ?? DEFAULT_HISTORY_SEGMENT_TARGET_BYTES,
+        cap,
+      ),
     };
   }
 
@@ -229,7 +233,7 @@ export class RotationBaselineEncoder {
   private cutFinalSmall(): void {
     const [last] = this.window;
     const sizes = this.sizes();
-    const usual = sizes.targetBytes ?? DEFAULT_HISTORY_SEGMENT_TARGET_BYTES;
+    const usual = sizes.targetBytes;
     const targetBytes = Math.min(
       ROTATION_BASELINE_FINAL_SEGMENT_TARGET_BYTES,
       usual,

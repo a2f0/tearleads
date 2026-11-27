@@ -2,6 +2,7 @@ import { DOCUMENT_BASELINE_STAGE_ERROR_CODES } from "@tearleads/validators/respo
 import {
   MAX_DOCUMENT_BASELINE_STAGE_BYTES,
   MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER,
 } from "@tearleads/validators/util";
 import { DocumentSyncRequestLimitError } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
@@ -55,14 +56,17 @@ export class DocumentRotationBaselineStageLimitError extends DocumentRotationBas
 
 const LIMIT_MESSAGES = {
   segment_limit: `needs more than ${MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS} segments`,
+  segment_too_large: `has a segment that is over the ${MAX_DOCUMENT_SYNC_REQUEST_BYTES} bytes of one request with its vectors and header`,
   stage_too_large: `is larger than the ${MAX_DOCUMENT_BASELINE_STAGE_BYTES} bytes or the span rows a stage stores`,
 } as const;
 
 /**
- * The history is larger than a staged baseline may be: it needs more
- * segments than a baseline has (`MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS`),
- * or more bytes or span rows than a stage stores
- * (`MAX_DOCUMENT_BASELINE_STAGE_BYTES`, `MAX_DOCUMENT_BASELINE_STAGE_SPANS`).
+ * The history is larger than a baseline may be: it needs more segments
+ * than a baseline has (`MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS`), more bytes
+ * or span rows than a stage stores (`MAX_DOCUMENT_BASELINE_STAGE_BYTES`,
+ * `MAX_DOCUMENT_BASELINE_STAGE_SPANS`), or one of its segments, with the
+ * vectors and header it is sent with, is more than one request holds
+ * (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`).
  * No retry changes that: the document cannot rotate from this writer. It is
  * a request-limit error, so a sync that heals ends in the coded failure
  * `document_sync_request_too_large` and an unlink throws it.

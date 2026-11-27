@@ -1,0 +1,10 @@
+# Issue #3238 (rotation baselines larger than one request; greenfield flag
+# day, no compatibility shim): each inline segment of a link-set mutation's
+# `rotationBaseline` is one update, and is now held, whole, to the 16 MiB a
+# sync request carries, where the route's own 32 MiB was its only bound. A
+# segment the API took between the two could not be served again by any
+# pull. The SDK ships with the API and cuts a segment at 11 MiB of plaintext,
+# which is under the bound once encoded. Delete these exact diagnostics, and
+# this file, once main contains this contract.
+POST /documents/{documentId}/link: request refinement 'request.post-link-rotation-baseline-segment-bytes' was added; existing clients were not rejected by it.
+POST /documents/{documentId}/unlink: request refinement 'request.post-link-rotation-baseline-segment-bytes' was added; existing clients were not rejected by it.

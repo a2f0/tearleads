@@ -14,8 +14,13 @@ import { type OperationSpan, operationSpans } from "./versionRange";
 
 /** The plaintext size a segment aims for. */
 export const DEFAULT_HISTORY_SEGMENT_TARGET_BYTES = 4 * 1024 * 1024;
-/** The plaintext size no segment exceeds. */
-export const DEFAULT_HISTORY_SEGMENT_MAX_BYTES = 16 * 1024 * 1024;
+/**
+ * The plaintext size no segment exceeds. A segment is sent as one update,
+ * base64 inside an encrypted envelope, in a request of at most 16 MiB:
+ * 11 MiB is 14.67 MiB once base64, which leaves the update 1.3 MiB for its
+ * envelope, its version vectors and its signed header.
+ */
+export const DEFAULT_HISTORY_SEGMENT_MAX_BYTES = 11 * 1024 * 1024;
 
 /**
  * The size assumed for one counter before any export has measured one. It is

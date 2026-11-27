@@ -19,9 +19,25 @@ go through one writer
 
 The writer opens the proven full-history snapshot and cuts it
 into segments of about 4 MiB of plaintext and never more than 11 MiB
-(`ROTATION_BASELINE_SEGMENT_MAX_BYTES`), unless its caller passes other
-sizes (`rotationBaselineSegmentSizes`). The cap leaves a segment room in a
-16 MiB stage request once it is base64 inside its envelope. The history is
+(`DEFAULT_HISTORY_SEGMENT_MAX_BYTES`, the default of
+[`@tearleads/loro`](../packages/loro/README.md)). Its caller may pass
+smaller sizes (`rotationBaselineSegmentSizes`); larger ones are held to
+the cap.
+
+A segment is one update, and the API takes no update that serializes to
+more than 16 MiB: as a staged segment's request, as a segment an unlink
+carries inline, or in a sync's request. 11 MiB of plaintext is 14.67 MiB
+once it is base64 inside its envelope, which leaves about 1.3 MiB for the
+segment's version vectors and its header: a segment 64 KiB under the cap
+measured 14.59 MiB signed, 7.6 KiB of it header and vectors. The room is
+not a proof, since a document of very many peers has vectors of any size.
+So the signer weighs each segment once it is signed
+(`rotationBaselineSigner`) and refuses one over 16 MiB with
+`DocumentRotationBaselineLimitError` before anything is sent, and a staged
+upload that meets one deletes its stage. A heal's group sent whole is
+signed with its request, which is held to the same 16 MiB as a whole.
+
+The history is
 exported one segment ahead of the one being encrypted, so the writer knows
 which segment is the final one; each segment is exported, encrypted, signed,
 and handed on before the next is cut. Beside the snapshot it holds the
@@ -179,7 +195,7 @@ again at most once: a limit that still stands is reported as
 A sync reports progress as trace lines
 (`document sync baseline stage document=… status=… segments=…`), one a
 state and one every sixteen staged segments, and an unlink through the
-host's log. Three failures are terminal for a history, and a fourth,
+host's log. Four failures are terminal for a history, and a fifth,
 `DocumentRotationBaselineStageLimitError`, for the moment: the user has
 four other uploads open and none of them is an
 [orphan](#orphaned-stages).
@@ -193,6 +209,9 @@ four other uploads open and none of them is an
   ends in the same code and an unlink throws it. The stage is deleted. At
   the default sizes the byte bound comes first, at about 750 MiB of
   history.
+- One segment that is over 16 MiB once signed, with its vectors and
+  header: the same error, before the segment is sent. It takes a segment
+  near the cap in a document of tens of thousands of peers.
 - A final segment that does not fit the rotating request beside what else
   it carries: the same request-limit failure. The writer cuts the final
   segment small, so this needs one operation of megabytes at the end of the
