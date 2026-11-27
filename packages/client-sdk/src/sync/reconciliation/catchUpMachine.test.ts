@@ -4,6 +4,7 @@ import {
   type CatchUpWait,
   defersToCatchUp,
   IDLE_CATCH_UP,
+  listedSinceAcknowledgement,
   transitionCatchUp,
 } from "./catchUpMachine";
 
@@ -19,9 +20,19 @@ const pending = (
   status: "awaitingCrawl" | "awaitingTurn",
   current: CatchUpWait,
   opened: ReadonlyArray<string> = [],
+  listed: ReadonlyArray<string> = [],
 ): CatchUpState => ({
   listedNowContainerIds: new Set(opened),
+  listedSinceContainerIds: new Set(listed),
   status,
+  wait: current,
+});
+const overdueFor = (
+  current: CatchUpWait,
+  listed: ReadonlyArray<string> = [],
+): CatchUpState => ({
+  listedSinceContainerIds: new Set(listed),
+  status: "overdue",
   wait: current,
 });
 const awaiting = (current: CatchUpWait, opened: ReadonlyArray<string> = []) =>
@@ -60,8 +71,8 @@ test("an acknowledgement while a catch-up awaits its turn starts its own wait", 
   const earlier = wait();
   const later = wait();
   for (const before of [
-    pending("awaitingTurn", earlier, ["opened"]),
-    { status: "overdue", wait: earlier } as const,
+    pending("awaitingTurn", earlier, ["opened"], ["listed"]),
+    overdueFor(earlier, ["listed"]),
   ]) {
     const state = transitionCatchUp(before, {
       type: "acknowledged",
@@ -69,7 +80,7 @@ test("an acknowledgement while a catch-up awaits its turn starts its own wait", 
     });
 
     // The earlier crawl settled before this acknowledgement, and what was
-    // listed at once then says nothing about what moved since.
+    // listed then says nothing about what moved since.
     expect(state).toEqual(awaiting(later));
     // The earlier catch-up's turn does not end the later one's deferral.
     expect(transitionCatchUp(state, { type: "turnTaken", wait: earlier })).toBe(
@@ -80,15 +91,15 @@ test("an acknowledgement while a catch-up awaits its turn starts its own wait", 
 
 test("a turn that does not come in time makes the catch-up overdue", () => {
   const current = wait(["known"]);
-  const state = pending("awaitingTurn", current, ["opened"]);
+  const state = pending("awaitingTurn", current, ["opened"], ["listed"]);
   const overdue = transitionCatchUp(state, {
     type: "turnOverdue",
     wait: current,
   });
 
-  expect(overdue).toEqual({ status: "overdue", wait: current });
+  expect(overdue).toEqual(overdueFor(current, ["listed"]));
   // Nothing waits for an overdue catch-up, and nothing changes that but
-  // its turn, a new acknowledgement or a stop.
+  // its turn, a listing, a new acknowledgement or a stop.
   expect(defersToCatchUp(overdue, "known")).toBe(false);
   for (const event of [
     { type: "crawlSettled", wait: current },
@@ -137,9 +148,9 @@ test("a stop ends any catch-up", () => {
       transitionCatchUp(pending(status, wait()), { type: "stopped" }),
     ).toBe(IDLE_CATCH_UP);
   }
-  expect(
-    transitionCatchUp({ status: "overdue", wait: wait() }, { type: "stopped" }),
-  ).toBe(IDLE_CATCH_UP);
+  expect(transitionCatchUp(overdueFor(wait()), { type: "stopped" })).toBe(
+    IDLE_CATCH_UP,
+  );
   expect(transitionCatchUp(IDLE_CATCH_UP, { type: "stopped" })).toBe(
     IDLE_CATCH_UP,
   );
@@ -199,4 +210,48 @@ test("lanes already owed at the acknowledgement are listed without waiting", () 
       wait: current,
     }),
   ).toBe(state);
+});
+
+test("a lane listed after the acknowledgement is kept until the turn", () => {
+  const current = wait(["a", "b"]);
+  const listedA = {
+    containerIds: ["a"],
+    type: "listed",
+    wait: current,
+  } as const;
+  for (const before of [
+    pending("awaitingCrawl", current),
+    pending("awaitingTurn", current),
+    overdueFor(current),
+  ]) {
+    const state = transitionCatchUp(before, listedA);
+
+    expect(listedSinceAcknowledgement(state, current)).toEqual(new Set(["a"]));
+    // It changes what the catch-up lists, not what waits for it.
+    expect(state.status).toBe(before.status);
+    expect(defersToCatchUp(state, "a")).toBe(defersToCatchUp(before, "a"));
+    // Listed again, or by a request sent for another wait: no change.
+    expect(transitionCatchUp(state, listedA)).toBe(state);
+    expect(
+      transitionCatchUp(state, {
+        ...listedA,
+        containerIds: ["b"],
+        wait: wait(),
+      }),
+    ).toBe(state);
+    expect(listedSinceAcknowledgement(state, wait())).toEqual(new Set());
+  }
+
+  // The set outlasts the crawl and an overdue turn, and idle keeps none.
+  const settled = transitionCatchUp(
+    transitionCatchUp(pending("awaitingCrawl", current), listedA),
+    { type: "crawlSettled", wait: current },
+  );
+  const overdue = transitionCatchUp(settled, {
+    type: "turnOverdue",
+    wait: current,
+  });
+  expect(listedSinceAcknowledgement(overdue, current)).toEqual(new Set(["a"]));
+  expect(transitionCatchUp(IDLE_CATCH_UP, listedA)).toBe(IDLE_CATCH_UP);
+  expect(listedSinceAcknowledgement(IDLE_CATCH_UP, current)).toEqual(new Set());
 });

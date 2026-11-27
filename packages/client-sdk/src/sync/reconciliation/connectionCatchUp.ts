@@ -1,9 +1,9 @@
 import {
-  type CatchUpEvent,
   type CatchUpState,
   type CatchUpWait,
   defersToCatchUp,
-  transitionCatchUp,
+  dispatchCatchUp,
+  listedSinceAcknowledgement,
 } from "./catchUpMachine";
 import {
   listFullRefreshContainerIds,
@@ -24,11 +24,31 @@ import { awaitTreeCrawl, TREE_CRAWL_WAIT_MS } from "./treeCrawlWait";
 export const CATCH_UP_TURN_WAIT_MS = TREE_CRAWL_WAIT_MS;
 
 /**
+ * What the catch-up lists when nothing vouches for its lanes: every known
+ * lane but one a listing sent after the acknowledgement listed, which that
+ * listing vouches for. A lane a hint forced since is listed all the same.
+ */
+function planUnvouchedCatchUp(
+  state: ReconciliationState,
+  wait: CatchUpWait,
+  known: ReadonlyArray<string>,
+): SweepPlan {
+  const listedSince = listedSinceAcknowledgement(state.catchUp, wait);
+  const lists = (id: string) =>
+    !listedSince.has(id) || state.forcedContainerGenerations.has(id);
+  return {
+    containerIds: known.filter(lists),
+    vouchedContainerIds: known.filter((id) => !lists(id)),
+  };
+}
+
+/**
  * What the catch-up lists once its wait is over. With a complete crawl
  * behind it: the lanes a durable record says are owed a listing, the lanes a
  * hint forced, and an open container the owed record does not cover. The
  * crawl vouches for every other known lane. Without one, or when the owed
- * record cannot be read, nothing vouches for any lane and it lists them all.
+ * record cannot be read, only a listing sent since the acknowledgement
+ * vouches for a lane, and the catch-up lists every other.
  *
  * The known containers are read once, before the owed record: a container
  * that becomes known while that read is in flight was never tested, so it is
@@ -37,11 +57,12 @@ export const CATCH_UP_TURN_WAIT_MS = TREE_CRAWL_WAIT_MS;
 async function planCatchUp(
   host: ReconciliationHost,
   state: ReconciliationState,
+  wait: CatchUpWait,
   crawlVouches: boolean,
 ): Promise<SweepPlan> {
   const reconcilable = host.listKnownContainerIds();
   const known = withOpenContainer(host, state, reconcilable);
-  if (!crawlVouches) return { containerIds: known };
+  if (!crawlVouches) return planUnvouchedCatchUp(state, wait, known);
   let owed: ReadonlySet<string>;
   try {
     owed = new Set(
@@ -50,7 +71,7 @@ async function planCatchUp(
   } catch (error) {
     if (host.isIgnorableError(error)) throw error;
     host.logError?.("Reconciliation: owed lanes could not be read", error);
-    return { containerIds: known };
+    return planUnvouchedCatchUp(state, wait, known);
   }
   // The owed record covers the containers the reconciler lists in the
   // background. An open container outside them is listed here and nowhere
@@ -64,14 +85,6 @@ async function planCatchUp(
     containerIds: known.filter(lists),
     vouchedContainerIds: known.filter((id) => !lists(id)),
   };
-}
-
-/** The one place the catch-up's state is written. */
-export function dispatchCatchUp(
-  state: ReconciliationState,
-  event: CatchUpEvent,
-): void {
-  state.catchUp = transitionCatchUp(state.catchUp, event);
 }
 
 /** Reports a sweep nothing awaits; an ignorable failure never reaches it. */
@@ -190,11 +203,14 @@ async function catchUpAfterCrawl(
       // The container store lists the tree itself on the acknowledgement.
       refreshTree: () => Promise.resolve(),
       planSweep: async () => {
+        // The turn has come: a slow read of the plan does not make it
+        // overdue, and deferral holds until the plan is in hand.
+        cancelTurnWait();
         // The service stopped, or a later acknowledgement superseded this
         // catch-up, while its sweep awaited its turn: its crawl says nothing
         // about the session or the connection that is current now.
         if (stop.aborted) return { containerIds: [] };
-        const plan = await planCatchUp(host, state, crawlVouches);
+        const plan = await planCatchUp(host, state, wait, crawlVouches);
         // Superseded or stopped while the owed record was read.
         return stop.aborted ? { containerIds: [] } : plan;
       },
@@ -203,19 +219,23 @@ async function catchUpAfterCrawl(
       // the sweep's to list or vouch for.
       onPlanTaken: () => {
         planned = true;
-        cancelTurnWait();
+        const before = state.catchUp;
         dispatchCatchUp(state, { type: "turnTaken", wait });
-        // What is still queued is the lane's again. It is woken now, before
-        // the sweep can hand back a lane it failed: a request made after
-        // that would cancel the failed lane's backoff.
-        if (state.queue.size > 0) state.lane?.requestSync();
+        // What is still queued and was held back is the lane's again. It is
+        // woken now, before the sweep can hand back a lane it failed: a
+        // request made after that would cancel the failed lane's backoff. A
+        // superseded catch-up's turn releases nothing and wakes nothing.
+        wakeLaneForReleased(state, before, wait.knownContainerIds);
       },
       scope: "acknowledged",
       signal: undefined,
     });
   } finally {
     cancelTurnWait();
-    endCatchUp(state, wait, planned);
+    // A superseded catch-up holds nothing back now: the one that replaced
+    // it wakes the lane when it ends, and a stopped service's next start
+    // resumes what is owed.
+    if (!stop.aborted) endCatchUp(state, wait, planned);
   }
 }
 

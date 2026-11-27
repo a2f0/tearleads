@@ -158,27 +158,33 @@ crawl that the same acknowledgement starts already says which folders moved.
   none of its lanes either, and the lane lists none the sweep is about to
   list. A turn that has not come 15 seconds after the crawl settled (a sweep
   ahead of it is stuck on its tree listing) ends the deferral early; the
-  sweep still runs when its turn comes. An acknowledgement that arrives
-  during the wait shares it. One that arrives after the crawl settled
-  supersedes the catch-up and waits on a crawl of its own: the earlier sweep
-  then lists nothing and counts nothing as reconciled, and a lane listed at
-  once for it waits for the new crawl.
+  sweep still runs when its turn comes. A turn that has come keeps the
+  deferral while the plan is read, however slow the read. An
+  acknowledgement that arrives during the wait shares it. One that arrives
+  after the crawl settled supersedes the catch-up and waits on a crawl of its
+  own: the earlier sweep then lists nothing, counts nothing as reconciled and
+  wakes no lane, and a lane listed at once for it waits for the new crawl.
 - Settling. A listing reads its lane's request before it is sent and settles
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been
-  answered before the write behind it, so each listing is a request of its
-  own: it carries lane ids no other request has, and the API client never
-  answers it from an identical request still in flight. A request whose
-  settling fails stays owed, and the listing still counts as applied.
+  answered before the write behind it, so each listing says it is a request
+  of its own (`ownRequest`): it carries lane ids no other request has, and
+  the API client never answers it from an identical request still in
+  flight. Only a listing that settles nothing may share one (`mayJoin`). A
+  request whose settling fails stays owed, and the listing still counts as
+  applied. A lane's row is written only while its container is stored, so a
+  listing in flight across the container's delete settles nothing after the
+  cascade cleared the row.
 - Fallback. When the crawl did not list every lane it queued, did not settle
-  within 15 seconds (it cannot start while the store is not ready or after
-  the socket dropped again), the host reports no crawl, or the crawl's
-  outcome or the owed record cannot be read, nothing vouches for the lanes
-  it was not served, and the catch-up lists every known lane, as it did
-  before lanes were owed listings. A row the client refuses each time it is
-  served leaves every reconnect crawl incomplete, so while that row stays,
-  every catch-up takes this fallback. When the database closes under the
-  wait, the catch-up lists nothing.
+  within 15 seconds (it cannot start while the store is not ready or after the
+  socket dropped again), the host reports no crawl, or the crawl's outcome or
+  the owed record cannot be read, nothing vouches for the lanes it was not
+  served, and the catch-up lists every known lane, as it did before lanes were
+  owed listings, except one a listing sent after the acknowledgement already
+  listed (a full refresh beside the wait, or a hint's lane) and no hint has
+  forced since. A row the client refuses each time it is served leaves every
+  reconnect crawl incomplete, so while that row stays, every catch-up takes this
+  fallback. When the database closes under the wait, the catch-up lists nothing.
 - Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's
   owes lanes the same way and lists nothing for them at once. The request is
   durable, so the next catch-up lists the lane, as does the owed-lane resume

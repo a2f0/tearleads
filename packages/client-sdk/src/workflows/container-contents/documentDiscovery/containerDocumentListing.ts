@@ -36,26 +36,41 @@ function laneLimit(laneCount: number): number {
   );
 }
 
-// The API client answers a request from an identical one still in flight. A
-// listing must show what was committed before it was asked for: it settles
-// the request a tree listing recorded, and acknowledges the hint that forced
-// it. So every listing carries lane ids no other request has, as each
-// reconnect crawl's parent-lane listings do.
+/**
+ * Whether a listing may be answered by an identical request already in
+ * flight, which the API client answers both from.
+ *
+ * - `ownRequest`: it must show what was committed before it was asked for,
+ *   because it settles the request a tree listing recorded, or acknowledges
+ *   the hint that forced it. Its lane ids are its own, as each reconnect
+ *   crawl's parent-lane listings are, so no other request is identical.
+ * - `mayJoin`: an answer to an identical request sent a moment earlier will
+ *   do, so its lane ids are the same for the same lanes.
+ */
+export type InFlightListing = "mayJoin" | "ownRequest";
+
 let listingSequence = 0;
+
+function laneIdPrefix(inFlight: InFlightListing): string {
+  if (inFlight === "mayJoin") return "j";
+  listingSequence += 1;
+  return `d${listingSequence}`;
+}
 
 /**
  * Lists one page per requested lane in a single batched request. A lane the
  * server rejected yields `null` for that lane only; a failed request yields
- * `null` for the batch. The request never joins one already in flight.
+ * `null` for the batch. Unless `inFlight` says it may, the request never
+ * joins one already in flight.
  */
 export async function listContainerDocumentLanesFromApi(
   apiClient: ContainerDocumentLaneApi,
   lanes: Parameters<ContainerDocumentLaneLister>[0],
   reportErrors = true,
+  inFlight: InFlightListing = "ownRequest",
 ): ReturnType<ContainerDocumentLaneLister> {
   const limit = laneLimit(lanes.length);
-  listingSequence += 1;
-  const prefix = `d${listingSequence}`;
+  const prefix = laneIdPrefix(inFlight);
   const requested = lanes.map((lane, index) => ({
     containerId: lane.containerId,
     laneId: `${prefix}-${index}`,
@@ -274,11 +289,13 @@ export async function listAllContainerDocumentIdsFromApi(input: {
       containerId,
       watermark: null,
     })),
+    // The probe settles nothing: an identical listing on its way will do.
     listContainerDocumentLanes: (lanes) =>
       listContainerDocumentLanesFromApi(
         input.apiClient,
         lanes,
         input.reportErrors,
+        "mayJoin",
       ),
   });
   return new Map(

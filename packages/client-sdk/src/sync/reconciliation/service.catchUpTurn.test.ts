@@ -75,6 +75,89 @@ test("a lane queued while the plan is read is listed once, by the sweep", async 
   service.stop();
 });
 
+test("a full sweep takes over a lane queued while its tree is listed", async () => {
+  const clock = createManualReconciliationClock();
+  const fullTree = createGate();
+  const rootTree = createGate();
+  const { crawl, host, listings, service } = awaitingCrawl({
+    overrides: {
+      clock,
+      refreshRootTree: () => rootTree.wait,
+      refreshTree: () => fullTree.wait,
+    },
+  });
+  // Each lane is listed and unchanged, which leaves it undiscovered.
+  host.discoverContainerDocuments = async (requests, onOutcome) => {
+    listings.push(requests.map((request) => request.containerId));
+    const outcomes = requests.map(({ containerId }) => ({
+      containerId,
+      status: "fulfilled" as const,
+      value: null,
+    }));
+    for (const outcome of outcomes) await onOutcome(outcome);
+    return outcomes;
+  };
+  const catchUp = service.reconcileAcknowledgedConnection();
+  await settle();
+  // A full refresh lists the tree, a root refresh waits behind it, and the
+  // catch-up's turn comes after both.
+  const fullRefresh = service.reconcileNow();
+  const rootRefresh = service.reconcileRootContainersNow();
+  crawl.open();
+  await settle();
+  // Lane a is queued while the full sweep lists the tree; the catch-up
+  // holds it back from the lane.
+  service.enqueueContainer("a", "idle");
+  await settle();
+
+  fullTree.open();
+  await fullRefresh;
+  expect(listings).toEqual([[...KNOWN]]);
+
+  // The catch-up's turn is overdue, and what it held back is free: the full
+  // sweep took lane a over and listed it, so nothing is left to list.
+  clock.advance(CATCH_UP_TURN_WAIT_MS);
+  await settle();
+  await settle();
+  expect(listings).toEqual([[...KNOWN]]);
+
+  rootTree.open();
+  await Promise.all([rootRefresh, catchUp]);
+  service.stop();
+});
+
+test("a slow read of the plan does not make the catch-up overdue", async () => {
+  const clock = createManualReconciliationClock();
+  const read = createGate();
+  const { host, listings, service } = awaitingCrawl({
+    overrides: { clock, whenTreeCrawlSettles: async () => true },
+  });
+  let reads = 0;
+  host.listOwedDocumentDiscoveryContainerIds = async (containerIds) => {
+    reads += 1;
+    if (reads === 1) return [];
+    await read.wait;
+    return containerIds.filter((id) => id === "a");
+  };
+  // The turn comes at once, and the plan's read of the owed record is slow.
+  const catchUp = service.reconcileAcknowledgedConnection();
+  await settle();
+  service.enqueueContainer("a", "idle");
+  await settle();
+
+  // The turn came in time, so lane a still waits for the sweep's plan.
+  clock.advance(CATCH_UP_TURN_WAIT_MS);
+  await settle();
+  await settle();
+  expect(listings).toEqual([]);
+
+  read.open();
+  await catchUp;
+  await settle();
+  expect(listings).toEqual([["a"]]);
+  service.stop();
+});
+
 test("a crawl wait the database closed under lists nothing and holds nothing back", async () => {
   const errors: unknown[] = [];
   const closed = new Error("database closed");

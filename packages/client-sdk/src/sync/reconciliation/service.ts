@@ -1,7 +1,10 @@
 import { clearOriginatedDocuments } from "../../data/sync/originatedDocuments";
-import { defersToCatchUp, IDLE_CATCH_UP } from "./catchUpMachine";
 import {
+  defersToCatchUp,
   dispatchCatchUp,
+  IDLE_CATCH_UP,
+} from "./catchUpMachine";
+import {
   requestAcknowledgedConnectionSweep,
   stopCatchUp,
 } from "./connectionCatchUp";

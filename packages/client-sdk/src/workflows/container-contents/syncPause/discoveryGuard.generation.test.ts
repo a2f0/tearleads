@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import { resetAccessDiscovery } from "../../../data/persistence/container-contents/containerAccessDiscovery";
 import {
   ContainerSyncWatermarkRepository,
@@ -22,6 +23,8 @@ test("discovery cannot restore a cursor after a permission change", async () => 
   const { execSql, close } = await createTestExecSql("discovery-access-race");
   try {
     await ensureSqlTables(execSql, containerSyncWatermarkTables);
+    // Stored, so only the generation guard can discard the stale cursor.
+    await storeContainerRows(execSql, ["shared"]);
     const watermarks = new ContainerSyncWatermarkRepository(execSql);
     const evidence = new DocumentDiscoveryEvidenceRepository(execSql);
     const cursor = { id: "document", updatedAt: "2026-01-01T00:00:00.000Z" };

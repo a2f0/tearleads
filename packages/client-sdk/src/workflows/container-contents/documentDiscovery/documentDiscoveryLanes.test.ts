@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { SyncWatermark } from "@tearleads/validators/response";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import type { DiscoveredDocumentInput } from "../../../data/documents/documentSummary";
 import {
   ContainerSyncWatermarkRepository,
@@ -83,6 +84,7 @@ interface Harness {
 }
 
 async function createHarness(execSql: ExecSql): Promise<Harness> {
+  await storeContainerRows(execSql, LANES);
   const store = new DocumentDiscoveryEvidenceRepository(execSql);
   const applied: Harness["applied"] = [];
   const lane = (

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { encodeVersionVectorCounters } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { SyncWatermark } from "@tearleads/validators/response";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import {
   ContainerSyncWatermarkRepository,
@@ -34,6 +35,7 @@ beforeEach(async () => {
   close = database.close;
   execSql = database.execSql;
   await ensureSqlTables(execSql, documentTables);
+  await storeContainerRows(execSql, [LANE]);
 });
 
 afterEach(() => close());

@@ -159,8 +159,10 @@ test("the catch-up never joins a sweep that listed before the acknowledgement", 
   const service = createReconciliationService(host);
   const refresh = service.reconcileNow();
   // The running sweep has already asked for its lanes.
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let turn = 0; turn < 50 && listed.length === 0; turn += 1) {
+    await Promise.resolve();
+  }
+  expect(listed).toEqual(["a"]);
   const catchUp = service.reconcileAcknowledgedConnection();
   gate.open();
   await Promise.all([refresh, catchUp]);

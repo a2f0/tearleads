@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { createDomainScope } from "../../data/shared/domainScope";
+import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
 import { SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
 import {
   awaitingCrawl,
@@ -216,10 +218,27 @@ test("a catch-up that cannot take its turn stops deferring", async () => {
 });
 
 test("a lane the catch-up's sweep failed waits out its retry backoff", async () => {
+  const domainScope = createDomainScope();
+  // Delayed requests are held for the test to run; immediate ones run.
+  const delayed: Array<{ readonly delayMs: number; readonly run: () => void }> =
+    [];
   let fail = true;
   const { host, listings, service } = awaitingCrawl({
     overrides: {
+      domainScope,
       logError: () => undefined,
+      registerLane: (key, config) => {
+        const lane = getOrCreateDomainSyncCoordinator(domainScope).registerLane(
+          key,
+          config,
+        );
+        return {
+          ...lane,
+          requestSyncAfter: (delayMs) => {
+            delayed.push({ delayMs, run: () => lane.requestSync() });
+          },
+        };
+      },
       whenTreeCrawlSettles: async () => true,
     },
     owed: () => ["b"],
@@ -232,20 +251,26 @@ test("a lane the catch-up's sweep failed waits out its retry backoff", async () 
   };
 
   await service.reconcileAcknowledgedConnection().catch(() => undefined);
-  const failedAt = performance.now();
   fail = false;
+  await settle();
+  await settle();
+
   // The failed lane is queued again, and the lane is not woken at once: its
-  // retry comes no sooner than the backoff, however slow the machine is.
-  while (listings.length < 2) {
-    if (performance.now() - failedAt > 20_000) break;
-    await Bun.sleep(20);
-  }
-  expect(listings).toEqual([["b"], ["b"]]);
-  expect(performance.now() - failedAt).toBeGreaterThanOrEqual(
-    SWEEP_RETRY_BACKOFF_MS - 50,
+  // retry is asked for after the backoff.
+  expect(listings).toEqual([["b"]]);
+  expect(delayed.map(({ delayMs }) => delayMs)).toContain(
+    SWEEP_RETRY_BACKOFF_MS,
   );
+  expect(
+    delayed.every(({ delayMs }) => delayMs >= SWEEP_RETRY_BACKOFF_MS),
+  ).toBe(true);
+
+  for (const { run } of delayed.splice(0)) run();
+  await settle();
+  await settle();
+  expect(listings).toEqual([["b"], ["b"]]);
   service.stop();
-}, 30_000);
+});
 
 test("a catch-up queued across a restart vouches for nothing in the new session", async () => {
   const rootTree = createGate();

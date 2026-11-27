@@ -73,8 +73,8 @@ test("requests of containers the device does not store are forgotten", async () 
     [],
   );
   await repository.request(["stored", "refused"]);
-  // A listing in flight across its container's delete settled the lane
-  // after the cascade cleared it.
+  // A listing in flight across its container's delete settles the lane
+  // after the cascade cleared it, which writes no row.
   const watermarks = new ContainerSyncWatermarkRepository(execSql);
   for (const containerId of ["stored", "deleted"]) {
     await watermarks.markChecked(containerContentsSyncLane(containerId));
