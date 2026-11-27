@@ -224,7 +224,9 @@ waits without holding the store's hydration slot, so a refresh or a write's
 follow-up crawl made meanwhile lists at once. Before, a reconnect listed the
 tree twice. A crawl costs one request for every 32
 lanes; a lane with more children than its share of the 500-row page, 15 in a
-full batch, continues in a later request.
+full batch, continues in a later request, beside the lanes of the children it
+was served
+([`parentLaneBudget.test.ts`](../packages/client-sdk/src/workflows/container-contents/remoteHydration/lanes/parentLaneBudget.test.ts)).
 
 Before listings covered documents, every opened document probed once per
 session: the first restart cost 23 requests with two notes and 35 with eight,

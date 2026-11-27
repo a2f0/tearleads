@@ -145,8 +145,13 @@ test("the initial probe's listing owes a read to each record its rows show behin
       ["refused", null],
     ]),
   );
-  // One batched listing from no watermark, whose failures are not reported.
+  // One batched listing from no watermark, whose failures are not reported
+  // and which may join an identical probe listing already in flight.
   expect(requests).toHaveLength(1);
+  expect(requests[0]?.input.lanes.map(({ laneId }) => laneId)).toEqual([
+    "j-0",
+    "j-1",
+  ]);
   expect(requests[0]?.input.lanes.map(({ watermark }) => watermark)).toEqual([
     null,
     null,

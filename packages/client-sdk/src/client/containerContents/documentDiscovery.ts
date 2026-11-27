@@ -208,8 +208,15 @@ export async function discoverContainerDocumentLanesForRuntime({
   const outcomes = await discoverContainerDocumentLanes({
     generation,
     lanes,
+    // A listing settles lane requests and acknowledges hints: it is never
+    // answered from a request sent before it.
     listContainerDocumentLanes: (listed) =>
-      listContainerDocumentLanesFromApi(runtime.apiClient, listed),
+      listContainerDocumentLanesFromApi(
+        runtime.apiClient,
+        listed,
+        true,
+        "ownRequest",
+      ),
     loadContainerDocumentWatermark: queries.loadContainerDocumentWatermark,
     loadOwedLaneListings: (containerIds) =>
       findOwedDocumentLaneListings(execSql, containerIds),

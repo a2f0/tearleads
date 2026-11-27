@@ -5,6 +5,7 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../../test/helpers/data/organizationReadModelProjectionFixtures";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import {
   ensureContainerTables,
   saveContainer,
@@ -28,6 +29,7 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
 
   try {
     const watermarks = new ContainerSyncWatermarkRepository(execSql);
+    await storeContainerRows(execSql, [parent.projection.containerId]);
     await watermarks.saveWatermark(containerParentSyncLane(null), {
       id: parent.projection.containerId,
       updatedAt: "2026-05-15T12:00:00.000Z",

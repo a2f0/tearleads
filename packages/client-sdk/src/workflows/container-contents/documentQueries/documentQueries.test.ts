@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { storeContainerRows } from "../../../../test/helpers/data/storedContainerRows";
 import { deleteDocumentPlacements } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { persistDocumentState } from "../../documents/persistence";
@@ -19,6 +20,7 @@ test("createContainerDocumentQueriesFromRuntime uses the runtime executor", asyn
   try {
     const runtime = { infra: { execSql } };
     const readModel = createContainerDocumentQueriesFromRuntime(runtime);
+    await storeContainerRows(execSql, ["container-1"]);
     const watermark = {
       id: "document-1",
       updatedAt: "2026-05-09T00:00:00.000Z",

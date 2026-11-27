@@ -1,4 +1,5 @@
 import { MAX_CONTAINER_DOCUMENT_LANES } from "@tearleads/validators/request";
+import { type CatchUpState, dispatchCatchUp } from "./catchUpMachine";
 import type { ReconciliationClock } from "./clock";
 import {
   acknowledgeContainerForce,
@@ -17,6 +18,7 @@ import type { ReconciliationHost } from "./serviceTypes";
 
 interface KnownContainerSweepState extends IdleBackfillState {
   active: boolean;
+  catchUp: CatchUpState;
   lane: {
     requestSync: () => void;
     requestSyncAfter: (delayMs: number) => void;
@@ -43,6 +45,9 @@ function schedulePendingDiscovery(
   delayMs: number,
 ): void {
   if (!state.active) return;
+  // A pending retry means an earlier clean listing in this catch-up can no
+  // longer vouch for the lane on fallback.
+  dispatchCatchUp(state, { containerId, type: "pendingDiscovery" });
   const retries = pendingRetries.get(state) ?? new Map();
   pendingRetries.set(state, retries);
   const due = clock.now() + delayMs;
@@ -54,6 +59,7 @@ function schedulePendingDiscovery(
     () => {
       retries.delete(containerId);
       if (!state.active || state.lifecycleGeneration !== generation) return;
+      dispatchCatchUp(state, { containerId, type: "pendingDiscovery" });
       state.discoveredContainerIds.delete(containerId);
       state.queue.enqueue(
         containerId,
@@ -78,7 +84,10 @@ export function isCurrentReconciliationLifecycle(
 
 // Reconcile containers whose discovered marks are already set, rolling a mark
 // back when its container is skipped or fails so a transient error (or a
-// container that later becomes eligible) can be retried.
+// container that later becomes eligible) can be retried. The catch-up is told
+// of each lane listed by a request sent after its latest acknowledgement that
+// left no candidate pending: the catch-up current before the request, since
+// every listing request is its own.
 export async function reconcileMarkedContainers(
   host: ReconciliationHost,
   state: KnownContainerSweepState,
@@ -88,6 +97,8 @@ export async function reconcileMarkedContainers(
   }>,
   fullRevalidation = false,
 ): Promise<ReadonlyArray<ContainerReconcileResult>> {
+  const catchUpAtRequest = state.catchUp;
+  const pending = new Set<string>();
   const results = await reconcileContainers(
     host,
     containers.map(({ containerId, forceDocumentContentPull }) => ({
@@ -97,14 +108,27 @@ export async function reconcileMarkedContainers(
         : state.forcedDocumentIds.get(containerId),
       forceDocumentContentPull,
       onFullListing: state.initialDocumentProbe.captureListing(containerId),
-      onPendingDiscovery: (delayMs: number) =>
-        schedulePendingDiscovery(host.clock, state, containerId, delayMs),
+      onPendingDiscovery: (delayMs: number) => {
+        pending.add(containerId);
+        schedulePendingDiscovery(host.clock, state, containerId, delayMs);
+      },
     })),
   );
   for (const result of results) {
     if (result.status !== "reconciled") {
       state.discoveredContainerIds.delete(result.containerId);
     }
+  }
+  if (catchUpAtRequest.status !== "idle") {
+    dispatchCatchUp(state, {
+      acknowledgements: catchUpAtRequest.acknowledgements,
+      containerIds: results.flatMap(({ containerId, listed }) =>
+        listed && !pending.has(containerId) ? [containerId] : [],
+      ),
+      pendingGenerations: catchUpAtRequest.pendingGenerations,
+      type: "listed",
+      wait: catchUpAtRequest.wait,
+    });
   }
   return results;
 }
