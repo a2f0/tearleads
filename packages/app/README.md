@@ -20,6 +20,7 @@ sync, or workflow internals directly.
 | `app/App` | The root `App` component |
 | `app/host/AppHostConfig` | `createAppHostConfig`, host profiles (`app`, `demo`, `screenshot`), and the adapter types a host supplies |
 | `app/host/AppDiagnostics` | The diagnostics contract a host implements |
+| `app/host/provisionedSystemContainers` | The system containers an organization is born with (Trash), so the [CLI's `register`](../cli/README.md) creates the account an app install does |
 
 ## Layout
 
@@ -123,8 +124,3 @@ The `app/passcode` entry point exposes the passcode document kind, its field
 types, and the attribute row names, so the
 [CLI's KeePass restore](../cli/README.md#restore-a-keepass-database) writes
 passcodes the app reads without importing its views.
-
-The `app/host/provisionedSystemContainers` entry point exposes the system
-containers an organization is born with (Trash), which the app passes to the
-SDK, so the [CLI's `register`](../cli/README.md) creates the same account an
-app install does.

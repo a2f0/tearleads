@@ -3,15 +3,17 @@
 // useProvisionedSystemContainerPull runs the effects; nothing here touches
 // React or the store.
 //
-// One machine exists per organization and slot set for the provider's
+// One machine exists per store, organization and slot set for the provider's
 // lifetime, which is one page load. Each effect run of the hook is a
 // `sequence`; its cleanup cancels it back to `idle`, which keeps what the
-// earlier sequences spent. So however often the hook re-runs during a load,
-// the poll for one organization sends at most PROVISIONED_PULL_LISTING_LIMIT
-// root-lane listings, and its timer ticks at most PROVISIONED_PULL_TICK_LIMIT
-// times. An organization whose tree never holds the slot (an account whose
-// registration provisioned no Trash) is `abandoned` and not polled again in
-// that load; the normal tree crawl still applies the slot if it appears.
+// earlier sequences spent, including a pull still in flight. Pulls are
+// sequential across sequences: the next one starts only once the last one
+// settled. So however often the hook re-runs during a load, the poll for one
+// organization sends at most PROVISIONED_PULL_LISTING_LIMIT root-lane
+// listings, and its timer ticks at most PROVISIONED_PULL_TICK_LIMIT times. An
+// organization whose tree never holds the slot (an account whose registration
+// provisioned no Trash) is `abandoned` and not polled again in that load; the
+// normal tree crawl still applies the slot if it appears.
 
 /** Identity of one effect run, or of one root-lane pull. */
 export type ProvisionedPullTag = object;
@@ -22,14 +24,16 @@ export type ProvisionedPullTag = object;
 // `POST /containers/parent-lanes/query`.
 export const PROVISIONED_PULL_LISTING_LIMIT = 2;
 // Interval ticks, at PROVISIONED_PULL_INTERVAL_MS each. A tick while the store
-// cannot list yet (offline, not initialized) sends nothing but still counts,
-// so the timer stops within ten seconds whatever the network does.
+// cannot list yet (not initialized) sends nothing but still counts, so the
+// timer stops within ten seconds of polling whatever the store does.
 export const PROVISIONED_PULL_TICK_LIMIT = 40;
 export const PROVISIONED_PULL_INTERVAL_MS = 250;
 
 interface ProvisionedPullBudget {
-  /** Pulls that reached the listing path, current and superseded. */
+  /** Settled pulls that reached the listing path. */
   readonly listings: number;
+  /** The pull in flight, whichever sequence started it. */
+  readonly pull: ProvisionedPullTag | null;
   readonly ticks: number;
 }
 
@@ -41,10 +45,9 @@ export type ProvisionedPullState =
       readonly status: "surfacing";
       readonly sequence: ProvisionedPullTag;
     } & ProvisionedPullBudget)
-  /** The timer runs; `pull` is the root-lane pull in flight, if any. */
+  /** The timer runs. */
   | ({
       readonly status: "polling";
-      readonly pull: ProvisionedPullTag | null;
       readonly sequence: ProvisionedPullTag;
     } & ProvisionedPullBudget)
   /** Every provisioned slot is in the tree. */
@@ -89,6 +92,7 @@ export type ProvisionedPullEvent =
 
 export const INITIAL_PROVISIONED_PULL_STATE: ProvisionedPullState = {
   listings: 0,
+  pull: null,
   status: "idle",
   ticks: 0,
 };
@@ -98,6 +102,10 @@ function budgetSpent(budget: ProvisionedPullBudget): boolean {
     budget.listings >= PROVISIONED_PULL_LISTING_LIMIT ||
     budget.ticks >= PROVISIONED_PULL_TICK_LIMIT
   );
+}
+
+function budgetOf(state: ProvisionedPullBudget): ProvisionedPullBudget {
+  return { listings: state.listings, pull: state.pull, ticks: state.ticks };
 }
 
 function abandon(
@@ -116,16 +124,17 @@ function start(
       return state;
     // A slot that was present went missing again: a new situation, a new budget.
     case "settled":
-      return { listings: 0, sequence, status: "surfacing", ticks: 0 };
+      return {
+        listings: 0,
+        pull: null,
+        sequence,
+        status: "surfacing",
+        ticks: 0,
+      };
     case "idle":
     case "surfacing":
     case "polling":
-      return {
-        listings: state.listings,
-        sequence,
-        status: "surfacing",
-        ticks: state.ticks,
-      };
+      return { ...budgetOf(state), sequence, status: "surfacing" };
     default:
       return assertNever(state);
   }
@@ -140,13 +149,7 @@ function surface(
   }
   if (event.missingSlots.length === 0) return { status: "settled" };
   if (budgetSpent(state)) return abandon(state.listings, event.missingSlots);
-  return {
-    listings: state.listings,
-    pull: null,
-    sequence: state.sequence,
-    status: "polling",
-    ticks: state.ticks,
-  };
+  return { ...budgetOf(state), sequence: state.sequence, status: "polling" };
 }
 
 function tick(
@@ -159,21 +162,30 @@ function tick(
   if (event.missingSlots.length === 0) return { status: "settled" };
   if (budgetSpent(state)) return abandon(state.listings, event.missingSlots);
   // Pulls stay sequential: a tick while one is in flight only counts.
-  return { ...state, pull: state.pull ?? event.pull, ticks: state.ticks + 1 };
+  return {
+    ...state,
+    pull: state.pull ?? event.pull,
+    ticks: state.ticks + 1,
+  };
 }
 
 function settlePull(
   state: ProvisionedPullState,
   event: Extract<ProvisionedPullEvent, { type: "pull-settled" }>,
 ): ProvisionedPullState {
-  if (state.status === "settled" || state.status === "abandoned") return state;
-  const listings = state.listings + (event.listed ? 1 : 0);
-  // A superseded sequence's pull still spent a listing, but it must not clear
-  // the in-flight guard of the pull that replaced it.
-  if (state.status === "polling" && state.pull === event.pull) {
-    return { ...state, listings, pull: null };
+  if (
+    state.status === "settled" ||
+    state.status === "abandoned" ||
+    state.pull !== event.pull
+  ) {
+    // Not the pull in flight: one from before the budget restarted.
+    return state;
   }
-  return listings === state.listings ? state : { ...state, listings };
+  return {
+    ...state,
+    listings: state.listings + (event.listed ? 1 : 0),
+    pull: null,
+  };
 }
 
 /**
@@ -190,7 +202,7 @@ export function transitionProvisionedPull(
     case "cancel":
       return (state.status === "surfacing" || state.status === "polling") &&
         state.sequence === event.sequence
-        ? { listings: state.listings, status: "idle", ticks: state.ticks }
+        ? { ...budgetOf(state), status: "idle" }
         : state;
     case "surfaced":
       return surface(state, event);

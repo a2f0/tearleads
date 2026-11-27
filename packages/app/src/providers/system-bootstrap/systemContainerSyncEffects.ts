@@ -158,7 +158,10 @@ function runProvisionedPullSequence(input: {
     previous: ProvisionedPullState,
     next: Extract<ProvisionedPullState, { status: "polling" }>,
   ) => {
-    const previousPull = previous.status === "polling" ? previous.pull : null;
+    const previousPull =
+      previous.status === "settled" || previous.status === "abandoned"
+        ? null
+        : previous.pull;
     if (next.pull && next.pull !== previousPull) pullRootLane(next.pull);
     if (previous.status === "surfacing") {
       timer = setInterval(tickNow, PROVISIONED_PULL_INTERVAL_MS);
@@ -245,6 +248,10 @@ function runProvisionedPullSequence(input: {
 // logs the missing slot. An account registered without the slot (an SDK host
 // that passed no provisioned system containers) would otherwise poll for ten
 // seconds on every load.
+//
+// It polls only while the live runtime is online with its database ready. The
+// store defers a pull made otherwise until it can list, and resolves it as
+// listed without a request, which would spend the budget on nothing.
 export function useProvisionedSystemContainerPull(input: {
   readonly currentOrganizationId: string | null | undefined;
   readonly currentRootContainerId: string | null | undefined;
@@ -252,6 +259,8 @@ export function useProvisionedSystemContainerPull(input: {
   readonly isAuthenticated: boolean;
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
+  /** The live runtime is online and its database is ready. */
+  readonly online: boolean;
   readonly snapshotReady: boolean;
   readonly store: ContainerContentsStore;
   readonly systemContainers: ReadonlyArray<UserSystemContainer>;
@@ -263,14 +272,18 @@ export function useProvisionedSystemContainerPull(input: {
     isAuthenticated,
     log,
     logError,
+    online,
     snapshotReady,
     store,
     systemContainers,
   } = input;
-  // One machine per organization and slot set, for the provider's lifetime.
-  const machinesRef = useRef(new Map<string, ProvisionedPullState>());
+  // One machine per store, organization and slot set, for the provider's
+  // lifetime: a store that replaces a superseded one starts a fresh budget.
+  const machinesRef = useRef(
+    new WeakMap<ContainerContentsStore, Map<string, ProvisionedPullState>>(),
+  );
   useEffect(() => {
-    if (!enabled || !isAuthenticated || !snapshotReady) {
+    if (!enabled || !isAuthenticated || !online || !snapshotReady) {
       return;
     }
     const provisionedContainers = systemContainers.filter(
@@ -307,6 +320,11 @@ export function useProvisionedSystemContainerPull(input: {
       return;
     }
 
+    let machines = machinesRef.current.get(store);
+    if (!machines) {
+      machines = new Map();
+      machinesRef.current.set(store, machines);
+    }
     return runProvisionedPullSequence({
       describeMissing: (missingSlots) =>
         `${provisionedContainers
@@ -322,7 +340,7 @@ export function useProvisionedSystemContainerPull(input: {
       listMissingSlots,
       log,
       logError,
-      machines: machinesRef.current,
+      machines,
       store,
     });
   }, [
@@ -330,6 +348,7 @@ export function useProvisionedSystemContainerPull(input: {
     currentOrganizationId,
     currentRootContainerId,
     isAuthenticated,
+    online,
     snapshotReady,
     systemContainers,
     store,

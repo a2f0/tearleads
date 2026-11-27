@@ -3,7 +3,7 @@ import type {
   ContainerContentsStore,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { cleanup, renderHook } from "@testing-library/react";
+import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { UserSystemContainer } from "../../stores/systemContainers";
 import { useProvisionedSystemContainerPull } from "./systemContainerSyncEffects";
 
@@ -53,6 +53,7 @@ function pullProps(store: ContainerContentsStore) {
     isAuthenticated: true,
     log: mock((_message: string) => {}),
     logError: () => {},
+    online: true,
     snapshotReady: true,
     store,
     systemContainers: [trashSystemContainer()],
@@ -60,6 +61,13 @@ function pullProps(store: ContainerContentsStore) {
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** Wait for the poll to give up, which it logs once. */
+async function waitForLog(log: ReturnType<typeof mock>) {
+  await waitFor(() => expect(log).toHaveBeenCalledTimes(1), {
+    timeout: 5_000,
+  });
+}
 
 // #3288: an account registered without a Trash (the CLI's `register` before
 // it passed the app's provisioned containers) polled the root lane every
@@ -80,7 +88,9 @@ test("a provisioned-container poll that never finds its slot stops after two lis
     (hookProps: typeof props) => useProvisionedSystemContainerPull(hookProps),
     { initialProps: props },
   );
-  await new Promise((resolve) => setTimeout(resolve, 1_200));
+  await waitForLog(props.log);
+  // Another tick would have sent a third listing by now, had the poll gone on.
+  await new Promise((resolve) => setTimeout(resolve, 300));
   unmount();
 
   expect(refreshRootLane.mock.calls.length).toBe(2);
@@ -110,11 +120,68 @@ test("a provisioned-container pull that could not list does not spend the listin
     (hookProps: typeof props) => useProvisionedSystemContainerPull(hookProps),
     { initialProps: props },
   );
-  await new Promise((resolve) => setTimeout(resolve, 1_700));
+  await waitForLog(props.log);
+  await new Promise((resolve) => setTimeout(resolve, 300));
   unmount();
 
   expect(refreshRootLane.mock.calls.length).toBe(5);
   expect(props.log).toHaveBeenCalledTimes(1);
+});
+
+// The store defers a pull made while the live runtime is offline and resolves
+// it as listed without sending anything, so the poll waits for the runtime
+// instead of spending its listings there.
+test("a provisioned-container poll waits while the live runtime is offline", async () => {
+  const refreshRootLane = mock((_options?: RefreshRootLaneOptions) =>
+    Promise.resolve(true),
+  );
+  const store = {
+    getSnapshot: () => ({ nodes: [], ready: true }),
+    refreshLocalContainers: () => Promise.resolve(),
+    refreshRootLane,
+  } as unknown as ContainerContentsStore;
+  const props = { ...pullProps(store), online: false };
+
+  const { rerender, unmount } = renderHook(
+    (hookProps: typeof props) => useProvisionedSystemContainerPull(hookProps),
+    { initialProps: props },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(refreshRootLane).not.toHaveBeenCalled();
+
+  rerender({ ...props, online: true });
+  await waitForLog(props.log);
+  unmount();
+  expect(refreshRootLane.mock.calls.length).toBe(2);
+});
+
+// A store that replaces a superseded one is a new listing path, so it gets its
+// own budget.
+test("a provisioned-container poll starts a new budget for a new store", async () => {
+  const createStore = () =>
+    ({
+      getSnapshot: () => ({ nodes: [], ready: true }),
+      refreshLocalContainers: () => Promise.resolve(),
+      refreshRootLane: mock((_options?: RefreshRootLaneOptions) =>
+        Promise.resolve(true),
+      ),
+    }) as unknown as ContainerContentsStore;
+  const first = createStore();
+  const second = createStore();
+  const props = pullProps(first);
+
+  const { rerender, unmount } = renderHook(
+    (hookProps: typeof props) => useProvisionedSystemContainerPull(hookProps),
+    { initialProps: props },
+  );
+  await waitForLog(props.log);
+  rerender({ ...props, store: second });
+  await waitFor(() => expect(props.log).toHaveBeenCalledTimes(2), {
+    timeout: 5_000,
+  });
+  unmount();
+  expect(first.refreshRootLane).toHaveBeenCalledTimes(2);
+  expect(second.refreshRootLane).toHaveBeenCalledTimes(2);
 });
 
 // The provider is not remounted across re-runs of the hook (a new
@@ -181,6 +248,7 @@ test("provisioned-container pull stops once the active root child lane hydrates 
         isAuthenticated: true,
         log: () => {},
         logError: () => {},
+        online: true,
         snapshotReady: true,
         store,
         systemContainers: [trashSystemContainer()],
@@ -229,6 +297,7 @@ test("provisioned-container pull skips the remote poll when the local surface yi
         isAuthenticated: true,
         log: () => {},
         logError: () => {},
+        online: true,
         snapshotReady: true,
         store,
         systemContainers: [trashSystemContainer()],
@@ -292,6 +361,7 @@ test("provisioned-container pull continues until the shared organization slot ap
         isAuthenticated: true,
         log: () => {},
         logError: () => {},
+        online: true,
         snapshotReady: true,
         store,
         systemContainers: [trashSystemContainer()],
@@ -332,6 +402,7 @@ test("provisioned-container pull does not fire concurrently while one is in flig
         isAuthenticated: true,
         log: () => {},
         logError: () => {},
+        online: true,
         snapshotReady: true,
         store,
         systemContainers: [trashSystemContainer()],
@@ -348,12 +419,10 @@ test("provisioned-container pull does not fire concurrently while one is in flig
   expect(refreshRootLane.mock.calls.length).toBe(1);
 });
 
-// Regression: the in-flight ref persists across sequences (org switch / logout),
-// so a cancelled sequence's late-resolving pull must NOT clear a fresh sequence's
-// guard — otherwise the fresh sequence's next interval tick fires a concurrent pull
-// and burns its budget. The pull's .finally is guarded by the per-sequence
-// `cancelled` flag, so only the owning sequence clears its own guard.
-test("a cancelled sequence's late pull does not reset a new sequence's in-flight guard", async () => {
+// Pulls stay sequential across sequences: a cleaned-up run's pull still in
+// flight holds off the next run's, however many runs start meanwhile, so
+// re-runs during one slow request cannot stack requests past the budget.
+test("a cancelled sequence's pull in flight holds off the next sequence's pulls", async () => {
   const resolvers: Array<(value: boolean) => void> = [];
   const refreshRootLane = mock(
     (_options?: RefreshRootLaneOptions) =>
@@ -375,6 +444,7 @@ test("a cancelled sequence's late pull does not reset a new sequence's in-flight
     isAuthenticated: true,
     log: () => {},
     logError: () => {},
+    online: true,
     snapshotReady: true,
     store,
     systemContainers: [trashSystemContainer()],
@@ -389,16 +459,22 @@ test("a cancelled sequence's late pull does not reset a new sequence's in-flight
   await flush();
   expect(refreshRootLane.mock.calls.length).toBe(1);
 
-  // Cancel A and start sequence B; B opens its own pull while A's is still pending.
-  rerender({ ...props, systemContainers: [trashSystemContainer()] });
-  await flush();
-  expect(refreshRootLane.mock.calls.length).toBe(2);
+  // Cancel A and start more sequences while A's pull is still pending: none of
+  // them opens a pull of its own. (Each run's opening tick counts against the
+  // forty-tick bound, so stay well under it.)
+  for (let sequence = 1; sequence < 10; sequence += 1) {
+    rerender({ ...props, systemContainers: [trashSystemContainer()] });
+    await flush();
+  }
+  await new Promise((resolve) => setTimeout(resolve, 320));
+  expect(refreshRootLane.mock.calls.length).toBe(1);
 
-  // A's cancelled pull resolves. Its .finally must not clear B's in-flight guard.
+  // A's pull resolves: the running sequence's next tick opens the second and
+  // last listing, and its in-flight guard holds while that one is pending.
   resolvers[0]?.(true);
-  // Give B's 250ms interval a tick: with the guard intact, B's pull is still in
-  // flight so the tick is skipped and no third pull fires. Without the guard, A's
-  // .finally would have reset the ref and this tick would open a concurrent pull.
+  await waitFor(() => expect(refreshRootLane.mock.calls.length).toBe(2), {
+    timeout: 5_000,
+  });
   await new Promise((resolve) => setTimeout(resolve, 320));
   unmount();
 

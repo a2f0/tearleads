@@ -341,9 +341,10 @@ holds; see [the incremental evidence contract](projection-policy-evidence.md#cos
 A load polls for the system containers born with its organization (Trash)
 only when its tree lacks one, as a fallback for a store that was not ready when
 registration persisted them. Each poll lists the root lane and the root's child
-lane in one `POST /containers/parent-lanes/query`. It stops after two listings
-that do not show the slot, logs the slot, and does not poll for that
-organization again in the same load
+lane in one `POST /containers/parent-lanes/query`, one listing at a time and
+only while the device is online. It stops after two listings that do not show
+the slot, logs the slot, and does not poll for that organization again in the
+same load
 ([`provisionedPullMachine.ts`](../packages/app/src/providers/system-bootstrap/provisionedPullMachine.ts)).
 The restart and reconnect fixtures above send no poll, because their trees hold
 Trash. An organization registered without Trash (by the CLI's `register`,

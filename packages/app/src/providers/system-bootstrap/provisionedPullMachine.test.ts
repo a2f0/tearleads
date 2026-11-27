@@ -19,9 +19,15 @@ type PullState<S extends ProvisionedPullState["status"]> = Extract<
   { status: S }
 >;
 
-const idle: PullState<"idle"> = { listings: 0, status: "idle", ticks: 0 };
+const idle: PullState<"idle"> = {
+  listings: 0,
+  pull: null,
+  status: "idle",
+  ticks: 0,
+};
 const surfacingA: PullState<"surfacing"> = {
   listings: 0,
+  pull: null,
   sequence: SEQUENCE_A,
   status: "surfacing",
   ticks: 0,
@@ -52,6 +58,10 @@ function run(
   return events.reduce(transitionProvisionedPull, state);
 }
 
+function tickA(pull: object): ProvisionedPullEvent {
+  return { missingSlots: MISSING, pull, sequence: SEQUENCE_A, type: "tick" };
+}
+
 describe("provisioned pull transitions", () => {
   test("a machine starts idle with nothing spent", () => {
     expect(INITIAL_PROVISIONED_PULL_STATE).toEqual(idle);
@@ -62,10 +72,10 @@ describe("provisioned pull transitions", () => {
   >([
     ["idle + start", idle, { sequence: SEQUENCE_A, type: "start" }, surfacingA],
     [
-      "idle with spent listings + start keeps them",
-      { listings: 1, status: "idle", ticks: 3 },
+      "idle with spent listings and a pull in flight + start keeps them",
+      { listings: 1, pull: PULL_A, status: "idle", ticks: 3 },
       { sequence: SEQUENCE_A, type: "start" },
-      { ...surfacingA, listings: 1, ticks: 3 },
+      { ...surfacingA, listings: 1, pull: PULL_A, ticks: 3 },
     ],
     [
       "settled + start begins a new budget",
@@ -92,31 +102,22 @@ describe("provisioned pull transitions", () => {
       pollingA,
     ],
     [
+      "surfacing with an earlier run's pull in flight + surfaced keeps it",
+      { ...surfacingA, pull: PULL_A },
+      { missingSlots: MISSING, sequence: SEQUENCE_A, type: "surfaced" },
+      { ...pollingA, pull: PULL_A },
+    ],
+    [
       "surfacing with a spent budget + surfaced",
       { ...surfacingA, listings: PROVISIONED_PULL_LISTING_LIMIT },
       { missingSlots: MISSING, sequence: SEQUENCE_A, type: "surfaced" },
       abandoned,
     ],
-    [
-      "polling + tick starts a pull",
-      pollingA,
-      {
-        missingSlots: MISSING,
-        pull: PULL_A,
-        sequence: SEQUENCE_A,
-        type: "tick",
-      },
-      pullingA,
-    ],
+    ["polling + tick starts a pull", pollingA, tickA(PULL_A), pullingA],
     [
       "polling with a pull in flight + tick only counts",
       pullingA,
-      {
-        missingSlots: MISSING,
-        pull: PULL_B,
-        sequence: SEQUENCE_A,
-        type: "tick",
-      },
+      tickA(PULL_B),
       { ...pullingA, ticks: 2 },
     ],
     [
@@ -128,23 +129,13 @@ describe("provisioned pull transitions", () => {
     [
       "polling with spent listings + tick",
       { ...pollingA, listings: PROVISIONED_PULL_LISTING_LIMIT },
-      {
-        missingSlots: MISSING,
-        pull: PULL_A,
-        sequence: SEQUENCE_A,
-        type: "tick",
-      },
+      tickA(PULL_A),
       abandoned,
     ],
     [
       "polling with spent ticks and a pull in flight + tick",
       { ...pullingA, ticks: PROVISIONED_PULL_TICK_LIMIT },
-      {
-        missingSlots: MISSING,
-        pull: PULL_B,
-        sequence: SEQUENCE_A,
-        type: "tick",
-      },
+      tickA(PULL_B),
       { listings: 0, missingSlots: MISSING, status: "abandoned" },
     ],
     [
@@ -160,22 +151,16 @@ describe("provisioned pull transitions", () => {
       { ...pullingA, pull: null },
     ],
     [
-      "pulling + a superseded pull listed keeps the guard",
-      pullingA,
-      { listed: true, pull: PULL_B, type: "pull-settled" },
-      { ...pullingA, listings: 1 },
-    ],
-    [
       "idle + a cancelled run's pull listed",
-      idle,
+      { ...idle, pull: PULL_A },
       { listed: true, pull: PULL_A, type: "pull-settled" },
       { ...idle, listings: 1 },
     ],
     [
-      "polling + cancel",
+      "polling + cancel keeps the pull in flight",
       pullingA,
       { sequence: SEQUENCE_A, type: "cancel" },
-      { listings: 0, status: "idle", ticks: 1 },
+      { listings: 0, pull: PULL_A, status: "idle", ticks: 1 },
     ],
     [
       "surfacing + cancel",
@@ -193,32 +178,14 @@ describe("provisioned pull transitions", () => {
       idle,
       { missingSlots: [], sequence: SEQUENCE_A, type: "surfaced" },
     ],
-    [
-      "idle + tick",
-      idle,
-      {
-        missingSlots: MISSING,
-        pull: PULL_A,
-        sequence: SEQUENCE_A,
-        type: "tick",
-      },
-    ],
+    ["idle + tick", idle, tickA(PULL_A)],
     ["idle + cancel", idle, { sequence: SEQUENCE_A, type: "cancel" }],
     [
       "surfacing + another run's surfaced",
       surfacingA,
       { missingSlots: [], sequence: SEQUENCE_B, type: "surfaced" },
     ],
-    [
-      "surfacing + tick",
-      surfacingA,
-      {
-        missingSlots: MISSING,
-        pull: PULL_A,
-        sequence: SEQUENCE_A,
-        type: "tick",
-      },
-    ],
+    ["surfacing + tick", surfacingA, tickA(PULL_A)],
     [
       "polling + another run's tick",
       pollingA,
@@ -240,20 +207,11 @@ describe("provisioned pull transitions", () => {
       { missingSlots: [], sequence: SEQUENCE_A, type: "surfaced" },
     ],
     [
-      "polling + a pull that could not list",
-      pollingA,
-      { listed: false, pull: PULL_B, type: "pull-settled" },
+      "polling + a pull that is not in flight",
+      pullingA,
+      { listed: true, pull: PULL_B, type: "pull-settled" },
     ],
-    [
-      "settled + tick",
-      settled,
-      {
-        missingSlots: MISSING,
-        pull: PULL_A,
-        sequence: SEQUENCE_A,
-        type: "tick",
-      },
-    ],
+    ["settled + tick", settled, tickA(PULL_A)],
     [
       "settled + pull-settled",
       settled,
@@ -285,17 +243,51 @@ describe("provisioned pull transitions", () => {
     expect(run(idle, events)).toEqual(abandoned);
   });
 
-  test("a cancelled run's pull cannot clear a newer run's in-flight guard", () => {
+  test("a cancelled run's pull in flight holds off the next run's pull", () => {
     const state = run(idle, [
       { sequence: SEQUENCE_A, type: "start" },
       { missingSlots: MISSING, sequence: SEQUENCE_A, type: "surfaced" },
+      tickA(PULL_A),
+      { sequence: SEQUENCE_A, type: "cancel" },
+      { sequence: SEQUENCE_B, type: "start" },
+      { missingSlots: MISSING, sequence: SEQUENCE_B, type: "surfaced" },
       {
         missingSlots: MISSING,
-        pull: PULL_A,
-        sequence: SEQUENCE_A,
+        pull: PULL_B,
+        sequence: SEQUENCE_B,
         type: "tick",
       },
-      { sequence: SEQUENCE_A, type: "cancel" },
+    ]);
+    // Run B's tick only counted: run A's pull is still the one in flight.
+    expect(state).toEqual({
+      listings: 0,
+      pull: PULL_A,
+      sequence: SEQUENCE_B,
+      status: "polling",
+      ticks: 2,
+    });
+    // Once it settles, run B's next tick starts the second listing.
+    expect(
+      run(state, [
+        { listed: true, pull: PULL_A, type: "pull-settled" },
+        {
+          missingSlots: MISSING,
+          pull: PULL_B,
+          sequence: SEQUENCE_B,
+          type: "tick",
+        },
+      ]),
+    ).toEqual({
+      listings: 1,
+      pull: PULL_B,
+      sequence: SEQUENCE_B,
+      status: "polling",
+      ticks: 3,
+    });
+  });
+
+  test("a pull from before the budget restarted does not settle the new one", () => {
+    const state = run(settled, [
       { sequence: SEQUENCE_B, type: "start" },
       { missingSlots: MISSING, sequence: SEQUENCE_B, type: "surfaced" },
       {
@@ -307,11 +299,11 @@ describe("provisioned pull transitions", () => {
       { listed: true, pull: PULL_A, type: "pull-settled" },
     ]);
     expect(state).toEqual({
-      listings: 1,
+      listings: 0,
       pull: PULL_B,
       sequence: SEQUENCE_B,
       status: "polling",
-      ticks: 2,
+      ticks: 1,
     });
   });
 
@@ -321,7 +313,7 @@ describe("provisioned pull transitions", () => {
     for (let tick = 0; tick < PROVISIONED_PULL_TICK_LIMIT; tick += 1) {
       const pull = { tick };
       state = run(state, [
-        { missingSlots: MISSING, pull, sequence: SEQUENCE_A, type: "tick" },
+        tickA(pull),
         { listed: false, pull, type: "pull-settled" },
       ]);
     }
@@ -329,13 +321,10 @@ describe("provisioned pull transitions", () => {
       ...pollingA,
       ticks: PROVISIONED_PULL_TICK_LIMIT,
     });
-    expect(
-      transitionProvisionedPull(state, {
-        missingSlots: MISSING,
-        pull: PULL_A,
-        sequence: SEQUENCE_A,
-        type: "tick",
-      }),
-    ).toEqual({ listings: 0, missingSlots: MISSING, status: "abandoned" });
+    expect(transitionProvisionedPull(state, tickA(PULL_A))).toEqual({
+      listings: 0,
+      missingSlots: MISSING,
+      status: "abandoned",
+    });
   });
 });
