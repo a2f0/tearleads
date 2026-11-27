@@ -5,13 +5,16 @@ import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { documentBaselineStages } from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
-import { DOCUMENT_BASELINE_STAGE_ERROR_CODES as STAGE } from "@tearleads/validators/response";
+import {
+  isDocumentBaselineStageConflictErrorResponse,
+  DOCUMENT_BASELINE_STAGE_ERROR_CODES as STAGE,
+} from "@tearleads/validators/response";
 import {
   MAX_DOCUMENT_BASELINE_STAGE_BYTES,
   MAX_DOCUMENT_BASELINE_STAGE_SPANS,
   MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER,
 } from "@tearleads/validators/util";
-import { and, eq, inArray, lte } from "drizzle-orm";
+import { and, eq, inArray, lte, sql } from "drizzle-orm";
 import {
   peerRanges,
   signerFor,
@@ -149,12 +152,31 @@ test("a user holds a bounded number of open stages across documents", async () =
   }
 
   // One more, on another document, is refused, and nothing is stored for it.
+  // The refusal names the stages the caller holds, so a writer that lost
+  // track of one can abandon it instead of waiting out its expiry.
   const refused = await open(extra, crypto.randomUUID());
   expect(refused.status).toBe(409);
-  expect(await refused.json()).toEqual({
+  const refusal = await refused.json();
+  expect(refusal).toEqual({
     code: STAGE.limitReached,
     error: "Too many open document baseline stages",
+    openStages: expect.any(Array),
   });
+  expect(isDocumentBaselineStageConflictErrorResponse(refusal)).toBe(true);
+  const named = [...refusal.openStages].sort((left, right) =>
+    String(left.baselineId).localeCompare(String(right.baselineId), "en"),
+  );
+  expect(named).toEqual(
+    held
+      .map((document, index) => ({
+        baselineId: stageIds[index],
+        documentId: document.id,
+        expiresAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/u),
+      }))
+      .sort((left, right) =>
+        String(left.baselineId).localeCompare(String(right.baselineId), "en"),
+      ),
+  );
   expect((await stagedRows(extra.id)).stages).toEqual([]);
 
   // Opening again where the user holds a stage replaces it and counts once.
@@ -265,4 +287,99 @@ test("the sweep drains every expired stage, and says what a budget made it leave
     warn.mockRestore();
   }
   expect(await stored(ids)).toBe(0);
+});
+
+// One stage's delete removes up to a stage's cap of rows, so a run reads the
+// clock before every stage, not once a batch of a hundred.
+test("the sweep stops at its time budget between two stages of a batch", async () => {
+  const now = new Date(10_000);
+  const ids = await expiredStages(30);
+  let tick = 0;
+  // The clock moves ten a reading: the budget lasts through two stages.
+  const swept = await cleanupExpiredDocumentBaselineStages(db, {
+    budgetMs: 35,
+    clock: () => {
+      tick += 10;
+      return tick;
+    },
+    now,
+  });
+  expect(swept).toMatchObject({
+    deletedStages: 2,
+    failures: [],
+    remainingStages: 28,
+    scannedStages: 2,
+  });
+  expect(await stored(ids)).toBe(28);
+  expect(await cleanupExpiredDocumentBaselineStages(db, { now })).toMatchObject(
+    { deletedStages: 28, remainingStages: 0 },
+  );
+});
+
+/** Makes the delete of each stage in `ids` fail, until the returned undo. */
+async function failDeletesOf(ids: readonly string[]) {
+  const name = `fail_stage_delete_${crypto.randomUUID().replaceAll("-", "")}`;
+  const list = ids.map((id) => `'${id}'`).join(", ");
+  await db.execute(
+    sql.raw(`
+      create function ${name}() returns trigger language plpgsql as $$
+      begin raise exception 'stage delete refused'; end $$`),
+  );
+  await db.execute(
+    sql.raw(`
+      create trigger ${name} before delete on document_baseline_stages
+      for each row when (old.id in (${list})) execute function ${name}()`),
+  );
+  return async () => {
+    await db.execute(
+      sql.raw(`drop trigger ${name} on document_baseline_stages`),
+    );
+    await db.execute(sql.raw(`drop function ${name}()`));
+  };
+}
+
+// A stage whose delete fails stays where it was in the run's order. The run
+// steps past as many stages as have failed, so it reads each stage once: it
+// neither meets the failed one again batch after batch nor skips a stage
+// behind it.
+test("a stage whose delete fails is counted once, and the stages behind it still go", async () => {
+  const now = new Date(10_000);
+  const ids = await expiredStages(250);
+  // The oldest, which heads every batch read from the start, one inside the
+  // first batch, and one in a later batch.
+  const failing = [ids[0], ids[57], ids[180]].map(String);
+  const undo = await failDeletesOf(failing);
+  const warn = spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    const swept = await cleanupExpiredDocumentBaselineStages(db, { now });
+    expect(swept).toMatchObject({
+      deletedStages: 247,
+      remainingStages: 3,
+      scannedStages: 250,
+    });
+    expect(swept.failures).toHaveLength(3);
+    expect(
+      (
+        await db
+          .select({ id: documentBaselineStages.id })
+          .from(documentBaselineStages)
+          .where(inArray(documentBaselineStages.id, [...ids]))
+      )
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual([...failing].sort());
+    // The scheduled run counts them as failed, which fails the phase.
+    expect(
+      await runDocumentBaselineStageMaintenance(getDefaultApiServiceRuntime(), {
+        now,
+      }),
+    ).toEqual({ deleted: 0, failed: 3, remaining: 3, scanned: 3 });
+  } finally {
+    warn.mockRestore();
+    await undo();
+  }
+  // The next run, with nothing failing, takes them.
+  expect(await cleanupExpiredDocumentBaselineStages(db, { now })).toMatchObject(
+    { deletedStages: 3, failures: [], remainingStages: 0 },
+  );
 });

@@ -8,7 +8,8 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
 import type { DocumentBaselineStageStatusResponse } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
+import { MAX_DOCUMENT_BASELINE_STAGE_BYTES } from "@tearleads/validators/util";
+import { and, eq, sql } from "drizzle-orm";
 import {
   type DocumentBaselineStageRow,
   documentBaselineStageExpiry,
@@ -24,12 +25,14 @@ import { loadSignerPublicKey } from "../../signerPublicKey";
 import { DocumentMutationError } from "../mutations/errors";
 import { verifyStagedWriteHeaderSignature } from "../mutations/outgoingUpdateVerification";
 import {
+  documentBaselineStageTooLarge,
   requireOpenDocumentBaselineStage,
   stagedSegmentConflict,
   stagedSegmentOutOfOrder,
   toDocumentBaselineStageError,
 } from "./errors";
 import { requireStageWriter } from "./stageAccess";
+import { writeHeaderBytes } from "./stagedSegmentRows";
 import { documentBaselineStageStatus } from "./stageLifecycle";
 
 export interface ResignStagedBaselineSegmentHeaderInput
@@ -79,6 +82,14 @@ async function replaceStagedHeader(
   if (!signsTheStagedBytes(held.header, verified.header)) {
     throw stagedSegmentConflict();
   }
+  // The stage's byte count holds each header it stores. A header signed
+  // again may be larger, so the stage is held to its bound by the
+  // difference, under the stage's row lock, and the count stays true.
+  const addedBytes =
+    writeHeaderBytes(verified.header) - writeHeaderBytes(held.header);
+  if (stage.stagedBytes + addedBytes > MAX_DOCUMENT_BASELINE_STAGE_BYTES) {
+    throw documentBaselineStageTooLarge("byte cap");
+  }
   await executor
     .update(documentBaselineSegments)
     .set({
@@ -89,7 +100,10 @@ async function replaceStagedHeader(
     .where(eq(documentBaselineSegments.updateId, held.updateId));
   const [touched] = await executor
     .update(documentBaselineStages)
-    .set({ expiresAt: documentBaselineStageExpiry(stage.createdAt, now) })
+    .set({
+      expiresAt: documentBaselineStageExpiry(stage.createdAt, now),
+      stagedBytes: sql`${documentBaselineStages.stagedBytes} + ${addedBytes}`,
+    })
     .where(
       and(
         eq(documentBaselineStages.documentId, stage.documentId),
@@ -107,7 +121,8 @@ async function replaceStagedHeader(
  * head, key-target set or signing key) signs its staged headers again and
  * sends only those: the commit requires every staged header to name what
  * its final segment names. Like staging a segment it is a document write,
- * held to the caller's access and its organization's standing now.
+ * held to the caller's access and its organization's standing now, and to
+ * the stage's byte bound.
  */
 export async function resignStagedBaselineSegmentHeader(
   db: ApiDatabase,

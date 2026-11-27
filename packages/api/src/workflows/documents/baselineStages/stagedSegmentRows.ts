@@ -29,6 +29,14 @@ function utf8Bytes(text: string): number {
 }
 
 /**
+ * What a stored write header counts for against its stage's byte bound: its
+ * serialized bytes, the same whichever order its fields come back in.
+ */
+export function writeHeaderBytes(header: WriteHeader): number {
+  return utf8Bytes(JSON.stringify(header));
+}
+
+/**
  * Hold the segment to what one stage may store, before anything is written.
  * Its bytes are everything the staged row keeps of it: the ciphertext, the
  * three signed vectors, the plaintext hash and the write header, so a
@@ -51,7 +59,7 @@ export function assertSegmentFitsStage(
     utf8Bytes(segment.partialEndVersionVector) +
     utf8Bytes(segment.dependencyVersionVector) +
     utf8Bytes(segment.plaintextHash) +
-    utf8Bytes(JSON.stringify(input.header));
+    writeHeaderBytes(input.header);
   const spans = input.history.spans.length;
   if (stage.stagedBytes + bytes > MAX_DOCUMENT_BASELINE_STAGE_BYTES) {
     throw documentBaselineStageTooLarge("byte cap");

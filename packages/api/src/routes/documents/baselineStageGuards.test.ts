@@ -408,3 +408,61 @@ test("a writer whose access was revoked stages nothing more", async () => {
   expect((await abandonStage(writer, created.id, baselineId)).status).toBe(200);
   expect((await stagedRows(created.id)).stages).toEqual([]);
 });
+
+// A baseline id is free in its document when its stage opens, and no stage
+// stops a request from committing a whole group under that id since. The
+// staged segments would take places that group holds, so the stage can
+// never commit, and its writer is told why: its id is taken.
+test("a stage whose baseline id a request committed since is refused for its id", async () => {
+  const history = await documentWithHistory();
+  const { committed, created, frontier, owner, root } = history;
+  const sign = currentSigner(history);
+  const ranges = peerRanges(frontier);
+  const group = await sign({ ranges });
+  const { baselineStageId, final } = await stageAllButFinal(
+    owner,
+    created.id,
+    group,
+    { contentKeyEpoch: created.contentKeyEpoch },
+  );
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const inline = await sign({ baselineId: baselineStageId, ranges });
+  expect(
+    (
+      await postDocumentSync(owner, created.id, {
+        ...request,
+        outgoingUpdates: inline,
+      })
+    ).status,
+  ).toBe(200);
+  const stored = [
+    ...committed.map((update) => update.id),
+    ...inline.map((segment) => segment.id),
+  ];
+
+  const refused = await postDocumentSync(owner, created.id, {
+    ...request,
+    baselineStageId,
+    outgoingUpdates: [final],
+  });
+  expect(refused.status).toBe(409);
+  expect(await refused.json()).toEqual({
+    baselineStageCode: STAGE.idConflict,
+    code: GROUP_INVALID,
+    error: `${NOT_WHOLE}its baseline id was committed by another request`,
+  });
+  expect((await storedUpdates(created.id)).map((row) => row.id)).toEqual(
+    stored,
+  );
+  // The stage is as it was, for its writer to abandon.
+  expect((await stagedRows(created.id)).stages).toMatchObject([
+    { id: baselineStageId, nextSegmentIndex: group.length - 1 },
+  ]);
+  expect((await abandonStage(owner, created.id, baselineStageId)).status).toBe(
+    200,
+  );
+});

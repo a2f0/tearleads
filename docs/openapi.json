@@ -2880,6 +2880,34 @@
             "minimum": 0,
             "type": "integer",
             "description": "With `document_baseline_stage_segment_out_of_order`, the index the stage expects next."
+          },
+          "openStages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "baselineId": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "documentId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expiresAt": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "baselineId",
+                "documentId",
+                "expiresAt"
+              ],
+              "additionalProperties": {}
+            },
+            "maxItems": 4,
+            "description": "With `document_baseline_stage_limit_reached`, the caller's open stages on other documents: each one's `baselineId`, `documentId` and `expiresAt`. Abandoning one makes room."
           }
         },
         "required": [
@@ -18123,7 +18151,7 @@
       "put": {
         "operationId": "documents.baselineStages.segments.resign",
         "summary": "Re-sign a staged segment's write header",
-        "description": "Replaces a staged segment's signed write header without uploading its ciphertext again, for a writer whose staged headers name a manifest, key-target set or signing key that has since changed. The new header must sign the same content record, metadata and ciphertext hashes at the stage's epoch.",
+        "description": "Replaces a staged segment's signed write header without uploading its ciphertext again, for a writer whose staged headers name a manifest, key-target set or signing key that has since changed. The new header must sign the same content record, metadata and ciphertext hashes at the stage's epoch. The stage's byte count moves by the difference between the two headers, and a header that would take it past the stage's bound returns 409 `document_baseline_stage_too_large`.",
         "tags": [
           "Documents"
         ],
@@ -18243,6 +18271,16 @@
               }
             },
             "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A serialized write header request is limited to 524288 bytes"
           },
           "500": {
             "content": {

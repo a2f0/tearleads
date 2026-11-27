@@ -73,5 +73,7 @@ describeSchema(
   {
     nextSegmentIndex:
       "With `document_baseline_stage_segment_out_of_order`, the index the stage expects next.",
+    openStages:
+      "With `document_baseline_stage_limit_reached`, the caller's open stages on other documents: each one's `baselineId`, `documentId` and `expiresAt`. Abandoning one makes room.",
   },
 );

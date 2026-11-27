@@ -230,7 +230,10 @@ async function claimStagedPeers(
  * taken since it was staged is read first and refused as an id conflict. The
  * head lock keeps this document's writers out, but not another document's:
  * one can commit the same id between that read and the insert, and the
- * insert's unique violation is then the same conflict.
+ * insert's unique violation is then the same conflict. It is the only
+ * unique rule the insert can break: a group's places are unique within its
+ * document, and `lockStagedBaselineForCommit` found the stage's baseline id
+ * uncommitted under the head lock.
  *
  * `order by segment_index` feeds the insert in segment order, and the
  * identity column takes its values as rows arrive, so sequences rise with

@@ -6,6 +6,7 @@ import { runDocumentBaselineStageMaintenance } from "../services/documents/docum
 import { getDefaultApiServiceRuntime } from "../services/runtime";
 import { withHealthcheck } from "./healthchecks";
 import {
+  hourlyMaintenancePhases,
   type MaintenancePhase,
   runMaintenancePhases,
 } from "./maintenancePhases";
@@ -15,31 +16,19 @@ const BILLING_MAINTENANCE_CRON = "* * * * *";
 const BLOB_MAINTENANCE_CRON = "0 * * * *";
 const blobGcHealthcheckUrlEnvKey = "BLOB_GC_HEALTHCHECK_URL";
 
-/**
- * The hourly phases. Blob garbage collection runs with its Healthchecks
- * start, success, and failure pings; the sweep of expired rotation baseline
- * stages is its own phase, so a failure of one never skips the other.
- */
+/** Blob garbage collection runs with its Healthchecks pings. */
 function hourlyPhases(): readonly MaintenancePhase[] {
-  return [
-    {
-      name: "documentBaselineStageCleanup",
-      operation: "document.maintenance",
-      run: () =>
-        runDocumentBaselineStageMaintenance(getDefaultApiServiceRuntime()),
-    },
-    {
-      name: "blobGarbageCollection",
-      operation: "blob.maintenance",
-      run: () =>
-        withHealthcheck(process.env[blobGcHealthcheckUrlEnvKey], () =>
-          runBlobMaintenance(getDefaultApiServiceRuntime(), {
-            dereferencedBlobs: {},
-            expiredStages: {},
-          }),
-        ),
-    },
-  ];
+  return hourlyMaintenancePhases({
+    blobGarbageCollection: () =>
+      withHealthcheck(process.env[blobGcHealthcheckUrlEnvKey], () =>
+        runBlobMaintenance(getDefaultApiServiceRuntime(), {
+          dereferencedBlobs: {},
+          expiredStages: {},
+        }),
+      ),
+    documentBaselineStageCleanup: () =>
+      runDocumentBaselineStageMaintenance(getDefaultApiServiceRuntime()),
+  });
 }
 
 /** Rejects when any phase failed, so the Cron run is recorded as failed. */

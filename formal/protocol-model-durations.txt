@@ -22,6 +22,7 @@
 15 formal/document-sync/MetadataListingConvergence.tla|formal/document-sync/MetadataListingConvergence.cfg
 6 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDeviceAdversary.cfg
 4 formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg
+4 formal/document-sync/StagedBaselineCommit.tla|formal/document-sync/StagedBaselineCommit.cfg
 3 formal/container-keying/GroupGrantRevocation.tla|formal/container-keying/GroupGrantRevocation.cfg
 3 formal/document-sync/DocumentLanePolling.tla|formal/document-sync/DocumentLanePolling.cfg
 2 formal/document-sync/RestartProbeConvergence.tla|formal/document-sync/RestartProbeConvergence.cfg

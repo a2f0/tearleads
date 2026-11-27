@@ -13,7 +13,10 @@ import type {
   DocumentBaselineStageStatusResponse,
 } from "@tearleads/validators/response";
 import { DOCUMENT_BASELINE_STAGE_ERROR_CODES } from "@tearleads/validators/response";
-import { MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES } from "@tearleads/validators/util";
+import {
+  MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
+  MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
+} from "@tearleads/validators/util";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -59,12 +62,15 @@ function respondToStageError(c: Context<SessionEnv>, error: unknown) {
   if (error.status !== 409) {
     return c.json({ error: error.message }, error.status);
   }
-  const { code, nextSegmentIndex } = error;
+  const { code, nextSegmentIndex, openStages } = error;
   return c.json<DocumentBaselineStageConflictErrorResponse>(
     {
       ...(code === undefined ? {} : { code }),
       error: error.message,
       ...(nextSegmentIndex === undefined ? {} : { nextSegmentIndex }),
+      ...(openStages === undefined
+        ? {}
+        : { openStages: openStages.map((stage) => ({ ...stage })) }),
     },
     409,
   );
@@ -170,6 +176,10 @@ function registerSegmentRoutes(
     operationRoutePath(resignDocumentBaselineSegmentHeaderOperation),
     requireAuth,
     pathParamsValidator(resignDocumentBaselineSegmentHeaderOperation.params),
+    requestBodyLimit({
+      maxBytes: MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
+      onTooLarge: (c) => c.json({ error: "Request body too large" }, 413),
+    }),
     jsonRequestValidator(resignDocumentBaselineSegmentHeaderOperation.body),
     async (c) => {
       const { baselineId, documentId, segmentIndex } = c.req.valid("param");

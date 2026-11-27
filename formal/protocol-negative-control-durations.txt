@@ -44,6 +44,8 @@
 4 read-model-admins-change-skips-directory
 4 read-model-cursor-allocated-outside-head-lock
 4 restart-probe-ack-arms-nothing
+4 staged-baseline-open-keeps-prior-stage
+4 staged-baseline-rotator-retries-without-reproving
 4 sync-backoff-never-expires
 4 unacknowledged-create-seed-settles
 4 void-update-clean-read-keeps-attempts
@@ -336,6 +338,14 @@
 1 stage-cleanup-reads-locked-row
 1 stage-promotion-ignores-expiry
 1 stage-promotion-skips-digest
+1 staged-baseline-commit-unlocked
+1 staged-baseline-coverage-from-declared-vector
+1 staged-baseline-delete-ignores-committed
+1 staged-baseline-final-index-unchecked
+1 staged-baseline-partial-promote
+1 staged-baseline-redirect-partial-group
+1 staged-baseline-serves-staged-rows
+1 staged-baseline-sweep-ignores-stage-lock
 1 subtree-purge-ignores-settled-root-restore
 1 subtree-purge-mutates-captured-scope
 1 subtree-purge-over-strict-local
