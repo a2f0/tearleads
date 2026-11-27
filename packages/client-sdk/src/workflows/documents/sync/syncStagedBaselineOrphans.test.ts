@@ -1,17 +1,26 @@
 // What a heal does when its stage cannot open because the user holds four
 // already: the longest idle stage nobody is filling is abandoned and the
 // open is sent once more, and a stage that is being filled is never touched.
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  setDefaultTimeout,
+  test,
+} from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DOCUMENT_BASELINE_STAGE_ERROR_CODES as STAGE } from "@tearleads/validators/response";
 import { DOCUMENT_BASELINE_STAGE_IDLE_SECONDS } from "@tearleads/validators/util";
 import {
   createLongHistoryDocument,
   createStagedHealHarness,
+  STAGED_BASELINE_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/workflows/stagedBaselineHeal";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { ORPHANED_STAGE_IDLE_MS } from "../baselineStage/stagedBaselineOrphans";
+
+setDefaultTimeout(STAGED_BASELINE_TEST_TIMEOUT_MS);
 
 let execSql: ExecSql;
 let closeExecSql: () => void;

@@ -32,6 +32,15 @@ import { createMaterializedSyncFixture } from "./materializedSyncFixture";
 type HistoryDocument = Awaited<ReturnType<typeof createDocument>>;
 
 /**
+ * The default timeout of a test file whose tests stage baselines. Each
+ * stages more than 64 segments, encrypted and signed with real keys, once
+ * or twice: seconds of work on a busy machine, against a default of five.
+ * A file sets it at its top (`setDefaultTimeout`), which holds for that
+ * file's tests alone.
+ */
+export const STAGED_BASELINE_TEST_TIMEOUT_MS = 30_000;
+
+/**
  * One writer's history of `commits` short paragraphs: at the small test
  * sizes a segment holds about two, so 120 commits is a baseline of more
  * segments than one request carries.

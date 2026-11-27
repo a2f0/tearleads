@@ -1,7 +1,13 @@
 // What the stage routes hold a writer to beyond the order of its segments:
 // the bounds every write header meets, and the refusals of a header signed
 // again.
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  setDefaultTimeout,
+  test,
+} from "bun:test";
 import {
   createIdentitySeedPhrase,
   generateIdentityKeyPairsFromSeedPhrase,
@@ -22,11 +28,14 @@ import {
 import {
   createLongHistoryDocument,
   createStagedHealHarness,
+  STAGED_BASELINE_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/workflows/stagedBaselineHeal";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { resolveDocumentCreateAuthor } from "../author";
 import { getOrCreateStagedBaselineUploads } from "../baselineStage/stagedBaselineUploads";
+
+setDefaultTimeout(STAGED_BASELINE_TEST_TIMEOUT_MS);
 
 let execSql: ExecSql;
 let closeExecSql: () => void;

@@ -2,7 +2,13 @@
 // still on the wire when a later one takes the upload over, an answer that
 // arrives for a run that is no longer the upload's, and a stage that never
 // stands where its own answers put it.
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  setDefaultTimeout,
+  test,
+} from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   DOCUMENT_SYNC_ERROR_CODES,
@@ -12,6 +18,7 @@ import {
   appendHistory,
   createLongHistoryDocument,
   createStagedHealHarness,
+  STAGED_BASELINE_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/workflows/stagedBaselineHeal";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -22,6 +29,8 @@ import {
 } from "../baselineStage/stagedBaselineState";
 import { getOrCreateStagedBaselineUploads } from "../baselineStage/stagedBaselineUploads";
 import { settleSyncBaselineCommit } from "../syncFailures/syncBaselineCommit";
+
+setDefaultTimeout(STAGED_BASELINE_TEST_TIMEOUT_MS);
 
 let execSql: ExecSql;
 let closeExecSql: () => void;

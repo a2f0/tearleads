@@ -1,7 +1,13 @@
 // A heal whose rotation baseline does not fit its request uploads every
 // segment but the final one to a stage, and the sync that rotates carries
 // the final segment and names the stage.
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  setDefaultTimeout,
+  test,
+} from "bun:test";
 import {
   createDocument,
   encodeVersionVector,
@@ -17,10 +23,13 @@ import {
 import {
   createLongHistoryDocument,
   createStagedHealHarness,
+  STAGED_BASELINE_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/workflows/stagedBaselineHeal";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { DOCUMENT_SYNC_TRACE_PATTERN } from "./syncTrace";
+
+setDefaultTimeout(STAGED_BASELINE_TEST_TIMEOUT_MS);
 
 let execSql: ExecSql;
 let closeExecSql: () => void;

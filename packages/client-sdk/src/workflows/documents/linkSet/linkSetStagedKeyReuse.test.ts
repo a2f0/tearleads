@@ -2,17 +2,22 @@
 // cannot read what is written afterwards. A staged upload holds a key
 // between attempts; these tests hold the unlink to taking that key only
 // when no request ever carried it to a container the unlink leaves out.
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { exportFullHistorySnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { SMALL_BASELINE_SEGMENTS } from "../../../../test/helpers/data/rotationBaselineFixtures";
-import { createLongHistoryDocument } from "../../../../test/helpers/workflows/stagedBaselineHeal";
+import {
+  createLongHistoryDocument,
+  STAGED_BASELINE_TEST_TIMEOUT_MS,
+} from "../../../../test/helpers/workflows/stagedBaselineHeal";
 import { createStagedUnlinkHarness } from "../../../../test/helpers/workflows/stagedBaselineUnlink";
 import { deriveDocumentContentKeyCommitment } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { writeRotationBaseline } from "../baselineStage/rotationBaselineWriter";
 import { getOrCreateStagedBaselineUploads } from "../baselineStage/stagedBaselineUploads";
+
+setDefaultTimeout(STAGED_BASELINE_TEST_TIMEOUT_MS);
 
 type Harness = Awaited<ReturnType<typeof createStagedUnlinkHarness>>;
 

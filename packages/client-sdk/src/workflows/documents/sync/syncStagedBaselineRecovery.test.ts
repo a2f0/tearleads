@@ -1,6 +1,12 @@
 // What a heal does when its staged rotation baseline is refused: each of the
 // API's stage codes, the coverage refusal, a lost answer, and a restart.
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  setDefaultTimeout,
+  test,
+} from "bun:test";
 import {
   encodeVersionVector,
   historySegmentsImportInOrder,
@@ -16,9 +22,12 @@ import {
   appendHistory,
   createLongHistoryDocument,
   createStagedHealHarness,
+  STAGED_BASELINE_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/workflows/stagedBaselineHeal";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+
+setDefaultTimeout(STAGED_BASELINE_TEST_TIMEOUT_MS);
 
 let execSql: ExecSql;
 let closeExecSql: () => void;

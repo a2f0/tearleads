@@ -3,7 +3,7 @@
 // request, or as a segment an unlink carries inline. The writer cuts at a
 // cap that leaves a segment room for what it is sent with, and refuses,
 // before it sends anything, a segment that is still over.
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import {
   createDocument,
   DEFAULT_HISTORY_SEGMENT_MAX_BYTES,
@@ -19,7 +19,10 @@ import {
   fixtureHash,
 } from "../../../../test/helpers/data/documentFixtures";
 import { FakeBaselineStageServer } from "../../../../test/helpers/workflows/fakeBaselineStageServer";
-import { createLongHistoryDocument } from "../../../../test/helpers/workflows/stagedBaselineHeal";
+import {
+  createLongHistoryDocument,
+  STAGED_BASELINE_TEST_TIMEOUT_MS,
+} from "../../../../test/helpers/workflows/stagedBaselineHeal";
 import { openDocumentContentKey } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import {
   isDocumentSyncRequestLimitError,
@@ -35,6 +38,8 @@ import { rotationBaselineSigner } from "./rotationBaselineSigner";
 import { writeRotationBaseline } from "./rotationBaselineWriter";
 import { openRotationHistory } from "./rotationHistory";
 import { getOrCreateStagedBaselineUploads } from "./stagedBaselineUploads";
+
+setDefaultTimeout(STAGED_BASELINE_TEST_TIMEOUT_MS);
 
 const MEBIBYTE = 1024 * 1024;
 const documentId = "0b6d7e0e-3c5a-4d0f-9a51-7b1f5c2a9e10";

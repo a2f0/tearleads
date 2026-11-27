@@ -1,6 +1,6 @@
 // An unlink whose rotation baseline does not fit its request uploads every
 // segment but the final one to a stage and commits by the final segment.
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import {
   createDocument,
   encodeVersionVector,
@@ -21,9 +21,12 @@ import {
 import {
   appendHistory,
   createLongHistoryDocument,
+  STAGED_BASELINE_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/workflows/stagedBaselineHeal";
 import { createStagedUnlinkHarness } from "../../../../test/helpers/workflows/stagedBaselineUnlink";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+
+setDefaultTimeout(STAGED_BASELINE_TEST_TIMEOUT_MS);
 
 type Harness = Awaited<ReturnType<typeof createStagedUnlinkHarness>>;
 type HistoryDocument = Awaited<ReturnType<typeof createDocument>>;
