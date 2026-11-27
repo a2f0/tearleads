@@ -92,22 +92,34 @@ function listExpiredStages(
     .offset(input.skip);
 }
 
-/** Delete each stage of a batch on its own; returns how many went. */
+interface SweepProgress {
+  deletedStages: number;
+  readonly failures: unknown[];
+  scannedStages: number;
+}
+
+/**
+ * Delete each stage of a batch on its own, until the run's time is up. One
+ * stage's delete removes up to a stage's cap of rows, so the clock is read
+ * before every stage, not once a batch. Returns whether time remains.
+ */
 async function deleteExpiredStages(
   db: ApiDatabase,
   batch: readonly DocumentBaselineStageKey[],
   now: Date,
-  failures: unknown[],
-): Promise<number> {
-  let deleted = 0;
+  timeLeft: () => boolean,
+  progress: SweepProgress,
+): Promise<boolean> {
   for (const key of batch) {
+    if (!timeLeft()) return false;
+    progress.scannedStages += 1;
     try {
-      if (await deleteExpiredStage(db, key, now)) deleted += 1;
+      if (await deleteExpiredStage(db, key, now)) progress.deletedStages += 1;
     } catch (error) {
-      failures.push(error);
+      progress.failures.push(error);
     }
   }
-  return deleted;
+  return true;
 }
 
 /**
@@ -127,27 +139,28 @@ export async function cleanupExpiredDocumentBaselineStages(
   const clock = input.clock ?? Date.now;
   const maxStages = input.maxStages ?? MAX_EXPIRED_STAGES_PER_SWEEP;
   const deadline = clock() + (input.budgetMs ?? EXPIRED_STAGE_SWEEP_BUDGET_MS);
-  let deletedStages = 0;
-  let scannedStages = 0;
-  const failures: unknown[] = [];
-  while (scannedStages < maxStages && clock() < deadline) {
+  const timeLeft = () => clock() < deadline;
+  const progress: SweepProgress = {
+    deletedStages: 0,
+    failures: [],
+    scannedStages: 0,
+  };
+  let running = timeLeft();
+  while (running && progress.scannedStages < maxStages) {
     const batch = await listExpiredStages(db, {
-      limit: Math.min(EXPIRED_STAGE_SWEEP_BATCH, maxStages - scannedStages),
+      limit: Math.min(
+        EXPIRED_STAGE_SWEEP_BATCH,
+        maxStages - progress.scannedStages,
+      ),
       now,
-      skip: failures.length,
+      skip: progress.failures.length,
     });
     if (batch.length === 0) break;
-    scannedStages += batch.length;
-    deletedStages += await deleteExpiredStages(db, batch, now, failures);
+    running = await deleteExpiredStages(db, batch, now, timeLeft, progress);
   }
   const [left] = await db
     .select({ stages: count() })
     .from(documentBaselineStages)
     .where(lte(documentBaselineStages.expiresAt, now));
-  return {
-    deletedStages,
-    failures,
-    remainingStages: left?.stages ?? 0,
-    scannedStages,
-  };
+  return { ...progress, remainingStages: left?.stages ?? 0 };
 }

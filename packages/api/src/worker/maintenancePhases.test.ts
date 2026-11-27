@@ -1,6 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import type { ApiDiagnosticOperation } from "@tearleads/diagnostics/server";
 import {
+  hourlyMaintenancePhases,
   MaintenanceFailedError,
   runMaintenancePhases,
 } from "./maintenancePhases";
@@ -89,6 +90,47 @@ test("a phase whose summary counts failed items fails the run", async () => {
         () => {},
       ),
     ).rejects.toMatchObject({ failedPhases: ["seat-sync"] });
+  } finally {
+    restore();
+  }
+});
+
+// The sweep of expired baseline stages may run for its whole time budget.
+// Blob garbage collection ran every hour before the sweep existed, so it
+// runs first, and neither keeps the other from running.
+test("the hourly run collects blob garbage before it sweeps baseline stages", async () => {
+  const restore = silenced();
+  const ran: string[] = [];
+  const phases = (failing?: string) =>
+    hourlyMaintenancePhases({
+      blobGarbageCollection: async () => {
+        ran.push("blobs");
+        if (failing === "blobs") throw new Error("gc broke");
+        return { failed: 0 };
+      },
+      documentBaselineStageCleanup: async () => {
+        ran.push("stages");
+        if (failing === "stages") throw new Error("sweep broke");
+        return { failed: 0 };
+      },
+    });
+  try {
+    expect(phases().map((phase) => [phase.name, phase.operation])).toEqual([
+      ["blobGarbageCollection", "blob.maintenance"],
+      ["documentBaselineStageCleanup", "document.maintenance"],
+    ]);
+    await runMaintenancePhases(phases(), () => {});
+    expect(ran).toEqual(["blobs", "stages"]);
+    for (const [failing, failed] of [
+      ["blobs", "blobGarbageCollection"],
+      ["stages", "documentBaselineStageCleanup"],
+    ]) {
+      ran.length = 0;
+      await expect(
+        runMaintenancePhases(phases(failing), () => {}),
+      ).rejects.toMatchObject({ failedPhases: [failed] });
+      expect(ran).toEqual(["blobs", "stages"]);
+    }
   } finally {
     restore();
   }

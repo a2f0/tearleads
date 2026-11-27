@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
   MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
@@ -92,13 +93,32 @@ test("a staged baseline segment keeps an update's contract at ingress", () => {
   expect(requestBodyCeiling(`${stage}/%73egments/7`, route)).toBe(
     MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
   );
-  for (const other of [
-    "/documents/doc-1/baseline-stages",
-    stage,
-    `${stage}/segments/7/write-header`,
-  ]) {
+  for (const other of ["/documents/doc-1/baseline-stages", stage]) {
     expect(requestBodyCeiling(other, route)).toBe(route);
   }
+});
+
+// A staged segment's header signed again is one header, far smaller than the
+// segment it belongs to, and the path under it earns nothing more.
+test("a re-signed staged header keeps a header's contract at ingress", () => {
+  const route = 64 * 1024 * 1024;
+  const header =
+    "/documents/doc-1/baseline-stages/stage-1/segments/7/write-header";
+  expect(MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES).toBe(512 * 1024);
+  expect(requestBodyCeiling(header, route)).toBe(
+    MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
+  );
+  expect(requestBodyCeiling(header, 8)).toBe(8);
+  // An encoded separator or letter reaches the same route and ceiling.
+  for (const spelled of [
+    header.replace("/write-header", "%2Fwrite-header"),
+    header.replace("write-header", "%77rite-header"),
+  ]) {
+    expect(requestBodyCeiling(spelled, route)).toBe(
+      MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
+    );
+  }
+  expect(requestBodyCeiling(`${header}/more`, route)).toBe(route);
 });
 
 test("an encoded spelling never earns more than the route it reaches", () => {

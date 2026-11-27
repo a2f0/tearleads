@@ -23,6 +23,7 @@ import { uuidV4StringSchema } from "../schema";
 import {
   DOCUMENT_BASELINE_STAGE_IDLE_SECONDS,
   DOCUMENT_BASELINE_STAGE_MAX_SECONDS,
+  MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
   MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
   MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS,
   MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER,
@@ -166,15 +167,18 @@ export const resignDocumentBaselineSegmentHeaderOperation = defineJsonOperation(
   {
     auth: "session",
     body: DocumentBaselineStageWriteHeaderRequestSchema,
-    failureResponses: stageFailureResponses,
-    failureStatuses: stageFailureStatuses,
+    failureResponses: { ...stageFailureResponses, 413: ErrorResponseSchema },
+    failureStatuses: [...stageFailureStatuses, 413],
     id: "documents.baselineStages.segments.resign",
     summary: "Re-sign a staged segment's write header",
     description:
-      "Replaces a staged segment's signed write header without uploading its ciphertext again, for a writer whose staged headers name a manifest, key-target set or signing key that has since changed. The new header must sign the same content record, metadata and ciphertext hashes at the stage's epoch.",
+      "Replaces a staged segment's signed write header without uploading its ciphertext again, for a writer whose staged headers name a manifest, key-target set or signing key that has since changed. The new header must sign the same content record, metadata and ciphertext hashes at the stage's epoch. The stage's byte count moves by the difference between the two headers, and a header that would take it past the stage's bound returns 409 `document_baseline_stage_too_large`.",
     method: "PUT",
     params: DocumentBaselineStageSegmentPathParamsSchema,
     path: "/documents/{documentId}/baseline-stages/{baselineId}/segments/{segmentIndex}/write-header",
+    responseDescriptions: {
+      413: `A serialized write header request is limited to ${MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES} bytes`,
+    },
     responses: { 200: DocumentBaselineStageStatusResponseSchema },
   },
 );

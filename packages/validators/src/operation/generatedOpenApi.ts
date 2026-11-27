@@ -895,7 +895,7 @@ export type paths = {
         get?: never;
         /**
          * Re-sign a staged segment's write header
-         * @description Replaces a staged segment's signed write header without uploading its ciphertext again, for a writer whose staged headers name a manifest, key-target set or signing key that has since changed. The new header must sign the same content record, metadata and ciphertext hashes at the stage's epoch.
+         * @description Replaces a staged segment's signed write header without uploading its ciphertext again, for a writer whose staged headers name a manifest, key-target set or signing key that has since changed. The new header must sign the same content record, metadata and ciphertext hashes at the stage's epoch. The stage's byte count moves by the difference between the two headers, and a header that would take it past the stage's bound returns 409 `document_baseline_stage_too_large`.
          */
         put: operations["documents.baselineStages.segments.resign"];
         post?: never;
@@ -2798,6 +2798,14 @@ export type components = {
             error: string;
             /** @description With `document_baseline_stage_segment_out_of_order`, the index the stage expects next. */
             nextSegmentIndex?: number;
+            /** @description With `document_baseline_stage_limit_reached`, the caller's open stages on other documents: each one's `baselineId`, `documentId` and `expiresAt`. Abandoning one makes room. */
+            openStages?: ({
+                baselineId: string;
+                documentId: string;
+                expiresAt: string;
+            } & {
+                [key: string]: unknown;
+            })[];
         } & {
             [key: string]: unknown;
         };
@@ -9363,6 +9371,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentBaselineStageConflictErrorResponse"];
+                };
+            };
+            /** @description A serialized write header request is limited to 524288 bytes */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Internal Server Error */

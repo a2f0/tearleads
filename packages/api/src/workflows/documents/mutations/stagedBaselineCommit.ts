@@ -1,10 +1,12 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { documentUpdates } from "@tearleads/api-shared/schema";
 import { decodeVersionVector } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import {
   DOCUMENT_BASELINE_STAGE_ERROR_CODES,
   type DocumentBaselineStageErrorCode,
 } from "@tearleads/validators/response";
+import { and, eq } from "drizzle-orm";
 import {
   type BaselineSegmentHistory,
   baselineSegmentContinues,
@@ -154,6 +156,36 @@ async function requireFinalSegmentClosesStage(
 }
 
 /**
+ * A stage's baseline id was free in its document when the stage opened. A
+ * request may have committed a baseline under the same id since, whole in
+ * one request, which no stage stops. The staged segments would then take
+ * places that group's segments hold, so the stage can never commit, and its
+ * writer is told its id is taken. The caller holds the document head lock,
+ * so no group commits to this document between this read and the inserts.
+ */
+async function assertBaselineIdUncommitted(
+  executor: DatabaseSession,
+  stage: DocumentBaselineStageRow,
+): Promise<void> {
+  const [committed] = await executor
+    .select({ id: documentUpdates.id })
+    .from(documentUpdates)
+    .where(
+      and(
+        eq(documentUpdates.documentId, stage.documentId),
+        eq(documentUpdates.baselineId, stage.id),
+      ),
+    )
+    .limit(1);
+  if (committed) {
+    throw stageRefusal(
+      DOCUMENT_BASELINE_STAGE_ERROR_CODES.idConflict,
+      "its baseline id was committed by another request",
+    );
+  }
+}
+
+/**
  * Lock the stage a request commits and hold the request's final segment to
  * it. The caller holds the document head lock, so the stage is locked after
  * it, as every commit does; a stage write locks only the stage row, so the
@@ -186,6 +218,7 @@ export async function lockStagedBaselineForCommit(
       documentId: input.documentId,
     }),
   );
+  await assertBaselineIdUncommitted(executor, stage);
   return {
     final,
     finalHistory: await requireFinalSegmentClosesStage(

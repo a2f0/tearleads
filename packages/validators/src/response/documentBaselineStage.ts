@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  arraySchema,
   boundedNonNegativeIntegerSchema,
   loosePlainObject,
   positiveIntegerSchema,
@@ -7,7 +8,10 @@ import {
   sha256HexStringSchema,
   uuidV4StringSchema,
 } from "../schema";
-import { MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS } from "../util/documentSyncLimits";
+import {
+  MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS,
+  MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER,
+} from "../util/documentSyncLimits";
 
 /**
  * Why a staged rotation baseline was refused. A stage holds every segment of
@@ -32,7 +36,8 @@ import { MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS } from "../util/documentSyncLimit
  * - `id_conflict`: the baseline id is another user's open stage on this
  *   document, or a baseline the document committed already.
  * - `limit_reached`: the caller already holds as many open stages as one
- *   user may. It abandons one, or waits for one to commit or expire.
+ *   user may. The response names them (`openStages`), so a writer that lost
+ *   track of one can abandon it, or wait for one to commit or expire.
  * - `too_large`: the segment would take the stage past what one stage may
  *   store, in bytes or in span rows. The stage is unchanged; this history
  *   cannot be staged whole.
@@ -143,6 +148,13 @@ export type DocumentBaselineStageConflictCode = z.infer<
   typeof DocumentBaselineStageConflictCodeSchema
 >;
 
+/** One of the caller's open stages, as a `limit_reached` refusal names it. */
+const DocumentBaselineOpenStageSchema = z.looseObject({
+  baselineId: uuidV4StringSchema,
+  documentId: z.string().min(1),
+  expiresAt: z.string().min(1),
+});
+
 /**
  * A refused stage request. An uncoded conflict is a failed access or billing
  * check, or a write that raced another, and leaves the stage as it was.
@@ -151,6 +163,10 @@ export const DocumentBaselineStageConflictErrorResponseSchema = z.looseObject({
   code: DocumentBaselineStageConflictCodeSchema.optional(),
   error: z.string().min(1),
   nextSegmentIndex: nextSegmentIndexSchema.optional(),
+  openStages: arraySchema(
+    DocumentBaselineOpenStageSchema,
+    MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER,
+  ).optional(),
 });
 
 export type DocumentBaselineStageConflictErrorResponse = z.infer<

@@ -6,6 +6,30 @@ export interface MaintenancePhase {
   readonly run: () => Promise<unknown>;
 }
 
+/**
+ * The hourly phases, in the order they run. Blob garbage collection comes
+ * first: the sweep of expired rotation baseline stages may run for its whole
+ * time budget, and what ran every hour before it must not wait behind it.
+ * Each is its own phase, so a failure of one never skips the other.
+ */
+export function hourlyMaintenancePhases(run: {
+  readonly blobGarbageCollection: () => Promise<unknown>;
+  readonly documentBaselineStageCleanup: () => Promise<unknown>;
+}): readonly MaintenancePhase[] {
+  return [
+    {
+      name: "blobGarbageCollection",
+      operation: "blob.maintenance",
+      run: run.blobGarbageCollection,
+    },
+    {
+      name: "documentBaselineStageCleanup",
+      operation: "document.maintenance",
+      run: run.documentBaselineStageCleanup,
+    },
+  ];
+}
+
 /** Raised after every phase ran, so a Cron run records its failure. */
 export class MaintenanceFailedError extends Error {
   constructor(readonly failedPhases: readonly string[]) {

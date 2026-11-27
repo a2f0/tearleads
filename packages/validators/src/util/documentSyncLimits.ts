@@ -35,6 +35,11 @@ export const MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS = 4_096;
 // to), so every committed segment fits a response page exactly as an update
 // a sync committed does.
 export const MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES = 16 * 1024 * 1024;
+// A re-signed write header travels alone. The largest header a document
+// write signs cites `MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS` container
+// manifests, about 420 KiB of hashes, so this admits every header the API
+// can accept and nothing much larger.
+export const MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES = 512 * 1024;
 // A stage expires this long after its last staged segment or re-signed
 // header, and never later than the maximum after it was opened: a writer that
 // stops uploading leaves nothing behind for longer, and one that keeps
@@ -62,6 +67,10 @@ export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS = 64;
 // 16 MiB ceiling.
 export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS =
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS * MAX_CONTAINER_PATH_LENGTH;
+// A signed write header names the device that signed it. The SDK's is its
+// signing key's fingerprint under a short prefix, 76 characters; the bound
+// keeps a header's size to its citations, which the bound above holds.
+export const MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH = 128;
 // Flag-day product maximum for every document content-key bundle. Create/link
 // request validation and the client link preflight keep a greenfield database
 // from ever producing a document that cannot fit this sync contract.

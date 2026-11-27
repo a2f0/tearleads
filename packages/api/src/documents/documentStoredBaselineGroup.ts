@@ -195,11 +195,14 @@ export async function findLatestWholeStoredBaselineGroup(
 
 /**
  * What a stored group covers: for each peer, where its segments' spans end.
- * The statement walks the spans as the commit did, in segment order: every
- * span of a peer must start where the one before it ended, the first at
- * zero. A group whose stored spans no longer do covers nothing it can be
- * trusted for, and the answer is null. No vector a segment declares is
- * read.
+ * The commit stored a peer's spans as one run, each starting where the one
+ * before it ended and the first at zero, and a stored span is never
+ * rewritten: rows can only go missing. A run that lost a row no longer adds
+ * up, so one aggregate per peer answers, with no sort of the group's spans:
+ * the spans start at zero and their lengths sum to where they end exactly
+ * when none below the highest is missing. A group whose spans no longer do
+ * covers nothing it can be trusted for, and the answer is null. No vector a
+ * segment declares is read.
  */
 export async function readStoredBaselineGroupCoverage(
   executor: DatabaseSession,
@@ -207,24 +210,18 @@ export async function readStoredBaselineGroupCoverage(
 ): Promise<string | null> {
   const documentId = uuidValue(input.documentId);
   const result = await executor.execute(sql`
-    select walked.peer_id as "peerId",
-      max(walked.end_counter) as "endCounter",
-      bool_and(walked.start_counter = walked.previous_end) as "gapless"
-    from (
-      select span.peer_id, span.start_counter, span.end_counter,
-        coalesce(
-          lag(span.end_counter) over (
-            partition by span.peer_id order by segment.sequence
-          ),
-          0
-        ) as previous_end
-      from ${documentUpdates} segment
-      join ${documentUpdateSpans} span on span.update_id = segment.id
-      where segment.document_id = ${documentId}
-        and segment.baseline_id = ${uuidValue(input.baselineId)}
-        and span.document_id = ${documentId}
-    ) walked
-    group by walked.peer_id
+    select span.peer_id as "peerId",
+      max(span.end_counter) as "endCounter",
+      (
+        min(span.start_counter) = 0
+        and sum(span.end_counter - span.start_counter) = max(span.end_counter)
+      ) as "gapless"
+    from ${documentUpdates} segment
+    join ${documentUpdateSpans} span on span.update_id = segment.id
+    where segment.document_id = ${documentId}
+      and segment.baseline_id = ${uuidValue(input.baselineId)}
+      and span.document_id = ${documentId}
+    group by span.peer_id
   `);
   const peers = result.rows.map((row) => groupPeerSchema.parse(row));
   if (peers.some((peer) => !peer.gapless)) return null;

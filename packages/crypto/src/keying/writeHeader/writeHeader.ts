@@ -22,7 +22,10 @@ import {
 } from "../core/shared";
 import type { KeyingVerificationResult } from "../core/verificationError";
 import { assertWriteHeaderAuthorizations } from "./writeHeaderAuthorization";
-import { readWriteHeaderCitations } from "./writeHeaderCitations";
+import {
+  readWriteHeaderCitations,
+  readWriterDeviceId,
+} from "./writeHeaderCitations";
 import type {
   ContentRecordNonceDomain,
   UnsignedWriteHeader,
@@ -57,13 +60,18 @@ function normalizeUnsignedWriteHeader(value: unknown): UnsignedWriteHeader {
     "write header",
   );
 
+  const objectKind = normalizeContentObjectKind(
+    record.objectKind,
+    "write header",
+  );
   return {
     version: readVersion(record, "write header"),
     dependencyManifestHashes: readWriteHeaderCitations(
       record.dependencyManifestHashes,
+      objectKind,
     ),
     organizationId: readString(record, "organizationId", "write header"),
-    objectKind: normalizeContentObjectKind(record.objectKind, "write header"),
+    objectKind,
     objectId: readString(record, "objectId", "write header"),
     accessManifestHash: readHashString(
       record,
@@ -89,7 +97,7 @@ function normalizeUnsignedWriteHeader(value: unknown): UnsignedWriteHeader {
     metadataHash: readHashString(record, "metadataHash", "write header"),
     ciphertextHash: readHashString(record, "ciphertextHash", "write header"),
     writerUserId: readString(record, "writerUserId", "write header"),
-    writerDeviceId: readString(record, "writerDeviceId", "write header"),
+    writerDeviceId: readWriterDeviceId(record),
     writerKeyFingerprint: readHashString(
       record,
       "writerKeyFingerprint",
@@ -375,10 +383,16 @@ export async function verifyWriteHeader({
       header: normalizedHeader,
     });
 
+    // A signature is its bytes in canonical base64 and nothing more. The
+    // decoder forgives whitespace, which would let a header that verifies
+    // carry any amount of it.
     let signature: Uint8Array;
     try {
       signature = base64ToBytes(normalizedHeader.signature);
     } catch {
+      throwVerification("signature_mismatch", "write header signature invalid");
+    }
+    if (bytesToBase64(signature) !== normalizedHeader.signature) {
       throwVerification("signature_mismatch", "write header signature invalid");
     }
 

@@ -17,13 +17,16 @@ import {
 import {
   DOCUMENT_BASELINE_STAGE_IDLE_SECONDS,
   DOCUMENT_BASELINE_STAGE_MAX_SECONDS,
+  MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
   MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
   MAX_DOCUMENT_BASELINE_SEGMENTS,
   MAX_DOCUMENT_BASELINE_STAGE_BYTES,
   MAX_DOCUMENT_BASELINE_STAGE_SPANS,
   MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER,
+  MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH,
 } from "../util";
 import { operationRequestPath, operationRoutePath } from "./definition";
 import {
@@ -54,6 +57,13 @@ test("the staged baseline bounds are the published ones", () => {
   expect(MAX_DOCUMENT_BASELINE_STAGE_BYTES).toBe(1024 * 1024 * 1024);
   expect(MAX_DOCUMENT_BASELINE_STAGE_SPANS).toBe(1_048_576);
   expect(MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER).toBe(4);
+  expect(MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES).toBe(512 * 1024);
+  expect(MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH).toBe(128);
+  // A re-signed header's request admits the widest header a document write
+  // signs: its citations at 67 serialized bytes each, with room to spare.
+  expect(
+    MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS * 67 + 32 * 1024,
+  ).toBeLessThan(MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES);
 });
 
 // The baseline digest and every signed header are rooted in the ids as
@@ -166,7 +176,15 @@ test("the stage operations own their HTTP contracts", () => {
   expect(operationRoutePath(stageDocumentBaselineSegmentOperation)).toBe(
     "/documents/:documentId/baseline-stages/:baselineId/segments/:segmentIndex",
   );
-  expect(stageDocumentBaselineSegmentOperation.failureStatuses).toContain(413);
+  // The two routes that take a body of the writer's size refuse one past
+  // their own limit.
+  for (const operation of [
+    stageDocumentBaselineSegmentOperation,
+    resignDocumentBaselineSegmentHeaderOperation,
+  ]) {
+    expect(operation.failureStatuses).toContain(413);
+  }
+  expect(openDocumentBaselineStageOperation.failureStatuses).not.toContain(413);
 });
 
 test("a staged segment's index is every index but the final one's", () => {
@@ -271,6 +289,29 @@ test("a stage's refusals are exact codes, and a commit carries them beside its o
     limitReached: "document_baseline_stage_limit_reached",
     tooLarge: "document_baseline_stage_too_large",
   });
+  // A limit refusal names the caller's open stages, as many as one user may
+  // hold and no more.
+  const openStage = {
+    baselineId,
+    documentId,
+    expiresAt: "2026-01-01T00:00:00.000Z",
+  };
+  const limit = (openStages: unknown) =>
+    conflict({
+      code: DOCUMENT_BASELINE_STAGE_ERROR_CODES.limitReached,
+      error: "too many",
+      openStages,
+    });
+  expect(
+    limit(Array(MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER).fill(openStage)),
+  ).toBe(true);
+  expect(
+    limit(
+      Array(MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER + 1).fill(openStage),
+    ),
+  ).toBe(false);
+  expect(limit([{ ...openStage, baselineId: "stage" }])).toBe(false);
+  expect(limit([{ baselineId, documentId }])).toBe(false);
   for (const code of [
     notFound,
     DOCUMENT_BASELINE_STAGE_ERROR_CODES.headersStale,

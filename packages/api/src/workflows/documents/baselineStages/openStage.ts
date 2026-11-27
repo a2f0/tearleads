@@ -11,7 +11,7 @@ import { startDocumentBaselineSegmentsDigest } from "@tearleads/crypto";
 import type { DocumentBaselineStageOpenRequest } from "@tearleads/validators/request";
 import type { DocumentBaselineStageStatusResponse } from "@tearleads/validators/response";
 import { MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER } from "@tearleads/validators/util";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import {
   getDocumentContentKeyBundle,
   getLatestDocumentContentKeyEpoch,
@@ -162,61 +162,101 @@ async function lockStageOwner(
 }
 
 /**
- * Make room for the stage the caller is opening, or return the stage it
- * already holds. Of the caller's stages, across every document:
+ * The caller's stages on other documents, locked: the live ones, which
+ * count against what one user may hold open. Its expired stages there are
+ * dead, and are deleted with what they staged.
  *
- * - the same stage, opened again, is returned as it stands and keeps what it
- *   staged;
- * - its earlier stage for this document is replaced, and its expired stages
- *   anywhere are dead, so both are deleted with what they staged;
- * - the live ones left, on other documents, count against what one user may
- *   hold open.
+ * This runs before the document's lifecycle lock is taken. A stage row here
+ * may be held by a long request of the caller's on another document, and an
+ * open that waited for it under the lifecycle lock would keep other users'
+ * opens and a purge of this document waiting too.
  */
-async function takeCallersStages(
+async function lockCallersStagesElsewhere(
   executor: DatabaseTransaction,
-  input: OpenDocumentBaselineStageInput & { readonly documentId: string },
+  input: OpenDocumentBaselineStageInput,
   now: Date,
-): Promise<DocumentBaselineStageRow | null> {
+): Promise<DocumentBaselineStageRow[]> {
   await lockStageOwner(executor, input.userId);
   const held = await executor
     .select()
     .from(documentBaselineStages)
-    .where(eq(documentBaselineStages.ownerUserId, input.userId))
+    .where(
+      and(
+        eq(documentBaselineStages.ownerUserId, input.userId),
+        ne(documentBaselineStages.documentId, input.documentId),
+      ),
+    )
     .for("update");
-  const { request } = input;
-  let live = 0;
+  const live: DocumentBaselineStageRow[] = [];
   for (const stage of held) {
-    const open =
-      judgeDocumentBaselineStage(stage, { now, userId: input.userId })
-        .status === "open";
-    if (stage.documentId !== input.documentId && open) {
-      live += 1;
-      continue;
-    }
     if (
-      open &&
-      stage.id === request.baselineId &&
-      stage.contentKeyEpoch === request.contentKeyEpoch &&
-      stage.contentKeyCommitment === request.contentKeyCommitment
+      judgeDocumentBaselineStage(stage, { now, userId: input.userId })
+        .status === "open"
     ) {
-      return stage;
+      live.push(stage);
+      continue;
     }
     await deleteDocumentBaselineStage(executor, {
       baselineId: stage.id,
       documentId: stage.documentId,
     });
   }
-  if (live >= MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER) {
-    throw documentBaselineStageLimitReached();
+  return live;
+}
+
+/**
+ * The caller's stage on this document, if it is the one being opened again:
+ * it is returned as it stands and keeps what it staged. Any other stage of
+ * the caller's here, an earlier baseline's or an expired one, is replaced,
+ * so it is deleted with what it staged.
+ */
+async function takeCallersStageHere(
+  executor: DatabaseTransaction,
+  input: OpenDocumentBaselineStageInput & { readonly documentId: string },
+  now: Date,
+): Promise<DocumentBaselineStageRow | null> {
+  const [stage] = await executor
+    .select()
+    .from(documentBaselineStages)
+    .where(
+      and(
+        eq(documentBaselineStages.ownerUserId, input.userId),
+        eq(documentBaselineStages.documentId, input.documentId),
+      ),
+    )
+    .for("update");
+  if (!stage) return null;
+  const { request } = input;
+  if (
+    judgeDocumentBaselineStage(stage, { now, userId: input.userId }).status ===
+      "open" &&
+    stage.id === request.baselineId &&
+    stage.contentKeyEpoch === request.contentKeyEpoch &&
+    stage.contentKeyCommitment === request.contentKeyCommitment
+  ) {
+    return stage;
   }
+  await deleteDocumentBaselineStage(executor, {
+    baselineId: stage.id,
+    documentId: stage.documentId,
+  });
   return null;
 }
 
+/**
+ * Locks are taken in one order, so no two requests wait on each other: the
+ * caller's own lock, its stage rows on other documents, this document's
+ * lifecycle lock, then its stage row here. A purge takes the lifecycle lock
+ * and then the document's stage rows, none of which an open holds before
+ * the lifecycle lock; a commit and a stage write take one stage row and
+ * nothing an open waits for.
+ */
 async function openDocumentBaselineStageInTransaction(
   executor: DatabaseTransaction,
   input: OpenDocumentBaselineStageInput,
 ): Promise<DocumentBaselineStageStatusResponse> {
   const now = input.now ?? new Date();
+  const elsewhere = await lockCallersStagesElsewhere(executor, input, now);
   // A purge of the document holds this lock from before it deletes the
   // document's stages until it commits, so an open runs wholly before a
   // purge, which then deletes its stage, or wholly after, and finds no
@@ -229,8 +269,21 @@ async function openDocumentBaselineStageInTransaction(
     userId: input.userId,
   });
   await assertStageEpochCanCommit(executor, documentId, input.request);
-  const held = await takeCallersStages(executor, { ...input, documentId }, now);
+  const held = await takeCallersStageHere(
+    executor,
+    { ...input, documentId },
+    now,
+  );
   if (held) return documentBaselineStageStatus(held);
+  if (elsewhere.length >= MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER) {
+    throw documentBaselineStageLimitReached(
+      elsewhere.map((stage) => ({
+        baselineId: stage.id,
+        documentId: stage.documentId,
+        expiresAt: stage.expiresAt.toISOString(),
+      })),
+    );
+  }
 
   const key = { baselineId: input.request.baselineId, documentId };
   await assertBaselineIdFree(executor, key);

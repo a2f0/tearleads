@@ -4,15 +4,20 @@ import {
   db,
   withDatabaseStatementCounter,
 } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
+import {
+  documentUpdateSpans,
+  documentUpdates,
+} from "@tearleads/api-shared/schema";
 import { encodeVersionVectorCounters } from "@tearleads/loro";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { baselineSegmentRanges } from "../../test/helpers/documentBaselineGroups";
 import { insertStoredBaselineGroup } from "../../test/helpers/storedBaselineGroup";
 import {
   findLatestWholeStoredBaselineGroup,
   loadLatestStoredDocumentBaselineGroup,
   MAX_LATEST_BASELINE_GROUP_CANDIDATES,
+  readStoredBaselineGroupCoverage,
 } from "./documentStoredBaselineGroup";
 import { resolveBaselineRedirectAfterSequence } from "./documentSyncBaselineRedirect";
 
@@ -140,4 +145,79 @@ test("the search for a whole baseline stops after a fixed number of groups", asy
     .where(inArray(documentUpdates.id, firstSegments([withinReach])));
   expect(await whole()).toBeNull();
   expect(oldest.updateIds).toHaveLength(2);
+});
+
+// A group may hold a million spans, and its coverage is read on a cold
+// reader's first page. The statement gives one row a peer from one
+// aggregate: nothing in it orders the group's spans.
+test("a group's coverage is one aggregate a peer, with no sort of its spans", async () => {
+  const documentId = randomUUID();
+  const group = await insertStoredBaselineGroup({
+    contentKeyEpoch: 2,
+    documentId,
+    ranges: baselineSegmentRanges(COVERAGE, 3),
+  });
+  const statements: string[] = [];
+  const recording = new Proxy(db, {
+    get(target, key, receiver) {
+      if (key === "execute")
+        return (query: Parameters<typeof db.execute>[0]) => {
+          if (typeof query !== "string")
+            statements.push(new PgDialect().sqlToQuery(query.getSQL()).sql);
+          return target.execute(query);
+        };
+      const value = Reflect.get(target, key, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  const coverage = () =>
+    readStoredBaselineGroupCoverage(recording, {
+      baselineId: group.baselineId,
+      documentId,
+    });
+  expect(await coverage()).toBe(COVERAGE);
+  expect(statements).toHaveLength(1);
+  const [statement] = statements;
+  expect(statement).toContain("group by");
+  for (const sorting of [" over ", "lag(", "order by", "row_number"]) {
+    expect([sorting, statement?.includes(sorting)]).toEqual([sorting, false]);
+  }
+
+  // What the aggregate must still tell: a peer's spans that lost their
+  // first or a middle one cover nothing, and ones that lost their last
+  // cover what is left.
+  const [first, middle, last] = group.updateIds;
+  const spanOf = (updateId: string | undefined) =>
+    and(
+      eq(documentUpdateSpans.documentId, documentId),
+      eq(documentUpdateSpans.updateId, updateId ?? ""),
+    );
+  const without = async (updateId: string | undefined) => {
+    const rows = await db
+      .delete(documentUpdateSpans)
+      .where(spanOf(updateId))
+      .returning();
+    expect(rows).toHaveLength(1);
+    const read = await coverage();
+    await db.insert(documentUpdateSpans).values(rows);
+    return read;
+  };
+  expect(await without(first)).toBeNull();
+  expect(await without(middle)).toBeNull();
+  expect(await without(last)).toBe(encodeVersionVectorCounters({ "7": 4 }));
+  expect(await coverage()).toBe(COVERAGE);
+
+  // Spans that add up to where they end and do not start at zero: no commit
+  // stores such a run, and it covers nothing.
+  const startAt = (updateId: string | undefined, startCounter: number) =>
+    db
+      .update(documentUpdateSpans)
+      .set({ startCounter })
+      .where(spanOf(updateId));
+  await startAt(first, 1);
+  await startAt(middle, 1);
+  expect(await coverage()).toBeNull();
+  await startAt(first, 0);
+  await startAt(middle, 2);
+  expect(await coverage()).toBe(COVERAGE);
 });

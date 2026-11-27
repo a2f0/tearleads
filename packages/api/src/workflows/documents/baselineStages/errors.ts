@@ -8,6 +8,13 @@ import { toMutationError } from "../mutations/errors";
 
 type DocumentBaselineStageRefusalStatus = 400 | 403 | 409 | 503;
 
+/** One of a caller's open stages, as a `limit_reached` refusal names it. */
+export interface DocumentBaselineOpenStage {
+  readonly baselineId: string;
+  readonly documentId: string;
+  readonly expiresAt: string;
+}
+
 /**
  * A refused stage request, with the code its response carries, if any. The
  * codes are the ones a stage route's 409 may carry: a missing stage is the
@@ -20,6 +27,8 @@ export class DocumentBaselineStageError extends Error {
     readonly code?: DocumentBaselineStageConflictCode | undefined,
     /** With `segment_out_of_order`: the index the stage expects next. */
     readonly nextSegmentIndex?: number | undefined,
+    /** With `limit_reached`: the caller's open stages on other documents. */
+    readonly openStages?: readonly DocumentBaselineOpenStage[] | undefined,
   ) {
     super(message);
     this.name = "DocumentBaselineStageError";
@@ -65,11 +74,20 @@ export function documentBaselineStageIdConflict(): DocumentBaselineStageError {
   );
 }
 
-/** The caller holds as many open stages as one user may. */
-export function documentBaselineStageLimitReached(): DocumentBaselineStageError {
-  return stageConflict(
+/**
+ * The caller holds as many open stages as one user may. The refusal names
+ * them: a writer that lost track of a stage has no other way to learn its
+ * id, and would wait out its expiry. They are the caller's own.
+ */
+export function documentBaselineStageLimitReached(
+  openStages: readonly DocumentBaselineOpenStage[],
+): DocumentBaselineStageError {
+  return new DocumentBaselineStageError(
     "Too many open document baseline stages",
+    409,
     DOCUMENT_BASELINE_STAGE_ERROR_CODES.limitReached,
+    undefined,
+    openStages,
   );
 }
 
