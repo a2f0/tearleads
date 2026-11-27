@@ -62,9 +62,7 @@ function completeSQLiteRuntimeBoot(params: {
 }) {
   const { runtime, runtimeRef, bootingRef, tearleads, dbName, log } = params;
 
-  if (runtimeRef.current !== runtime) {
-    return;
-  }
+  if (runtimeRef.current !== runtime) return;
 
   bootingRef.current = false;
   configureSdkSQLiteRuntime(tearleads, runtime);
@@ -83,9 +81,7 @@ function failSQLiteRuntimeBoot(params: {
   const { runtime, runtimeRef, bootingRef, tearleads, logError, error } =
     params;
 
-  if (runtimeRef.current !== runtime) {
-    return;
-  }
+  if (runtimeRef.current !== runtime) return;
 
   bootingRef.current = false;
   logError("Failed to initialize database worker", error);
@@ -125,6 +121,8 @@ interface StartSQLiteRuntimeBootParams {
   onTransientBootFailure?: (dbName: string) => boolean;
   /** Invoked when the boot succeeds, so recovery can reset its re-spawn budget. */
   onBootSucceeded?: (dbName: string) => void;
+  /** Surfaces a visible retrying state while another tab holds the database. */
+  onWaitingForAnotherTab?: (waiting: boolean) => void;
   persistence: DatabasePersistenceMode;
   resolveCipherKey: ResolveSqliteCipherKey;
   runtimeRef: RefObject<SQLiteRuntime | null>;
@@ -274,6 +272,26 @@ function settleSQLiteRuntimeBoot(params: SettleSQLiteRuntimeBootParams) {
     .catch((error) => handleSQLiteRuntimeBootFailure(params, error));
 }
 
+function bootContentionOptions(
+  params: Pick<
+    StartSQLiteRuntimeBootParams,
+    "bootGenerationRef" | "onWaitingForAnotherTab" | "runtimeRef"
+  >,
+  runtime: SQLiteRuntime,
+  bootGeneration: number,
+) {
+  const isCurrent = () =>
+    params.runtimeRef.current === runtime &&
+    params.bootGenerationRef.current === bootGeneration;
+  params.onWaitingForAnotherTab?.(false);
+  return {
+    isCurrent,
+    onWaitingForAnotherTab: (waiting: boolean) => {
+      if (isCurrent()) params.onWaitingForAnotherTab?.(waiting);
+    },
+  };
+}
+
 function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
   const {
     bootGenerationRef,
@@ -311,8 +329,11 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
       }
     });
 
+    const bootGeneration = bootGenerationRef.current;
+    const bootOptions = bootContentionOptions(params, runtime, bootGeneration);
+
     settleSQLiteRuntimeBoot({
-      bootGeneration: bootGenerationRef.current,
+      bootGeneration,
       bootGenerationRef,
       bootPromise: bootSQLiteRuntime(
         runtime,
@@ -320,6 +341,7 @@ function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
         persistence,
         resolveCipherKey,
         log,
+        bootOptions,
       ),
       runtime,
       runtimeRef,
@@ -374,30 +396,34 @@ function bootReusableSQLiteRuntimeForDbName(
   // Detach the outgoing client while retaining the worker privately for reuse.
   tearleads.database.clear("idle");
 
+  const bootGeneration = bootGenerationRef.current;
+  const bootOptions = bootContentionOptions(
+    params,
+    existingRuntime,
+    bootGeneration,
+  );
+
   const bootPromise = (async () => {
     if (resetDatabase) {
       // Never proceed after a rejected or timed-out close: that could leave the
       // decrypted outgoing database open beside the replacement connection.
       await resetSQLiteRuntimeDatabase(existingRuntime, "close");
-      if (runtimeRef.current !== existingRuntime) {
-        return;
-      }
+      if (!bootOptions.isCurrent()) return;
       renewReusableSQLiteRuntime(existingRuntime);
     }
-    if (runtimeRef.current !== existingRuntime) {
-      return;
-    }
+    if (!bootOptions.isCurrent()) return;
     await bootSQLiteRuntime(
       existingRuntime,
       nextDbName,
       persistence,
       resolveCipherKey,
       log,
+      bootOptions,
     );
   })();
 
   settleSQLiteRuntimeBoot({
-    bootGeneration: bootGenerationRef.current,
+    bootGeneration,
     bootGenerationRef,
     bootPromise,
     runtime: existingRuntime,

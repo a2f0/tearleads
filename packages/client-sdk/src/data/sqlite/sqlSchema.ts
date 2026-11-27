@@ -1,7 +1,11 @@
 export {
   assertRestorableLocalSchemaLedger,
   ensureLocalSchemaMigrated,
+  isLocalSchemaMigrationLockTimeoutError,
+  LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MESSAGE,
+  LOCAL_SCHEMA_MIGRATION_LOCK_TIMEOUT_MS,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
+  LocalSchemaMigrationLockTimeoutError,
   migrateLocalSchema,
   withLocalSchemaMigrationLock,
 } from "./migrations/migrateLocalSchema";

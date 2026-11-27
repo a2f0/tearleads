@@ -14,8 +14,11 @@ import {
 import {
   assertRestorableLocalSchemaLedger,
   ensureLocalSchemaMigrated,
+  isLocalSchemaMigrationLockTimeoutError,
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
+  LocalSchemaMigrationLockTimeoutError,
   migrateLocalSchema,
+  withLocalSchemaMigrationLock,
 } from "./migrateLocalSchema";
 
 type TestExecSql = Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
@@ -193,26 +196,86 @@ for (const legacy of [false, true]) {
     }));
 }
 
-// A FIFO stand-in for the browser's Web Locks, which Bun lacks.
+// A FIFO stand-in for the browser's Web Locks (including AbortSignal), which
+// Bun lacks.
 function installWebLocks(): () => void {
-  const tails = new Map<string, Promise<void>>();
-  const locks = {
-    request: async (name: string, callback: () => Promise<unknown>) => {
-      const previous = tails.get(name) ?? Promise.resolve();
-      let release = () => {};
-      const current = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      tails.set(
-        name,
-        previous.then(() => current),
-      );
-      await previous;
-      try {
-        return await callback();
-      } finally {
-        release();
+  const queues = new Map<
+    string,
+    Array<{
+      readonly callback: () => Promise<unknown>;
+      readonly reject: (reason?: unknown) => void;
+      readonly resolve: (value: unknown) => void;
+      readonly signal?: AbortSignal | undefined;
+    }>
+  >();
+  const held = new Set<string>();
+  const pump = (name: string) => {
+    if (held.has(name)) return;
+    const queue = queues.get(name);
+    while (queue && queue.length > 0) {
+      const next = queue.shift();
+      if (!next) return;
+      if (next.signal?.aborted) {
+        next.reject(
+          next.signal.reason ?? new DOMException("Aborted", "AbortError"),
+        );
+        continue;
       }
+      held.add(name);
+      void Promise.resolve()
+        .then(next.callback)
+        .then(next.resolve, next.reject)
+        .finally(() => {
+          held.delete(name);
+          pump(name);
+        });
+      return;
+    }
+  };
+  const locks = {
+    request: (
+      name: string,
+      optionsOrCallback:
+        | (() => Promise<unknown>)
+        | { readonly signal?: AbortSignal },
+      maybeCallback?: () => Promise<unknown>,
+    ) => {
+      const callback =
+        typeof optionsOrCallback === "function"
+          ? optionsOrCallback
+          : maybeCallback;
+      const signal =
+        typeof optionsOrCallback === "function"
+          ? undefined
+          : optionsOrCallback.signal;
+      if (!callback) throw new Error("Missing Web Lock callback");
+      if (signal?.aborted) {
+        return Promise.reject(
+          signal.reason ?? new DOMException("Aborted", "AbortError"),
+        );
+      }
+      return new Promise((resolve, reject) => {
+        const entry = { callback, reject, resolve, signal };
+        const queue = queues.get(name) ?? [];
+        queue.push(entry);
+        queues.set(name, queue);
+        if (signal) {
+          signal.addEventListener(
+            "abort",
+            () => {
+              const index = queue.indexOf(entry);
+              if (index !== -1) {
+                queue.splice(index, 1);
+                reject(
+                  signal.reason ?? new DOMException("Aborted", "AbortError"),
+                );
+              }
+            },
+            { once: true },
+          );
+        }
+        pump(name);
+      });
     },
   };
   Object.defineProperty(navigator, "locks", {
@@ -379,4 +442,54 @@ test("assertRestorableLocalSchemaLedger admits older and missing ledgers only", 
       { applied_at: 0, name: "other", version: 1 },
     ]),
   ).toThrow("Local database schema history does not match this app");
+});
+
+test("a migration check stops waiting past its Web Lock bound when another tab holds the lock", async () => {
+  const uninstall = installWebLocks();
+  let releaseHolder = () => {};
+  const holderReleased = new Promise<void>((resolve) => {
+    releaseHolder = resolve;
+  });
+  let signalHolderAcquired = () => {};
+  const holderAcquired = new Promise<void>((resolve) => {
+    signalHolderAcquired = resolve;
+  });
+  let holder: Promise<void> = Promise.resolve();
+  try {
+    await withDatabase("local-schema-lock-timeout", async (execSql) => {
+      holder = withLocalSchemaMigrationLock(async () => {
+        signalHolderAcquired();
+        await holderReleased;
+      });
+      await holderAcquired;
+
+      const startedAt = Date.now();
+      const failure = await ensureLocalSchemaMigrated(execSql, async () => {}, {
+        lockWaitTimeoutMs: 50,
+      }).then(
+        () => null,
+        (error: unknown) => error,
+      );
+      expect(Date.now() - startedAt).toBeLessThan(1_000);
+      expect(failure).toBeInstanceOf(LocalSchemaMigrationLockTimeoutError);
+      expect(isLocalSchemaMigrationLockTimeoutError(failure)).toBe(true);
+      expect(
+        isLocalSchemaMigrationLockTimeoutError(
+          new Error("wrapped", { cause: failure }),
+        ),
+      ).toBe(true);
+
+      releaseHolder();
+      await holder;
+
+      await ensureLocalSchemaMigrated(execSql, async () => {}, {
+        lockWaitTimeoutMs: 50,
+      });
+      expect(await ledger(execSql)).toEqual(CURRENT_LEDGER);
+    });
+  } finally {
+    releaseHolder();
+    await holder.catch(() => undefined);
+    uninstall();
+  }
 });
