@@ -39,9 +39,30 @@ export async function discoverCanaries(root = appRoot): Promise<Canary[]> {
     throw new Error(
       `No request-volume canaries under ${resolve(root, "src")}: no test calls ${profileCalls.join(" or ")}`,
     );
+  refuseDuplicateNames(canaries);
   return canaries.sort((a, b) =>
     a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
   );
+}
+
+/**
+ * Logs and report phases are keyed by name, so two files with one base
+ * name would overwrite each other's logs and pool their phases.
+ */
+function refuseDuplicateNames(canaries: readonly Canary[]): void {
+  const files = new Map<string, string[]>();
+  for (const canary of canaries) {
+    const list = files.get(canary.name);
+    if (list) list.push(canary.file);
+    else files.set(canary.name, [canary.file]);
+  }
+  const duplicates = [...files].filter(([, list]) => list.length > 1);
+  if (duplicates.length > 0)
+    throw new Error(
+      `Canaries are named by file, so each needs its own file name: ${duplicates
+        .map(([name, list]) => `${name} (${list.sort().join(", ")})`)
+        .join("; ")}.`,
+    );
 }
 
 /**

@@ -47,9 +47,15 @@ test("compares exactly two reports and runs nothing", () => {
   expect(() =>
     parseCanaryOptions(["--compare", "a.json", "b.json", "c.json"]),
   ).toThrow(/two/);
-  expect(() =>
-    parseCanaryOptions(["--compare", "--canary", "x", "a.json", "b.json"]),
-  ).toThrow(/runs no canaries/);
+  for (const flag of [
+    ["--canary", "x"],
+    ["--samples", "2"],
+    ["--baseline", "c.json"],
+    ["--statements"],
+  ])
+    expect(() =>
+      parseCanaryOptions(["--compare", ...flag, "a.json", "b.json"]),
+    ).toThrow(/runs no canaries/);
 });
 
 test("rejects stray arguments and out-of-range samples", () => {

@@ -148,11 +148,11 @@ export function summarizeCapture(
     (statement) => statement.paramHash !== undefined,
   );
   const byLabel = new Map<string, StatementRecord[]>();
-  for (const statement of statements)
-    byLabel.set(statement.label, [
-      ...(byLabel.get(statement.label) ?? []),
-      statement,
-    ]);
+  for (const statement of statements) {
+    const list = byLabel.get(statement.label);
+    if (list) list.push(statement);
+    else byLabel.set(statement.label, [statement]);
+  }
   return {
     statements: statements.length,
     truncated,
