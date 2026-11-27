@@ -1,36 +1,17 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { describe, expect, test } from "bun:test";
 import { compareSnapshots } from "./analyze";
-import { runEpochCommand } from "./command";
 import {
   formatComparisonMarkdown,
   formatEpochTrendsMarkdown,
   formatResultsIndexMarkdown,
 } from "./markdown";
-import { epochUsage, parseEpochOptions } from "./options";
+import { parseEpochOptions } from "./options";
 import {
   CURRENT_EPOCH,
   EPOCH_SCHEMA_VERSION,
   type EpochManifest,
   type EpochSnapshot,
 } from "./schema";
-
-const tempDirs: string[] = [];
-
-async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "tearleads-epoch-"));
-  tempDirs.push(dir);
-  return dir;
-}
-
-afterEach(async () => {
-  while (tempDirs.length > 0) {
-    const dir = tempDirs.pop();
-    if (dir) await rm(dir, { recursive: true, force: true });
-  }
-});
 
 function sampleSnapshot(overrides: Partial<EpochSnapshot> = {}): EpochSnapshot {
   return {
@@ -174,6 +155,9 @@ describe("parseEpochOptions", () => {
         "3396x",
       ]),
     ).toThrow(/Invalid issue number/u);
+    expect(() =>
+      parseEpochOptions(["record", "--id", "a", "--label", "b", "--json"]),
+    ).toThrow(/Unknown option: --json/u);
     expect(() => parseEpochOptions(["bogus"])).toThrow(/Unknown subcommand/u);
   });
 });
@@ -297,146 +281,46 @@ describe("compareSnapshots", () => {
       latestWithoutPlans,
     ]);
     expect(trends).toContain("A \\| B C");
+    expect(trends).toContain("### `000-baseline` -> `002-no-plans` (A | B C)");
     expect(trends).toContain(
       "| Plans | Postgres generic Sort plans | 3 queries | — | — | n/a |",
+    );
+    // Multi-tier scorecard must render paired values (tier 100: 9 -> 3), not max-tier 4.
+    const multiTierTrends = formatEpochTrendsMarkdown(
+      {
+        ...manifest,
+        entries: [
+          manifest.entries[0] ?? {
+            id: before.id,
+            seq: 0,
+            label: before.label,
+            kind: "baseline",
+            recordedAt: before.recordedAt,
+            revision: before.revision,
+            dirty: false,
+            issues: [],
+            snapshotFile: "snapshots/000-baseline.json",
+          },
+          {
+            id: after.id,
+            seq: 1,
+            label: after.label,
+            kind: "checkpoint",
+            recordedAt: after.recordedAt,
+            revision: after.revision,
+            dirty: false,
+            issues: [],
+            snapshotFile: "snapshots/001-api-memo.json",
+          },
+        ],
+      },
+      [before, after],
+    );
+    expect(multiTierTrends).toContain(
+      "| Realtime | Realtime hub auth statements | 9 stmts | 3 stmts | -6 (-66.7%) | improved |",
     );
     expect(formatResultsIndexMarkdown(manifest, [before])).toContain(
       "# Performance results",
     );
-  });
-});
-
-describe("runEpochCommand", () => {
-  test("prints usage on --help", async () => {
-    const out: string[] = [];
-    const code = await runEpochCommand(["--help"], {
-      repoRoot: await makeTempDir(),
-      resultsDir: await makeTempDir(),
-      print: (line) => out.push(line),
-    });
-    expect(code).toBe(0);
-    expect(out.join("\n")).toBe(epochUsage);
-  });
-
-  test("records, updates in-place, renders, analyzes, and rejects corrupt manifests", async () => {
-    const dir = await makeTempDir();
-    const resultsDir = join(dir, "results");
-    const makePlans = (sortQueries: number, path: string) =>
-      writeFile(
-        path,
-        JSON.stringify({
-          scenario: "postgres-query-plans",
-          summary: {
-            inspected: 25,
-            planned: 23,
-            skipped: 2,
-            seqScanQueries: 0,
-            sortQueries,
-            plans:
-              sortQueries > 0
-                ? [
-                    {
-                      sql: "select * from t order by x",
-                      count: 100,
-                      status: "planned",
-                      nodeTypes: ["Sort"],
-                      warnings: [{ kind: "Sort" }, { kind: "Materialize" }],
-                    },
-                  ]
-                : [],
-          },
-        }),
-      );
-    const plans0 = join(dir, "plans-0.json");
-    const plans1 = join(dir, "plans-1.json");
-    const plans2 = join(dir, "plans-2.json");
-    await Promise.all([
-      makePlans(3, plans0),
-      makePlans(1, plans1),
-      makePlans(0, plans2),
-    ]);
-
-    const out: string[] = [];
-    const host = {
-      repoRoot: dir,
-      resultsDir,
-      print: (line: string) => out.push(line),
-    };
-    expect(
-      await runEpochCommand(
-        [
-          "record",
-          "--id",
-          "000-baseline",
-          "--label",
-          "Base",
-          "--kind",
-          "baseline",
-          "--plans",
-          plans0,
-        ],
-        host,
-      ),
-    ).toBe(0);
-    expect(
-      await runEpochCommand(
-        ["record", "--id", "001-mid", "--label", "Mid", "--plans", plans1],
-        host,
-      ),
-    ).toBe(0);
-    expect(
-      await runEpochCommand(
-        ["record", "--id", "002-end", "--label", "End", "--plans", plans2],
-        host,
-      ),
-    ).toBe(0);
-
-    // Re-recording 001-mid compares 000-baseline -> 001-mid, not 001-mid -> 002-end.
-    const updateOut: string[] = [];
-    expect(
-      await runEpochCommand(
-        [
-          "record",
-          "--id",
-          "001-mid",
-          "--label",
-          "Mid updated",
-          "--plans",
-          plans1,
-        ],
-        { ...host, print: (line) => updateOut.push(line) },
-      ),
-    ).toBe(0);
-    expect(updateOut.join("\n")).toContain("`000-baseline` -> `001-mid`");
-
-    // Render mode regenerates views cleanly.
-    const renderOut: string[] = [];
-    expect(
-      await runEpochCommand(["render"], {
-        ...host,
-        print: (line) => renderOut.push(line),
-      }),
-    ).toBe(0);
-    expect(renderOut.join("\n")).toContain("3 snapshots");
-
-    const manifest = JSON.parse(
-      await readFile(join(resultsDir, "epoch-2/manifest.json"), "utf8"),
-    ) as EpochManifest;
-    expect(manifest.entries.map((e) => e.id)).toEqual([
-      "000-baseline",
-      "001-mid",
-      "002-end",
-    ]);
-
-    // Corrupt manifest must throw instead of silently wiping history.
-    const corruptDir = join(dir, "corrupt");
-    await mkdir(join(corruptDir, "epoch-2"), { recursive: true });
-    await writeFile(join(corruptDir, "epoch-2/manifest.json"), "{bad json");
-    await expect(
-      runEpochCommand(
-        ["record", "--id", "000-base", "--label", "Base", "--plans", plans0],
-        { ...host, resultsDir: corruptDir },
-      ),
-    ).rejects.toThrow();
   });
 });

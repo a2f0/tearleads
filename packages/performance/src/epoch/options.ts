@@ -203,6 +203,15 @@ function requireIdAndLabel(strings: ReadonlyMap<string, string>) {
   return { id, label };
 }
 
+function isRecordFlag(arg: string): boolean {
+  return (
+    recordStringFlags.has(arg) ||
+    arg === "--kind" ||
+    arg === "--pr" ||
+    arg === "--issues"
+  );
+}
+
 function parseRecordOptions(
   rest: readonly string[],
 ): Extract<EpochOptions, { mode: "record" }> {
@@ -213,12 +222,12 @@ function parseRecordOptions(
 
   for (let i = 0; i < rest.length; i += 2) {
     const arg = rest[i] ?? "";
+    if (!isRecordFlag(arg)) throw new Error(`Unknown option: ${arg}`);
     const value = nextValue(rest, i, arg);
     if (recordStringFlags.has(arg)) strings.set(arg, value);
     else if (arg === "--kind") kind = parseKind(value);
     else if (arg === "--pr") pr = parsePositiveInt(value, arg);
     else if (arg === "--issues") issues.push(...parseIssueList(value));
-    else throw new Error(`Unknown option: ${arg}`);
   }
 
   return {

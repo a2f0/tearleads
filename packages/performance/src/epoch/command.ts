@@ -95,6 +95,30 @@ async function loadManifest(resultsDir: string): Promise<EpochManifest> {
   return parsed;
 }
 
+function assertEpochSnapshot(
+  value: unknown,
+  path: string,
+): asserts value is EpochSnapshot {
+  if (typeof value !== "object" || value === null) {
+    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} snapshot.`);
+  }
+  const kind = Reflect.get(value, "kind");
+  const runtime = Reflect.get(value, "runtime");
+  if (
+    Reflect.get(value, "schemaVersion") !== EPOCH_SCHEMA_VERSION ||
+    Reflect.get(value, "epoch") !== CURRENT_EPOCH ||
+    typeof Reflect.get(value, "id") !== "string" ||
+    typeof Reflect.get(value, "label") !== "string" ||
+    typeof Reflect.get(value, "revision") !== "string" ||
+    (kind !== "baseline" && kind !== "checkpoint" && kind !== "final") ||
+    !Array.isArray(Reflect.get(value, "issues")) ||
+    typeof runtime !== "object" ||
+    runtime === null
+  ) {
+    throw new Error(`${path} is not a valid Epoch ${CURRENT_EPOCH} snapshot.`);
+  }
+}
+
 async function loadAllSnapshots(
   resultsDir: string,
   manifest: EpochManifest,
@@ -102,8 +126,10 @@ async function loadAllSnapshots(
   const dir = epochDir(resultsDir);
   return Promise.all(
     manifest.entries.map(async (entry) => {
-      const content = await readFile(join(dir, entry.snapshotFile), "utf8");
-      return JSON.parse(content) as EpochSnapshot;
+      const path = join(dir, entry.snapshotFile);
+      const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
+      assertEpochSnapshot(parsed, path);
+      return parsed;
     }),
   );
 }

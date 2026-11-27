@@ -128,15 +128,15 @@ function renderScorecardRows(
   );
   const rows: string[][] = [];
   for (const descriptor of epochMetricDescriptors) {
-    const baseVal = descriptor.pick(baseline);
-    const latestVal = descriptor.pick(latest);
+    const item = deltaByKey.get(descriptor.key);
+    const baseVal = item ? item.before : descriptor.pick(baseline);
+    const latestVal = item ? item.after : descriptor.pick(latest);
     if (
       (baseVal === undefined || baseVal === null) &&
       (latestVal === undefined || latestVal === null)
     ) {
       continue;
     }
-    const item = deltaByKey.get(descriptor.key);
     rows.push([
       descriptor.dimension,
       descriptor.label,
@@ -194,9 +194,10 @@ function renderStepComparisons(snapshots: readonly EpochSnapshot[]): string[] {
     const after = snapshots[index];
     if (!before || !after) continue;
     const diff = compareSnapshots(before, after);
+    const headingLabel = after.label.replace(/\s*\r?\n\s*/gu, " ").trim();
     lines.push(
       "",
-      `### \`${before.id}\` -> \`${after.id}\` (${after.label})`,
+      `### \`${before.id}\` -> \`${after.id}\` (${headingLabel})`,
       "",
       ...wrapProse(
         `Revisions: \`${before.revision.slice(0, 9)}\` -> \`${after.revision.slice(0, 9)}\`. ` +

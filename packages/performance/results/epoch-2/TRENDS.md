@@ -20,6 +20,11 @@ across greenfield optimization PRs. Started 2026-11-27T22:34:02.103Z.
 | Schema | Client SQLite tables | 63 tables | 63 tables | — | baseline |
 | Schema | Unread 2xx OpenAPI fields | 3 fields | 3 fields | — | baseline |
 | Schema | Drifted canary ceilings | 14 phases | 14 phases | — | baseline |
+| Wire | Canary requests | 340 reqs | 340 reqs | — | baseline |
+| Wire | Canary request bytes | 1,609,389 B | 1,609,389 B | — | baseline |
+| Wire | Canary response bytes | 1,492,860 B | 1,492,860 B | — | baseline |
+| Wire | Canary redundant response bytes | 198,160 B | 198,160 B | — | baseline |
+| Wire | Exact-head policy re-reads | 42 reads | 42 reads | — | baseline |
 | API DB | Canary API SQL statements | 36,878 stmts | 36,878 stmts | — | baseline |
 | API DB | Canary API in-tx statements | 30,788 stmts | 30,788 stmts | — | baseline |
 | API DB | Canary API lock-hold statements | 22,227 stmts | 22,227 stmts | — | baseline |
@@ -47,7 +52,7 @@ across greenfield optimization PRs. Started 2026-11-27T22:34:02.103Z.
 
 | Canary | Reqs | Req B | Res B | Redundant B | Head Re-reads | API Stmts | Pure Repeats | Client SQL |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `DeviceFirstOfflineRequestVolume` | — | — | — | — | — | 1,557 | 180 | 5,294 |
+| `DeviceFirstOfflineRequestVolume` | 0 | 0 | 0 | 0 | 0 | 1,557 | 180 | 5,294 |
 | `DualPaneProvider.groupsRequestVolume` | 91 | 681,547 | 550,170 | 64,178 | 13 | 2,847 | 338 | 9,202 |
 | `DualPaneProvider.sharing` | 47 | 104,409 | 340,523 | 42,247 | 5 | 11,170 | 1,379 | 38,784 |
 | `ExplorerUploadRequestVolume` | 5 | 34,558 | 2,176 | 384 | 0 | 1,163 | 151 | 2,558 |

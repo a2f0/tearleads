@@ -237,10 +237,33 @@ function maxAllOrNull(values: readonly (number | null)[]): number | null {
   return Math.max(...values.map((value) => value ?? 0));
 }
 
-function extractPayloadFields(run: CanaryRun) {
+function isZeroRequestRun(run: CanaryRun): boolean {
+  return (
+    run.phases.length > 0 && run.phases.every((phase) => phase.total === 0)
+  );
+}
+
+function extractPayloadFields(run: CanaryRun, payloadAuditEnabled: boolean) {
   const payload =
     run.payloadAudit?.status === "captured" ? run.payloadAudit.summary : null;
   if (!payload) {
+    if (
+      payloadAuditEnabled &&
+      run.payloadAudit?.status === "missing" &&
+      isZeroRequestRun(run)
+    ) {
+      return {
+        requests: 0,
+        requestBytes: 0,
+        responseBytes: 0,
+        redundantBytes: 0,
+        echoBytes: 0,
+        redeliveredBytes: 0,
+        reDownloadedUploadBytes: 0,
+        exactHeadRereads: 0,
+        manifestCitations: 0,
+      };
+    }
     return {
       requests: null,
       requestBytes: null,
@@ -285,6 +308,7 @@ function extractClientFields(run: CanaryRun, txControls: number | null) {
 
 async function extractOneRun(
   run: CanaryRun,
+  payloadAuditEnabled: boolean,
   routeMap: Map<string, EpochApiRouteMetrics>,
   clientQueryMap: Map<string, { count: number; durationMs: number }>,
 ): Promise<RunExtraction> {
@@ -293,7 +317,7 @@ async function extractOneRun(
   if (stmtInfo) mergeRouteStats(routeMap, stmtInfo.summary.routes);
   mergeClientTopQueries(clientQueryMap, run);
 
-  const wire = extractPayloadFields(run);
+  const wire = extractPayloadFields(run, payloadAuditEnabled);
   const client = extractClientFields(run, txControls);
 
   return {
@@ -397,9 +421,12 @@ export async function extractCanariesMetrics(path: string): Promise<{
     string,
     { count: number; durationMs: number }
   >();
+  const payloadAuditEnabled = report.options.payloadAudit === true;
   const extracted: RunExtraction[] = [];
   for (const run of runs) {
-    extracted.push(await extractOneRun(run, routeMap, clientQueryMap));
+    extracted.push(
+      await extractOneRun(run, payloadAuditEnabled, routeMap, clientQueryMap),
+    );
   }
 
   const topApiRoutes = [...routeMap.values()]

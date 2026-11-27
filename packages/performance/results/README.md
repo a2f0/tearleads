@@ -33,6 +33,11 @@ Baseline `53819b364` -> Latest `53819b364` (1 checkpoint recorded).
 | Schema | Client SQLite tables | 63 tables | 63 tables | — | baseline |
 | Schema | Unread 2xx OpenAPI fields | 3 fields | 3 fields | — | baseline |
 | Schema | Drifted canary ceilings | 14 phases | 14 phases | — | baseline |
+| Wire | Canary requests | 340 reqs | 340 reqs | — | baseline |
+| Wire | Canary request bytes | 1,609,389 B | 1,609,389 B | — | baseline |
+| Wire | Canary response bytes | 1,492,860 B | 1,492,860 B | — | baseline |
+| Wire | Canary redundant response bytes | 198,160 B | 198,160 B | — | baseline |
+| Wire | Exact-head policy re-reads | 42 reads | 42 reads | — | baseline |
 | API DB | Canary API SQL statements | 36,878 stmts | 36,878 stmts | — | baseline |
 | API DB | Canary API in-tx statements | 30,788 stmts | 30,788 stmts | — | baseline |
 | API DB | Canary API lock-hold statements | 22,227 stmts | 22,227 stmts | — | baseline |
