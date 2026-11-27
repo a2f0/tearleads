@@ -83,6 +83,7 @@ async function submitPlannedSyncAttempt(args: {
       settleBaselineCommit: (outcome) =>
         settleSyncBaselineCommit({
           apiClient: args.sync.apiClient,
+          attempt: args.materializedPlan.baselineStageAttempt,
           baselineStageId: args.materializedPlan.plan.request.baselineStageId,
           documentId: args.sync.documentId,
           execSql: args.sync.execSql,

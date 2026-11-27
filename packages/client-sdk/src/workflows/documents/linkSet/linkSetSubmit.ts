@@ -2,9 +2,11 @@ import type { AccessEvent } from "@tearleads/crypto";
 import type { HistorySegmentSizes } from "@tearleads/loro";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type {
+  ContainerWriterProjectionResponse,
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { verifiedDocumentWrapTargets } from "../../../data/documents/shared/projection";
 import type {
   DocumentCreateAuthor,
   DocumentLinkSetMutationApi,
@@ -13,12 +15,14 @@ import type {
 } from "../../../data/documents/shared/types";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { isDocumentRotationBaselineStageError } from "../baselineStage/rotationBaselineErrors";
-import { heldStagedBaselinePlan } from "../baselineStage/rotationBaselineWriter";
+import { reusableStagedBaselinePlan } from "../baselineStage/rotationBaselineWriter";
+import type { RotationKeyTarget } from "../baselineStage/stagedBaselineUploads";
 import {
   completeLinkSetMutationRequest,
   settleUnlinkBaselineCommit,
 } from "../rotationBaseline";
 import type { DocumentSyncTraceEmitter } from "../sync/syncTrace";
+import { deriveDocumentLinkSetTargetState } from "./index";
 import type { LinkSetSubmitFailure } from "./linkSetLegMachine";
 
 /** What a link-set leg needs to plan, complete and submit its request. */
@@ -48,22 +52,60 @@ export interface FixedLinkSetPlan {
 }
 
 /**
+ * The targets an unlink wraps its rotated key for, derived as its plan
+ * derives them: the remaining linked containers, each at its verified
+ * current key epoch. Null when the projections do not give them; the plan
+ * then fails on the same projections and says why.
+ */
+function unlinkKeyTargets(
+  writerProjection: DocumentWriterProjectionResponse,
+  targetContainerProjection: ContainerWriterProjectionResponse,
+): RotationKeyTarget[] | null {
+  try {
+    const { linkedContainerIds, targets } = deriveDocumentLinkSetTargetState({
+      operation: "unlink",
+      targetContainerProjection,
+      writerProjection,
+    });
+    return verifiedDocumentWrapTargets({
+      linkedContainerIds,
+      serverTargets: targets,
+      writerProjection,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The key, event and signed time this leg plans with. An unlink whose
  * baseline is part way through a stage plans as the upload did: the same
  * key, which the stage's segments are encrypted under, and the same signed
- * event, so the manifest it writes is the one the staged headers name. Any
- * other leg plans afresh.
+ * event, so the manifest it writes is the one the staged headers name.
+ *
+ * It does so only where the key goes nowhere it has not been
+ * (`reusableStagedBaselinePlan`). An upload a heal began carries a key
+ * wrapped for every linked container, the one this unlink removes among
+ * them; an unlink of another container carries one wrapped for this one.
+ * Neither key is fresh to the container being removed, so the leg plans a
+ * new key and event, and the writer deletes the stage. Any other leg plans
+ * afresh.
  */
 export function fixedLinkSetPlan(
   input: LinkSetSubmitInput,
   writerProjection: DocumentWriterProjectionResponse,
+  targetContainerProjection: ContainerWriterProjectionResponse,
 ): FixedLinkSetPlan {
-  const unlink = input.operation === "unlink";
-  const held = unlink
-    ? heldStagedBaselinePlan(
+  const keyTargets =
+    input.operation === "unlink"
+      ? unlinkKeyTargets(writerProjection, targetContainerProjection)
+      : null;
+  const held = keyTargets
+    ? reusableStagedBaselinePlan(
         input.execSql,
         input.documentId,
         writerProjection.contentKeyBundle.contentKeyEpoch + 1,
+        keyTargets,
       )
     : null;
   const signedEvent = held?.linkSetEvent;

@@ -5,7 +5,7 @@ import { serializedBytes } from "../../../data/documents/shared/sync/documentSyn
 import type { DocumentSyncPreparedUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { signDocumentOutgoingUpdate } from "../syncPlan/syncPlanIdentity";
 import { DocumentRotationBaselineLimitError } from "./rotationBaselineErrors";
-import type { StagedSegmentRecord } from "./stagedBaselineUploads";
+import type { StagedSegmentRecord } from "./stagedBaselineState";
 
 type SigningContext = Omit<
   Parameters<typeof signDocumentOutgoingUpdate>[0],

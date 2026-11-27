@@ -25,12 +25,16 @@ import {
   isDocumentSyncRequestLimitError,
   serializedBytes,
 } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
-import { buildDocumentRotationBaseline } from "../rotationBaseline";
+import {
+  buildDocumentRotationBaseline,
+  signRotationBaselineSegments,
+} from "../rotationBaseline";
 import { startRotationBaselineEncoder } from "./rotationBaselineEncoder";
 import { DocumentRotationBaselineLimitError } from "./rotationBaselineErrors";
 import { rotationBaselineSigner } from "./rotationBaselineSigner";
 import { writeRotationBaseline } from "./rotationBaselineWriter";
 import { openRotationHistory } from "./rotationHistory";
+import { getOrCreateStagedBaselineUploads } from "./stagedBaselineUploads";
 
 const MEBIBYTE = 1024 * 1024;
 const documentId = "0b6d7e0e-3c5a-4d0f-9a51-7b1f5c2a9e10";
@@ -51,6 +55,7 @@ async function signingContext() {
     author,
     authorizingContainerPathRefs: [],
     contentKeyEpoch: 2,
+    contentKeyTargets: [],
     documentId,
     expectedLinkSetManifestHash: await fixtureHash("bound-manifest"),
     expectedTargetHash: await fixtureHash("bound-target"),
@@ -224,6 +229,7 @@ test("a staged segment that is refused for its size deletes the stage", async ()
     documentId,
     execSql: undefined,
     inlineCharacters: 0,
+    keyTargets: [],
     organizationId: context.organizationId,
     plan: { linkSetEvent: undefined, signedAt: context.signedAt },
     purpose: "Bound test",
@@ -245,4 +251,60 @@ test("a staged segment that is refused for its size deletes the stage", async ()
   expect(failure).toBeInstanceOf(DocumentRotationBaselineLimitError);
   expect(server.calls).toEqual(["open", "stage:0", "stage:1", "abandon"]);
   expect(server.stage(documentId)).toBeNull();
+});
+
+// So is the unlink whose final segment cannot be signed: the request that
+// would commit the stage cannot be made, and a stage the writer gives up
+// is deleted. A later run that took the upload over keeps it.
+test("a staged baseline whose final segment cannot be signed deletes the stage", async () => {
+  const context = await signingContext();
+  const signer = rotationBaselineSigner(context);
+  const unsignable: typeof signer = {
+    identity: signer.identity,
+    sign: async () => {
+      throw new DocumentRotationBaselineLimitError("segment_too_large");
+    },
+  };
+  const stage = async (execSql: () => Promise<never[]>) => {
+    const server = new FakeBaselineStageServer();
+    const document = await createLongHistoryDocument("unsignable-final");
+    const baseline = await writeRotationBaseline({
+      api: server.api,
+      contentKey,
+      contentKeyEpoch: 2,
+      documentId,
+      execSql,
+      inlineCharacters: 0,
+      keyTargets: [],
+      organizationId: context.organizationId,
+      plan: { linkSetEvent: undefined, signedAt: context.signedAt },
+      purpose: "Bound test",
+      segmentSizes: { maxBytes: 1024, targetBytes: 256 },
+      signer,
+      snapshot: exportFullHistorySnapshot(document),
+    });
+    if (baseline.kind !== "staged") throw new Error("Expected a stage");
+    return {
+      baseline,
+      server,
+      uploads: getOrCreateStagedBaselineUploads(execSql),
+    };
+  };
+
+  const given = await stage(async () => []);
+  await expect(
+    signRotationBaselineSegments(unsignable, given.baseline),
+  ).rejects.toBeInstanceOf(DocumentRotationBaselineLimitError);
+  expect(given.server.calls.at(-1)).toBe("abandon");
+  expect(given.server.stage(documentId)).toBeNull();
+  expect(given.uploads.get(documentId)).toBeNull();
+
+  // The upload is a later run's by the time the signing fails: it stands.
+  const taken = await stage(async () => []);
+  taken.uploads.get(documentId)?.dispatch({ type: "runStarted" });
+  await expect(
+    signRotationBaselineSegments(unsignable, taken.baseline),
+  ).rejects.toBeInstanceOf(DocumentRotationBaselineLimitError);
+  expect(taken.server.calls).not.toContain("abandon");
+  expect(taken.uploads.get(documentId)?.state.status).toBe("resuming");
 });

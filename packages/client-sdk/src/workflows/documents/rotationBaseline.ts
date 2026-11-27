@@ -13,13 +13,19 @@ import type {
   MaterializedDocumentLinkSetMutationPlan,
 } from "../../data/documents/shared/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { rotationBaselineSigner } from "./baselineStage/rotationBaselineSigner";
 import {
+  type RotationBaselineSigner,
+  rotationBaselineSigner,
+} from "./baselineStage/rotationBaselineSigner";
+import {
+  type PreparedRotationBaseline,
+  releaseStagedBaselineCommit,
   type StagedBaselineCommit,
   settleStagedBaselineCommit,
   writeRotationBaseline,
 } from "./baselineStage/rotationBaselineWriter";
-import type { StagedBaselineState } from "./baselineStage/stagedBaselineMachine";
+import type { StagedBaselineState } from "./baselineStage/stagedBaselineState";
+import type { RotationKeyTarget } from "./baselineStage/stagedBaselineUploads";
 import type { DocumentSyncTraceEmitter } from "./sync/syncTrace";
 
 /** The rotation baseline an unlink sends, signed for its new manifest. */
@@ -37,6 +43,31 @@ export interface DocumentRotationBaseline {
 }
 
 /**
+ * Sign what the unlink's request carries of `baseline`: the whole group, or
+ * a staged group's final segment. A segment that cannot be signed (it is
+ * over a request's bytes once it is) leaves a request that cannot be made,
+ * so a staged upload is over: it is given up and its stage deleted, not
+ * left to hold one of the user's places and the key.
+ */
+export async function signRotationBaselineSegments(
+  signer: RotationBaselineSigner,
+  baseline: Extract<PreparedRotationBaseline, { kind: "inline" | "staged" }>,
+): Promise<DocumentOutgoingUpdate[]> {
+  const segments: DocumentOutgoingUpdate[] = [];
+  try {
+    for (const update of baseline.segments) {
+      segments.push(await signer.sign(update));
+    }
+  } catch (error) {
+    if (baseline.kind === "staged") {
+      await releaseStagedBaselineCommit(baseline.commit);
+    }
+    throw error;
+  }
+  return segments;
+}
+
+/**
  * The rotation baseline an unlink carries: the proven history in `snapshot`
  * cut into segments, each encrypted under the new epoch's key and signed. A
  * group that fits one request is returned whole; a larger one is uploaded
@@ -51,6 +82,8 @@ export async function buildDocumentRotationBaseline(input: {
   readonly author: DocumentCreateAuthor;
   readonly contentKey: Uint8Array;
   readonly contentKeyEpoch: number;
+  /** Every target the unlink's request wraps `contentKey` for. */
+  readonly contentKeyTargets: readonly RotationKeyTarget[];
   readonly documentId: string;
   /** The link-set event the unlink signed, which a staged upload keeps. */
   readonly linkSetEvent?: AccessEvent | undefined;
@@ -79,6 +112,7 @@ export async function buildDocumentRotationBaseline(input: {
     // The unlink route takes a larger body than a sync, so a group whose
     // payloads fit a sync request always fits it.
     inlineCharacters: MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+    keyTargets: input.contentKeyTargets,
     onTrace: input.onTrace,
     organizationId: input.organizationId,
     plan: { linkSetEvent: input.linkSetEvent, signedAt: input.signedAt },
@@ -89,11 +123,12 @@ export async function buildDocumentRotationBaseline(input: {
     stillCurrent: input.stillCurrent,
   });
   if (baseline.kind === "none") return null;
-  if (baseline.kind === "cancelled") return "cancelled";
-  const segments: DocumentOutgoingUpdate[] = [];
-  for (const update of baseline.segments) {
-    segments.push(await signer.sign(update));
+  // An upload a later attempt took over is that attempt's to finish: this
+  // one ends as one nobody waits for, and reports nothing.
+  if (baseline.kind === "cancelled" || baseline.kind === "superseded") {
+    return "cancelled";
   }
+  const segments = await signRotationBaselineSegments(signer, baseline);
   return {
     segments,
     staged:
@@ -140,6 +175,7 @@ export async function completeLinkSetMutationRequest(input: {
     author: input.author,
     contentKey: input.materializedPlan.contentKey,
     contentKeyEpoch: plan.contentKeyEpoch,
+    contentKeyTargets: plan.request.contentKeyBundle.targets,
     documentId: plan.documentId,
     execSql: input.execSql,
     expectedLinkSetManifestHash: plan.manifestHash,

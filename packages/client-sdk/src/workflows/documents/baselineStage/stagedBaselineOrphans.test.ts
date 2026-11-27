@@ -3,7 +3,7 @@ import { DOCUMENT_BASELINE_STAGE_ERROR_CODES as STAGE } from "@tearleads/validat
 import { DOCUMENT_BASELINE_STAGE_IDLE_SECONDS } from "@tearleads/validators/util";
 import { FakeBaselineStageServer } from "../../../../test/helpers/workflows/fakeBaselineStageServer";
 import {
-  abandonOrphanedStages,
+  abandonOrphanedStage,
   ORPHANED_STAGE_IDLE_MS,
 } from "./stagedBaselineOrphans";
 import { getOrCreateStagedBaselineUploads } from "./stagedBaselineUploads";
@@ -35,7 +35,7 @@ function search(openStages: ReturnType<typeof openStage>[]) {
   const uploads = getOrCreateStagedBaselineUploads(undefined);
   return {
     abandon: () =>
-      abandonOrphanedStages({ api: server.api, now: NOW, openStages, uploads }),
+      abandonOrphanedStage({ api: server.api, now: NOW, openStages, uploads }),
     server,
     uploads,
   };
@@ -49,9 +49,32 @@ test("a stage is an orphan once it has been idle ten minutes", async () => {
     openStage("old", ORPHANED_STAGE_IDLE_MS),
   ]);
 
-  expect(await abandon()).toBe(1);
-
+  expect(await abandon()).toBe(true);
   expect(server.elsewhere).toEqual([young]);
+  // Nothing else is idle long enough: no place is freed, nothing is asked.
+  expect(await search([young]).abandon()).toBe(false);
+});
+
+// One place is all an open needs, and an abandon is not undone: a stage
+// misread as an orphan costs its writer the upload. So only the stage idle
+// longest goes, and the others are left to expire.
+test("only the longest idle orphan is abandoned", async () => {
+  const stages = [
+    openStage("b", 20 * MINUTE_MS),
+    openStage("oldest", 50 * MINUTE_MS),
+    openStage("c", 30 * MINUTE_MS),
+    openStage("fresh", MINUTE_MS),
+  ];
+  const { abandon, server } = search(stages);
+
+  expect(await abandon()).toBe(true);
+
+  expect(server.calls).toEqual(["abandon"]);
+  expect(server.elsewhere.map((stage) => stage.documentId)).toEqual([
+    "document-b",
+    "document-c",
+    "document-fresh",
+  ]);
 });
 
 // One database holds at most one upload a document, and a stage it is
@@ -59,29 +82,26 @@ test("a stage is an orphan once it has been idle ten minutes", async () => {
 // come: a tail waits for a longer history, a lost answer for the next pass.
 test("a stage this database is uploading is never an orphan, however idle", async () => {
   const mine = openStage("mine", 55 * MINUTE_MS);
-  const replaced = { ...mine, baselineId: "baseline-replaced" };
-  const { abandon, server, uploads } = search([mine, replaced]);
-  const upload = uploads.begin(mine.documentId, PLAN);
+  const { abandon, server, uploads } = search([mine]);
+  const upload = uploads.begin(mine.documentId, PLAN, []);
   const { attempt } = upload.dispatch({ type: "runStarted" });
   upload.dispatch({ attempt, baselineId: mine.baselineId, type: "planned" });
-  upload.dispatch({ attempt, type: "stageOpened" });
+  upload.dispatch({ attempt, signedFor: "a", type: "stageOpened" });
   expect(upload.state.status).toBe("staging");
 
-  // The document's other stage is not the one the upload fills.
-  expect(await abandon()).toBe(1);
-  expect(server.elsewhere).toEqual([mine]);
+  expect(await abandon()).toBe(false);
+  expect(server.calls).toEqual([]);
 
-  // An upload that gave its stage up no longer speaks for it. The other
-  // stage is already gone, which frees its place as well.
+  // An upload that gave its stage up no longer speaks for it.
   upload.dispatch({ attempt, type: "segmentConflict" });
   expect(upload.state.status).toBe("abandoned");
-  expect(await abandon()).toBe(2);
+  expect(await abandon()).toBe(true);
   expect(server.elsewhere).toEqual([]);
 });
 
 test("an upload that has not opened its stage tracks none", async () => {
   const { uploads } = search([]);
-  const upload = uploads.begin("document-a", PLAN);
+  const upload = uploads.begin("document-a", PLAN, []);
   expect(uploads.tracks("document-a", "baseline-a")).toBe(false);
   const { attempt } = upload.dispatch({ type: "runStarted" });
   expect(uploads.tracks("document-a", "baseline-a")).toBe(false);
@@ -97,7 +117,7 @@ test("an expiry that does not parse leaves its stage alone", async () => {
   const unreadable = { ...openStage("a", IDLE_MS), expiresAt: "soon" };
   const { abandon, server } = search([unreadable]);
 
-  expect(await abandon()).toBe(0);
+  expect(await abandon()).toBe(false);
 
   expect(server.calls).toEqual([]);
 });
@@ -116,20 +136,27 @@ test("a stage in the last fifty minutes of its day reads as an orphan", async ()
   const kept = capped("kept", 50 * MINUTE_MS + 1);
   const { abandon, server } = search([kept, capped("taken", 50 * MINUTE_MS)]);
 
-  expect(await abandon()).toBe(1);
+  expect(await abandon()).toBe(true);
 
   expect(server.elsewhere).toEqual([kept]);
 });
 
-test("a stage already gone has freed its place, and a failed abandon has not", async () => {
-  const stages = ["a", "b", "c"].map((name) => openStage(name, IDLE_MS));
+test("an abandon that fails frees no place, and the next longest idle is tried", async () => {
+  const stages = [
+    openStage("c", 30 * MINUTE_MS),
+    openStage("a", 50 * MINUTE_MS),
+    openStage("b", 40 * MINUTE_MS),
+  ];
   const { abandon, server } = search(stages);
-  server.refuseNext("abandon", { code: STAGE.notFound, status: 404 });
   server.refuseNext("abandon", { status: 503 });
+  server.refuseNext("abandon", { code: STAGE.notFound, status: 404 });
 
-  expect(await abandon()).toBe(2);
+  // The longest idle is kept by the API; the next is already gone, which
+  // frees its place as well, and the third is not asked.
+  expect(await abandon()).toBe(true);
 
-  expect(server.calls).toEqual(["abandon", "abandon", "abandon"]);
+  expect(server.calls).toEqual(["abandon", "abandon"]);
+  expect(server.elsewhere).toHaveLength(3);
 });
 
 test("an abandon that throws is taken as one that failed", async () => {
@@ -142,11 +169,11 @@ test("an abandon that throws is taken as one that failed", async () => {
   };
 
   expect(
-    await abandonOrphanedStages({
+    await abandonOrphanedStage({
       api,
       now: NOW,
       openStages: [openStage("a", IDLE_MS)],
       uploads,
     }),
-  ).toBe(0);
+  ).toBe(false);
 });

@@ -68,7 +68,7 @@ import {
   verifyDocumentLinkSetCurrentPolicies,
 } from "./linkSetAuthority";
 
-function deriveDocumentLinkSetTargetState(input: {
+export function deriveDocumentLinkSetTargetState(input: {
   operation: DocumentLinkSetMutationOperation;
   targetContainerProjection: ContainerWriterProjectionResponse;
   writerProjection: DocumentWriterProjectionResponse;

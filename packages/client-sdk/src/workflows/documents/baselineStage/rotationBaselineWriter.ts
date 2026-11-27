@@ -25,18 +25,17 @@ import {
 import { DocumentRotationBaselineStageError } from "./rotationBaselineErrors";
 import type { RotationBaselineSigner } from "./rotationBaselineSigner";
 import { openRotationHistory, type RotationHistory } from "./rotationHistory";
-import {
-  type StagedBaselineState,
-  stagedBaselineRefusalEvent,
-} from "./stagedBaselineMachine";
+import { stagedBaselineRefusalEvent } from "./stagedBaselineMachine";
 import {
   dropStagedBaselineUpload,
   runStagedBaselineUpload,
   type StagedBaselineRunContext,
   type StagedBaselineRunResult,
 } from "./stagedBaselineRun";
+import type { StagedBaselineState } from "./stagedBaselineState";
 import {
   getOrCreateStagedBaselineUploads,
+  type RotationKeyTarget,
   type StagedBaselinePlan,
   type StagedBaselineUpload,
   type StagedBaselineUploads,
@@ -63,10 +62,13 @@ export interface StagedBaselineCommit {
  *   carries `final` and names the stage, and its answer goes to
  *   `settleStagedBaselineCommit`.
  * - `cancelled`: the writer stopped wanting the baseline.
+ * - `superseded`: a later attempt took the document's upload over while
+ *   this one waited on a request; the baseline is that attempt's to write.
  */
 export type PreparedRotationBaseline =
   | { readonly kind: "none" }
   | { readonly kind: "cancelled" }
+  | { readonly kind: "superseded" }
   | {
       readonly kind: "inline";
       readonly segments: readonly DocumentSyncPreparedUpdate[];
@@ -93,6 +95,13 @@ export interface RotationBaselineWriterInput {
    * any history that has more than a final segment's worth.
    */
   readonly inlineCharacters: number;
+  /**
+   * Every target the request that rotates wraps `contentKey` for: its
+   * content-key bundle's envelopes. A staged upload keeps them, and its key
+   * goes on to a later attempt only if that attempt leaves none of them out
+   * (`reusableStagedBaselinePlan`).
+   */
+  readonly keyTargets: readonly RotationKeyTarget[];
   readonly onTrace?: DocumentSyncTraceEmitter | undefined;
   readonly organizationId: string;
   /** What a staged upload fixes for every attempt to commit it. */
@@ -107,22 +116,35 @@ export interface RotationBaselineWriterInput {
 }
 
 /**
- * The plan a staged upload of `documentId` fixed, while it can still commit
- * at `contentKeyEpoch`: the key, event id and signed time a new attempt
- * reuses, so that what is staged stays what the attempt signs for.
+ * The plan a staged upload of `documentId` fixed, if a new attempt that
+ * opens `contentKeyEpoch` and wraps its key for `keyTargets` may plan as
+ * the upload did: with the same key, event id and signed time, so that
+ * what is staged stays what the attempt signs for.
+ *
+ * It may only if the upload is still under way for that epoch and the
+ * attempt's targets hold every target the key was ever wrapped for. A key
+ * that a request carried to a container this attempt leaves out, whether
+ * that request was refused, lost or never answered, is known to that
+ * container's members: an unlink of it must not commit that key. The
+ * attempt then plans a new key, and the writer deletes the stage, whose
+ * segments the old key encrypts.
  */
-export function heldStagedBaselinePlan(
+export function reusableStagedBaselinePlan(
   execSql: ExecSql | undefined,
   documentId: string,
   contentKeyEpoch: number,
+  keyTargets: readonly RotationKeyTarget[],
 ): StagedBaselinePlan | null {
   const upload = getOrCreateStagedBaselineUploads(execSql).get(documentId);
-  return upload?.continues({
-    contentKeyCommitment: upload.plan.contentKeyCommitment,
-    contentKeyEpoch,
-  })
-    ? upload.plan
-    : null;
+  if (
+    !upload?.isLiveAt(contentKeyEpoch) ||
+    !upload.keyMayBeWrappedFor(keyTargets)
+  ) {
+    return null;
+  }
+  // The attempt wraps the key for these from here on, sent or not.
+  upload.wrapKeyFor(keyTargets);
+  return upload.plan;
 }
 
 function base64Characters(bytes: number): number {
@@ -188,7 +210,8 @@ async function writeNewBaseline(
       "Document rotation baseline does not fit one request and this client cannot stage it",
     );
   }
-  const upload = run.uploads.begin(run.input.documentId, run.plan);
+  const { documentId, keyTargets } = run.input;
+  const upload = run.uploads.begin(documentId, run.plan, keyTargets);
   const { attempt } = upload.dispatch({ type: "runStarted" });
   return prepared(
     await runStagedBaselineUpload({
@@ -208,6 +231,12 @@ async function writeNewBaseline(
  * Go on with the document's upload if it can still commit under this plan's
  * key, and otherwise write a new baseline. An upload for another key can
  * never commit, so its stage is given up first.
+ *
+ * The plan's key is the upload's only when `reusableStagedBaselinePlan`
+ * handed it out, which holds the attempt to the targets the key has gone
+ * to. The request's own envelopes are held to the same rule here, where
+ * they are in hand: a key about to be wrapped for fewer targets than it
+ * went to is never sent, and its upload is given up.
  */
 async function writeOnce(
   run: WriterRun,
@@ -215,11 +244,17 @@ async function writeOnce(
 ) {
   const held = run.uploads.get(run.input.documentId);
   if (!held || !run.context) return writeNewBaseline(run, encoderStart);
-  if (!held.continues(run.plan)) {
+  const sameKey = held.continues(run.plan);
+  const { keyTargets } = run.input;
+  if (!sameKey || !held.keyMayBeWrappedFor(keyTargets)) {
     held.dispatch({ attempt: held.state.attempt, type: "released" });
     await dropStagedBaselineUpload(run.context, held);
-    return writeNewBaseline(run, encoderStart);
+    if (!sameKey) return writeNewBaseline(run, encoderStart);
+    throw new Error(
+      "Document rotation key was planned for fewer targets than it was sent to",
+    );
   }
+  held.wrapKeyFor(keyTargets);
   const { attempt } = held.dispatch({ type: "runStarted" });
   return prepared(
     await runStagedBaselineUpload({
@@ -311,6 +346,20 @@ export async function writeRotationBaseline(
   } finally {
     history.free();
   }
+}
+
+/**
+ * Give a staged upload up before its final segment is sent, and delete its
+ * stage: the request that would commit it cannot be made. A later run that
+ * took the upload over keeps it.
+ */
+export async function releaseStagedBaselineCommit(
+  commit: StagedBaselineCommit,
+): Promise<void> {
+  const { attempt, upload } = commit;
+  if (upload.state.attempt !== attempt) return;
+  upload.dispatch({ attempt, type: "released" });
+  await dropStagedBaselineUpload(commit, upload);
 }
 
 /** What the request that carried a staged baseline's final segment got. */

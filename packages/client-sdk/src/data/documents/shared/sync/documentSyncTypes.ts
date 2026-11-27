@@ -121,6 +121,12 @@ export interface MaterializedDocumentSyncPlan {
    * row, so an acknowledged segment settles none.
    */
   rotationBaselineUpdateIds?: readonly string[];
+  /**
+   * The run of the staged baseline upload whose final segment the plan
+   * carries. The request's answer settles that run alone: a later run of
+   * the same upload is not moved by it.
+   */
+  baselineStageAttempt?: number;
 }
 
 /**

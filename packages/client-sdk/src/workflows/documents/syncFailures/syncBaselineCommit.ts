@@ -5,7 +5,7 @@ import {
 } from "../../../data/documents/shared/sync/baselineStageApi";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { settleStagedBaselineCommit } from "../baselineStage/rotationBaselineWriter";
-import type { StagedBaselineState } from "../baselineStage/stagedBaselineMachine";
+import type { StagedBaselineState } from "../baselineStage/stagedBaselineState";
 import { getOrCreateStagedBaselineUploads } from "../baselineStage/stagedBaselineUploads";
 
 /**
@@ -30,11 +30,15 @@ function replanAnswers(state: StagedBaselineState): boolean {
 /**
  * Tell the document's staged baseline upload what the sync that carried its
  * final segment got, and say whether a refusal is one the pass answers by
- * planning again. A sync that names no stage, or whose upload a later run
- * has taken over, settles nothing.
+ * planning again. The answer belongs to the run that sent the request
+ * (`attempt`): a sync that names no stage, or whose upload a later run has
+ * taken over, settles nothing, even when that run waits on a commit of the
+ * same stage.
  */
 export async function settleSyncBaselineCommit(input: {
   readonly apiClient: Partial<DocumentBaselineStageApi>;
+  /** The run whose final segment the sync carried. */
+  readonly attempt: number | undefined;
   readonly baselineStageId: string | undefined;
   readonly documentId: string;
   readonly execSql: ExecSql;
@@ -49,17 +53,19 @@ export async function settleSyncBaselineCommit(input: {
   const api = documentBaselineStageApi(input.apiClient);
   const uploads = getOrCreateStagedBaselineUploads(input.execSql);
   const upload = uploads.get(input.documentId);
+  const { attempt, outcome } = input;
   if (
     !api ||
     !upload ||
+    attempt === undefined ||
+    upload.state.attempt !== attempt ||
     upload.state.status !== "committing" ||
     upload.state.baselineId !== input.baselineStageId
   ) {
     return false;
   }
-  const { outcome } = input;
   const state = await settleStagedBaselineCommit(
-    { api, attempt: upload.state.attempt, upload, uploads },
+    { api, attempt, upload, uploads },
     outcome.ok
       ? outcome
       : {

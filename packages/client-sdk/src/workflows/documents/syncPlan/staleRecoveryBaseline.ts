@@ -3,9 +3,12 @@ import type { DocumentContentKeyBundleResponse } from "@tearleads/validators/res
 import type { DocumentBaselineStageApi } from "../../../data/documents/shared/sync/baselineStageApi";
 import type { DocumentSyncPreparedUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { DocumentRotationBaselineStageError } from "../baselineStage/rotationBaselineErrors";
+import { DocumentRotationBaselineUploadEndedError } from "../baselineStage/rotationBaselineErrors";
 import type { RotationBaselineSigner } from "../baselineStage/rotationBaselineSigner";
-import { writeRotationBaseline } from "../baselineStage/rotationBaselineWriter";
+import {
+  type StagedBaselineCommit,
+  writeRotationBaseline,
+} from "../baselineStage/rotationBaselineWriter";
 import type { DocumentSyncTraceEmitter } from "../sync/syncTrace";
 
 /** The rotation baseline a heal's request carries ahead of its updates. */
@@ -17,6 +20,11 @@ export interface StaleRecoveryBaseline {
    * Encrypted for the fresh key; the plan signs them with its updates.
    */
   readonly segments: readonly DocumentSyncPreparedUpdate[];
+  /**
+   * The staged upload the heal's request commits: the run its answer
+   * settles, and what to give up if the request cannot be made.
+   */
+  readonly stagedCommit?: StagedBaselineCommit;
 }
 
 /**
@@ -61,6 +69,7 @@ export async function writeStaleRecoveryBaseline(input: {
     documentId: input.contentKeyBundle.documentId,
     execSql: input.execSql,
     inlineCharacters: input.inlineCharacters,
+    keyTargets: input.contentKeyBundle.targets,
     onTrace: input.onSyncTrace,
     organizationId: input.organizationId,
     plan: { linkSetEvent: undefined, signedAt: input.signedAt },
@@ -70,11 +79,9 @@ export async function writeStaleRecoveryBaseline(input: {
     snapshot,
     stillCurrent: input.stillCurrent,
   });
-  if (baseline.kind === "cancelled") {
-    throw new DocumentRotationBaselineStageError(
-      "Document stale-bundle recovery was cancelled while its baseline uploaded",
-      undefined,
-      null,
+  if (baseline.kind === "cancelled" || baseline.kind === "superseded") {
+    throw new DocumentRotationBaselineUploadEndedError(
+      baseline.kind === "superseded",
     );
   }
   // A heal sends queued writes, so its document holds their operations: a
@@ -82,9 +89,14 @@ export async function writeStaleRecoveryBaseline(input: {
   if (baseline.kind === "none" || baseline.segments.every(isEmptySegment)) {
     throw new Error("Document stale-bundle recovery snapshot is empty");
   }
+  const { segments } = baseline;
   return baseline.kind === "staged"
-    ? { baselineStageId: baseline.baselineStageId, segments: baseline.segments }
-    : { segments: baseline.segments };
+    ? {
+        baselineStageId: baseline.baselineStageId,
+        segments,
+        stagedCommit: baseline.commit,
+      }
+    : { segments };
 }
 
 function isEmptySegment(segment: DocumentSyncPreparedUpdate): boolean {

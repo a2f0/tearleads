@@ -28,6 +28,24 @@ export class DocumentRotationBaselineStageError extends Error {
   }
 }
 
+/**
+ * The upload ended with nothing to report: the writer stopped wanting it,
+ * or a later attempt took the document's upload over while this one waited
+ * on a request. Neither is a failure of the upload, and nothing is
+ * recorded; `superseded` says which.
+ */
+export class DocumentRotationBaselineUploadEndedError extends Error {
+  override readonly name = "DocumentRotationBaselineUploadEndedError";
+
+  constructor(readonly superseded: boolean) {
+    super(
+      superseded
+        ? "Document rotation baseline upload was taken over by a later attempt"
+        : "Document rotation baseline upload was cancelled",
+    );
+  }
+}
+
 export function isDocumentRotationBaselineStageError(
   error: unknown,
 ): error is DocumentRotationBaselineStageError {

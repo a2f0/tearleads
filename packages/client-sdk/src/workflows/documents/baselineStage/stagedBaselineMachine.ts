@@ -2,156 +2,15 @@ import {
   DOCUMENT_BASELINE_STAGE_ERROR_CODES,
   type DocumentBaselineStageErrorCode,
 } from "@tearleads/validators/response";
-
-/**
- * Why an upload gave up its stage. The next upload of the document plans
- * again: a new baseline id and a new stage.
- */
-export type StagedBaselineAbandonReason =
-  /** The document's content key moved past the stage's epoch. */
-  | "epoch_stale"
-  /** The API refused the group the final segment closes. */
-  | "group_invalid"
-  /** The proven history no longer gives the staged segments' bytes. */
-  | "history_diverged"
-  /** The baseline id is a committed baseline's or another user's stage. */
-  | "id_conflict"
-  /** The writer stopped wanting the upload. */
-  | "released"
-  /** The stage holds other bytes at an index or update id. */
-  | "segment_conflict"
-  /** The API refused a segment as one no baseline holds there. */
-  | "segment_invalid";
-
-/**
- * Why an upload cannot go on, whatever the writer does next:
- *
- * - `open_stage_limit`: the user holds as many open stages as the API lets
- *   one user hold. Nothing was opened; another upload has to end first.
- * - `segment_limit`: the history needs more segments than a baseline has.
- * - `stage_too_large`: the history needs more bytes or span rows than a
- *   stage stores.
- */
-export type StagedBaselineFailureReason =
-  | "open_stage_limit"
-  | "segment_limit"
-  | "stage_too_large";
-
-interface Attempted {
-  /**
-   * The run of the upload this state belongs to. Every run starts a new
-   * attempt, and only an event tagged with the state's attempt moves it, so
-   * a request an earlier run left in flight cannot finish for a later one.
-   */
-  readonly attempt: number;
-}
-
-interface Staged extends Attempted {
-  /** The stage's id, which every segment signs as its `baselineId`. */
-  readonly baselineId: string;
-}
-
-/**
- * The upload of one rotation baseline through a stage, from the writer's
- * side (`docs/document-rotation-baselines.md`, "A Baseline Staged Ahead").
- *
- * - `planning`: nothing stands on the server; the run chooses a baseline id.
- * - `opening`: the stage is being opened.
- * - `resuming`: a stage may stand from an earlier run; the run reads where.
- * - `confirming`: the run checks that the history it was given still gives
- *   every staged segment's bytes.
- * - `resigningHeaders`: the staged headers name another manifest, target set
- *   or signing key than the request that will commit; each is signed again.
- * - `staging`: segment `nextSegmentIndex` is exported, encrypted, signed and
- *   uploaded, one at a time.
- * - `committing`: the final segment is with the request that rotates.
- * - `appendingTail`: that request was refused because the group stops short
- *   of the committed frontier. The stage stands, and the run that brings a
- *   longer proven history stages what was committed meanwhile.
- * - `done`, `abandoned`, `failed`: the upload is over.
- */
-export type StagedBaselineState =
-  | (Attempted & { readonly status: "planning" })
-  | (Staged & { readonly status: "opening" })
-  | (Staged & { readonly status: "resuming" })
-  | (Staged & {
-      readonly stagedSegments: number;
-      readonly status: "confirming";
-    })
-  | (Staged & {
-      readonly nextHeaderIndex: number;
-      readonly stagedSegments: number;
-      readonly status: "resigningHeaders";
-    })
-  | (Staged & {
-      readonly nextSegmentIndex: number;
-      readonly status: "staging";
-    })
-  | (Staged & {
-      readonly finalSegmentIndex: number;
-      readonly status: "committing";
-    })
-  | (Staged & {
-      readonly stagedSegments: number;
-      readonly status: "appendingTail";
-    })
-  | (Staged & { readonly status: "done" })
-  | (Staged & {
-      readonly reason: StagedBaselineAbandonReason;
-      /** Whether a stage may still stand, for a best-effort delete. */
-      readonly stageStands: boolean;
-      readonly status: "abandoned";
-    })
-  | (Staged & {
-      readonly reason: StagedBaselineFailureReason;
-      readonly stageStands: boolean;
-      readonly status: "failed";
-    });
-
-type Tagged<Event> = Event & { readonly attempt: number };
-
-/**
- * What moves an upload. `runStarted` begins a run; every other event is the
- * result of one effect and carries the attempt that started it. The eight
- * refusals are the API's `document_baseline_stage_*` codes, and
- * `coverageRefused` is the rotating route's own coverage refusal.
- */
-export type StagedBaselineEvent =
-  | { readonly type: "runStarted" }
-  | Tagged<{ readonly baselineId: string; readonly type: "planned" }>
-  | Tagged<{ readonly type: "stageOpened" }>
-  | Tagged<{ readonly nextSegmentIndex: number; readonly type: "stageRead" }>
-  | Tagged<{
-      readonly headersCurrent: boolean;
-      readonly type: "stagedHistoryConfirmed";
-    }>
-  | Tagged<{ readonly type: "stagedHistoryDiverged" }>
-  | Tagged<{ readonly segmentIndex: number; readonly type: "headerResigned" }>
-  | Tagged<{ readonly segmentIndex: number; readonly type: "segmentStaged" }>
-  | Tagged<{
-      readonly segmentIndex: number;
-      readonly type: "finalSegmentReady";
-    }>
-  | Tagged<{ readonly type: "segmentLimitExceeded" }>
-  | Tagged<{ readonly type: "commitAccepted" }>
-  | Tagged<{ readonly type: "coverageRefused" }>
-  | Tagged<{ readonly type: "groupRefused" }>
-  | Tagged<{ readonly type: "stageNotFound" }>
-  | Tagged<{ readonly type: "stageExpired" }>
-  | Tagged<{ readonly type: "stageEpochStale" }>
-  | Tagged<{ readonly type: "stageIdConflict" }>
-  | Tagged<{ readonly type: "stageLimitReached" }>
-  | Tagged<{ readonly type: "stageTooLarge" }>
-  | Tagged<{ readonly type: "segmentOutOfOrder" }>
-  | Tagged<{ readonly type: "segmentConflict" }>
-  | Tagged<{ readonly type: "segmentInvalid" }>
-  | Tagged<{ readonly type: "headersStale" }>
-  | Tagged<{ readonly type: "released" }>;
-
-export const INITIAL_STAGED_BASELINE_STATE: StagedBaselineState = {
-  attempt: 0,
-  status: "planning",
-};
+import {
+  type Filling,
+  isStagedBaselineOver,
+  MAX_STAGE_READS_PER_RUN,
+  type StagedBaselineAbandonReason,
+  type StagedBaselineEvent,
+  type StagedBaselineFailureReason,
+  type StagedBaselineState,
+} from "./stagedBaselineState";
 
 const REFUSAL_EVENT_TYPES = {
   [DOCUMENT_BASELINE_STAGE_ERROR_CODES.epochStale]: "stageEpochStale",
@@ -177,34 +36,20 @@ export function stagedBaselineRefusalEvent(
   return { attempt, type: REFUSAL_EVENT_TYPES[code] };
 }
 
-/** Whether the upload is over: nothing moves it but a new run. */
-export function isStagedBaselineOver(
-  state: StagedBaselineState,
-): state is Extract<
-  StagedBaselineState,
-  { status: "abandoned" | "done" | "failed" }
-> {
-  return (
-    state.status === "abandoned" ||
-    state.status === "done" ||
-    state.status === "failed"
-  );
+type StagedState = Exclude<StagedBaselineState, { status: "planning" }>;
+type FillingState = Extract<StagedState, Filling>;
+
+/** The stage and what the writer remembers of it, carried between states. */
+function filling(state: FillingState): Filling {
+  const { attempt, baselineId, headersSignedFor, records } = state;
+  return { attempt, baselineId, headersSignedFor, records };
 }
 
-/** How many segments the stage holds, as far as the state knows. */
-export function stagedSegmentCount(state: StagedBaselineState): number {
-  switch (state.status) {
-    case "appendingTail":
-    case "confirming":
-    case "resigningHeaders":
-      return state.stagedSegments;
-    case "staging":
-      return state.nextSegmentIndex;
-    case "committing":
-      return state.finalSegmentIndex;
-    default:
-      return 0;
-  }
+/** As `filling`, for any state: a stage still opening holds nothing. */
+function stageOf(state: StagedState): Filling {
+  if ("records" in state) return filling(state);
+  const { attempt, baselineId } = state;
+  return { attempt, baselineId, headersSignedFor: null, records: [] };
 }
 
 /**
@@ -214,12 +59,11 @@ export function stagedSegmentCount(state: StagedBaselineState): number {
  */
 function startRun(state: StagedBaselineState): StagedBaselineState {
   const attempt = state.attempt + 1;
-  return state.status === "planning" || isStagedBaselineOver(state)
-    ? { attempt, status: "planning" }
-    : { attempt, baselineId: state.baselineId, status: "resuming" };
+  if (state.status === "planning" || isStagedBaselineOver(state)) {
+    return { attempt, status: "planning" };
+  }
+  return { ...stageOf(state), attempt, reads: 0, status: "resuming" };
 }
-
-type StagedState = Exclude<StagedBaselineState, { status: "planning" }>;
 
 function abandon(
   state: StagedState,
@@ -240,39 +84,72 @@ function fail(
 }
 
 function staging(
-  state: StagedState,
+  state: Filling,
   nextSegmentIndex: number,
+  reads: number,
 ): StagedBaselineState {
-  const { attempt, baselineId } = state;
-  return { attempt, baselineId, nextSegmentIndex, status: "staging" };
+  return { ...state, nextSegmentIndex, reads, status: "staging" };
+}
+
+/**
+ * The stage was read. Only what it acknowledges is kept; a stage that holds
+ * more than the writer sent is not the writer's.
+ */
+function afterRead(
+  state: Extract<StagedState, { status: "resuming" }>,
+  stagedSegments: number,
+): StagedBaselineState {
+  if (stagedSegments > state.records.length) {
+    return abandon(state, "history_diverged");
+  }
+  return {
+    ...filling(state),
+    reads: state.reads + 1,
+    records: state.records.slice(0, stagedSegments),
+    stagedSegments,
+    status: "confirming",
+  };
 }
 
 /** The staged segments are the history's: re-sign them, or go on staging. */
 function afterConfirmation(
   state: Extract<StagedState, { status: "confirming" }>,
-  headersCurrent: boolean,
+  signedFor: string,
 ): StagedBaselineState {
-  const { attempt, baselineId, stagedSegments } = state;
-  return headersCurrent || stagedSegments === 0
-    ? staging(state, stagedSegments)
-    : {
-        attempt,
-        baselineId,
-        nextHeaderIndex: 0,
-        stagedSegments,
-        status: "resigningHeaders",
-      };
+  const { reads, stagedSegments } = state;
+  if (stagedSegments === 0) {
+    return staging(
+      { ...filling(state), headersSignedFor: signedFor },
+      0,
+      reads,
+    );
+  }
+  if (state.headersSignedFor === signedFor) {
+    return staging(filling(state), stagedSegments, reads);
+  }
+  return {
+    ...filling(state),
+    headersSignedFor: null,
+    nextHeaderIndex: 0,
+    reads,
+    stagedSegments,
+    status: "resigningHeaders",
+  };
 }
 
 function afterHeaderResigned(
   state: Extract<StagedState, { status: "resigningHeaders" }>,
-  segmentIndex: number,
+  event: Extract<StagedBaselineEvent, { type: "headerResigned" }>,
 ): StagedBaselineState {
-  if (segmentIndex !== state.nextHeaderIndex) return state;
-  const nextHeaderIndex = segmentIndex + 1;
+  if (event.segmentIndex !== state.nextHeaderIndex) return state;
+  const nextHeaderIndex = event.segmentIndex + 1;
   return nextHeaderIndex < state.stagedSegments
     ? { ...state, nextHeaderIndex }
-    : staging(state, state.stagedSegments);
+    : staging(
+        { ...filling(state), headersSignedFor: event.signedFor },
+        state.stagedSegments,
+        state.reads,
+      );
 }
 
 /** What the rotating request's answer does to an upload that awaits it. */
@@ -288,12 +165,13 @@ function settleCommit(
     case "commitAccepted":
       return { attempt, baselineId, status: "done" };
     case "coverageRefused":
-      return { attempt, baselineId, stagedSegments, status: "appendingTail" };
+      return { ...filling(state), stagedSegments, status: "appendingTail" };
     case "headersStale":
       return {
-        attempt,
-        baselineId,
+        ...filling(state),
+        headersSignedFor: null,
         nextHeaderIndex: 0,
+        reads: 0,
         stagedSegments,
         status: "resigningHeaders",
       };
@@ -315,6 +193,7 @@ type ProgressEvent = Extract<
       | "finalSegmentReady"
       | "headerResigned"
       | "headersStale"
+      | "segmentSent"
       | "segmentStaged"
       | "stagedHistoryConfirmed"
       | "stageOpened"
@@ -328,6 +207,7 @@ const PROGRESS_EVENT_TYPES: ReadonlySet<StagedEvent["type"]> = new Set([
   "finalSegmentReady",
   "headerResigned",
   "headersStale",
+  "segmentSent",
   "segmentStaged",
   "stagedHistoryConfirmed",
   "stageOpened",
@@ -338,26 +218,41 @@ function isProgressEvent(event: StagedEvent): event is ProgressEvent {
   return PROGRESS_EVENT_TYPES.has(event.type);
 }
 
-/** A segment was staged, or the history is spent and the next is final. */
+/**
+ * A segment is about to be sent, was staged, or the history is spent and
+ * the next is final. Each counts only at the stage's next index, and a
+ * segment is staged only once its record is kept.
+ */
 function afterSegment(
   state: Extract<StagedState, { status: "staging" }>,
   event: ProgressEvent,
 ): StagedBaselineState {
   if (
-    (event.type !== "segmentStaged" && event.type !== "finalSegmentReady") ||
+    (event.type !== "segmentSent" &&
+      event.type !== "segmentStaged" &&
+      event.type !== "finalSegmentReady") ||
     event.segmentIndex !== state.nextSegmentIndex
   ) {
     return state;
   }
-  const { attempt, baselineId, nextSegmentIndex } = state;
-  return event.type === "segmentStaged"
-    ? staging(state, nextSegmentIndex + 1)
-    : {
-        attempt,
-        baselineId,
-        finalSegmentIndex: nextSegmentIndex,
-        status: "committing",
-      };
+  const { nextSegmentIndex, records } = state;
+  if (event.type === "segmentSent") {
+    return {
+      ...state,
+      records: [...records.slice(0, nextSegmentIndex), event.record],
+    };
+  }
+  if (event.type === "segmentStaged") {
+    return records.length === nextSegmentIndex + 1
+      ? { ...state, nextSegmentIndex: nextSegmentIndex + 1 }
+      : state;
+  }
+  return {
+    ...filling(state),
+    finalSegmentIndex: nextSegmentIndex,
+    records: records.slice(0, nextSegmentIndex),
+    status: "committing",
+  };
 }
 
 /**
@@ -368,22 +263,24 @@ function advance(
   state: StagedState,
   event: ProgressEvent,
 ): StagedBaselineState {
-  const { attempt, baselineId } = state;
   switch (state.status) {
-    case "opening":
-      return event.type === "stageOpened" ? staging(state, 0) : state;
-    case "resuming": {
-      if (event.type !== "stageRead") return state;
-      const stagedSegments = event.nextSegmentIndex;
-      return { attempt, baselineId, stagedSegments, status: "confirming" };
+    case "opening": {
+      if (event.type !== "stageOpened") return state;
+      const { attempt, baselineId } = state;
+      const opened = { attempt, baselineId, records: [] };
+      return staging({ ...opened, headersSignedFor: event.signedFor }, 0, 0);
     }
+    case "resuming":
+      return event.type === "stageRead"
+        ? afterRead(state, event.nextSegmentIndex)
+        : state;
     case "confirming":
       return event.type === "stagedHistoryConfirmed"
-        ? afterConfirmation(state, event.headersCurrent)
+        ? afterConfirmation(state, event.signedFor)
         : state;
     case "resigningHeaders":
       return event.type === "headerResigned"
-        ? afterHeaderResigned(state, event.segmentIndex)
+        ? afterHeaderResigned(state, event)
         : state;
     case "staging":
       return afterSegment(state, event);
@@ -398,12 +295,24 @@ function advance(
   }
 }
 
+/**
+ * The stage is not where the writer thought: read it and go on from there.
+ * A run reads only so often; a stage that still is not where its answers
+ * put it is given up.
+ */
+function readAgain(state: StagedState): StagedBaselineState {
+  const reads = "reads" in state ? state.reads : 0;
+  return reads >= MAX_STAGE_READS_PER_RUN
+    ? abandon(state, "stage_unsettled")
+    : { ...stageOf(state), reads, status: "resuming" };
+}
+
 /** A refusal or a loss: the upload plans again, reads its stage, or ends. */
 function setBack(
   state: StagedState,
   event: Exclude<StagedEvent, ProgressEvent>,
 ): StagedBaselineState {
-  const { attempt, baselineId } = state;
+  const { attempt } = state;
   switch (event.type) {
     case "stagedHistoryDiverged":
       return abandon(state, "history_diverged");
@@ -427,10 +336,8 @@ function setBack(
       return state.status === "opening"
         ? { attempt, status: "planning" }
         : abandon(state, "id_conflict");
-    // The stage is not where the writer thought: read it and go on from
-    // there.
     case "segmentOutOfOrder":
-      return { attempt, baselineId, status: "resuming" };
+      return readAgain(state);
     case "segmentConflict":
       return abandon(state, "segment_conflict");
     case "segmentInvalid":

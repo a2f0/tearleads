@@ -201,6 +201,16 @@ test("an unlink whose staged headers went stale signs them again and resubmits",
     expect(harness.requests).toHaveLength(2);
     // The leg recovered: its caller hears of no refusal.
     expect(harness.failures).toEqual([]);
+    // The resubmit goes back through the writer, which reads the stage and
+    // confirms what is staged against the history before it signs: one GET
+    // more than the headers need, and no segment or open sent again.
+    const staged = group.slice(0, -1).map((_, index) => index);
+    expect(harness.server.calls).toEqual([
+      "open",
+      ...staged.map((index) => `stage:${index}`),
+      "get",
+      ...staged.map((index) => `resign:${index}`),
+    ]);
   }));
 
 test("a retry that plans another manifest signs the staged headers before it commits", () =>

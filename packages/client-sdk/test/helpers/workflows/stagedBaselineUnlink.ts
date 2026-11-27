@@ -93,7 +93,10 @@ export async function createStagedUnlinkHarness() {
 
   const api = Object.assign(
     createMockApiClient({
-      getContainerWriterProjection: async () => fixture.child,
+      getContainerWriterProjection: async (containerId) =>
+        containerId === fixture.parent.containerId
+          ? fixture.parent
+          : fixture.child,
       getDocumentWriterProjection: async () => fixture.writerProjection,
       listDocumentAttachments: async () => [],
       primeDocumentWriterProjection: () => {},
@@ -120,11 +123,15 @@ export async function createStagedUnlinkHarness() {
     server.api,
   );
 
-  /** Unlink the child container, rotating over `document`'s history. */
+  /**
+   * Unlink the child container, or the parent when `options.container` says
+   * so, rotating over `document`'s history.
+   */
   function unlink(
     document: HistoryDocument,
     execSql: ExecSql,
     options: {
+      readonly container?: "child" | "parent" | undefined;
       readonly eventId?: string | undefined;
       readonly segmentSizes?: HistorySegmentSizes | undefined;
       readonly stillCurrent?: (() => boolean) | undefined;
@@ -147,7 +154,7 @@ export async function createStagedUnlinkHarness() {
           : SMALL_BASELINE_SEGMENTS,
       rotationSnapshot: exportFullHistorySnapshot(document),
       stillCurrent: options.stillCurrent,
-      targetContainerId: fixture.child.containerId,
+      targetContainerId: fixture[options.container ?? "child"].containerId,
     });
   }
 

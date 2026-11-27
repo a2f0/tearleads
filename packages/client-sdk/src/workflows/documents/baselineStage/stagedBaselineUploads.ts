@@ -3,13 +3,13 @@ import {
   type ExecSql,
   resolveCanonicalExecSql,
 } from "../../../data/sqlite/sqlSchema";
+import { transitionStagedBaseline } from "./stagedBaselineMachine";
 import {
   INITIAL_STAGED_BASELINE_STATE,
   isStagedBaselineOver,
   type StagedBaselineEvent,
   type StagedBaselineState,
-  transitionStagedBaseline,
-} from "./stagedBaselineMachine";
+} from "./stagedBaselineState";
 
 /**
  * What an upload fixes once, so that every request it sends and every
@@ -32,62 +32,60 @@ export interface StagedBaselinePlan {
 }
 
 /**
- * What the writer keeps of a segment it staged: enough to prove later that
- * a re-proven history still gives the same bytes, to sign its header again,
- * and to carry the digest forward. Never the ciphertext.
+ * A place a rotation's content key is wrapped for: one key epoch of one
+ * linked container. Whoever holds that epoch's key can open the wrap, so
+ * the pair names who a request that carries the wrap gives the key to. A
+ * later key epoch of the same container is another place: the members it
+ * dropped still hold the earlier one.
  */
-export interface StagedSegmentRecord {
-  readonly ciphertextHash: string;
-  readonly contentRecordId: string;
-  readonly dependencyVersionVector: string;
-  /** The stage's digest once this segment is staged. */
-  readonly digestAfter: string;
-  readonly metadataHash: string;
-  readonly partialEndVersionVector: string;
-  readonly partialStartVersionVector: string;
-  readonly plaintextHash: string;
-  readonly updateId: string;
+export interface RotationKeyTarget {
+  readonly containerId: string;
+  readonly containerKeyEpochId: string;
+}
+
+function keyTargetIds(targets: readonly RotationKeyTarget[]): string[] {
+  return targets.map(({ containerId, containerKeyEpochId }) =>
+    JSON.stringify([containerId, containerKeyEpochId]),
+  );
 }
 
 /**
- * One document's upload through a stage: the machine's state and what the
- * writer remembers beside it. It lives in memory only, so a process that
- * restarts has no upload and starts the next one over; the stage it left is
- * replaced by that upload's, abandoned as an orphan, or expires.
+ * One document's upload through a stage: the machine's state, the plan
+ * every attempt signs alike, and where the plan's key has gone. It lives in
+ * memory only, so a process that restarts has no upload and starts the next
+ * one over; the stage it left is replaced by that upload's, abandoned as an
+ * orphan, or expires.
  */
 export class StagedBaselineUpload {
   state: StagedBaselineState = INITIAL_STAGED_BASELINE_STATE;
-  /** The staged segments, in index order; the last may be unacknowledged. */
-  records: StagedSegmentRecord[] = [];
   /**
-   * What the staged headers were signed for (`RotationBaselineSigner`), or
-   * null when the API said they are stale.
+   * Every target the key was wrapped for by an attempt that planned with
+   * it, whether or not its request was sent, answered or accepted. It only
+   * grows, and no attempt tag guards it: a request a superseded run sent
+   * gave the key away as surely as the current run's.
    */
-  headerIdentity: string | null = null;
+  private readonly keyTargets = new Set<string>();
 
   constructor(
     readonly documentId: string,
     readonly plan: StagedBaselinePlan,
-  ) {}
+    keyTargets: readonly RotationKeyTarget[],
+  ) {
+    this.wrapKeyFor(keyTargets);
+  }
 
-  /** Apply `event`, and what entering the new state does to the records. */
+  /** Apply `event`; the pure transition owns everything it changes. */
   dispatch(event: StagedBaselineEvent): StagedBaselineState {
-    const previous = this.state;
-    const next = transitionStagedBaseline(previous, event);
-    if (next === previous) return next;
-    this.state = next;
-    if (next.status === "planning") {
-      // No stage stands: nothing recorded describes one.
-      this.records = [];
-      this.headerIdentity = null;
-    }
-    if (
-      next.status === "resigningHeaders" &&
-      previous.status === "committing"
-    ) {
-      this.headerIdentity = null;
-    }
-    return next;
+    this.state = transitionStagedBaseline(this.state, event);
+    return this.state;
+  }
+
+  /** Whether the upload is still under way for a key that opens `epoch`. */
+  isLiveAt(contentKeyEpoch: number): boolean {
+    return (
+      !isStagedBaselineOver(this.state) &&
+      this.plan.contentKeyEpoch === contentKeyEpoch
+    );
   }
 
   /** Whether an upload planned for `plan`'s key can go on as this one. */
@@ -96,10 +94,26 @@ export class StagedBaselineUpload {
     readonly contentKeyEpoch: number;
   }): boolean {
     return (
-      !isStagedBaselineOver(this.state) &&
-      this.plan.contentKeyEpoch === plan.contentKeyEpoch &&
+      this.isLiveAt(plan.contentKeyEpoch) &&
       this.plan.contentKeyCommitment === plan.contentKeyCommitment
     );
+  }
+
+  /**
+   * Whether an attempt that wraps the key for `targets` gives it to nobody
+   * new to lose: every target the key was ever wrapped for is among them.
+   * A rotation exists to keep a key from someone, so a key any request
+   * carried to a target the new attempt leaves out is not a fresh key for
+   * that attempt, whatever became of the request.
+   */
+  keyMayBeWrappedFor(targets: readonly RotationKeyTarget[]): boolean {
+    const offered = new Set(keyTargetIds(targets));
+    return [...this.keyTargets].every((target) => offered.has(target));
+  }
+
+  /** Remember that an attempt wraps the key for `targets`. */
+  wrapKeyFor(targets: readonly RotationKeyTarget[]): void {
+    for (const target of keyTargetIds(targets)) this.keyTargets.add(target);
   }
 }
 
@@ -108,7 +122,11 @@ export interface StagedBaselineUploads {
   /** The document's upload, whatever its state. */
   get(documentId: string): StagedBaselineUpload | null;
   /** Start an upload, replacing the document's earlier one. */
-  begin(documentId: string, plan: StagedBaselinePlan): StagedBaselineUpload;
+  begin(
+    documentId: string,
+    plan: StagedBaselinePlan,
+    keyTargets: readonly RotationKeyTarget[],
+  ): StagedBaselineUpload;
   /** Forget `upload`, unless another has replaced it. */
   end(upload: StagedBaselineUpload): void;
   /** Whether an upload here is filling the stage `baselineId`. */
@@ -118,8 +136,8 @@ export interface StagedBaselineUploads {
 function createStagedBaselineUploads(): StagedBaselineUploads {
   const uploads = new Map<string, StagedBaselineUpload>();
   return {
-    begin(documentId, plan) {
-      const upload = new StagedBaselineUpload(documentId, plan);
+    begin(documentId, plan, keyTargets) {
+      const upload = new StagedBaselineUpload(documentId, plan, keyTargets);
       uploads.set(documentId, upload);
       return upload;
     },

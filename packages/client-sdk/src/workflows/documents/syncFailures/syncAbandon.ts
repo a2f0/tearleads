@@ -1,6 +1,9 @@
 import type { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
-import type { DocumentRotationBaselineStageError } from "../baselineStage/rotationBaselineErrors";
+import type {
+  DocumentRotationBaselineStageError,
+  DocumentRotationBaselineUploadEndedError,
+} from "../baselineStage/rotationBaselineErrors";
 import type { RemoteDocumentSyncPass } from "../sync/remoteDocumentSyncPass";
 import { traceAncestorRepairAbandoned } from "../sync/syncTrace";
 import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
@@ -125,6 +128,27 @@ export async function abandonOversizedSyncPlan(
   await input.onTerminalSubmitFailure?.(failure);
   input.onSyncAbandoned?.(
     "one queued update or operation cannot fit a document sync request, or the history needs more segments than a staged rotation baseline holds",
+  );
+  return null;
+}
+
+/**
+ * A heal's baseline upload ended with nothing to report. A pass that ended
+ * while its baseline uploaded says nothing at all. One whose upload a later
+ * attempt took over (another pass, or an unlink of the document, which
+ * shares the upload) leaves its writes queued and records no failure: the
+ * upload is that attempt's now, and a local race is not a refusal.
+ */
+export function abandonEndedBaselineUpload(
+  input: AbandonedSyncInput & Pick<RemoteDocumentSyncPass, "stillCurrent">,
+  error: DocumentRotationBaselineUploadEndedError,
+): null {
+  if (!error.superseded || input.stillCurrent?.() === false) return null;
+  input.onSyncTrace?.(
+    `document sync baseline upload superseded document=${input.documentId}`,
+  );
+  input.onSyncAbandoned?.(
+    "a later attempt took over the rotation baseline upload",
   );
   return null;
 }

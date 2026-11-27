@@ -100,6 +100,7 @@ export class FakeBaselineStageServer {
   }[] = [];
   private readonly before = new Map<string, () => void | Promise<void>>();
   private readonly lost = new Set<string>();
+  private readonly after = new Map<string, () => Promise<void>>();
 
   /** Answer the next request named `call` with `failure`, once. */
   refuseNext(call: string, failure: InjectedFailure): void {
@@ -112,6 +113,23 @@ export class FakeBaselineStageServer {
   /** Run `effect` just before the next request named `call` is handled. */
   beforeNext(call: string, effect: () => void | Promise<void>): void {
     this.before.set(call, effect);
+  }
+
+  /**
+   * Handle the next request named `call`, then run `effect` before its
+   * answer is returned: an answer held on the wire while other requests go.
+   */
+  afterNext(call: string, effect: () => Promise<void>): void {
+    this.after.set(call, effect);
+  }
+
+  private async held<T>(call: string, answer: T): Promise<T> {
+    const effect = this.after.get(call);
+    if (effect) {
+      this.after.delete(call);
+      await effect();
+    }
+    return answer;
   }
 
   /** Handle the next request named `call`, then lose its answer. */
@@ -283,9 +301,12 @@ export class FakeBaselineStageServer {
     },
     getDocumentBaselineStageResult: async (documentId, baselineId) => {
       const injected = await this.enter("get");
-      if (injected) return injected;
+      if (injected) return this.held("get", injected);
       const { failure, stage } = this.open(documentId, baselineId);
-      return stage ? this.status(stage) : (failure ?? refusal(CODES.notFound));
+      return this.held(
+        "get",
+        stage ? this.status(stage) : (failure ?? refusal(CODES.notFound)),
+      );
     },
     openDocumentBaselineStageResult: async (documentId, input) => {
       const injected = await this.enter("open");

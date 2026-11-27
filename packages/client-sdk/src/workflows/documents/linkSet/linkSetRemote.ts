@@ -302,7 +302,11 @@ async function relinkRemoteDocumentOnce(
   const targetContainerProjection = targetContainerFetch.projection;
   if (input.stillCurrent?.() === false) return null;
 
-  const fixed = fixedLinkSetPlan(input, writerProjection);
+  const fixed = fixedLinkSetPlan(
+    input,
+    writerProjection,
+    targetContainerProjection,
+  );
   const materializedPlan = await prepareRemoteLinkSetMutation(
     { ...input, ...fixed, resolveProjectionUserKey },
     writerProjection,

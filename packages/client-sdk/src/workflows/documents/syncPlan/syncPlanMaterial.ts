@@ -38,7 +38,10 @@ import type { DocumentWriterProjectionAuthorization } from "../../../data/keying
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { rotationBaselineSigner } from "../baselineStage/rotationBaselineSigner";
-import { heldStagedBaselinePlan } from "../baselineStage/rotationBaselineWriter";
+import {
+  releaseStagedBaselineCommit,
+  reusableStagedBaselinePlan,
+} from "../baselineStage/rotationBaselineWriter";
 import {
   type DocumentSyncTraceEmitter,
   traceHealBlocked,
@@ -115,19 +118,28 @@ async function resolveStaleHealMaterial(
   signing: SyncPlanSigning,
 ): Promise<ResolvedSyncPlanContentMaterial> {
   const staleEpoch = input.writerProjection.contentKeyBundle.contentKeyEpoch;
+  const wrap = (key: Uint8Array) =>
+    buildRotatedDocumentContentKeyBundle({
+      containerKeksByEpochId,
+      contentKey: key,
+      writerProjection: input.writerProjection,
+    });
+  let contentKey: Uint8Array = crypto.getRandomValues(new Uint8Array(32));
+  let contentKeyBundle = await wrap(contentKey);
   // A baseline part way through a stage was encrypted under a key: the heal
-  // that goes on with it wraps that key, not a new one.
-  const contentKey =
-    heldStagedBaselinePlan(
-      input.execSql,
-      input.writerProjection.documentId,
-      staleEpoch + 1,
-    )?.contentKey ?? crypto.getRandomValues(new Uint8Array(32));
-  const contentKeyBundle = await buildRotatedDocumentContentKeyBundle({
-    containerKeksByEpochId,
-    contentKey,
-    writerProjection: input.writerProjection,
-  });
+  // that goes on with it wraps that key, not a new one. It may only where
+  // the key goes nowhere it has not been (`reusableStagedBaselinePlan`),
+  // which the bundle just built says.
+  const held = reusableStagedBaselinePlan(
+    input.execSql,
+    input.writerProjection.documentId,
+    contentKeyBundle.contentKeyEpoch,
+    contentKeyBundle.targets,
+  );
+  if (held) {
+    contentKey = held.contentKey;
+    contentKeyBundle = await wrap(contentKey);
+  }
   // The heal's baseline is the local document's whole history, cut into
   // segments and sent ahead of the pending updates in the same request, or
   // staged ahead of it when the history does not fit.
@@ -471,7 +483,14 @@ async function planResolvedSyncContent(
       rotationBaseline !== undefined &&
       rotationBaseline.baselineStageId === undefined &&
       signing.inlineBaselineCharacters > 0;
-    if (!sentWhole || !isDocumentSyncRequestLimitError(error)) throw error;
-    return { error, kind: "oversized" };
+    if (sentWhole && isDocumentSyncRequestLimitError(error)) {
+      return { error, kind: "oversized" };
+    }
+    // The request that would commit a staged baseline cannot be made: the
+    // upload is over, and its stage is not left to hold a place.
+    if (rotationBaseline?.stagedCommit) {
+      await releaseStagedBaselineCommit(rotationBaseline.stagedCommit);
+    }
+    throw error;
   }
 }

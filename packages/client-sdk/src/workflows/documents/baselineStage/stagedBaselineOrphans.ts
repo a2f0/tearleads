@@ -36,11 +36,15 @@ interface OrphanedStageSearch {
 }
 
 /**
- * Abandon the user's open stages that no upload of this database is filling
- * and that have been idle long enough to be orphans, and say how many are
- * gone. A user holds few open stages, and one a restarted process left
- * would hold its place until it expired; the refusal that reports the limit
- * names them, and only then does the writer look.
+ * Free one of the user's places: abandon the open stage that no upload of
+ * this database is filling and that has been idle longest, if it has been
+ * idle long enough to be an orphan, and say whether a place was freed. A
+ * user holds few open stages, and one a restarted process left would hold
+ * its place until it expired; the refusal that reports the limit names
+ * them, and only then does the writer look. One place is all the open
+ * needs, so the other orphans are left to expire, or to the next upload
+ * that is refused: an abandon is not undone, and a stage misread as an
+ * orphan costs its writer the whole upload.
  *
  * Two devices of one user both see each other's stages here. Neither is
  * tracked by the other, so the idle rule is what keeps them from abandoning
@@ -50,20 +54,21 @@ interface OrphanedStageSearch {
  * and sends its segments again. A stage whose expiry does not parse is left
  * alone.
  */
-export async function abandonOrphanedStages(
+export async function abandonOrphanedStage(
   input: OrphanedStageSearch,
-): Promise<number> {
-  let abandoned = 0;
-  for (const stage of input.openStages) {
-    const touchedAt = lastTouchedAt(stage);
-    if (
-      input.uploads.tracks(stage.documentId, stage.baselineId) ||
-      !Number.isFinite(touchedAt) ||
-      input.now - touchedAt < ORPHANED_STAGE_IDLE_MS
-    ) {
-      continue;
-    }
-    // Best effort: a stage the API keeps still holds its place.
+): Promise<boolean> {
+  const orphans = input.openStages
+    .map((stage) => ({ stage, touchedAt: lastTouchedAt(stage) }))
+    .filter(
+      ({ stage, touchedAt }) =>
+        !input.uploads.tracks(stage.documentId, stage.baselineId) &&
+        Number.isFinite(touchedAt) &&
+        input.now - touchedAt >= ORPHANED_STAGE_IDLE_MS,
+    )
+    .sort((left, right) => left.touchedAt - right.touchedAt);
+  for (const { stage } of orphans) {
+    // Best effort: a stage the API keeps still holds its place, and the
+    // next longest idle is tried.
     const result = await input.api
       .abandonDocumentBaselineStageResult(stage.documentId, stage.baselineId, {
         reportErrors: false,
@@ -74,10 +79,10 @@ export async function abandonOrphanedStages(
       result?.ok ||
       result?.code === DOCUMENT_BASELINE_STAGE_ERROR_CODES.notFound
     ) {
-      abandoned += 1;
+      return true;
     }
   }
-  return abandoned;
+  return false;
 }
 
 type OpenResult = Awaited<
@@ -85,10 +90,10 @@ type OpenResult = Awaited<
 >;
 
 /**
- * Open a stage, and answer the open-stage limit once: the stages the
- * refusal names that nobody is filling are abandoned, and the open is sent
- * again if that freed a place. A second refusal, or one that named no
- * orphan, is the caller's to report.
+ * Open a stage, and answer the open-stage limit once: the longest idle
+ * stage the refusal names that nobody is filling is abandoned, and the
+ * open is sent again if that freed a place. A second refusal, or one that
+ * named no orphan, is the caller's to report.
  */
 export async function openPastOrphanedStages(
   open: () => Promise<OpenResult>,
@@ -101,10 +106,10 @@ export async function openPastOrphanedStages(
   ) {
     return result;
   }
-  const abandoned = await abandonOrphanedStages({
+  const freed = await abandonOrphanedStage({
     ...search,
     now: Date.now(),
     openStages: result.openStages ?? [],
   });
-  return abandoned > 0 ? open() : result;
+  return freed ? open() : result;
 }

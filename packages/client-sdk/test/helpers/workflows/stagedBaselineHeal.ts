@@ -123,6 +123,8 @@ export async function createStagedHealHarness() {
     document: HistoryDocument,
     execSql: ExecSql,
     options: {
+      /** Sent with the request as given: any size makes any request. */
+      readonly minLsn?: string | undefined;
       readonly segmentSizes?: HistorySegmentSizes | undefined;
       readonly stillCurrent?: (() => boolean) | undefined;
     } = { segmentSizes: SMALL_BASELINE_SEGMENTS },
@@ -134,6 +136,7 @@ export async function createStagedHealHarness() {
       documentId,
       execSql,
       localVersionVector: encodeVersionVector(document),
+      minLsn: options.minLsn,
       onSyncAbandoned: (reason) => abandonedReasons.push(reason),
       onSyncTrace: (line) => traceLines.push(line),
       onTerminalSubmitFailure: (failure) => {

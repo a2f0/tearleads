@@ -7,7 +7,10 @@ interface SyncPlanMaterial {
   readonly contentKey: Uint8Array;
   readonly healedStaleContentKeyBundle: boolean;
   readonly rotationBaseline?:
-    | { readonly segments: readonly { readonly id: string }[] }
+    | {
+        readonly segments: readonly { readonly id: string }[];
+        readonly stagedCommit?: { readonly attempt: number } | undefined;
+      }
     | undefined;
 }
 
@@ -34,6 +37,7 @@ export function materializedDocumentSyncPlan(
   writerProjection: MaterializedDocumentSyncPlan["writerProjection"],
 ): MaterializedDocumentSyncPlan {
   const rotationBaselineUpdateIds = rotationBaselineUpdateIdsOf(material);
+  const baselineStageAttempt = material.rotationBaseline?.stagedCommit?.attempt;
   return {
     contentKey: material.contentKey,
     healedStaleContentKeyBundle: material.healedStaleContentKeyBundle,
@@ -42,6 +46,7 @@ export function materializedDocumentSyncPlan(
     ...(rotationBaselineUpdateIds === undefined
       ? {}
       : { rotationBaselineUpdateIds }),
+    ...(baselineStageAttempt === undefined ? {} : { baselineStageAttempt }),
   };
 }
 

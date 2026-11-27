@@ -25,7 +25,7 @@ import { DocumentSyncRequestLimitError } from "../../../data/documents/shared/sy
 import type { DocumentSyncPreparedUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { RotationHistory } from "./rotationHistory";
-import type { StagedSegmentRecord } from "./stagedBaselineUploads";
+import type { StagedSegmentRecord } from "./stagedBaselineState";
 
 const MEBIBYTE = 1024 * 1024;
 

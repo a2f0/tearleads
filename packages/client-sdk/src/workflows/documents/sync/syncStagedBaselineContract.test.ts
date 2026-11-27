@@ -16,6 +16,7 @@ import {
 import {
   MAX_DOCUMENT_BASELINE_SEGMENT_HEADER_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH,
 } from "@tearleads/validators/util";
 import {
@@ -25,6 +26,7 @@ import {
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { resolveDocumentCreateAuthor } from "../author";
+import { getOrCreateStagedBaselineUploads } from "../baselineStage/stagedBaselineUploads";
 
 let execSql: ExecSql;
 let closeExecSql: () => void;
@@ -243,4 +245,79 @@ test("the device id an author signs with fits a write header", async () => {
   expect(author?.signerDeviceId.length).toBeLessThanOrEqual(
     MAX_WRITE_HEADER_WRITER_DEVICE_ID_LENGTH,
   );
+});
+
+// A stage the writer gives up is deleted. That holds when the request that
+// would commit it cannot be made: the final segment waits beside a request
+// that is over its bytes whatever is trimmed, so the upload is over, and
+// its stage is not left to hold one of the user's places and the key.
+test("a staged heal whose request cannot be made deletes its stage", async () => {
+  const harness = await createStagedHealHarness();
+  const document = await createLongHistoryDocument("unmakeable-request");
+
+  expect(
+    await harness.heal(document, execSql, {
+      minLsn: "9".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+      segmentSizes: { maxBytes: 1024, targetBytes: 256 },
+    }),
+  ).toBeNull();
+
+  expect(harness.requests).toEqual([]);
+  expect(harness.terminalFailures).toMatchObject([
+    { code: "document_sync_request_too_large", status: null },
+  ]);
+  expect(harness.server.calls.at(-1)).toBe("abandon");
+  expect(harness.server.stage(harness.documentId)).toBeNull();
+  expect(
+    getOrCreateStagedBaselineUploads(execSql).get(harness.documentId),
+  ).toBeNull();
+});
+
+// A throttle and a timeout ask the writer to come back. Like an outage they
+// say nothing about the stage, which is kept; the failure is recorded as a
+// failed sync request is, and clears when a later pass commits.
+test.each([408, 429, 503])(
+  "a stage request answered %d keeps the stage for the next pass",
+  async (status) => {
+    const harness = await createStagedHealHarness();
+    const document = await createLongHistoryDocument(`transient-${status}`);
+    harness.server.refuseNext("stage:3", { status });
+
+    expect(await harness.heal(document, execSql)).toBeNull();
+
+    expect(harness.server.calls).not.toContain("abandon");
+    expect(harness.server.stage(harness.documentId)?.segments).toHaveLength(3);
+    expect(harness.terminalFailures.map((failure) => failure.status)).toEqual([
+      status,
+    ]);
+    const callsBefore = harness.server.calls.length;
+
+    const synced = await harness.heal(document, execSql);
+
+    expect(synced?.acceptedRecoveryBaseline).toBe(true);
+    expect(harness.server.calls.slice(callsBefore, callsBefore + 2)).toEqual([
+      "get",
+      "stage:3",
+    ]);
+  },
+);
+
+// An uncoded 409 on a stage route is the document's own refusal: it is
+// gone, or takes no write as it stands. A retry would meet it again, so the
+// upload is given up and its stage deleted.
+test("a stage request refused by the document itself gives the upload up", async () => {
+  const harness = await createStagedHealHarness();
+  const document = await createLongHistoryDocument("document-refuses");
+  harness.server.refuseNext("stage:3", {
+    message: "Document not found",
+    status: 409,
+  });
+
+  expect(await harness.heal(document, execSql)).toBeNull();
+
+  expect(harness.server.calls.slice(-2)).toEqual(["stage:3", "abandon"]);
+  expect(harness.server.stage(harness.documentId)).toBeNull();
+  expect(harness.terminalFailures.map((failure) => failure.status)).toEqual([
+    409,
+  ]);
 });

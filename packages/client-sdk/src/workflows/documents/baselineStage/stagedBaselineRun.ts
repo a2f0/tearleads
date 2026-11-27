@@ -30,13 +30,13 @@ import {
   resignStagedSegmentHeader,
 } from "./rotationBaselineSigner";
 import type { RotationHistory } from "./rotationHistory";
+import { stagedBaselineRefusalEvent } from "./stagedBaselineMachine";
+import { openPastOrphanedStages } from "./stagedBaselineOrphans";
 import {
   type StagedBaselineAbandonReason,
   type StagedBaselineState,
-  stagedBaselineRefusalEvent,
   stagedSegmentCount,
-} from "./stagedBaselineMachine";
-import { openPastOrphanedStages } from "./stagedBaselineOrphans";
+} from "./stagedBaselineState";
 import type {
   StagedBaselineUpload,
   StagedBaselineUploads,
@@ -87,7 +87,9 @@ export type StagedBaselineRunResult =
   /** No stage stands and nothing staged is kept: the writer plans again. */
   | { readonly kind: "restart" }
   /** The writer stopped wanting the upload; its stage stands. */
-  | { readonly kind: "cancelled" };
+  | { readonly kind: "cancelled" }
+  /** A later run took the upload over; the upload is that run's now. */
+  | { readonly kind: "superseded" };
 
 /** Abandon reasons the same run recovers from by planning again. */
 const RESTARTABLE: ReadonlySet<StagedBaselineAbandonReason> = new Set([
@@ -106,14 +108,26 @@ function requestOptions(run: StagedBaselineRun) {
   };
 }
 
+/** Refusals that ask the caller to come back: a timeout, and a throttle. */
+const TRANSIENT_STATUSES: ReadonlySet<number> = new Set([408, 429]);
+
 /**
  * Whether a failed stage request says nothing about the upload: it got no
- * answer, or the API failed. The stage is then left for the next run. Any
- * other refusal without a stage code (access, billing, a request the API
- * will not take) is one a retry would meet again.
+ * answer, the API failed, or the API asked the writer to come back later.
+ * The stage is then left for the next run. Any other refusal without a
+ * stage code is one a retry would meet again: access and billing (`403`,
+ * `402`), a request the API will not take (`400`, `413`), and the
+ * document's own refusal, an uncoded `409`, which a stage route sends when
+ * the document is gone or takes no write as it stands.
  */
 function saysNothing(failure: DocumentBaselineStageFailure): boolean {
-  return failure.status === null || failure.status >= 500;
+  const { status } = failure;
+  return status === null || status >= 500 || TRANSIENT_STATUSES.has(status);
+}
+
+/** Whether `run` is still the upload's run: no later one has started. */
+function isCurrent(run: StagedBaselineRun): boolean {
+  return run.upload.state.attempt === run.attempt;
 }
 
 /**
@@ -126,6 +140,9 @@ async function refuse(
   run: StagedBaselineRun,
   failure: DocumentBaselineStageFailure,
 ): Promise<void> {
+  // The answer is to a run a later one took over: it is nobody's failure,
+  // and the upload it would give up is the later run's.
+  if (!isCurrent(run)) return;
   if (!isDocumentBaselineStageErrorCode(failure.code)) {
     if (!saysNothing(failure)) {
       run.upload.dispatch({ attempt: run.attempt, type: "released" });
@@ -170,8 +187,8 @@ async function openStage(
     run.upload.dispatch({ attempt, type: "segmentConflict" });
     return;
   }
-  run.upload.headerIdentity = run.context.signer.identity;
-  run.upload.dispatch({ attempt, type: "stageOpened" });
+  const signedFor = run.context.signer.identity;
+  run.upload.dispatch({ attempt, signedFor, type: "stageOpened" });
 }
 
 /**
@@ -183,7 +200,7 @@ async function readStage(
   run: StagedBaselineRun,
   state: Extract<StagedBaselineState, { status: "resuming" }>,
 ): Promise<void> {
-  const { documentId, plan, records } = run.upload;
+  const { documentId, plan } = run.upload;
   const result = await run.context.api.getDocumentBaselineStageResult(
     documentId,
     state.baselineId,
@@ -198,7 +215,7 @@ async function readStage(
           baselineId: state.baselineId,
           documentId,
         })
-      : records[stage.nextSegmentIndex - 1]?.digestAfter;
+      : state.records[stage.nextSegmentIndex - 1]?.digestAfter;
   if (
     digest !== stage.segmentsDigest ||
     stage.contentKeyEpoch !== plan.contentKeyEpoch ||
@@ -207,7 +224,6 @@ async function readStage(
     run.upload.dispatch({ attempt, type: "stagedHistoryDiverged" });
     return;
   }
-  records.length = stage.nextSegmentIndex;
   run.upload.dispatch({
     attempt,
     nextSegmentIndex: stage.nextSegmentIndex,
@@ -220,38 +236,33 @@ async function readStage(
  * what the history holds past them. A segment the history no longer gives,
  * or a history with nothing left for a final segment, ends the stage.
  */
-async function confirmStaged(run: StagedBaselineRun): Promise<void> {
+async function confirmStaged(
+  run: StagedBaselineRun,
+  state: Extract<StagedBaselineState, { status: "confirming" }>,
+): Promise<void> {
   const { attempt, context, upload } = run;
   const { history, keying } = context;
   run.queue.length = 0;
-  for (const record of upload.records) {
+  for (const record of state.records) {
     if (!(await stagedSegmentMatchesHistory({ history, keying, record }))) {
       upload.dispatch({ attempt, type: "stagedHistoryDiverged" });
       return;
     }
   }
-  const state = upload.state;
-  if (state.status !== "confirming") return;
   run.encoder = await continueRotationBaselineEncoder({
     baselineId: state.baselineId,
     coversThroughUpdateId: context.coversThroughUpdateId,
     history,
     keying,
     segmentSizes: context.segmentSizes,
-    staged: upload.records,
+    staged: state.records,
   });
   if (run.encoder.peek() === null) {
     upload.dispatch({ attempt, type: "stagedHistoryDiverged" });
     return;
   }
-  if (upload.records.length === 0) {
-    upload.headerIdentity = context.signer.identity;
-  }
-  upload.dispatch({
-    attempt,
-    headersCurrent: upload.headerIdentity === context.signer.identity,
-    type: "stagedHistoryConfirmed",
-  });
+  const signedFor = context.signer.identity;
+  upload.dispatch({ attempt, signedFor, type: "stagedHistoryConfirmed" });
 }
 
 async function resignHeader(
@@ -260,7 +271,7 @@ async function resignHeader(
 ): Promise<void> {
   const { signer } = run.context;
   const segmentIndex = state.nextHeaderIndex;
-  const record = run.upload.records[segmentIndex];
+  const record = state.records[segmentIndex];
   if (!record) throw new Error("A staged segment has no record to sign for");
   const result =
     await run.context.api.resignDocumentBaselineSegmentHeaderResult(
@@ -271,12 +282,10 @@ async function resignHeader(
       requestOptions(run),
     );
   if (!result.ok) return refuse(run, result);
-  if (segmentIndex + 1 === state.stagedSegments) {
-    run.upload.headerIdentity = signer.identity;
-  }
   run.upload.dispatch({
     attempt: run.attempt,
     segmentIndex,
+    signedFor: signer.identity,
     type: "headerResigned",
   });
 }
@@ -310,14 +319,14 @@ async function stageNext(
     .sign(segment.prepared)
     .catch(async (error: unknown) => {
       // A segment no request carries ends the upload, and its stage with it.
-      if (isDocumentSyncRequestLimitError(error)) {
+      if (isDocumentSyncRequestLimitError(error) && isCurrent(run)) {
         upload.dispatch({ attempt, type: "released" });
         await dropStagedBaselineUpload(run.context, upload);
       }
       throw error;
     });
-  upload.records.length = segmentIndex;
-  upload.records.push(stagedSegmentRecord(segment));
+  const record = stagedSegmentRecord(segment);
+  upload.dispatch({ attempt, record, segmentIndex, type: "segmentSent" });
   const result = await run.context.api.stageDocumentBaselineSegmentResult(
     upload.documentId,
     state.baselineId,
@@ -418,7 +427,7 @@ async function step(
       await readStage(run, state);
       return null;
     case "confirming":
-      await confirmStaged(run);
+      await confirmStaged(run, state);
       return null;
     case "resigningHeaders":
       await resignHeader(run, state);
@@ -448,8 +457,9 @@ async function step(
 
 /**
  * Drive `run.upload` from where it stands until its final segment is ready.
- * Only this run's attempt moves the machine: once a later run has started,
- * this one stops without touching the stage again.
+ * Only this run's attempt moves the machine, which owns the records of what
+ * is staged: once a later run has started, this one's answers change
+ * nothing and it stops without touching the stage again.
  */
 export async function runStagedBaselineUpload(
   run: StagedBaselineRun,
@@ -457,13 +467,10 @@ export async function runStagedBaselineUpload(
   let traced: string | null = null;
   for (;;) {
     const { state } = run.upload;
-    if (state.attempt !== run.attempt) {
-      throw new DocumentRotationBaselineStageError(
-        "Document rotation baseline upload was superseded by a later one",
-        undefined,
-        null,
-      );
-    }
+    // A later run started while this one waited on a request. That run owns
+    // the upload now, and this one ends without a word: a local race is not
+    // a failure of the upload.
+    if (state.attempt !== run.attempt) return { kind: "superseded" };
     if (run.context.stillCurrent?.() === false) return { kind: "cancelled" };
     const progress = `${state.status}:${stagedSegmentCount(state) >> 4}`;
     if (progress !== traced) trace(run, state);

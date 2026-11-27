@@ -1,6 +1,6 @@
 // What a heal does when its stage cannot open because the user holds four
-// already: the stages nobody is filling are abandoned and the open is sent
-// once more, and a stage that is being filled is never touched.
+// already: the longest idle stage nobody is filling is abandoned and the
+// open is sent once more, and a stage that is being filled is never touched.
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DOCUMENT_BASELINE_STAGE_ERROR_CODES as STAGE } from "@tearleads/validators/response";
@@ -45,29 +45,27 @@ const opens = (calls: readonly string[]) =>
 // A process that restarts forgets its uploads, and each stage it left holds
 // one of the user's four places for an hour. Without this rule the fifth
 // upload was refused until they expired.
-test("stages a restarted process left are abandoned and the open is sent again", async () => {
+test("the longest idle stage a restarted process left is abandoned and the open is sent again", async () => {
   const harness = await createStagedHealHarness();
   const document = await createLongHistoryDocument("orphans-cleared");
-  harness.server.elsewhere.push(
+  const kept = [
     openStage("a", ORPHANED_STAGE_IDLE_MS),
     openStage("b", 20 * MINUTE_MS),
     openStage("c", 45 * MINUTE_MS),
-    openStage("d", 59 * MINUTE_MS),
-  );
+  ];
+  harness.server.elsewhere.push(...kept, openStage("d", 59 * MINUTE_MS));
 
   const synced = await harness.heal(document, execSql);
 
   expect(synced?.acceptedRecoveryBaseline).toBe(true);
-  expect(harness.server.calls.slice(0, 7)).toEqual([
+  // One place is all the open needs: the other orphans are left.
+  expect(harness.server.calls.slice(0, 4)).toEqual([
     "open",
-    "abandon",
-    "abandon",
-    "abandon",
     "abandon",
     "open",
     "stage:0",
   ]);
-  expect(harness.server.elsewhere).toEqual([]);
+  expect(harness.server.elsewhere).toEqual(kept);
   expect(harness.terminalFailures).toEqual([]);
 });
 
@@ -95,7 +93,7 @@ test("a stage another device is filling is left alone, and the limit is reported
   ]);
 });
 
-test("only the idle stages go, and one freed place is enough", async () => {
+test("a fresh stage is never the one that goes", async () => {
   const harness = await createStagedHealHarness();
   const document = await createLongHistoryDocument("orphans-mixed");
   const fresh = [
@@ -119,19 +117,17 @@ test("only the idle stages go, and one freed place is enough", async () => {
 
 // The open is sent again once, never in a loop: a place another upload took
 // meanwhile, or an abandon the API did not take, leaves the limit standing.
-test("a limit that still stands after the orphans are gone is reported", async () => {
+test("a limit that still stands after an orphan is gone is reported", async () => {
   const harness = await createStagedHealHarness();
   const document = await createLongHistoryDocument("orphans-raced");
   const orphans = ["a", "b", "c", "d"].map((name) =>
     openStage(name, 30 * MINUTE_MS),
   );
   harness.server.elsewhere.push(...orphans);
-  // Another device opens four more before this one's second open arrives.
+  // Another device takes the freed place before this one's second open.
   harness.server.beforeNext("open", () => {
     harness.server.beforeNext("open", () => {
-      harness.server.elsewhere.push(
-        ...["e", "f", "g", "h"].map((name) => openStage(name, 0)),
-      );
+      harness.server.elsewhere.push(openStage("e", 0));
     });
   });
 
