@@ -98,3 +98,37 @@ test("a listing change during a pass that found no container retries at once", (
     run(running, { type: "containersChanged" }, { type: "finished" }),
   ).toEqual({ status: "done" });
 });
+
+test("a pass stopped by a busy refusal pauses, then pulls what it did not reach", () => {
+  const busy = run(
+    initialRosterProfileHydration(true),
+    { type: "profilesMissing", bindings: first },
+    { type: "busy", bindings: latest },
+  );
+  expect(busy).toEqual({ status: "waitingBusy", attempt: 0, bindings: latest });
+  // Rows that arrive during the pause replace the list; listing changes and
+  // stale pass ends do not cut the pause short.
+  expect(
+    run(
+      busy,
+      { type: "containersChanged" },
+      { type: "finished" },
+      { type: "containerMissing" },
+    ),
+  ).toEqual(busy);
+  expect(run(busy, { type: "profilesMissing", bindings: first })).toEqual({
+    status: "waitingBusy",
+    attempt: 0,
+    bindings: first,
+  });
+  expect(run(busy, { type: "busyPauseEnded" })).toEqual({
+    status: "running",
+    attempt: 1,
+    bindings: latest,
+    containersChanged: false,
+  });
+  // A pause that ends outside a busy wait changes nothing.
+  expect(run({ status: "done" }, { type: "busyPauseEnded" })).toEqual({
+    status: "done",
+  });
+});

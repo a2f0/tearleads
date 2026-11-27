@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
+import { DATABASE_BUSY_RUN_LIMIT } from "../../../../data/sqlite/availability/databaseBusyRetry";
 import type { DocumentRecord } from "../../../../workflows/documents";
 import type { DocumentStoreState } from "../state";
-import type { DocumentStoreSyncGeneration } from "./syncGeneration";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { remoteCreateGate } from "./syncSeededCreate";
 import { isContainerAwaitingRemoteCreate } from "./syncShared";
 
@@ -12,6 +13,7 @@ function storeInContainer(refusals: number): {
 } {
   let reads = 0;
   const state = {
+    doc: null,
     runtime: {
       infra: {
         execSql: async () => {
@@ -51,11 +53,15 @@ test("a busy container read stops retrying once its sync pass is stale", async (
 test("a container read that stays busy asks for another pass instead of creating", async () => {
   const store = storeInContainer(Number.POSITIVE_INFINITY);
 
+  const generation = captureDocumentStoreSyncGeneration(store.state, null);
+  if (!generation) throw new Error("Expected a current sync generation");
+
   await expect(
     remoteCreateGate(
       store.state,
       { documentId: null } as unknown as DocumentRecord,
-      {} as DocumentStoreSyncGeneration,
+      generation,
     ),
   ).resolves.toBe("busy");
+  expect(store.reads()).toBe(DATABASE_BUSY_RUN_LIMIT);
 });

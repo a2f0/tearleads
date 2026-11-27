@@ -92,6 +92,14 @@ function matchesScope(
 /** One load's hydration budget, matching Explorer's attribution probe. */
 export const MAX_ROSTER_PROFILE_HYDRATIONS_PER_LOAD = 32;
 
+/** How long a pass stopped by a busy refusal waits before it pulls again. */
+const ROSTER_PROFILE_BUSY_PAUSE_MS = 1_000;
+
+type RosterProfilePassEnd = Extract<
+  RosterProfileHydrationEvent,
+  { type: "busy" | "containerMissing" | "finished" }
+>;
+
 interface RosterProfileHydrationInput {
   readonly findRosterProfileContainer: () => Promise<ContainerNode | null>;
   readonly organizationId: string;
@@ -106,32 +114,34 @@ interface RosterProfileHydrationInput {
  * hydrates what is still missing. Each pulled profile reaches the caller
  * through `documents.subscribe`. A profile that fails to pull is logged and
  * skipped, and later loads try it after the others (`rosterProfilePullLedger`).
- * A profile still refused behind another tab's transaction ends the load and
- * keeps its place.
+ * A profile still refused behind another tab's transaction ends the pass and
+ * keeps its place, and the pass resumes there after a pause.
  */
 async function hydrateMissingRosterProfiles(
   input: RosterProfileHydrationInput & {
     readonly bindings: ReadonlyArray<RosterProfileBinding>;
     readonly signal: AbortSignal;
   },
-): Promise<"containerMissing" | "finished"> {
+): Promise<RosterProfilePassEnd> {
   const container = await input.findRosterProfileContainer();
-  if (!container) return "containerMissing";
+  if (!container) return { type: "containerMissing" };
   const bindings = selectRosterProfilePulls(
     input.tearleads,
     input.bindings,
     MAX_ROSTER_PROFILE_HYDRATIONS_PER_LOAD,
   );
-  for (const binding of bindings) {
+  for (const [index, binding] of bindings.entries()) {
     if (input.signal.aborted) break;
     const outcome = await pullRosterProfile(input, container.id, binding);
     if (input.signal.aborted) break;
     recordRosterProfilePull(input.tearleads, binding, outcome);
     // Another tab's transaction holds the whole database, so the profiles
-    // after this one would wait out the same refusals; a later load pulls them.
-    if (outcome === "busy") break;
+    // after this one would wait out the same refusals.
+    if (outcome === "busy") {
+      return { type: "busy", bindings: bindings.slice(index) };
+    }
   }
-  return "finished";
+  return { type: "finished" };
 }
 
 /**
@@ -158,13 +168,16 @@ async function pullRosterProfile(
     );
     return completed ? "completed" : "failed";
   } catch (error) {
-    if (!input.signal.aborted) {
-      input.tearleads.logError(
-        "Failed to hydrate an organization roster profile",
-        error,
-      );
+    const message = "Failed to hydrate an organization roster profile";
+    // A refusal behind another tab's transaction is retried, not reported.
+    if (classifyDatabaseFailure(error) === "busy") {
+      if (!input.signal.aborted) {
+        input.tearleads.log(`${message}: the database is busy in another tab`);
+      }
+      return "busy";
     }
-    return classifyDatabaseFailure(error) === "busy" ? "busy" : "failed";
+    if (!input.signal.aborted) input.tearleads.logError(message, error);
+    return "failed";
   }
 }
 
@@ -174,10 +187,11 @@ function startRosterProfileHydration(
 ) {
   let state = initialRosterProfileHydration(input.isOrgAdmin);
   const abort = new AbortController();
+  let busyPause: ReturnType<typeof setTimeout> | undefined;
   const pull = async (bindings: ReadonlyArray<RosterProfileBinding>) => {
-    let outcome: "containerMissing" | "finished" = "finished";
+    let passEnd: RosterProfilePassEnd = { type: "finished" };
     try {
-      outcome = await hydrateMissingRosterProfiles({
+      passEnd = await hydrateMissingRosterProfiles({
         ...input,
         bindings,
         signal: abort.signal,
@@ -190,7 +204,7 @@ function startRosterProfileHydration(
         );
       }
     }
-    dispatch({ type: outcome });
+    dispatch(passEnd);
   };
   const dispatch = (event: RosterProfileHydrationEvent) => {
     if (abort.signal.aborted) return;
@@ -201,6 +215,12 @@ function startRosterProfileHydration(
       (previous.status !== "running" || previous.attempt !== state.attempt)
     ) {
       void pull(state.bindings);
+    }
+    if (state.status === "waitingBusy" && previous.status !== "waitingBusy") {
+      busyPause = setTimeout(
+        () => dispatch({ type: "busyPauseEnded" }),
+        ROSTER_PROFILE_BUSY_PAUSE_MS,
+      );
     }
   };
   const unsubscribe =
@@ -214,6 +234,7 @@ function startRosterProfileHydration(
       dispatch({ type: "profilesMissing", bindings }),
     stop: () => {
       abort.abort();
+      clearTimeout(busyPause);
       unsubscribe?.();
     },
   };

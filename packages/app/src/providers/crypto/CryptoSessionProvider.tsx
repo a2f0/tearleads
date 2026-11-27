@@ -29,7 +29,7 @@ import {
   type RootBootstrapAttempt,
   useBootstrapCryptoSessionContainer,
   useResetCryptoSession,
-} from "./useBootstrapRootContainer";
+} from "./useBootstrapCryptoSessionContainer";
 import { useEnsureDatabaseForIdentity } from "./useEnsureDatabaseForIdentity";
 import { usePersistCryptoSession } from "./usePersistCryptoSession";
 import {

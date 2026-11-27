@@ -167,11 +167,13 @@ async function hydrateTargetWithRetries(
         return "hydrated";
       }
     } catch (error) {
-      input.tearleads.logError(
-        "Failed to hydrate explorer attribution roster profile",
-        error,
-      );
-      if (classifyDatabaseFailure(error) === "busy") return "busy";
+      const message = "Failed to hydrate explorer attribution roster profile";
+      // A refusal behind another tab's transaction is retried, not reported.
+      if (classifyDatabaseFailure(error) === "busy") {
+        input.tearleads.log(`${message}: the database is busy in another tab`);
+        return "busy";
+      }
+      input.tearleads.logError(message, error);
     }
   }
   return "failed";

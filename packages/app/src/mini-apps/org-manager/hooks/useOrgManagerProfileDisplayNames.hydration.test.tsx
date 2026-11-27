@@ -271,12 +271,17 @@ test("a profile that keeps failing goes last, then waits for a new session", asy
 });
 
 // #3360: a pull the worker refuses behind another tab's transaction is not the
-// profile's failure, so it must not use up the profile's session budget.
-test("a profile refused as busy keeps its place on every load", async () => {
+// profile's failure. It spends none of the profile's budget and stops the pass,
+// which resumes at that profile once a pause ends, without another load.
+test("a profile refused as busy is pulled again in the same load, then the rest", async () => {
   const harness = createTearleadsHarness();
-  const busyPull = mock((_signal?: AbortSignal) =>
-    Promise.reject(new Error(DATABASE_TRANSACTION_BUSY_MESSAGE)),
-  );
+  let refusals = 2 * DATABASE_BUSY_RUN_LIMIT;
+  const busyPull = mock((_signal?: AbortSignal) => {
+    refusals -= 1;
+    return refusals >= 0
+      ? Promise.reject(new Error(DATABASE_TRANSACTION_BUSY_MESSAGE))
+      : Promise.resolve(true);
+  });
   harness.open.mockImplementation((input: object) => ({
     requestRemoteSyncAndWait:
       Reflect.get(input, "documentId") === "profile-document-0"
@@ -284,22 +289,22 @@ test("a profile refused as busy keeps its place on every load", async () => {
         : harness.requestRemoteSyncAndWait,
     requestSync: harness.requestSync,
   }));
-  for (let load = 1; load <= MAX_ROSTER_PROFILE_PULL_FAILURES + 1; load++) {
-    const { view } = renderDisplayNames({
-      activeDirectory: directory(rosterUsers(2)),
-      harness,
-    });
-    await waitFor(
-      () =>
-        expect(busyPull).toHaveBeenCalledTimes(load * DATABASE_BUSY_RUN_LIMIT),
-      { timeout: 5_000 },
-    );
-    await waitFor(() => expect(harness.logError).toHaveBeenCalledTimes(load));
-    view.unmount();
-  }
-  // The refusal holds the whole database, so the load stops at that profile.
+  renderDisplayNames({ activeDirectory: directory(rosterUsers(2)), harness });
+
+  await waitFor(() =>
+    expect(busyPull).toHaveBeenCalledTimes(DATABASE_BUSY_RUN_LIMIT),
+  );
+  // The refusal holds the whole database, so the pass stops at that profile.
   expect(harness.requestRemoteSyncAndWait).not.toHaveBeenCalled();
-});
+  await waitFor(
+    () => expect(harness.requestRemoteSyncAndWait).toHaveBeenCalledTimes(1),
+    { timeout: 6_000 },
+  );
+  expect(busyPull).toHaveBeenCalledTimes(2 * DATABASE_BUSY_RUN_LIMIT + 1);
+  // Refusals stay in the local log and out of diagnostics.
+  expect(harness.log).toHaveBeenCalledTimes(2);
+  expect(harness.logError).not.toHaveBeenCalled();
+}, 10_000);
 
 test("a member who is not an admin pulls no roster profiles", async () => {
   const harness = createTearleadsHarness();

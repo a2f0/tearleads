@@ -216,16 +216,14 @@ function queueDocumentTextWrite(
       .catch((error: unknown) => {
         // Queued again with the document's own text, not this write's value,
         // so a retry can never put back text a later write replaced.
-        reportOrRetryBusyDocumentWrite(
-          state,
-          TEXT_FAILURE_MESSAGE,
-          error,
-          writeGeneration,
-          () =>
+        reportOrRetryBusyDocumentWrite(state, TEXT_FAILURE_MESSAGE, error, {
+          requeue: () =>
             state.doc
               ? queueDocumentTextWrite(state, getTextValue(state.doc))
               : undefined,
-        );
+          savesAll: true,
+          writeGeneration,
+        });
       })
       // Always settle, even on supersession, the value-equality short-circuit,
       // or a throw, so the current document's counter cannot stick non-zero.
@@ -417,13 +415,12 @@ function queueDocumentStructuredFieldWrite(
       .catch((error: unknown) => {
         // The patch is already in the document; an empty one persists its
         // unsaved delta with this write's own durability and guard.
-        reportOrRetryBusyDocumentWrite(
-          state,
-          FIELD_FAILURE_MESSAGE,
-          error,
-          write.writeGeneration,
-          () => queueDocumentStructuredFieldWrite(state, kind, {}, options),
-        );
+        reportOrRetryBusyDocumentWrite(state, FIELD_FAILURE_MESSAGE, error, {
+          requeue: () =>
+            queueDocumentStructuredFieldWrite(state, kind, {}, options),
+          savesAll: !options.stillCurrent && !options.deferRemoteSync,
+          writeGeneration: write.writeGeneration,
+        });
       })
       // See queueDocumentTextWrite: the final current-generation write also
       // republishes any remote content that was held during the optimistic burst.

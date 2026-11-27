@@ -134,7 +134,7 @@ function DemoPeerRosterSeeder({
   const side = usePaneSide();
   const runtime = useTearleadsRuntime();
   const orgManagerActions = useOrgManagerActions();
-  const { logError } = useLog();
+  const { log, logError } = useLog();
   // Holds the peer id whose roster seed has settled, so a changed peer (a
   // re-registered or switched identity) is treated as unsettled and re-seeded
   // rather than skipped.
@@ -200,7 +200,7 @@ function DemoPeerRosterSeeder({
         orgManagerActions,
         targetPeerUserId,
         peerNickname,
-        logError,
+        { log, logError },
         () => active,
       );
       if (!active) {
@@ -224,6 +224,7 @@ function DemoPeerRosterSeeder({
   }, [
     canSeedRoster,
     enabled,
+    log,
     logError,
     orgManagerActions,
     peerNickname,

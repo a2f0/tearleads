@@ -43,7 +43,10 @@ export async function attemptPeerRosterSeed(
   actions: RosterSeedActions,
   peerUserId: string,
   peerNickname: string,
-  logError: (message: string, error: unknown) => void,
+  logger: {
+    readonly log: (message: string) => void;
+    readonly logError: (message: string, error: unknown) => void;
+  },
   isCurrent?: () => boolean,
 ): Promise<PeerRosterSeedOutcome> {
   try {
@@ -57,8 +60,14 @@ export async function attemptPeerRosterSeed(
     if (error instanceof KeyingVerificationError) {
       throw error;
     }
-    logError("Demo peer bootstrap: failed to seed peer roster entry.", error);
-    return classifyDatabaseFailure(error) === "busy" ? "busy" : "unsettled";
+    const message = "Demo peer bootstrap: failed to seed peer roster entry.";
+    // A refusal behind another tab's transaction is retried, not reported.
+    if (classifyDatabaseFailure(error) === "busy") {
+      logger.log(`${message} The database is busy in another tab.`);
+      return "busy";
+    }
+    logger.logError(message, error);
+    return "unsettled";
   }
 }
 

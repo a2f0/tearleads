@@ -15,6 +15,7 @@ import { setDocumentText } from "./mutations";
 import {
   BUSY_WRITE_RETRY_MS,
   reportDocumentStoreWriteFailure,
+  reportOrRetryBusyDocumentWrite,
 } from "./reportWriteFailure";
 import { addRowToDocumentStore } from "./rows";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
@@ -355,4 +356,31 @@ test("a row write refused as busy is saved again without another edit", async ()
     sdk.dispose();
     database.close();
   }
+});
+
+test("a guarded busy retry never replaces one that saves every unsaved edit", async () => {
+  const state = {
+    doc: null,
+    localWriteGeneration: 0,
+    pendingLocalWrites: 0,
+    runtime: { util: { log: () => undefined } },
+    unsavedLocalEdits: true,
+  } as unknown as DocumentStoreState;
+  const requeued: string[] = [];
+  const retry = (name: string, savesAll: boolean) =>
+    reportOrRetryBusyDocumentWrite(state, MESSAGE, busyRefusal(), {
+      requeue: () => requeued.push(name),
+      savesAll,
+      writeGeneration: 0,
+    });
+
+  retry("guarded", false);
+  retry("text", true);
+  retry("deferred field", false);
+  await waitFor(
+    () => requeued.length > 0,
+    "The busy retry did not run.",
+    BUSY_WRITE_RETRY_MS * 3,
+  );
+  expect(requeued).toEqual(["text"]);
 });

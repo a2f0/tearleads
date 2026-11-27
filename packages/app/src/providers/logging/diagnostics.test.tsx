@@ -91,13 +91,13 @@ test("System Monitor retains raw logs while remote breadcrumbs use only the expl
   expect(errors).toEqual([error]);
 });
 
-// #3360: a refusal behind another tab's transaction is retried by its caller,
-// so it is not an error report.
-test("a busy database refusal is logged locally and never reaches diagnostics", () => {
-  const breadcrumbs: DiagnosticBreadcrumb[] = [];
+// #3360: callers that retry a refusal behind another tab's transaction log it
+// with `log`. One reported as an error is work nothing retried, so it is lost
+// and must reach diagnostics like any other failure.
+test("a busy database refusal reported as an error still reaches diagnostics", () => {
   const errors: unknown[] = [];
   const diagnostics = {
-    addBreadcrumb: (value: DiagnosticBreadcrumb) => breadcrumbs.push(value),
+    addBreadcrumb: () => undefined,
     captureError: (error: unknown) => errors.push(error),
   };
   const busy = new Error("Failed query", {
@@ -106,15 +106,12 @@ test("a busy database refusal is logged locally and never reaches diagnostics", 
   function Harness() {
     const { logError } = useLog();
     return (
-      <>
-        <button
-          type="button"
-          onClick={() => logError("Failed to hydrate a profile", busy)}
-        >
-          Act
-        </button>
-        <PaneLog />
-      </>
+      <button
+        type="button"
+        onClick={() => logError("Documents: attachment write failed", busy)}
+      >
+        Act
+      </button>
     );
   }
   const view = render(
@@ -123,8 +120,5 @@ test("a busy database refusal is logged locally and never reaches diagnostics", 
     </LogProvider>,
   );
   fireEvent.click(view.getByText("Act"));
-  expect(view.getByText(/Failed to hydrate a profile: Error/)).toBeTruthy();
-  expect(view.queryByText(/ERROR:/)).toBeNull();
-  expect(breadcrumbs).toEqual([]);
-  expect(errors).toEqual([]);
+  expect(errors).toEqual([busy]);
 });

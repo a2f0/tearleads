@@ -65,32 +65,42 @@ export function useBootstrapCryptoSessionContainer(
   const scope = tearleads.domainScope;
   const signIn = tearleads.session.captureSignIn();
   const busyRetry: BusyRetryTimer = useRef(null);
-  useEffect(
-    () => () => {
-      // Unmounting ends the attempt: its timer and any busy retries stop.
-      cancelBusyRetry(busyRetry, containerBootstrapped);
-      containerBootstrapped.current = null;
-    },
-    [containerBootstrapped],
-  );
+  const mounted = useRef(true);
   useEffect(() => {
-    // A root container from elsewhere leaves a busy bootstrap nothing to do.
-    if (containerId !== null) cancelBusyRetry(busyRetry, containerBootstrapped);
-    const previous = containerBootstrapped.current;
+    mounted.current = true;
+    return () => {
+      // Unmounting ends the attempt: its timer and any busy retries stop.
+      // A remount (StrictMode) keeps an attempt that is still running.
+      mounted.current = false;
+      cancelBusyRetry(busyRetry, containerBootstrapped);
+    };
+  }, [containerBootstrapped]);
+  useEffect(() => {
     if (
       containerId !== null ||
       !signingFingerprint ||
       dbStatus !== "ready" ||
-      !dbClient ||
-      (previous?.scope === scope &&
-        previous.signIn() &&
-        previous?.dbClient === dbClient &&
-        previous.signingFingerprint === signingFingerprint)
+      !dbClient
+    ) {
+      // A root container from elsewhere, or a database that went away, leaves
+      // a bootstrap waiting out a busy refusal nothing to do.
+      cancelBusyRetry(busyRetry, containerBootstrapped);
+      return;
+    }
+    const previous = containerBootstrapped.current;
+    if (
+      previous?.scope === scope &&
+      previous.signIn() &&
+      previous?.dbClient === dbClient &&
+      previous.signingFingerprint === signingFingerprint
     )
       return;
+    // A new attempt replaces one waiting out a busy refusal.
+    cancelBusyRetry(busyRetry, containerBootstrapped);
     const attempt = { scope, dbClient, signingFingerprint, signIn };
     containerBootstrapped.current = attempt;
     const current = () =>
+      mounted.current &&
       containerBootstrapped.current === attempt &&
       tearleads.domainScope === scope &&
       signIn();
@@ -105,10 +115,11 @@ export function useBootstrapCryptoSessionContainer(
         const failure = classifyDatabaseFailure(error);
         // The attempt stays recorded, so a re-render does not start a second.
         if (failure === "busy") {
-          busyRetry.current = setTimeout(() => {
-            busyRetry.current = null;
+          const retry = setTimeout(() => {
+            if (busyRetry.current === retry) busyRetry.current = null;
             if (current()) void run();
           }, BUSY_ROOT_BOOTSTRAP_RETRY_MS);
+          busyRetry.current = retry;
           return;
         }
         containerBootstrapped.current = null;

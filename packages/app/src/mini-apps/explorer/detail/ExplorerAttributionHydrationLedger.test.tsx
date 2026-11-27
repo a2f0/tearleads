@@ -87,6 +87,8 @@ function runtimeSnapshot(): RuntimeSnapshot {
 function installAttributionHarness(
   remoteSync: (documentId: string) => Promise<boolean>,
 ) {
+  const logged: string[] = [];
+  const reported: unknown[] = [];
   const findLocalIdByDocumentId = mock(async () => null);
   const open = mock((input: { documentId?: string | null }) => ({
     requestRemoteSyncAndWait: () => remoteSync(input.documentId ?? ""),
@@ -98,7 +100,8 @@ function installAttributionHarness(
     () =>
       ({
         documents: { findLocalIdByDocumentId, open },
-        logError: () => undefined,
+        log: (message: string) => logged.push(message),
+        logError: (_message: string, error: unknown) => reported.push(error),
       }) as unknown as ReturnType<typeof TearleadsProvider.useTearleads>,
   );
   const containerSnapshot = {
@@ -128,7 +131,9 @@ function installAttributionHarness(
       >,
   );
   return {
+    logged,
     open,
+    reported,
     restore() {
       cleanup();
       useDeviceFirstSpy.mockRestore();
@@ -262,6 +267,9 @@ test("a profile refused as busy spends no attempt and is requested again", async
       { timeout: 3_000 },
     );
     expect(pulls.get("profile-0")).toBe(1);
+    // Refusals stay in the local log and out of diagnostics.
+    expect(harness.logged).toHaveLength(2);
+    expect(harness.reported).toEqual([]);
   } finally {
     harness.restore();
   }

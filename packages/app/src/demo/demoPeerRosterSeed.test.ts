@@ -62,7 +62,7 @@ test("attemptPeerRosterSeed retries ordinary failures but preserves integrity fa
       },
       "peer",
       "Peer 2",
-      logError,
+      { log: () => undefined, logError },
     ),
   ).resolves.toBe("unsettled");
   expect(logged).toEqual([transient]);
@@ -77,7 +77,7 @@ test("attemptPeerRosterSeed retries ordinary failures but preserves integrity fa
       },
       "peer",
       "Peer 2",
-      logError,
+      { log: () => undefined, logError },
     ),
   ).rejects.toBe(integrity);
   expect(logged).toEqual([transient]);
@@ -87,7 +87,8 @@ test("attemptPeerRosterSeed retries ordinary failures but preserves integrity fa
 // refusals behind another tab's transaction ended the peer bootstrap.
 test("a roster seed refused as busy is retried in place, then reported as busy", async () => {
   const fixture = fakeRosterSeedActions({ directoryAndGroups: null });
-  const logged: unknown[] = [];
+  const logged: string[] = [];
+  const reported: unknown[] = [];
   let loads = 0;
   await expect(
     attemptPeerRosterSeed(
@@ -100,11 +101,15 @@ test("a roster seed refused as busy is retried in place, then reported as busy",
       },
       "peer",
       "Peer 2",
-      (_message, error) => logged.push(error),
+      {
+        log: (message) => logged.push(message),
+        logError: (_message, error) => reported.push(error),
+      },
     ),
   ).resolves.toBe("busy");
   expect(loads).toBe(DATABASE_BUSY_RUN_LIMIT);
   expect(logged).toHaveLength(1);
+  expect(reported).toEqual([]);
 });
 
 test("a busy refusal spends none of a demo loop's attempts", () => {
@@ -128,7 +133,7 @@ test("a roster seed stops retrying a busy refusal once its pane moves on", async
       },
       "peer",
       "Peer 2",
-      () => undefined,
+      { log: () => undefined, logError: () => undefined },
       () => loads < 2,
     ),
   ).resolves.toBe("busy");

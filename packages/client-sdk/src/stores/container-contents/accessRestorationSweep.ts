@@ -1,4 +1,7 @@
-import { retryWhileDatabaseBusy } from "../../workflows/container-contents/syncLane";
+import {
+  classifyDatabaseFailure,
+  retryWhileDatabaseBusy,
+} from "../../workflows/container-contents/syncLane";
 import {
   type RemoteHydrationRequester,
   refreshAllRemoteHydration,
@@ -254,7 +257,13 @@ export function createRestoredAccessReconciler(input: {
         return;
       }
       const message = `${getContainerContentsStoreLogLabel(state)}: dormant metadata sweep failed`;
-      if (state.runtime.util.logError) {
+      // A refusal behind another tab's transaction spent no sweep attempt,
+      // so the request stays for the next sweep.
+      if (classifyDatabaseFailure(error) === "busy") {
+        state.runtime.util.log(
+          `${message} behind another tab's database transaction`,
+        );
+      } else if (state.runtime.util.logError) {
         state.runtime.util.logError(message, error);
       } else {
         state.runtime.util.log(message);

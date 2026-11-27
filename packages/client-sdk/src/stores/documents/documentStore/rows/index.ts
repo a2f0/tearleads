@@ -121,13 +121,11 @@ function queueRowMutation(
       .catch((error: unknown) => {
         // The row change is already in the document; an empty mutation
         // persists its unsaved delta with this write's own guard.
-        reportOrRetryBusyDocumentWrite(
-          state,
-          ROW_FAILURE_MESSAGE,
-          error,
+        reportOrRetryBusyDocumentWrite(state, ROW_FAILURE_MESSAGE, error, {
+          requeue: () => queueRowMutation(state, () => true, options),
+          savesAll: !options.stillCurrent,
           writeGeneration,
-          () => queueRowMutation(state, () => true, options),
-        );
+        });
       }),
   );
 }

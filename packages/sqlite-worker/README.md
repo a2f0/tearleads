@@ -59,7 +59,8 @@ Every wait has a bound:
   rather than treat it as a verdict on their work, and
   `retryWhileDatabaseBusy` runs refused work again up to five times. The
   app's boot runs a refused step again, retry paths keep refusals out of
-  their failure budgets, and the app logs them without reporting them.
+  their failure budgets, and the paths that retry log them locally rather
+  than reporting them.
 - A holder idle for 3 s (`TRANSACTION_LEASE_IDLE_MS`) has its transaction
   rolled back once another connection's statement waits for it. Idle time
   counts from the later of the holder's last statement arriving and settling,

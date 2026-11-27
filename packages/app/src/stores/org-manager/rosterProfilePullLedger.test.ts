@@ -62,3 +62,19 @@ test("a replaced profile pointer starts without the old profile's failures", () 
   const replaced = { ...pull(0), profileDocumentId: "profile-document-new" };
   expect(ids(selectRosterProfilePulls(sdk, [replaced], 1))).toEqual(["user-0"]);
 });
+
+test("a busy pull leaves the profile's failures alone", () => {
+  const sdk = {};
+  const pulls = [pull(0), pull(1)];
+  for (
+    let refusal = 0;
+    refusal <= MAX_ROSTER_PROFILE_PULL_FAILURES;
+    refusal++
+  ) {
+    recordRosterProfilePull(sdk, pull(0), "busy");
+  }
+  expect(ids(selectRosterProfilePulls(sdk, pulls, 2))).toEqual([
+    "user-0",
+    "user-1",
+  ]);
+});

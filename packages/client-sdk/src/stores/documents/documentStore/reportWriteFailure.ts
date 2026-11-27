@@ -80,6 +80,12 @@ export const BUSY_WRITE_RETRY_MS = 1_000;
 interface BusyWriteRetry {
   doc: DocumentState | null;
   requeue: () => unknown;
+  /**
+   * False for a guarded or history-only write, whose requeue may persist
+   * nothing or keep it out of sync; such a retry never replaces one that
+   * saves every unsaved edit.
+   */
+  savesAll: boolean;
   writeGeneration: number;
 }
 
@@ -114,14 +120,14 @@ function settleBusyWriteRetry(state: DocumentStoreState): void {
  * document but not in SQLite, and before this only the next edit saved them.
  * Later refusals replace the pending retry, so one timer runs per store and
  * the newest write is the one queued again; that write's delta covers every
- * unsaved edit before it.
+ * unsaved edit before it. A guarded or history-only retry replaces only
+ * another such retry.
  */
 export function reportOrRetryBusyDocumentWrite(
   state: DocumentStoreState,
   message: string,
   error: unknown,
-  writeGeneration: number,
-  requeue: () => unknown,
+  write: Pick<BusyWriteRetry, "requeue" | "savesAll" | "writeGeneration">,
 ): void {
   if (classifyDatabaseFailure(error) !== "busy") {
     reportDocumentStoreWriteFailure(state, message, error);
@@ -133,8 +139,9 @@ export function reportOrRetryBusyDocumentWrite(
     ),
   );
   const pending = retriesByState.get(state);
-  const retry: BusyWriteRetry = { doc: state.doc, requeue, writeGeneration };
-  retriesByState.set(state, retry);
+  if (!pending || write.savesAll || !pending.savesAll) {
+    retriesByState.set(state, { ...write, doc: state.doc });
+  }
   if (!pending) {
     setTimeout(() => settleBusyWriteRetry(state), BUSY_WRITE_RETRY_MS);
   }
