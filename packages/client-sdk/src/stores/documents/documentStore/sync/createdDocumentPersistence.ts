@@ -65,6 +65,11 @@ function committedSeedSettlement(input: {
     seedUpdate.partialEndVersionVector,
   ]);
   const liveFrontier = input.liveRecord?.snapshotEndVersion ?? "";
+  const livePendingBase = input.liveRecord?.pendingBaseVersion ?? "";
+  const pendingBaseVersion = mergeVersionVectors([
+    ...(livePendingBase.length > 0 ? [livePendingBase] : []),
+    baseVersion,
+  ]);
   return {
     baseVersion,
     options: {
@@ -72,7 +77,7 @@ function committedSeedSettlement(input: {
       clearSyncFailure: true,
       // The server committed the seed, so the record has seen its span.
       committedVersions: committedUpdateVersions([seedUpdate]),
-      pendingBaseVersionOverride: baseVersion,
+      pendingBaseVersionOverride: pendingBaseVersion,
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,
     },
@@ -129,6 +134,7 @@ export async function persistCreatedRemoteDocument(input: {
     { ...input.created.persistedState, ...settlement?.patch },
     {
       ...settlement?.options,
+      assignsCreatedRemoteDocumentId: true,
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,
     },

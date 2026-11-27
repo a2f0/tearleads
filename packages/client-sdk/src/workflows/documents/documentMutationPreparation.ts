@@ -17,6 +17,7 @@ export interface ExpectedDocumentSyncState {
 }
 
 export interface PrepareDocumentMutationInput {
+  canAdoptCreatedDocumentId?: ((documentId: string) => boolean) | undefined;
   currentDoc: Parameters<typeof mergePersistedDocumentHistory>[0]["doc"];
   currentRecord: StoredDocumentRecord | null;
   expectedSyncState?: ExpectedDocumentSyncState | undefined;
@@ -122,6 +123,23 @@ function mergeMutationFrontiers(
   return nextPatch;
 }
 
+function ordinarySaveAdoptedOwnCreatedDocumentId(
+  input: PrepareDocumentMutationInput,
+  durableRecord: StoredDocumentRecord | null,
+): boolean {
+  return (
+    input.expectedSyncState === undefined &&
+    input.currentRecord !== null &&
+    durableRecord !== null &&
+    durableRecord.id === input.currentRecord.id &&
+    input.currentRecord.documentId === null &&
+    durableRecord.documentId !== null &&
+    durableRecord.containerId === input.currentRecord.containerId &&
+    durableRecord.accessEpoch === input.currentRecord.accessEpoch &&
+    input.canAdoptCreatedDocumentId?.(durableRecord.documentId) === true
+  );
+}
+
 function ordinarySaveNeedsHistoryRebase(
   input: PrepareDocumentMutationInput,
   durableRecord: StoredDocumentRecord | null,
@@ -142,9 +160,12 @@ function ordinarySaveNeedsHistoryRebase(
         durableRecord.pendingBaseVersion,
         cachedPendingBase,
       ));
+  const sameOrAdoptedDocumentId =
+    durableRecord.documentId === input.currentRecord.documentId ||
+    ordinarySaveAdoptedOwnCreatedDocumentId(input, durableRecord);
   return (
     durableRecord.id === input.currentRecord.id &&
-    durableRecord.documentId === input.currentRecord.documentId &&
+    sameOrAdoptedDocumentId &&
     satisfiesVersionVector(
       durableRecord.snapshotEndVersion,
       input.currentRecord.snapshotEndVersion,
@@ -163,7 +184,8 @@ function ordinarySaveIdentityWasReplaced(
     input.currentRecord !== null &&
     durableRecord !== null &&
     (durableRecord.id !== input.currentRecord.id ||
-      durableRecord.documentId !== input.currentRecord.documentId)
+      (durableRecord.documentId !== input.currentRecord.documentId &&
+        !ordinarySaveAdoptedOwnCreatedDocumentId(input, durableRecord)))
   );
 }
 

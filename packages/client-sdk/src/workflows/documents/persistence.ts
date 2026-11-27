@@ -94,7 +94,9 @@ export async function ensureDocumentClientProjectionTables(input: {
 }
 
 export async function persistDocumentState(
-  input: PersistDocumentStateInput,
+  input: PersistDocumentStateInput & {
+    onCommitted?: ((result: PersistedDocumentState) => void) | undefined;
+  },
 ): Promise<PersistedDocumentState | null> {
   const documentProjectors = resolveDocumentProjectorRegistry(
     input.documentProjectors,
@@ -106,14 +108,18 @@ export async function persistDocumentState(
   if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
     return null;
   }
-  return runSerializedSqlMutation(input.execSql, (lockedExecSql) =>
-    commitPreparedDocumentState({
+  return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
+    const result = await commitPreparedDocumentState({
       documentProjectors,
       lockedExecSql,
       patch: input.patch ?? {},
       persistInput: input,
-    }),
-  );
+    });
+    if (result) {
+      input.onCommitted?.(result);
+    }
+    return result;
+  });
 }
 
 export async function loadPersistedDocumentStoreState(input: {
