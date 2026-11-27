@@ -175,6 +175,7 @@ export function SystemBootstrapProvider({
     currentRootContainerId: appData.state.containerId,
     enabled,
     isAuthenticated: appData.auth.isAuthenticated,
+    log: tearleads.log,
     logError: tearleads.logError,
     snapshotReady: snapshot.ready,
     store,

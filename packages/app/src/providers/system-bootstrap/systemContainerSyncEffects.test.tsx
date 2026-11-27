@@ -9,8 +9,7 @@ import { useProvisionedSystemContainerPull } from "./systemContainerSyncEffects"
 
 afterEach(cleanup);
 
-// Must exceed the module-private 40-pull-per-sequence limit so the test actually
-// drives more sequences than a single sequence's budget allows.
+// Far more effect runs than one organization's poll may ever pull for.
 const SEQUENCES = 45;
 const TRASH_SLOT = "provisioned-trash-slot";
 type RefreshRootLaneOptions = Parameters<
@@ -46,58 +45,116 @@ function trashNode(): ContainerNode {
   };
 }
 
-// Regression: the provider that hosts this hook is not remounted across org
-// switches or a logout/login, so the hook's attempt-budget ref outlives any one
-// session. A new polling sequence must reset that budget; otherwise a prior
-// sequence's spent attempts accumulate and, once the lifetime total crosses the
-// per-sequence limit, permanently starve every later sequence's pull — the eager
-// Trash would then never surface for a subsequent session.
-test("provisioned-container pull is not starved across polling sequences", async () => {
-  const refreshRootLane = mock((_options?: RefreshRootLaneOptions) =>
-    Promise.resolve(true),
-  );
-  // The provisioned slot never surfaces (locally or remotely), so every sequence
-  // keeps pulling and the per-sequence budget is what bounds it.
-  const store = {
-    getSnapshot: () => ({ nodes: [], ready: true }),
-    refreshLocalContainers: () => Promise.resolve(),
-    refreshRootLane,
-  } as unknown as ContainerContentsStore;
-
-  const props = {
+function pullProps(store: ContainerContentsStore) {
+  return {
     currentOrganizationId: "org-1",
     currentRootContainerId: "root-1",
     enabled: true,
     isAuthenticated: true,
+    log: mock((_message: string) => {}),
     logError: () => {},
     snapshotReady: true,
     store,
     systemContainers: [trashSystemContainer()],
   };
+}
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+// #3288: an account registered without a Trash (the CLI's `register` before
+// it passed the app's provisioned containers) polled the root lane every
+// 250 ms for ten seconds on every load, 40 parent-lane requests. The poll now
+// stops after two listings and names the slot it could not find.
+test("a provisioned-container poll that never finds its slot stops after two listings and logs the slot", async () => {
+  const refreshRootLane = mock((_options?: RefreshRootLaneOptions) =>
+    Promise.resolve(true),
+  );
+  const store = {
+    getSnapshot: () => ({ nodes: [], ready: true }),
+    refreshLocalContainers: () => Promise.resolve(),
+    refreshRootLane,
+  } as unknown as ContainerContentsStore;
+  const props = pullProps(store);
+
+  const { unmount } = renderHook(
+    (hookProps: typeof props) => useProvisionedSystemContainerPull(hookProps),
+    { initialProps: props },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 1_200));
+  unmount();
+
+  expect(refreshRootLane.mock.calls.length).toBe(2);
+  expect(props.log.mock.calls).toEqual([
+    [
+      `System bootstrap: Trash (${TRASH_SLOT}) under root root-1 did not appear after 2 root-lane listing(s); stopped polling for it until the next load.`,
+    ],
+  ]);
+});
+
+// A pull the store could not list (offline, not initialized) sends no request,
+// so it does not spend the listing budget; the tick budget still bounds it.
+test("a provisioned-container pull that could not list does not spend the listing budget", async () => {
+  let unlisted = 3;
+  const refreshRootLane = mock((_options?: RefreshRootLaneOptions) => {
+    unlisted -= 1;
+    return Promise.resolve(unlisted < 0);
+  });
+  const store = {
+    getSnapshot: () => ({ nodes: [], ready: true }),
+    refreshLocalContainers: () => Promise.resolve(),
+    refreshRootLane,
+  } as unknown as ContainerContentsStore;
+  const props = pullProps(store);
+
+  const { unmount } = renderHook(
+    (hookProps: typeof props) => useProvisionedSystemContainerPull(hookProps),
+    { initialProps: props },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 1_700));
+  unmount();
+
+  expect(refreshRootLane.mock.calls.length).toBe(5);
+  expect(props.log).toHaveBeenCalledTimes(1);
+});
+
+// The provider is not remounted across re-runs of the hook (a new
+// systemContainers identity, the root id adopted after reconciliation, an org
+// switch, a logout and login), so the budget is per organization for the
+// whole load: re-running the hook does not start the poll over.
+test("re-running the provisioned-container pull does not restart one organization's spent poll", async () => {
+  const refreshRootLane = mock((_options?: RefreshRootLaneOptions) =>
+    Promise.resolve(true),
+  );
+  const store = {
+    getSnapshot: () => ({ nodes: [], ready: true }),
+    refreshLocalContainers: () => Promise.resolve(),
+    refreshRootLane,
+  } as unknown as ContainerContentsStore;
+  const props = pullProps(store);
 
   const { rerender, unmount } = renderHook(
     (hookProps: typeof props) => useProvisionedSystemContainerPull(hookProps),
     { initialProps: props },
   );
-
-  // The opening pull of each sequence now fires only after the async local surface
-  // resolves and finds the slot still missing, so flush the microtask chain between
-  // sequences to let each sequence's fallback pull run before the next rerender's
-  // cleanup cancels it. Each rerender hands the effect a fresh systemContainers
-  // reference, ending the prior sequence (cleanup clears its interval) and starting
-  // a new one; the 250ms interval never has to tick.
-  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+  // Each rerender hands the effect a fresh systemContainers reference, which
+  // cleans up the running sequence and starts another.
   await flush();
   for (let sequence = 1; sequence < SEQUENCES; sequence += 1) {
     rerender({ ...props, systemContainers: [trashSystemContainer()] });
     await flush();
   }
-  unmount();
+  expect(refreshRootLane.mock.calls.length).toBe(2);
+  expect(props.log).toHaveBeenCalledTimes(1);
 
-  // Without the per-sequence reset the counter would cross the 40-pull limit and
-  // pulling would stop; with it, all 45 sequences pull.
-  expect(refreshRootLane.mock.calls.length).toBeGreaterThan(40);
-  expect(refreshRootLane.mock.calls.length).toBe(SEQUENCES);
+  // Another organization's poll has its own budget: it is not starved.
+  rerender({
+    ...props,
+    currentOrganizationId: "org-2",
+    systemContainers: [trashSystemContainer()],
+  });
+  await flush();
+  unmount();
+  expect(refreshRootLane.mock.calls.length).toBe(3);
 });
 
 test("provisioned-container pull stops once the active root child lane hydrates the slot", async () => {
@@ -122,6 +179,7 @@ test("provisioned-container pull stops once the active root child lane hydrates 
         currentRootContainerId: "root-1",
         enabled: true,
         isAuthenticated: true,
+        log: () => {},
         logError: () => {},
         snapshotReady: true,
         store,
@@ -169,6 +227,7 @@ test("provisioned-container pull skips the remote poll when the local surface yi
         currentRootContainerId: "root-1",
         enabled: true,
         isAuthenticated: true,
+        log: () => {},
         logError: () => {},
         snapshotReady: true,
         store,
@@ -231,6 +290,7 @@ test("provisioned-container pull continues until the shared organization slot ap
         currentRootContainerId: "viewer-home-root",
         enabled: true,
         isAuthenticated: true,
+        log: () => {},
         logError: () => {},
         snapshotReady: true,
         store,
@@ -270,6 +330,7 @@ test("provisioned-container pull does not fire concurrently while one is in flig
         currentRootContainerId: "root-1",
         enabled: true,
         isAuthenticated: true,
+        log: () => {},
         logError: () => {},
         snapshotReady: true,
         store,
@@ -312,6 +373,7 @@ test("a cancelled sequence's late pull does not reset a new sequence's in-flight
     currentRootContainerId: "root-1",
     enabled: true,
     isAuthenticated: true,
+    log: () => {},
     logError: () => {},
     snapshotReady: true,
     store,
@@ -323,7 +385,6 @@ test("a cancelled sequence's late pull does not reset a new sequence's in-flight
     { initialProps: props },
   );
 
-  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
   // Sequence A opens its pull (after the async local surface); it stays in flight.
   await flush();
   expect(refreshRootLane.mock.calls.length).toBe(1);

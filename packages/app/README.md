@@ -123,3 +123,8 @@ The `app/passcode` entry point exposes the passcode document kind, its field
 types, and the attribute row names, so the
 [CLI's KeePass restore](../cli/README.md#restore-a-keepass-database) writes
 passcodes the app reads without importing its views.
+
+The `app/host/provisionedSystemContainers` entry point exposes the system
+containers an organization is born with (Trash), which the app passes to the
+SDK, so the [CLI's `register`](../cli/README.md) creates the same account an
+app install does.
