@@ -70,23 +70,23 @@
     color var(--transition);
 }
 
-.window-close:hover,
-.window-maximize:hover,
-.window-minimize:hover,
 .window-close:focus-visible,
 .window-maximize:focus-visible,
 .window-minimize:focus-visible {
   background: color-mix(in srgb, currentColor 18%, transparent);
-}
-
-.window-close:focus-visible,
-.window-maximize:focus-visible,
-.window-minimize:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: -3px;
 }
 
-.window-close:hover {
-  background: var(--color-danger);
-  color: var(--color-light);
+@media (hover: hover) {
+  .window-close:hover,
+  .window-maximize:hover,
+  .window-minimize:hover {
+    background: color-mix(in srgb, currentColor 18%, transparent);
+  }
+
+  .window-close:hover {
+    background: var(--color-danger);
+    color: var(--color-light);
+  }
 }

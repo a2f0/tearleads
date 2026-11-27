@@ -13,7 +13,7 @@
 }
 
 /* Slider chrome is shared in MiniAppRange.css; only its flex sizing lives here. */
-.explorer-document-history-slider {
+.mini-app-range.explorer-document-history-slider {
   width: auto;
   flex: 1 1 8rem;
 }

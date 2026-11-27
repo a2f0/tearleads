@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import { startLaserAnimation } from "./laserAnimation";
+import "./screensaver.css";
 
 /** Grayscale laser trails; ScreensaverProvider owns activation and input. */
 export function LaserScreensaver() {

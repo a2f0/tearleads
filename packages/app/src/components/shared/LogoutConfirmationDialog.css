@@ -1,5 +1,5 @@
 /* Layout and routed touch target come from .mini-app-checkbox-label; keep this
-   rule only as a semantic hook for existing dialog styles. */
-.logout-confirmation-keep-data {
+   compound selector so font-size inheritance does not depend on import order. */
+.mini-app-checkbox-label.logout-confirmation-keep-data {
   font-size: inherit;
 }
