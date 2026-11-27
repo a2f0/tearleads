@@ -1,4 +1,5 @@
 import type { DomainScope } from "../../data/shared/domainScope";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   getOrCreateTreeCatchUp,
   isReconcilableContainerNode,
@@ -11,12 +12,31 @@ import {
 } from "../../stores/documents";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import type { ReconciliationHost } from "../../sync/reconciliation";
+import {
+  listAllContainerDocumentLanes,
+  listContainerDocumentLanesFromApi,
+} from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { forgetUnheldDocumentLaneListings } from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import {
   forgetUnheldDocumentListingReads,
+  type ListedDocumentHead,
   listOwedDocumentListingReads,
+  oweListedRecordReads,
 } from "../../workflows/documents";
+import { createContainerContentsStoreRuntime } from "../containerContents";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
+
+/** The scope's database, while the runtime still serves this scope. */
+function scopeExecSql(
+  runtimeService: InternalRuntime,
+  domainScope: DomainScope,
+): ExecSql | null {
+  const input = runtimeService.workflowInput();
+  return input.state.domainScope === domainScope &&
+    input.infra.dbStatus === "ready"
+    ? input.infra.execSql
+    : null;
+}
 
 /** What the reconciler tells the scope's listing coverage, and asks of it. */
 export function createListingCoverageHost(
@@ -37,14 +57,8 @@ export function createListingCoverageHost(
         listed,
       ),
     requestOwedDocumentReads: async () => {
-      const input = runtimeService.workflowInput();
-      if (
-        input.state.domainScope !== domainScope ||
-        input.infra.dbStatus !== "ready"
-      ) {
-        return;
-      }
-      const { execSql } = input.infra;
+      const execSql = scopeExecSql(runtimeService, domainScope);
+      if (!execSql) return;
       requestRemoteSyncsOfOwedRecords(
         domainScope,
         await listOwedDocumentListingReads(execSql),
@@ -57,6 +71,76 @@ export function createListingCoverageHost(
       await forgetUnheldDocumentLaneListings(execSql);
     },
   };
+}
+
+/**
+ * The initial document probe's listing: each lane from no watermark, every
+ * lane in one batched listing, with each container's current document ids,
+ * or `null` for a lane that could not be listed. Its rows also owe a read to
+ * each record they show behind, as a watermarked listing's rows do. A
+ * watermarked listing is served only the rows that moved, so this is what
+ * notices, once a launch, a record whose cursor or head fell behind a row it
+ * was served before (a local backup restore can replace a record's row, for
+ * one). The debts are durable before each owed record's open store is asked
+ * to pull; a store that opens later reads its debt when it loads. A failure
+ * to owe is logged and leaves the listing's ids as they were.
+ */
+export function createProbeLaneListing(
+  runtimeService: InternalRuntime,
+  domainScope: DomainScope,
+): ReconciliationHost["listContainerDocumentIds"] {
+  return async (containerIds) => {
+    const { apiClient } = createContainerContentsStoreRuntime(runtimeService);
+    const listed = await listAllContainerDocumentLanes({
+      lanes: containerIds.map((containerId) => ({
+        containerId,
+        watermark: null,
+      })),
+      listContainerDocumentLanes: (lanes) =>
+        listContainerDocumentLanesFromApi(apiClient, lanes, false),
+    });
+    const documentIds = new Map<string, ReadonlyArray<string> | null>();
+    const heads: ListedDocumentHead[] = [];
+    for (const containerId of containerIds) {
+      const lane = listed.get(containerId);
+      if (!lane || lane === "unavailable") {
+        documentIds.set(containerId, null);
+        continue;
+      }
+      documentIds.set(containerId, [
+        ...new Set(lane.items.map(({ id }) => id)),
+      ]);
+      for (const document of lane.items) {
+        heads.push({
+          accessEpoch: document.currentAccessEpoch,
+          accessStateHash: document.currentAccessStateHash,
+          documentId: document.id,
+          updateCount: document.updateCount,
+        });
+      }
+    }
+    await oweProbedReads(runtimeService, domainScope, heads);
+    return documentIds;
+  };
+}
+
+async function oweProbedReads(
+  runtimeService: InternalRuntime,
+  domainScope: DomainScope,
+  heads: ReadonlyArray<ListedDocumentHead>,
+): Promise<void> {
+  const execSql = scopeExecSql(runtimeService, domainScope);
+  if (!execSql || heads.length === 0) return;
+  try {
+    requestRemoteSyncsOfOwedRecords(
+      domainScope,
+      await oweListedRecordReads(execSql, heads),
+    );
+  } catch (error) {
+    runtimeService
+      .workflowInput()
+      .util.logError("Initial document probe could not owe reads", error);
+  }
 }
 
 /**
