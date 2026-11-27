@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { type RefObject, useId } from "react";
 import {
   MiniAppField,
   MiniAppInput,
@@ -22,6 +22,7 @@ export function PhraseConfirmationField({
   autoFocus = false,
   describedBy,
   disabled = false,
+  inputRef,
   onChange,
   phrase,
   purpose = "to continue",
@@ -30,6 +31,7 @@ export function PhraseConfirmationField({
   readonly autoFocus?: boolean;
   readonly describedBy?: string | undefined;
   readonly disabled?: boolean;
+  readonly inputRef?: RefObject<HTMLInputElement | null> | undefined;
   readonly onChange: (value: string) => void;
   /** Typed verbatim by the user; in sentence case (see isPhraseConfirmed). */
   readonly phrase: string;
@@ -51,6 +53,7 @@ export function PhraseConfirmationField({
         disabled={disabled}
         id={inputId}
         onChange={(event) => onChange(event.target.value)}
+        ref={inputRef}
         value={value}
       />
     </MiniAppField>

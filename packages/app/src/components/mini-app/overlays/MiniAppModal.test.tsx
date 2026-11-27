@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import { useState } from "react";
+import { StrictMode, useRef, useState } from "react";
 import {
   MiniAppInput,
   MiniAppModalBackdrop,
@@ -102,12 +102,13 @@ test("busy overlay resets takeover modal panel scrollTop on mount", () => {
   expect(panel.scrollTop).toBe(0);
 });
 
-test("useModalEscapeAndFocusRestore restores opener focus even with autoFocus inside dialog", () => {
-  function AutoFocusDialog({ onClose }: { onClose: () => void }) {
-    useModalEscapeAndFocusRestore(onClose);
+test("useModalEscapeAndFocusRestore focuses target and restores opener under StrictMode", () => {
+  function FocusDialog({ onClose }: { onClose: () => void }) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    useModalEscapeAndFocusRestore(onClose, inputRef);
     return (
       <div role="dialog">
-        <MiniAppInput aria-label="Confirm phrase" autoFocus />
+        <MiniAppInput aria-label="Confirm phrase" ref={inputRef} />
       </div>
     );
   }
@@ -115,14 +116,16 @@ test("useModalEscapeAndFocusRestore restores opener focus even with autoFocus in
   function Harness({ keepOpener = true }: { keepOpener?: boolean }) {
     const [open, setOpen] = useState(false);
     return (
-      <div>
-        {keepOpener && (
-          <button onClick={() => setOpen(true)} type="button">
-            Open dialog
-          </button>
-        )}
-        {open && <AutoFocusDialog onClose={() => setOpen(false)} />}
-      </div>
+      <StrictMode>
+        <div>
+          {keepOpener && (
+            <button onClick={() => setOpen(true)} type="button">
+              Open dialog
+            </button>
+          )}
+          {open && <FocusDialog onClose={() => setOpen(false)} />}
+        </div>
+      </StrictMode>
     );
   }
 

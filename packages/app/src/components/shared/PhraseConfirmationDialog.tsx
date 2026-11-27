@@ -3,6 +3,7 @@ import {
   type ReactNode,
   useCallback,
   useId,
+  useRef,
   useState,
 } from "react";
 import {
@@ -50,6 +51,7 @@ function PhraseConfirmationDialogContent({
   const titleId = useId();
   const warningId = useId();
   const errorId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const confirmed = isPhraseConfirmed(confirmationText, phrase);
   const handleEscape = useCallback(() => {
     if (!busy) {
@@ -57,7 +59,7 @@ function PhraseConfirmationDialogContent({
     }
   }, [busy, onCancel]);
 
-  useModalEscapeAndFocusRestore(handleEscape);
+  useModalEscapeAndFocusRestore(handleEscape, inputRef);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -82,9 +84,9 @@ function PhraseConfirmationDialogContent({
             {warning}
           </MiniAppStatus>
           <PhraseConfirmationField
-            autoFocus
             describedBy={error ? `${warningId} ${errorId}` : warningId}
             disabled={busy}
+            inputRef={inputRef}
             onChange={setConfirmationText}
             phrase={phrase}
             value={confirmationText}

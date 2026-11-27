@@ -1,25 +1,19 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect } from "react";
 
 /**
  * The app's modal dismiss-and-focus contract: close on Escape, move focus to
- * the initial focus target on open, and restore it to the triggering element
- * on close, so keyboard focus is never dropped to the document body.
+ * `initialFocusRef` on open, and restore it to the triggering element on close,
+ * so keyboard focus is never dropped to the document body.
  *
- * `previouslyFocusedRef` captures `document.activeElement` before React commits
- * the dialog DOM (and any `autoFocus` attribute inside it), so focus restoration
- * still returns to the triggering control outside the dialog rather than to an
- * unmounting control inside it.
+ * Initial focus is moved imperatively inside `useEffect` (never via `autoFocus`)
+ * so `document.activeElement` still points to the triggering control outside
+ * the dialog before focus moves, and React `<StrictMode>` mount-cleanup-remount
+ * restores and re-applies dialog focus cleanly.
  */
 export function useModalEscapeAndFocusRestore(
   onClose: () => void,
-  initialFocusRef?: RefObject<HTMLElement | null> | undefined,
+  initialFocusRef: RefObject<HTMLElement | null>,
 ): void {
-  const previouslyFocusedRef = useRef<Element | null | undefined>(undefined);
-  if (previouslyFocusedRef.current === undefined) {
-    previouslyFocusedRef.current =
-      typeof document !== "undefined" ? document.activeElement : null;
-  }
-
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !event.defaultPrevented) {
@@ -34,8 +28,8 @@ export function useModalEscapeAndFocusRestore(
   }, [onClose]);
 
   useEffect(() => {
-    const previouslyFocused = previouslyFocusedRef.current;
-    initialFocusRef?.current?.focus();
+    const previouslyFocused = document.activeElement;
+    initialFocusRef.current?.focus();
     return () => {
       if (
         previouslyFocused instanceof HTMLElement &&

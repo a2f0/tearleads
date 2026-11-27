@@ -71,14 +71,14 @@
   align-items: start;
 }
 
-.passcode-form-row:has(textarea) > label {
-  padding-top: var(--space-sm);
-}
-
 .passcode-form-row > label {
   padding: var(--info-table-cell-padding);
   font-weight: 700;
   text-align: end;
+}
+
+.passcode-form-row:where(:has(textarea)) > label {
+  padding-top: var(--space-sm);
 }
 
 .passcode-form-control {
