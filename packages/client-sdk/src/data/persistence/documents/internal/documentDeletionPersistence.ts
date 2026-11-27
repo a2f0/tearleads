@@ -21,6 +21,10 @@ import {
 } from "../../../sqlite/sqlSchema";
 import type { DocumentPlacementCleanup } from "../documentDeletionPort";
 import { DocumentRecordRepository } from "../records";
+import {
+  deleteDocumentStagedBaselineUploadsInTransaction,
+  ensureDocumentBaselineStageTables,
+} from "../records/documentBaselineStagePersistence";
 import type { StoredDocumentRecord } from "../types";
 import { sameCanonicalDocumentSecurityIdentity } from "./documentRecordIdentity";
 import { getDocumentScope } from "./documentRows";
@@ -57,6 +61,9 @@ async function deleteStoredDocumentRows(input: {
     .run();
   if (existingDocumentId) {
     await input.deleteDocumentPlacements(tx, existingDocumentId);
+    await deleteDocumentStagedBaselineUploadsInTransaction(tx, [
+      existingDocumentId,
+    ]);
   }
   const scope = getDocumentScope(localId);
   const records = new DocumentRecordRepository(lockedExecSql);
@@ -66,9 +73,10 @@ async function deleteStoredDocumentRows(input: {
 }
 
 async function ensureDocumentDeletionTables(execSql: ExecSql): Promise<void> {
-  // Move intents live in the container-contents schema, which document-only
-  // callers may not have initialized yet.
+  // Move intents and staged-baseline uploads live in tables that document-only
+  // or pre-rotation callers may not have initialized yet.
   await ensureSqlTables(execSql, documentPlacementIntentTables);
+  await ensureDocumentBaselineStageTables(execSql);
 }
 
 async function hasAnotherDocumentAlias(input: {

@@ -23,6 +23,7 @@ import {
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
 import { DocumentRecordRepository } from "../records";
+import { deleteDocumentStagedBaselineUploadsInTransaction } from "../records/documentBaselineStagePersistence";
 import { clearDocumentCommittedVersionInTransaction } from "../records/documentCommittedVersionPersistence";
 import type {
   DiscardDocumentToShellResult,
@@ -169,6 +170,11 @@ async function clearDiscardedDocumentRows(input: {
     tx,
     getDocumentScope(localId),
   );
+  if (candidate.existingDocument.documentId) {
+    await deleteDocumentStagedBaselineUploadsInTransaction(tx, [
+      candidate.existingDocument.documentId,
+    ]);
+  }
   await records.clearDocumentSyncFailure(getDocumentScope(localId));
 }
 

@@ -64,7 +64,7 @@ test("where a key has gone only grows, whatever became of the request", () => {
   expect(upload.keyMayBeWrappedFor([X, Y])).toBe(true);
 });
 
-test("a held plan is handed to an attempt only under exact target equality", () => {
+test("a held plan is handed to an attempt only under exact target equality", async () => {
   const { execSql, uploads } = database();
   const upload = uploads.begin(documentId, PLAN, [X, Y]);
   const { attempt } = upload.dispatch({ type: "runStarted" });
@@ -72,21 +72,23 @@ test("a held plan is handed to an attempt only under exact target equality", () 
     reusableStagedBaselinePlan(execSql, documentId, epoch, targets);
 
   // Another epoch, another document, another database: no plan.
-  expect(held(3, [X, Y])).toBeNull();
-  expect(reusableStagedBaselinePlan(execSql, "other", 2, [X, Y])).toBeNull();
+  expect(await held(3, [X, Y])).toBeNull();
   expect(
-    reusableStagedBaselinePlan(database().execSql, documentId, 2, [X, Y]),
+    await reusableStagedBaselinePlan(execSql, "other", 2, [X, Y]),
+  ).toBeNull();
+  expect(
+    await reusableStagedBaselinePlan(database().execSql, documentId, 2, [X, Y]),
   ).toBeNull();
 
   // The same targets: the same key.
-  expect(held(2, [X, Y])?.contentKey).toBe(PLAN.contentKey);
+  expect((await held(2, [X, Y]))?.contentKey).toBe(PLAN.contentKey);
   // Fewer or more targets: a new key, and the refusal records nothing.
-  expect(held(2, [X])).toBeNull();
-  expect(held(2, [X, Y, Z])).toBeNull();
-  expect(held(2, [X, Y])).toBe(PLAN);
+  expect(await held(2, [X])).toBeNull();
+  expect(await held(2, [X, Y, Z])).toBeNull();
+  expect(await held(2, [X, Y])).toBe(PLAN);
 
   // An upload that is over holds no plan for anyone.
   upload.dispatch({ attempt, baselineId: "b", type: "planned" });
   upload.dispatch({ attempt, type: "released" });
-  expect(held(2, [X, Y])).toBeNull();
+  expect(await held(2, [X, Y])).toBeNull();
 });

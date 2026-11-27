@@ -91,17 +91,17 @@ function unlinkKeyTargets(
  * removed, so the leg plans a new key and event, and the writer deletes
  * the stage. Any other leg plans afresh.
  */
-export function fixedLinkSetPlan(
+export async function fixedLinkSetPlan(
   input: LinkSetSubmitInput,
   writerProjection: DocumentWriterProjectionResponse,
   targetContainerProjection: ContainerWriterProjectionResponse,
-): FixedLinkSetPlan {
+): Promise<FixedLinkSetPlan> {
   const keyTargets =
     input.operation === "unlink"
       ? unlinkKeyTargets(writerProjection, targetContainerProjection)
       : null;
   const held = keyTargets
-    ? reusableStagedBaselinePlan(
+    ? await reusableStagedBaselinePlan(
         input.execSql,
         input.documentId,
         writerProjection.contentKeyBundle.contentKeyEpoch + 1,

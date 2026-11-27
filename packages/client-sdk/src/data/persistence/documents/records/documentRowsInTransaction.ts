@@ -5,6 +5,7 @@ import {
   documents,
 } from "../../../sqlite/schema/documentRecordSchema";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
+import { deleteDocumentStagedBaselineUploadsForScopesInTransaction } from "./documentBaselineStagePersistence";
 import { deleteDocumentSyncVerdictsInTransaction } from "./documentSyncVerdictPersistence";
 
 // Document rows written inside another subsystem's transaction. Container
@@ -51,6 +52,11 @@ export async function deleteDocumentScopeRowsInTransaction(
   localIds: ReadonlyArray<string>,
 ): Promise<void> {
   const ids = [...localIds];
+  await deleteDocumentStagedBaselineUploadsForScopesInTransaction(
+    tx,
+    appKind,
+    ids,
+  );
   await tx
     .delete(documents)
     .where(and(eq(documents.appKind, appKind), inArray(documents.localId, ids)))
@@ -85,6 +91,11 @@ export async function rebindDocumentRowInTransaction(
   scope: { readonly appKind: string; readonly localId: string },
   rebind: { readonly documentId: string; readonly updatedAt: string },
 ): Promise<void> {
+  await deleteDocumentStagedBaselineUploadsForScopesInTransaction(
+    tx,
+    scope.appKind,
+    [scope.localId],
+  );
   await tx
     .update(documents)
     .set({

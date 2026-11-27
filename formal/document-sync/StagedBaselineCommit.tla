@@ -3,30 +3,11 @@ EXTENDS FiniteSets, Naturals, Sequences
 
 (***************************************************************************)
 (* A rotation baseline staged ahead of time and committed by reference.    *)
-(*                                                                         *)
-(* A baseline is an ordered group of segments that together carry a        *)
-(* document's whole history under a new content-key epoch. A writer, the   *)
-(* rotator, opens a stage for the document, uploads every segment but the  *)
-(* last one request at a time, strictly in index order, and then commits   *)
-(* the group by sending the final segment inline in the unlink or sync     *)
-(* request that rotates. The server walks each staged segment's spans      *)
-(* against what the stage has reached, so what a stage covers is what its  *)
-(* segments carry gapless from zero. The commit runs in the rotating       *)
-(* request's transaction, under the document manifest-head write lock      *)
-(* every sync writer takes: it locks the stage row, checks that the final  *)
-(* segment's index is the stage's next index and that the staged and final *)
-(* spans cover the committed frontier, inserts one row per staged segment  *)
-(* in index order and then the final segment, and deletes the stage row.   *)
-(* A staged segment's row stores no payload: the payload stays in the      *)
-(* staged-segment table, which the row reads by reference.                 *)
-(*                                                                         *)
-(* Readers page committed rows only. The hourly sweep deletes an expired   *)
-(* stage and its segments; abandoning a stage and replacing it on open     *)
-(* delete the same way. A cold reader is redirected to the latest whole    *)
-(* group and pages on from there by commit position.                       *)
-(*                                                                         *)
-(* History is a count of operations: update n carries operation n, the     *)
-(* span [n - 1, n). A segment carries a span [lo, hi).                     *)
+(* Segments are staged in index order and committed under the document     *)
+(* head lock with the final segment inline; staged payloads stay in the    *)
+(* staged-segment table and are read by reference. Readers page committed  *)
+(* rows only. History is a count of operations: update n is [n - 1, n),    *)
+(* and a segment carries [lo, hi). See StagedBaselineCommit.md.            *)
 (***************************************************************************)
 
 CONSTANTS MaxOps,                 \* ordinary updates the writers commit
@@ -43,7 +24,8 @@ CONSTANTS MaxOps,                 \* ordinary updates the writers commit
           ServeOnlyCommittedRows, \* a page reads committed rows only
           RedirectRequiresWholeGroup, \* a redirect needs a whole group
           OpenReplacesPriorStage, \* opening replaces the caller's stage
-          ReproveOnStaleRefusal   \* a refused rotator proves its history again
+          ReproveOnStaleRefusal,  \* a refused rotator proves its history again
+          ResumeChecksStage       \* a resumed rotator clears a lost stage
 
 ASSUME /\ MaxOps \in Nat \ {0}
        /\ MaxRotations \in Nat \ {0}
@@ -59,6 +41,7 @@ ASSUME /\ MaxOps \in Nat \ {0}
        /\ RedirectRequiresWholeGroup \in BOOLEAN
        /\ OpenReplacesPriorStage \in BOOLEAN
        /\ ReproveOnStaleRefusal \in BOOLEAN
+       /\ ResumeChecksStage \in BOOLEAN
 
 (* `log` is the document's committed rows in commit order. `frontier` is   *)
 (* how many ordinary updates are committed, and `rotations` how many       *)
@@ -109,7 +92,7 @@ TypeOK ==
         /\ pending.lo \in 0..MaxOps
         /\ pending.hi \in 0..MaxOps
   /\ known \in 0..MaxOps
-  /\ rphase \in {"idle", "staging", "stale"}
+  /\ rphase \in {"idle", "staging", "stale", "resuming"}
   /\ reader \in [started : BOOLEAN, pos : 0..Len(log), held : 0..MaxOps]
   /\ faults \in 0..MaxFaults
   /\ stranded \in BOOLEAN
@@ -307,7 +290,7 @@ Abandon ==
                   stranded, servedStaged >>
 
 (* The rotator's process restarts and forgets its stage, which stays on    *)
-(* the server.                                                             *)
+(* the server (for example after a local database reset or lost row).      *)
 RotatorRestart ==
   /\ rphase # "idle"
   /\ txn = "idle"
@@ -316,6 +299,36 @@ RotatorRestart ==
   /\ faults' = faults + 1
   /\ UNCHANGED << log, frontier, rotations, stage, staged, txn, pending,
                   known, reader, stranded, servedStaged >>
+
+(* The rotator's process crashes mid-stage, keeping its durable record of  *)
+(* the open stage in local SQLite.                                         *)
+RotatorCrash ==
+  /\ rphase \in {"staging", "stale"}
+  /\ txn = "idle"
+  /\ stage # None
+  /\ faults < MaxFaults
+  /\ rphase' = "resuming"
+  /\ faults' = faults + 1
+  /\ UNCHANGED << log, frontier, rotations, stage, staged, txn, pending,
+                  known, reader, stranded, servedStaged >>
+
+(* After a crash, the rotator reads its durable stage from the server. If  *)
+(* the stage is usable and uncommitted, it re-proves its history and goes  *)
+(* on staging from the server-acknowledged index (`stage.next`). If the    *)
+(* stage expired, was swept, or its id committed while the process was     *)
+(* down, the rotator drops its durable record and starts anew.             *)
+ResumeStage ==
+  /\ rphase = "resuming"
+  /\ txn = "idle"
+  /\ IF StageUsable /\ ~IdCommitted(stage.id) THEN
+       /\ known' = frontier
+       /\ rphase' = "staging"
+     ELSE
+       /\ ResumeChecksStage
+       /\ known' = known
+       /\ rphase' = "idle"
+  /\ UNCHANGED << log, frontier, rotations, stage, staged, txn, pending,
+                  reader, faults, stranded, servedStaged >>
 
 ----------------------------------------------------------------------------
 (* Expiry and the sweep *)
@@ -396,6 +409,7 @@ RotatorStep ==
   \/ CommitGate
   \/ CommitRefusedStale
   \/ Reprove
+  \/ ResumeStage
   \/ RotatorSeesRefusal
   \/ Promote
 
@@ -407,6 +421,7 @@ Next ==
   \/ RotatorStep
   \/ Abandon
   \/ RotatorRestart
+  \/ RotatorCrash
   \/ Expire
   \/ Sweep
   \/ ReaderStart

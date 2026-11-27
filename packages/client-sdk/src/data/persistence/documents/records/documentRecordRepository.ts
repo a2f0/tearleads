@@ -17,6 +17,7 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
+import { deleteDocumentStagedBaselineUploadsForScopesInTransaction } from "./documentBaselineStagePersistence";
 import {
   type DocumentHistoryCheckpointReplacement,
   type DocumentHistoryRestoreState,
@@ -210,6 +211,11 @@ export class DocumentRecordRepository {
   async deleteDocumentRecord(scope: DocumentScope): Promise<void> {
     await getClientSQLitePersistenceRuntime(this.execSql).runMutation(
       async (db) => {
+        await deleteDocumentStagedBaselineUploadsForScopesInTransaction(
+          db,
+          scope.appKind,
+          [scope.localId],
+        );
         await db
           .delete(documents)
           .where(

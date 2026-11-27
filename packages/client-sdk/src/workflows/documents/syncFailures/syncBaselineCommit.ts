@@ -53,6 +53,7 @@ export async function settleSyncBaselineCommit(input: {
 }): Promise<boolean> {
   const api = documentBaselineStageApi(input.apiClient);
   const uploads = getOrCreateStagedBaselineUploads(input.execSql);
+  await uploads.ensureLoaded();
   const upload = uploads.get(input.documentId);
   const { attempt, outcome } = input;
   if (

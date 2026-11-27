@@ -295,14 +295,14 @@ test("a heal's upload remembers the containers its key was sent to", async () =>
       targets,
     );
 
-  expect(held(bundle.targets.slice(1))).toBeNull();
+  expect(await held(bundle.targets.slice(1))).toBeNull();
   expect(
-    held([
+    await held([
       ...bundle.targets,
       { containerId: "extra-container", containerKeyEpochId: "extra-epoch-1" },
     ]),
   ).toBeNull();
-  expect(held(bundle.targets)?.contentKeyCommitment).toBe(
+  expect((await held(bundle.targets))?.contentKeyCommitment).toBe(
     bundle.contentKeyCommitment,
   );
 });

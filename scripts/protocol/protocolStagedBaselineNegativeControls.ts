@@ -87,4 +87,12 @@ export const STAGED_BASELINE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "liveness", name: "RotatorEventuallyCommits" },
     why: "A rotator that answers a stale-coverage refusal by sending the same final segment again never covers the update that refused it.",
   },
+  {
+    id: "staged-baseline-resume-ignores-lost-stage",
+    module: MODULE,
+    config: CONFIG,
+    constants: { ResumeChecksStage: "FALSE" },
+    expect: { kind: "liveness", name: "RotatorEventuallyCommits" },
+    why: "A crashed rotator that keeps trying to resume a stage that expired or was swept while it was down never opens a new stage and never commits.",
+  },
 ];
