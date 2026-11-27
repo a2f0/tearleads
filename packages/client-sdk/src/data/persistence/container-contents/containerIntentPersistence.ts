@@ -1,5 +1,11 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
+  type ContainerCreateIntentHold,
+  NO_CREATE_INTENT_HOLD,
+  parseCreateIntentHold,
+  serializeCreateIntentHold,
+} from "../../containers/shared/createIntentHoldMachine";
+import {
   CONTAINER_CREATE_INTENT_TYPE,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
@@ -15,6 +21,7 @@ import {
   CONTAINER_MOVE_INTENT_TYPE,
   type ContainerContentsPersistence,
   type ContainerCreateIntentErrorInput,
+  type ContainerCreateIntentHoldInput,
   type ContainerCreateIntentInput,
   type ContainerCreateIntentRecord,
   type ContainerCreateIntentRevisionInput,
@@ -42,6 +49,8 @@ interface SelectedContainerCreateIntentRecord {
   containerId: string;
   parentContainerId: string;
   syncStatus: string;
+  holdKind: string | null;
+  holdSince: string | null;
   remoteContainerId: string | null;
   remoteMetadataDocumentId: string | null;
   remoteMetadataAccessStateHash: string | null;
@@ -72,6 +81,11 @@ function mapContainerCreateIntentRecord(
     parentContainerId: row.parentContainerId,
     intentType: CONTAINER_CREATE_INTENT_TYPE,
     syncStatus: parseCreateIntentSyncStatus(row.syncStatus),
+    hold: parseCreateIntentHold({
+      fallbackSince: row.updatedAt,
+      holdKind: row.holdKind,
+      holdSince: row.holdSince,
+    }),
     remoteContainerId: row.remoteContainerId,
     remoteMetadataDocumentId: row.remoteMetadataDocumentId,
     remoteMetadataAccessStateHash: row.remoteMetadataAccessStateHash,
@@ -103,12 +117,14 @@ export async function saveContainerCreateIntent(input: {
   tx: ClientSQLiteTransactionScope;
   containerId: string;
   createIntent: ContainerCreateIntentInput;
-  /** Why the create waits, recorded with it; the pass reads it. */
-  lastError?: string | null | undefined;
+  /** Typed hold recorded with the create; `none` when unblocked. */
+  hold?: ContainerCreateIntentHold | undefined;
   updatedAt: string;
 }) {
   const { containerId, createIntent, tx, updatedAt } = input;
-  const lastError = input.lastError ?? null;
+  const { holdKind, holdSince } = serializeCreateIntentHold(
+    input.hold ?? NO_CREATE_INTENT_HOLD,
+  );
   const id = createIntent.id ?? crypto.randomUUID();
   await tx
     .insert(localIntents)
@@ -119,10 +135,12 @@ export async function saveContainerCreateIntent(input: {
       targetContainerId: createIntent.parentContainerId,
       intentType: CONTAINER_CREATE_INTENT_TYPE,
       syncStatus: "pending",
+      holdKind,
+      holdSince,
       remoteContainerId: null,
       remoteMetadataDocumentId: null,
       remoteMetadataAccessStateHash: null,
-      lastError,
+      lastError: null,
       lastAttemptedAt: null,
       createdAt: updatedAt,
       updatedAt,
@@ -136,10 +154,12 @@ export async function saveContainerCreateIntent(input: {
         targetContainerId: createIntent.parentContainerId,
         intentType: CONTAINER_CREATE_INTENT_TYPE,
         syncStatus: "pending",
+        holdKind,
+        holdSince,
         remoteContainerId: null,
         remoteMetadataDocumentId: null,
         remoteMetadataAccessStateHash: null,
-        lastError,
+        lastError: null,
         lastAttemptedAt: null,
         updatedAt,
       },
@@ -192,8 +212,55 @@ async function recordCreateIntentErrorAttempt(
     await tx
       .update(localIntents)
       .set({
+        holdKind: null,
+        holdSince: null,
         lastAttemptedAt: updatedAt,
         lastError: message,
+        updatedAt,
+      })
+      .where(
+        and(
+          inLocalIntentLane(LOCAL_INTENT_LANES.containerCreate),
+          eq(localIntents.subjectId, containerId),
+          eq(localIntents.syncStatus, "pending"),
+          eq(localIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+          eq(localIntents.id, expectedIntentId),
+          eq(localIntents.updatedAt, expectedUpdatedAt),
+        ),
+      )
+      .run();
+  };
+  if (stillCurrent) {
+    await runtime.guardedTransaction(record, stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(record, { behavior: "immediate" });
+}
+
+async function recordCreateIntentHoldAttempt(
+  execSql: ExecSql,
+  input: ContainerCreateIntentHoldInput,
+): Promise<void> {
+  const {
+    containerId,
+    expectedIntentId,
+    expectedUpdatedAt,
+    hold,
+    stillCurrent,
+  } = input;
+  const { holdKind, holdSince } = serializeCreateIntentHold(hold);
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
+  const record = async (tx: ClientSQLiteTransactionScope) => {
+    const updatedAt = new Date().toISOString();
+    await tx
+      .update(localIntents)
+      .set({
+        holdKind,
+        holdSince,
+        lastAttemptedAt: updatedAt,
+        lastError: null,
         updatedAt,
       })
       .where(
@@ -252,6 +319,7 @@ type ContainerIntentPersistence = Pick<
   | "listPendingCreateIntents"
   | "listUnsyncedMoveIntents"
   | "recordCreateIntentRevisionError"
+  | "recordCreateIntentRevisionHold"
   | "recordMoveIntentError"
   | "markCreateIntentRevisionSynced"
   | "markMoveIntentRevisionSynced"
@@ -266,6 +334,8 @@ export const containerIntentPersistence = {
         containerId: localIntents.subjectId,
         parentContainerId: localIntents.targetContainerId,
         syncStatus: localIntents.syncStatus,
+        holdKind: localIntents.holdKind,
+        holdSince: localIntents.holdSince,
         remoteContainerId: localIntents.remoteContainerId,
         remoteMetadataDocumentId: localIntents.remoteMetadataDocumentId,
         remoteMetadataAccessStateHash:
@@ -319,6 +389,8 @@ export const containerIntentPersistence = {
   },
   recordCreateIntentRevisionError: (execSql, input) =>
     recordCreateIntentErrorAttempt(execSql, input),
+  recordCreateIntentRevisionHold: (execSql, input) =>
+    recordCreateIntentHoldAttempt(execSql, input),
   async recordMoveIntentError(execSql, input) {
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     const record = async (tx: ClientSQLiteTransactionScope) => {

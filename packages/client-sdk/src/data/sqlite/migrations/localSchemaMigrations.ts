@@ -335,6 +335,61 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 16,
   },
+  {
+    // Container create holds (awaiting a parent listing after a root fold,
+    // taken system slot, or too-deep path) moved from sentinel strings in
+    // `last_error` into typed `hold_kind` / `hold_since` columns (#3374), so
+    // `last_error` holds only real replay failures. Backfill any pending
+    // container create row carrying the v16 sentinel messages and clear its
+    // `last_error`.
+    name: "type_container_create_intent_holds",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("local_intents"))) return;
+      const columns = new Set(
+        (await execSql("SELECT name FROM pragma_table_info('local_intents')"))
+          .map(({ name }) => name)
+          .filter((name): name is string => typeof name === "string"),
+      );
+      if (!columns.has("hold_kind")) {
+        await execSql(
+          'ALTER TABLE "local_intents" ADD COLUMN "hold_kind" TEXT',
+        );
+      }
+      if (!columns.has("hold_since")) {
+        await execSql(
+          'ALTER TABLE "local_intents" ADD COLUMN "hold_since" TEXT',
+        );
+      }
+      await execSql(
+        `UPDATE "local_intents"
+            SET "hold_kind" = 'awaiting_parent_listing',
+                "hold_since" = "updated_at",
+                "last_error" = NULL
+          WHERE "lane" = 'container.create'
+            AND "sync_status" = 'pending'
+            AND "last_error" = 'Container create waits for a listing of its parent'`,
+      );
+      await execSql(
+        `UPDATE "local_intents"
+            SET "hold_kind" = 'slot_taken',
+                "hold_since" = NULL,
+                "last_error" = NULL
+          WHERE "lane" = 'container.create'
+            AND "sync_status" = 'pending'
+            AND "last_error" = 'Container system slot is already taken'`,
+      );
+      await execSql(
+        `UPDATE "local_intents"
+            SET "hold_kind" = 'path_too_deep',
+                "hold_since" = NULL,
+                "last_error" = NULL
+          WHERE "lane" = 'container.create'
+            AND "sync_status" = 'pending'
+            AND "last_error" = 'Container path exceeds maximum depth'`,
+      );
+    },
+    version: 17,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

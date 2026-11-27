@@ -3,7 +3,10 @@ import {
   createContainerContentsProjectionUserKeyResolver,
   didContainerContentsProjectionKeyRuntimeChange,
 } from "../../workflows/container-contents/projectionKeys";
-import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
+import {
+  didRegainSyncPrerequisites,
+  getOrCreateCreateIntentHoldListings,
+} from "../../workflows/container-contents/syncLane";
 import { ContainerStateMap } from "./containerState/containerStateMap";
 import { observeContainerBackgroundHydration } from "./hydration/backgroundHydration";
 import { ConnectAttemptGate } from "./hydration/connectAttemptGate";
@@ -194,9 +197,19 @@ export function updateContainerContentsSnapshot(
   });
 }
 
-function resetContainerContentsStore(state: ContainerContentsStoreState) {
+function resetContainerContentsStore(
+  state: ContainerContentsStoreState,
+  previousDomainScope?: ContainerContentsStoreRuntime["state"]["domainScope"],
+) {
   state.lifecycleGeneration += 1;
   state.connectAttemptGate.reset();
+  if (
+    previousDomainScope &&
+    previousDomainScope !== state.runtime.state.domainScope
+  ) {
+    getOrCreateCreateIntentHoldListings(previousDomainScope).reset();
+  }
+  getOrCreateCreateIntentHoldListings(state.runtime.state.domainScope).reset();
   state.containersById = new ContainerStateMap();
   state.containerParentIdsNeedingHydration = new Set();
   state.documentStoresNeedPriming = true;
@@ -282,7 +295,7 @@ export function updateContainerContentsStoreRuntime(
 
   if (nextRuntime.infra.dbStatus !== "ready") {
     if (hasContainerContentsLoadState(state)) {
-      resetContainerContentsStore(state);
+      resetContainerContentsStore(state, previousRuntime.state.domainScope);
     }
     return;
   }
@@ -291,7 +304,7 @@ export function updateContainerContentsStoreRuntime(
     // The in-memory tree and lane markers belong to the previous executor.
     // Rebuild them from the replacement database before any remote sync can
     // observe or persist the old database's state.
-    resetContainerContentsStore(state);
+    resetContainerContentsStore(state, previousRuntime.state.domainScope);
     syncAgent.ensureInitialized();
     syncAgent.handleRemoteEvents();
     return;
@@ -342,6 +355,7 @@ export function retireContainerStore(
   state.lifecycleGeneration++;
   state.reconnectRefresh.reset("disposed");
   state.connectAttemptGate.reset();
+  getOrCreateCreateIntentHoldListings(state.runtime.state.domainScope).reset();
 }
 
 export function consumePendingContainerContentsReconnectRefresh(

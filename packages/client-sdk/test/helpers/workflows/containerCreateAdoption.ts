@@ -1,6 +1,7 @@
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMemoryBlobStore } from "../../../src/data/blobs/memoryBlobStore";
+import { NO_CREATE_INTENT_HOLD } from "../../../src/data/containers/shared/createIntentHoldMachine";
 import { defaultDocumentProjectorRegistry } from "../../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../../src/data/shared/domainScope";
 import { createTestContainerState } from "../../../src/workflows/container-contents/container-state/containerState.testFixtures";
@@ -73,6 +74,7 @@ function pendingIntent(
   return {
     containerId: listed.containerId,
     createdAt: "2026-09-30T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: `create-${listed.containerId}`,
     intentType: "container.create",
     lastAttemptedAt: null,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { CONTAINER_CREATE_AWAITS_PARENT_LISTING } from "../../containers/shared/systemSlotCreate";
+import { NO_CREATE_INTENT_HOLD } from "../../containers/shared/createIntentHoldMachine";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 import { DocumentMoveIntentRepository } from "./documentMoveIntentPersistence";
@@ -327,8 +327,9 @@ test("a root fold records the hold on a re-homed create that waits for its paren
       await sqlContainerContentsPersistence.listPendingCreateIntents(execSql);
     expect(
       creates
-        .map(({ containerId, lastError, parentContainerId }) => ({
+        .map(({ containerId, hold, lastError, parentContainerId }) => ({
           containerId,
+          hold,
           lastError,
           parentContainerId,
         }))
@@ -336,11 +337,13 @@ test("a root fold records the hold on a re-homed create that waits for its paren
     ).toEqual([
       {
         containerId: "contacts",
-        lastError: CONTAINER_CREATE_AWAITS_PARENT_LISTING,
+        hold: { since: SAME_UPDATED_AT, status: "awaitingParentListing" },
+        lastError: null,
         parentContainerId: "remote-root",
       },
       {
         containerId: "folder",
+        hold: NO_CREATE_INTENT_HOLD,
         lastError: null,
         parentContainerId: "remote-root",
       },

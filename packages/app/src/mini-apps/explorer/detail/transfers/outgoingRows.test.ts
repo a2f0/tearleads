@@ -190,3 +190,27 @@ test("ingest statuses pass through; imported items refine by sync lane", () => {
     deriveExplorerUploadItemStatus(importedFile, lane({ status: "error" })),
   ).toBe("sync-failed");
 });
+
+test("a blocked create surfaces its typed hold reason in the outgoing detail", () => {
+  const [row] = rows({
+    writes: [
+      item({
+        localId: "contacts-local",
+        objectKind: "container",
+        operations: [
+          operation({
+            blockedReason: "awaiting-parent-listing",
+            kind: "create",
+            status: "blocked",
+          }),
+        ],
+        status: "blocked",
+      }),
+    ],
+  });
+
+  expect(row?.transfer.label).toBe(EXPLORER_LABELS.writeQueueBlockedStatus);
+  expect(row?.transfer.detail).toBe(
+    EXPLORER_LABELS.writeQueueEntryReasonAwaitingParentListing,
+  );
+});

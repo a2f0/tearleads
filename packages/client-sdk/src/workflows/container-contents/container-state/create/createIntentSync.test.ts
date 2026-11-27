@@ -9,6 +9,7 @@ import {
 import { createContainerContentsWorkflowRuntime } from "../../../../../test/helpers/workflows/containerContentsWorkflowRuntime";
 import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
+import { NO_CREATE_INTENT_HOLD } from "../../../../data/containers/shared/createIntentHoldMachine";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
@@ -34,6 +35,7 @@ test("stale container create identity failures do not report into a replacement"
   const intent: ContainerCreateIntentRecord = {
     containerId: "child",
     createdAt: "2026-07-15T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: "create-child",
     intentType: "container.create",
     lastAttemptedAt: null,
@@ -243,6 +245,7 @@ test("container create sync heals lost-response conflicts with revision settleme
   const intent: ContainerCreateIntentRecord = {
     containerId: childContainerId,
     createdAt: "2026-07-15T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: "create-child",
     intentType: "container.create",
     lastAttemptedAt: null,
@@ -343,6 +346,7 @@ test("container create sync keeps an intent pending while the container row lack
   const intent: ContainerCreateIntentRecord = {
     containerId: "child",
     createdAt: "2026-07-15T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: "create-child",
     intentType: "container.create",
     lastAttemptedAt: null,

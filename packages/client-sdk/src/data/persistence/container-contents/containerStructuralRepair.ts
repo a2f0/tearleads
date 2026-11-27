@@ -1,5 +1,8 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { CONTAINER_CREATE_AWAITS_PARENT_LISTING } from "../../containers/shared/systemSlotCreate";
+import {
+  NO_CREATE_INTENT_HOLD,
+  transitionCreateIntentHold,
+} from "../../containers/shared/createIntentHoldMachine";
 import {
   containers,
   inContainerIntentLanes,
@@ -222,9 +225,12 @@ export async function updateReparentedDescendantContainers(input: {
       await saveContainerCreateIntent({
         containerId: reparent.containerId,
         createIntent: { parentContainerId: reparent.parentContainerId },
-        lastError: reparent.awaitParentListing
-          ? CONTAINER_CREATE_AWAITS_PARENT_LISTING
-          : null,
+        hold: reparent.awaitParentListing
+          ? transitionCreateIntentHold(NO_CREATE_INTENT_HOLD, {
+              since: updatedAt,
+              type: "rehomedSystemSlot",
+            })
+          : NO_CREATE_INTENT_HOLD,
         tx,
         updatedAt,
       });
@@ -283,6 +289,8 @@ export async function reparentLocalContainerChildren(input: {
     await tx
       .update(localIntents)
       .set({
+        holdKind: null,
+        holdSince: null,
         id: crypto.randomUUID(),
         targetContainerId: toContainerId,
         updatedAt,

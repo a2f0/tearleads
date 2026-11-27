@@ -2,6 +2,7 @@ import { expect, mock, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createContainerContentsTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
+import { NO_CREATE_INTENT_HOLD } from "../../../data/containers/shared/createIntentHoldMachine";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { createTestContainerState } from "../../../workflows/container-contents/container-state/containerState.testFixtures";
 import {
@@ -24,6 +25,7 @@ test("the sync lane skips metadata sync for a folder whose create is pending", a
   const parked: ContainerCreateIntentRecord = {
     containerId: "parked",
     createdAt: "2026-10-01T00:00:00.000Z",
+    hold: NO_CREATE_INTENT_HOLD,
     id: "create-parked",
     intentType: "container.create",
     lastAttemptedAt: null,

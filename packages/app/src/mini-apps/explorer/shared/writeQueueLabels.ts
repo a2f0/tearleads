@@ -32,13 +32,20 @@ export const EXPLORER_WRITE_QUEUE_LABELS = {
   writeQueueEntryNotQueued: "This change is no longer in the write queue:",
   writeQueueEntryOperationsHeading: "Pending Writes",
   writeQueueEntryOrganizationRow: "Organization",
+  writeQueueEntryBlockedReasonRow: "Hold Reason",
+  writeQueueEntryReasonAwaitingParentListing:
+    "Waiting for a listing of its parent folder before creating remotely.",
   writeQueueEntryReasonBlocked:
     "Blocked behind an earlier change that hasn't synced yet.",
   writeQueueEntryReasonErrorPrefix: "Last attempt failed:",
   writeQueueEntryReasonHeading: "Why this isn't syncing yet",
+  writeQueueEntryReasonPathTooDeep:
+    "Folder path exceeds the maximum depth; move it higher to sync.",
   writeQueueEntryReasonPumpIdle:
     "Sync is idle — no run is currently in progress.",
   writeQueueEntryReasonQueued: "Waiting for its turn in the sync queue.",
+  writeQueueEntryReasonSlotTaken:
+    "This system folder already exists on the account; waiting for its parent folder listing to merge it.",
   writeQueueEntryRemoteIdRow: "Remote ID",
   writeQueueEntryStatusRow: "Status",
   writeQueueEntryTypeRow: "Type",
