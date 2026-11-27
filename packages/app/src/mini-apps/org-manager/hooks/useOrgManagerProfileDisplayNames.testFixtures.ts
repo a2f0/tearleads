@@ -111,9 +111,11 @@ export function createTearleadsHarness(
   });
   const loadDirectoryAndGroups = mock(() => Promise.resolve(null));
   const loadLocalDirectoryAndGroups = mock(() => Promise.resolve(null));
+  const log = mock((_message: string) => undefined);
   const logError = mock(() => undefined);
   const tearleads = {
     documents: { findLocalIdByDocumentId, list, open, subscribe },
+    log,
     logError,
     organizations: {
       loadDirectoryAndGroups,
@@ -132,6 +134,7 @@ export function createTearleadsHarness(
     list,
     loadDirectoryAndGroups,
     loadLocalDirectoryAndGroups,
+    log,
     logError,
     open,
     requestRemoteSyncAndWait,

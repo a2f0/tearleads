@@ -1,10 +1,6 @@
-import {
-  isDatabaseUnavailableError,
-  type SessionTwoFactorCode,
-} from "@tearleads/client-sdk";
+import type { SessionTwoFactorCode } from "@tearleads/client-sdk";
 import {
   createContext,
-  type MutableRefObject,
   type PropsWithChildren,
   useCallback,
   useContext,
@@ -29,6 +25,11 @@ import {
   restorePersistedCryptoSession,
   useLocalCryptoSessionPersistence,
 } from "./localCryptoSessionPersistence";
+import {
+  createRootBootstrapDriver,
+  useBootstrapCryptoSessionContainer,
+  useResetCryptoSession,
+} from "./useBootstrapCryptoSessionContainer";
 import { useEnsureDatabaseForIdentity } from "./useEnsureDatabaseForIdentity";
 import { usePersistCryptoSession } from "./usePersistCryptoSession";
 import {
@@ -74,84 +75,6 @@ export interface CryptoSessionContextValue {
 const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
   null,
 );
-
-interface RootBootstrapAttempt {
-  readonly signIn: () => boolean;
-  readonly scope: ReturnType<typeof useTearleads>["domainScope"];
-  readonly dbClient: ReturnType<typeof useDatabase>["client"];
-  readonly signingFingerprint: string;
-}
-
-function useResetCryptoSession(
-  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
-  signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
-  resetSession: () => void,
-) {
-  useEffect(() => {
-    if (signingKeyPair) {
-      return;
-    }
-
-    containerBootstrapped.current = null;
-    resetSession();
-  }, [containerBootstrapped, resetSession, signingKeyPair]);
-}
-
-function useBootstrapCryptoSessionContainer(
-  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
-  tearleads: ReturnType<typeof useTearleads>,
-  containerId: string | null,
-  signingFingerprint: string | null,
-  dbStatus: ReturnType<typeof useDatabase>["status"],
-  dbClient: ReturnType<typeof useDatabase>["client"],
-  logError: (message: string, error: unknown) => void,
-) {
-  const scope = tearleads.domainScope;
-  const signIn = tearleads.session.captureSignIn();
-  useEffect(() => {
-    const previous = containerBootstrapped.current;
-    if (
-      containerId !== null ||
-      !signingFingerprint ||
-      dbStatus !== "ready" ||
-      !dbClient ||
-      (previous?.scope === scope &&
-        previous.signIn() &&
-        previous?.dbClient === dbClient &&
-        previous.signingFingerprint === signingFingerprint)
-    )
-      return;
-    const attempt = { scope, dbClient, signingFingerprint, signIn };
-    containerBootstrapped.current = attempt;
-    const current = () =>
-      containerBootstrapped.current === attempt &&
-      tearleads.domainScope === scope &&
-      signIn();
-    void (async () => {
-      try {
-        await tearleads.session.bootstrapLocalRootContainer(current);
-      } catch (error: unknown) {
-        if (!current()) return;
-        containerBootstrapped.current = null;
-        // Reloads and identity transitions retire the worker beneath pending
-        // queries. The next ready client retries; real SQL failures still log.
-        if (!isDatabaseUnavailableError(error)) {
-          logError("Failed to bootstrap root container", error);
-        }
-      }
-    })();
-  }, [
-    containerBootstrapped,
-    dbStatus,
-    dbClient,
-    containerId,
-    logError,
-    scope,
-    signIn,
-    signingFingerprint,
-    tearleads,
-  ]);
-}
 
 function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
   const logout = useCallback(() => {
@@ -408,7 +331,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   } = useDatabase();
   const { signingFingerprint, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
-  const containerBootstrapped = useRef<RootBootstrapAttempt | null>(null);
+  const [rootBootstrap] = useState(createRootBootstrapDriver);
   const sessionState = useSdkBackedCryptoSessionState(tearleads);
   const localSessionPersistence = useLocalCryptoSessionPersistence({
     createLocalKeyring: localKeyringLock.createLocalKeyring,
@@ -419,7 +342,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   });
 
   useResetCryptoSession(
-    containerBootstrapped,
+    rootBootstrap,
     signingKeyPair,
     sessionState.resetSession,
   );
@@ -430,7 +353,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     logError,
   );
   useBootstrapCryptoSessionContainer(
-    containerBootstrapped,
+    rootBootstrap,
     tearleads,
     sessionState.containerId,
     signingFingerprint,

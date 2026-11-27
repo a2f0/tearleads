@@ -225,7 +225,8 @@ export async function syncDocumentState(
   // exists and attempting it just records a spurious failure. The structural
   // lane primes this store again as soon as the container create lands.
   const createGate = await remoteCreateGate(state, nextRecord, generation);
-  if (createGate === "stale") return requestSyncAgain(state, nextRecord);
+  if (createGate === "stale" || createGate === "busy")
+    return requestSyncAgain(state, nextRecord);
   if (createGate === "defer") return nextRecord;
   const created = await ensureSeededRemoteDocument({
     consumedRemoteUpdateSignalSeq,

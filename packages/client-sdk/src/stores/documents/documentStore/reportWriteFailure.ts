@@ -1,5 +1,5 @@
-import { isDatabaseUnavailableError } from "../../../workflows/documents";
-import type { DocumentStoreState } from "./state";
+import { classifyDatabaseFailure } from "../../../workflows/documents";
+import type { DocumentState, DocumentStoreState } from "./state";
 
 const lastWriteFailureByState = new WeakMap<DocumentStoreState, string>();
 
@@ -41,7 +41,9 @@ export function reportDocumentStoreWriteFailure(
   // released under in-flight callers on every identity switch, logout, and
   // Explorer retry, and neither persistDocument nor saveDocumentRecord filters
   // it. Unfiltered, SQLite-worker teardown would outrank every real failure.
-  if (isDatabaseUnavailableError(error)) {
+  // A busy refusal still reports here: only `reportOrRetryBusyDocumentWrite`
+  // callers queue the write again, and a refusal nothing retries is lost work.
+  if (classifyDatabaseFailure(error) === "unavailable") {
     dispatchToHost(() => state.runtime.util.log(message));
     return;
   }
@@ -65,4 +67,82 @@ export function reportDocumentStoreWriteFailure(
   // per-write key would report all 200 files of a failing import.
   lastWriteFailureByState.set(state, signature);
   dispatchToHost(() => logError(message, error));
+}
+
+/**
+ * How long a local write the worker refused behind another tab's transaction
+ * waits before it is queued again. The SDK's worker already waited its 5 s
+ * lease bound before refusing; this only spaces out a host that refuses at
+ * once.
+ */
+export const BUSY_WRITE_RETRY_MS = 1_000;
+
+interface BusyWriteRetry {
+  doc: DocumentState | null;
+  requeue: () => unknown;
+  /**
+   * False for a guarded or history-only write, whose requeue may persist
+   * nothing or keep it out of sync; such a retry never replaces one that
+   * saves every unsaved edit.
+   */
+  savesAll: boolean;
+  writeGeneration: number;
+}
+
+const retriesByState = new WeakMap<DocumentStoreState, BusyWriteRetry>();
+
+function settleBusyWriteRetry(state: DocumentStoreState): void {
+  const retry = retriesByState.get(state);
+  retriesByState.delete(state);
+  // Only a write that is still the newest word on this document runs again.
+  // Another write in flight carries the same unsaved edits on its own persist,
+  // a saved edit leaves nothing to carry, and a reset owns a new document.
+  if (
+    !retry ||
+    state.localWriteGeneration !== retry.writeGeneration ||
+    state.doc !== retry.doc ||
+    !state.unsavedLocalEdits ||
+    state.pendingLocalWrites > 0
+  ) {
+    return;
+  }
+  try {
+    void Promise.resolve(retry.requeue()).catch(() => undefined);
+  } catch {
+    // The requeued write reports its own failure.
+  }
+}
+
+/**
+ * Reports a failed local write, or, when the worker refused its persist behind
+ * another tab's transaction (#3360), logs it locally and queues the write
+ * again. The refused persist ran nothing, so its edits are in the live
+ * document but not in SQLite, and before this only the next edit saved them.
+ * Later refusals replace the pending retry, so one timer runs per store and
+ * the newest write is the one queued again; that write's delta covers every
+ * unsaved edit before it. A guarded or history-only retry replaces only
+ * another such retry.
+ */
+export function reportOrRetryBusyDocumentWrite(
+  state: DocumentStoreState,
+  message: string,
+  error: unknown,
+  write: Pick<BusyWriteRetry, "requeue" | "savesAll" | "writeGeneration">,
+): void {
+  if (classifyDatabaseFailure(error) !== "busy") {
+    reportDocumentStoreWriteFailure(state, message, error);
+    return;
+  }
+  dispatchToHost(() =>
+    state.runtime.util.log(
+      `${message} behind another tab's database transaction`,
+    ),
+  );
+  const pending = retriesByState.get(state);
+  if (!pending || write.savesAll || !pending.savesAll) {
+    retriesByState.set(state, { ...write, doc: state.doc });
+  }
+  if (!pending) {
+    setTimeout(() => settleBusyWriteRetry(state), BUSY_WRITE_RETRY_MS);
+  }
 }

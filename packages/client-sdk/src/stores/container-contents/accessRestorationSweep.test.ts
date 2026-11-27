@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { DATABASE_TRANSACTION_BUSY_MESSAGE } from "@tearleads/sqlite-worker/types";
 import {
   createContainerParentLaneBatchMock as batchParentLanes,
   createMockApiClient,
@@ -13,6 +14,7 @@ import {
   emptyListContainersResponse,
 } from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import {
+  type DormantMetadataSweepRequest,
   listDormantMetadataSweepRequests,
   requestDormantMetadataRestorationSweeps,
 } from "../../data/persistence/container-contents/dormantMetadataSweep";
@@ -24,6 +26,7 @@ import {
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createRestoredAccessReconciler } from "./accessRestorationSweep";
 import { createContainerContentsStore } from "./containerContentsStore";
+import type { RemoteHydrationRefreshOptions } from "./hydration/remoteHydrationRefresh";
 import type { ContainerContentsStoreSyncState } from "./syncAgent/syncAgentTypes";
 
 const ORGANIZATION_ID = "restored-organization";
@@ -296,4 +299,103 @@ test("restoration waits for hydration and preserves metadata despite unsigned ab
     disposeDomainSyncCoordinator(domainScope);
     await close();
   }
+});
+
+const busyRefusal = () =>
+  new Error("Failed query", {
+    cause: new Error(DATABASE_TRANSACTION_BUSY_MESSAGE),
+  });
+
+function createSweepHarness(refuse: { claim: number; complete: number }) {
+  let sweep: DormantMetadataSweepRequest | null = {
+    attemptCount: 0,
+    generation: 1,
+    lastAttemptedAt: null,
+    organizationId: "org-1",
+    requestedAt: "2026-01-01T00:00:00.000Z",
+    requesterUserId: "user-1",
+  };
+  const loggedErrors: unknown[] = [];
+  let crawls = 0;
+  const state = {
+    containerParentIdsNeedingHydration: new Set(),
+    containersById: new Map(),
+    initialized: true,
+    lifecycleGeneration: 0,
+    persistence: {
+      claimDormantMetadataSweepAttempt: async (
+        _execSql: unknown,
+        claimed: DormantMetadataSweepRequest,
+        attemptedAt: string,
+      ) => {
+        if (refuse.claim > 0) {
+          refuse.claim -= 1;
+          throw busyRefusal();
+        }
+        if (!sweep || sweep.attemptCount !== claimed.attemptCount) return false;
+        sweep = {
+          ...sweep,
+          attemptCount: sweep.attemptCount + 1,
+          lastAttemptedAt: attemptedAt,
+        };
+        return true;
+      },
+      completeDormantMetadataSweepRequest: async () => {
+        if (refuse.complete > 0) {
+          refuse.complete -= 1;
+          throw busyRefusal();
+        }
+        sweep = null;
+      },
+      listDormantMetadataSweepRequests: async () => (sweep ? [sweep] : []),
+    },
+    remoteHydrationPromise: null,
+    runtime: {
+      auth: { isAuthenticated: true, userId: "user-1" },
+      infra: { dbStatus: "ready", execSql: {} },
+      state: { online: true },
+      util: {
+        log: () => {},
+        logError: (_message: string, error: unknown) => {
+          loggedErrors.push(error);
+        },
+      },
+    },
+    structuralGeneration: 0,
+  } as unknown as ContainerContentsStoreSyncState;
+  const reconcile = createRestoredAccessReconciler({
+    requestHydration: async (options: RemoteHydrationRefreshOptions) => {
+      crawls += 1;
+      await options.onFullyHydrated?.();
+    },
+    state,
+  });
+  return {
+    crawls: () => crawls,
+    loggedErrors,
+    reconcile,
+    sweep: () => sweep,
+  };
+}
+
+// #3360: a refusal behind another tab's transaction is not evidence about the
+// sweep, so it must neither spend one of its five attempts nor end the pass.
+test("a busy refusal at the claim spends no sweep attempt and the pass still crawls", async () => {
+  const harness = createSweepHarness({ claim: 2, complete: 0 });
+
+  await harness.reconcile();
+
+  expect(harness.crawls()).toBe(1);
+  expect(harness.sweep()).toBeNull();
+  expect(harness.loggedErrors).toEqual([]);
+});
+
+test("a busy refusal at the completion completes the attempt that crawled", async () => {
+  const harness = createSweepHarness({ claim: 0, complete: 2 });
+
+  await harness.reconcile();
+
+  expect(harness.crawls()).toBe(1);
+  expect(harness.sweep()).toBeNull();
+  expect(harness.loggedErrors).toEqual([]);
 });

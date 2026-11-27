@@ -134,7 +134,7 @@ function DemoPeerRosterSeeder({
   const side = usePaneSide();
   const runtime = useTearleadsRuntime();
   const orgManagerActions = useOrgManagerActions();
-  const { logError } = useLog();
+  const { log, logError } = useLog();
   // Holds the peer id whose roster seed has settled, so a changed peer (a
   // re-registered or switched identity) is treated as unsettled and re-seeded
   // rather than skipped.
@@ -181,8 +181,8 @@ function DemoPeerRosterSeeder({
     const startAttempt = (): void => {
       void attempt().catch(stopAfterIdentityIntegrityFailure);
     };
-    const retryOrGiveUp = (): void => {
-      attempts += 1;
+    const retryOrGiveUp = (spendsAttempt: boolean): void => {
+      if (spendsAttempt) attempts += 1;
       if (attempts < ROSTER_SEED_MAX_ATTEMPTS) {
         retryTimer = setTimeout(startAttempt, ROSTER_SEED_RETRY_MS);
       } else {
@@ -196,20 +196,22 @@ function DemoPeerRosterSeeder({
         return;
       }
 
-      const settled = await attemptPeerRosterSeed(
+      const outcome = await attemptPeerRosterSeed(
         orgManagerActions,
         targetPeerUserId,
         peerNickname,
-        logError,
+        { log, logError },
+        () => active,
       );
       if (!active) {
         return;
       }
-      if (settled) {
+      if (outcome === "settled") {
         settledPeerRef.current = targetPeerUserId;
         return;
       }
-      retryOrGiveUp();
+      // Another tab's transaction is not this seed's failure (#3360).
+      retryOrGiveUp(outcome !== "busy");
     }
 
     startAttempt();
@@ -222,6 +224,7 @@ function DemoPeerRosterSeeder({
   }, [
     canSeedRoster,
     enabled,
+    log,
     logError,
     orgManagerActions,
     peerNickname,

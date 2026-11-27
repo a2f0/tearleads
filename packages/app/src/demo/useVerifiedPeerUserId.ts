@@ -4,6 +4,7 @@ import { useIdentityLinks } from "../providers/identity-links/useIdentityLinks";
 import { useLog } from "../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../providers/sdk/TearleadsProvider";
 import { usePeerIdentityLink, usePeerUserId } from "../shell/pane/dual-pane";
+import { demoAttemptsAfterFailure } from "./demoPeerRosterSeed";
 
 // The peer pane publishes its link as soon as its keys exist, which can be
 // before the server answers for that identity, so verification retries.
@@ -50,7 +51,7 @@ export function useVerifiedPeerUserId(enabled: boolean): string | null {
         },
         (error: unknown) => {
           if (!active) return;
-          attempts += 1;
+          attempts = demoAttemptsAfterFailure(attempts, error);
           if (attempts < VERIFY_MAX_ATTEMPTS) {
             retryTimer = setTimeout(attempt, VERIFY_RETRY_MS);
           } else {
