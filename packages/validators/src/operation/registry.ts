@@ -50,6 +50,7 @@ import {
   stageDocumentBaselineSegmentOperation,
 } from "./documentBaselineStages";
 import {
+  allowDocumentPeerRestoreOperation,
   createDocumentOperation,
   getDocumentPurgeProofOperation,
   linkDocumentOperation,
@@ -174,6 +175,7 @@ export const protocolOperations: readonly [
   typeof getDocumentAttributionOperation,
   typeof listDocumentAttributionRangesOperation,
   typeof createDocumentOperation,
+  typeof allowDocumentPeerRestoreOperation,
   typeof getDocumentPurgeProofOperation,
   typeof linkDocumentOperation,
   typeof purgeDocumentOperation,
@@ -274,6 +276,7 @@ export const protocolOperations: readonly [
   getDocumentAttributionOperation,
   listDocumentAttributionRangesOperation,
   createDocumentOperation,
+  allowDocumentPeerRestoreOperation,
   getDocumentPurgeProofOperation,
   linkDocumentOperation,
   purgeDocumentOperation,

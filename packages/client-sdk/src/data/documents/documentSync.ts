@@ -19,6 +19,13 @@ interface DocumentMutationCreatedEvent {
   eventType: "document.link" | "document.purge" | "document.unlink";
 }
 
+interface DocumentPeerRestoreAllowedEvent {
+  type: "document_mutation_created";
+  containerIds: string[];
+  documentId: string;
+  eventType: "document.peer_restore_allowed";
+}
+
 export function createPendingUpdateFields(
   update: Uint8Array,
 ): PendingUpdateFields | null {
@@ -71,6 +78,25 @@ export function isDocumentMutationCreatedEvent(
       eventType === "document.unlink") &&
     Array.isArray(containerIds) &&
     containerIds.length > 0 &&
+    containerIds.every(
+      (containerId) =>
+        typeof containerId === "string" && containerId.length > 0,
+    )
+  );
+}
+
+export function isDocumentPeerRestoreAllowedEvent(
+  event: unknown,
+): event is DocumentPeerRestoreAllowedEvent {
+  if (!isPlainObject(event)) return false;
+  const containerIds = Reflect.get(event, "containerIds");
+  const documentId = Reflect.get(event, "documentId");
+  return (
+    Reflect.get(event, "type") === "document_mutation_created" &&
+    Reflect.get(event, "eventType") === "document.peer_restore_allowed" &&
+    typeof documentId === "string" &&
+    documentId.length > 0 &&
+    Array.isArray(containerIds) &&
     containerIds.every(
       (containerId) =>
         typeof containerId === "string" && containerId.length > 0,

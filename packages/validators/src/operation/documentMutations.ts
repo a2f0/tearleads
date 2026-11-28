@@ -9,20 +9,24 @@ import { registerJsonSchemaFragment } from "../jsonSchema";
 import {
   DocumentCreateRequestSchema,
   DocumentLinkSetMutationRequestSchema,
+  DocumentPeerRestoreAllowRequestSchema,
   DocumentPurgeRequestSchema,
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
+  isDocumentPeerRestoreAllowRequest,
   isDocumentPurgeRequest,
 } from "../request";
 import {
   DocumentCreateResponseSchema,
   DocumentLinkSetMutationResponseSchema,
   DocumentMutationFailureResponseSchema,
+  DocumentPeerRestoreAllowResponseSchema,
   DocumentPurgeProofResponseSchema,
   DocumentPurgeResponseSchema,
   ErrorResponseSchema,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
+  isDocumentPeerRestoreAllowResponse,
   isDocumentPurgeProofResponse,
   isDocumentPurgeResponse,
   PaymentRequiredErrorResponseSchema,
@@ -185,6 +189,25 @@ export const getDocumentPurgeProofOperation = defineJsonOperation({
   runtimeRefinements: [principalHistoryRollbackRefinement],
 });
 
+export const allowDocumentPeerRestoreOperation = defineJsonOperation({
+  auth: "session",
+  body: DocumentPeerRestoreAllowRequestSchema,
+  failureResponses: documentMutationFailureResponses,
+  failureStatuses: documentMutationFailureStatuses,
+  id: "documents.allowPeerRestore",
+  summary: "Allow members to restore lost peer history after a billing purge",
+  description:
+    "Authorizes or revokes member restoration of pre-purge peer history on a recovered personal-organization document. Only the personal organization's owner may toggle this flag. When enabled, any authorized writer may replay lost operations up to each peer's pre-purge frontier without claiming ownership of that peer.",
+  method: "POST",
+  params: DocumentMutationPathParamsSchema,
+  path: "/documents/{documentId}/peer-owners/allow-restore",
+  responses: { 200: DocumentPeerRestoreAllowResponseSchema },
+});
+
+export const isAllowDocumentPeerRestoreOperationRequest =
+  isDocumentPeerRestoreAllowRequest;
+export const isAllowDocumentPeerRestoreOperationResponse =
+  isDocumentPeerRestoreAllowResponse;
 export const isCreateDocumentOperationRequest = isDocumentCreateRequest;
 export const isCreateDocumentOperationResponse = isDocumentCreateResponse;
 export const isDocumentLinkSetMutationOperationRequest =

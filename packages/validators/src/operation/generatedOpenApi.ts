@@ -925,6 +925,26 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/documents/{documentId}/peer-owners/allow-restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Allow members to restore lost peer history after a billing purge
+         * @description Authorizes or revokes member restoration of pre-purge peer history on a recovered personal-organization document. Only the personal organization's owner may toggle this flag. When enabled, any authorized writer may replay lost operations up to each peer's pre-purge frontier without claiming ownership of that peer.
+         */
+        post: operations["documents.allowPeerRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{documentId}/purge": {
         parameters: {
             query?: never;
@@ -3095,6 +3115,24 @@ export type components = {
             committedEndCounter: number;
             /** @description Loro peer id, in decimal. */
             peerId: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Authorizes or revokes bounded member restoration of pre-purge peer history on a recovered document. */
+        DocumentPeerRestoreAllowRequest: {
+            /** @description True to let authorized writers replay lost operations up to each pre-purge peer frontier without claiming ownership; false to restrict restoration to each peer's owner and the organization owner. */
+            allowMemberRestore: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Confirms the updated member-restoration policy on a recovered document's pre-purge peer rows. */
+        DocumentPeerRestoreAllowResponse: {
+            /** @description The applied member-restoration flag. */
+            allowMemberRestore: boolean;
+            /** @description Document id whose pre-purge peer-owner rows were updated. */
+            documentId: string;
+            /** @description Number of pre-purge peer-owner rows updated for the caller. */
+            updatedPeerCount: number;
         } & {
             [key: string]: unknown;
         };
@@ -9415,6 +9453,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentLinkSetMutationResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Payment Required */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRequiredErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentMutationFailureResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentMutationFailureResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "documents.allowPeerRestore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentPeerRestoreAllowRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentPeerRestoreAllowResponse"];
                 };
             };
             /** @description Bad Request */

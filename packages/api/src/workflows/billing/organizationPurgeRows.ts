@@ -38,7 +38,10 @@ import {
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
-import { reservePurgedOrganizationObjects } from "./purgedObjectReservations";
+import {
+  reservePurgedOrganizationObjects,
+  snapshotPurgedDocumentPeerOwners,
+} from "./purgedObjectReservations";
 
 async function deleteContainerRows(input: {
   readonly executor: DatabaseTransaction;
@@ -271,6 +274,13 @@ export async function deleteOrganizationRemoteRows(input: {
   await reservePurgedOrganizationObjects({
     containerIds: input.scope.containerIds,
     documentIds: input.scope.freedDocumentIds,
+    executor: input.executor,
+    organizationId: input.organizationId,
+  });
+  // Snapshot pre-purge peer owners and frontiers before deleting document rows
+  // so post-purge recreations preserve rightful ownership and restorable bounds.
+  await snapshotPurgedDocumentPeerOwners({
+    documentIds: input.scope.documentIds,
     executor: input.executor,
     organizationId: input.organizationId,
   });

@@ -55,13 +55,17 @@ interface DocumentPeerRecoveryInstall {
    * refuses.
    */
   readonly queuedUpdateIds: readonly string[];
-  /** The one update that replaces the queue. */
-  readonly pendingUpdate: PendingUpdateFields;
+  /**
+   * The ordered update segments that replace the queue. Inserted sequentially
+   * in segment order so `queueOrder()` submits each segment after its
+   * dependencies.
+   */
+  readonly pendingUpdates: readonly PendingUpdateFields[];
   /**
    * What the device knew was committed when it planned the recovery. The
    * install merges it into the record's committed version, keeping the
-   * higher counter on each peer: the one update may start below operations
-   * that were known committed only for being outside the queue.
+   * higher counter on each peer: the queued segments may start below
+   * operations that were known committed only for being outside the queue.
    */
   readonly committedVersion: string;
   /** Rechecked in the synchronous slice that dispatches the commit. */
@@ -236,12 +240,14 @@ async function replaceHistoryWithFork(
       set: checkpoint,
     })
     .run();
-  await insertDocumentPendingUpdateInTransaction(tx, {
-    createdAt: updatedAt,
-    pendingUpdate: input.pendingUpdate,
-    scope,
-    updateId: crypto.randomUUID(),
-  });
+  for (const pendingUpdate of input.pendingUpdates) {
+    await insertDocumentPendingUpdateInTransaction(tx, {
+      createdAt: updatedAt,
+      pendingUpdate,
+      scope,
+      updateId: crypto.randomUUID(),
+    });
+  }
   // The refused updates' void rows and preemption notices name ids the
   // rebase removed; the processed cursor named the old frontier. The slots
   // the record saw recorded stay: the rebase changes no content, and a live
@@ -277,12 +283,14 @@ async function replaceQueueWithRelay(
     )
     .run();
   await unqueueDocumentScopesInTransaction(tx, [scope]);
-  await insertDocumentPendingUpdateInTransaction(tx, {
-    createdAt,
-    pendingUpdate: input.pendingUpdate,
-    scope,
-    updateId: crypto.randomUUID(),
-  });
+  for (const pendingUpdate of input.pendingUpdates) {
+    await insertDocumentPendingUpdateInTransaction(tx, {
+      createdAt,
+      pendingUpdate,
+      scope,
+      updateId: crypto.randomUUID(),
+    });
+  }
 }
 
 function recordSet(input: DocumentPeerForkInstall, updatedAt: string) {
@@ -315,6 +323,9 @@ export async function installDocumentPeerRebase(
   execSql: ExecSql,
   input: DocumentPeerRebaseInstall,
 ): Promise<boolean> {
+  if (input.pendingUpdates.length === 0) {
+    throw new Error("Peer recovery install requires at least one update");
+  }
   await ensureSqlTables(execSql, documentTables);
   const runtime = getClientSQLitePersistenceRuntime(execSql);
   const outcome = await runtime.guardedTransaction(

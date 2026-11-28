@@ -16,6 +16,7 @@ export interface CreatedDocumentSeed {
 interface CreatedDocumentSeedRead {
   readonly executor: DatabaseTransaction;
   readonly frontier: DocumentLinkSetFrontier;
+  readonly hasRestoredPeerOwners: boolean;
   readonly targets: DocumentKekTargetsRead;
   readonly bundle: StoredDocumentContentKeyBundle;
 }
@@ -28,11 +29,13 @@ export function rememberCreatedDocumentSeed(
   bundle: StoredDocumentContentKeyBundle & {
     readonly currentTargets: DocumentKekTargetsRead["targets"];
   },
+  hasRestoredPeerOwners = false,
 ): CreatedDocumentSeed {
   const seed = Object.freeze({ [createdDocumentSeed]: true as const });
   reads.set(seed, {
     executor,
     bundle,
+    hasRestoredPeerOwners,
     // The create bundle store resolves strictly before returning these targets.
     targets: {
       allowHistoricalParentEpochs: false,

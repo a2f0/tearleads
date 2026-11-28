@@ -64,6 +64,7 @@ async function plannedPendingUpdates(input: {
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<readonly PendingUpdateRecord[] | null> {
   if (input.pullContinuation !== undefined) return [];
+  if (input.sync.deferQueuedWrites === true) return [];
   if (input.pendingUpdates.length === 0) return input.pendingUpdates;
   // A held head this check refuses is dropped, so the next sync fetches it.
   const { organizationId } = await checkWithHeldBundleRecovery(

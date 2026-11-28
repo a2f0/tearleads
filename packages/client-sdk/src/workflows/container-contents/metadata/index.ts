@@ -21,7 +21,12 @@ import {
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import { noteContainerMetadataDownloadDrained } from "./metadataDownloadCompletion";
 import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
-import { containerMetadataPeerRebaser } from "./metadataPeerRebase";
+import {
+  containerMetadataPeerRebaser,
+  isMetadataPeerRestorePullNeeded,
+  settleMetadataPeerRestoreAfterSync,
+  shouldDeferMetadataQueuedWrites,
+} from "./metadataPeerRebase";
 import {
   currentMetadataPullContinuation,
   hasCurrentContainerMetadataReadState,
@@ -79,7 +84,9 @@ export function settleContainerMetadataOutgoingPass(
 ): boolean {
   const shouldReArmOutgoing = settleOutgoingPassAndDecideReArm(metadataState, {
     exhaustedPendingUpdateCount: attempt.synced.exhaustedPendingUpdateCount,
-    outgoingUpdateCount: attempt.outgoingUpdateCount,
+    outgoingUpdateCount: attempt.writesDeferred
+      ? 0
+      : attempt.outgoingUpdateCount,
     rekeyedUpdateCount: attempt.synced.rekeyedPendingUpdateIds.length,
     settledUpdateCount: attempt.synced.settledPendingUpdateIds.length,
     acceptedRecoveryBaseline: attempt.synced.acceptedRecoveryBaseline,
@@ -91,48 +98,32 @@ export function settleContainerMetadataOutgoingPass(
   );
 }
 
-function documentWriterProjectionMatchesMetadataSyncResponse(
-  writerProjection: DocumentWriterProjectionResponse,
-  synced: ContainerMetadataSyncAttempt["synced"],
-): boolean {
-  return (
-    writerProjection.contentKeyBundle.contentKeyEpoch ===
-      synced.plan.sourceContentKeyBundle.contentKeyEpoch &&
-    writerProjection.contentKeyBundle.linkSetManifestHash ===
-      synced.plan.sourceContentKeyBundle.linkSetManifestHash &&
-    writerProjection.contentKeyBundle.targetHash ===
-      synced.plan.sourceContentKeyBundle.targetHash &&
-    writerProjection.documentKekTargets.linkSetManifestHash ===
-      synced.plan.documentKekTargets.linkSetManifestHash &&
-    writerProjection.documentKekTargets.documentKeyTargetHash ===
-      synced.plan.documentKekTargets.documentKeyTargetHash
-  );
-}
-
 function resolveSyncedContainerMetadataWriterProjection(
   metadataState: ContainerMetadataState,
   synced: ContainerMetadataSyncAttempt["synced"],
 ): DocumentWriterProjectionResponse | null {
-  const writerProjection =
+  const resolvedWriterProjection =
     synced.writerProjection ??
     (metadataState.metadataWriterProjection?.documentId ===
       synced.plan.documentId &&
     !isRejectedDecodedProjection(metadataState.metadataWriterProjection)
       ? metadataState.metadataWriterProjection
       : null);
-  return writerProjection &&
-    documentWriterProjectionMatchesMetadataSyncResponse(
-      writerProjection,
-      synced,
-    )
-    ? writerProjection
+  return resolvedWriterProjection &&
+    resolvedWriterProjection.contentKeyBundle.contentKeyEpoch ===
+      synced.plan.sourceContentKeyBundle.contentKeyEpoch &&
+    resolvedWriterProjection.contentKeyBundle.linkSetManifestHash ===
+      synced.plan.sourceContentKeyBundle.linkSetManifestHash &&
+    resolvedWriterProjection.contentKeyBundle.targetHash ===
+      synced.plan.sourceContentKeyBundle.targetHash &&
+    resolvedWriterProjection.documentKekTargets.linkSetManifestHash ===
+      synced.plan.documentKekTargets.linkSetManifestHash &&
+    resolvedWriterProjection.documentKekTargets.documentKeyTargetHash ===
+      synced.plan.documentKekTargets.documentKeyTargetHash
+    ? resolvedWriterProjection
     : null;
 }
 
-/**
- * Heals a stale metadata content-key bundle by rotating to a fresh content
- * key anchored by this full-history snapshot.
- */
 function metadataRotationSnapshotProvider(
   metadataState: ContainerMetadataState,
 ): () => Promise<Uint8Array | null> {
@@ -175,6 +166,9 @@ async function requestContainerMetadataSync(input: {
         buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
         containerId: metadataState.container.id,
         currentDocument: metadataState.doc,
+        deferQueuedWrites:
+          input.pendingUpdates.length > 0 &&
+          shouldDeferMetadataQueuedWrites(syncInput.metadataState),
         documentId: input.documentId,
         isCurrent,
         lastCommitLsn: metadataState.record.lastCommitLsn,
@@ -206,6 +200,7 @@ async function requestContainerMetadataSync(input: {
           execSql: runtime.infra.execSql,
           isCurrent,
           metadataState: syncInput.metadataState,
+          onPullNeeded: () => syncInput.onDurableStateNeedsReload?.(),
           onRebased: () => syncInput.onDurableStateNeedsReload?.(),
           persistence,
         }),
@@ -247,8 +242,12 @@ export async function syncContainerMetadataState(
   if (!isCurrent()) {
     return null;
   }
+  const hasActivePendingUpdates =
+    pendingUpdates.length > 0 &&
+    !shouldDeferMetadataQueuedWrites(liveMetadataState);
   if (
-    pendingUpdates.length === 0 &&
+    !hasActivePendingUpdates &&
+    !isMetadataPeerRestorePullNeeded(liveMetadataState) &&
     currentMetadataPullContinuation(liveMetadataState) === null &&
     !liveMetadataState.record.pullContinuationRecoveryRequired &&
     !input.forceReadSync &&
@@ -322,6 +321,7 @@ async function syncDetachedContainerMetadataState(
   const finalized = await finalizeContainerMetadataSync({
     documentId,
     isCurrent,
+    liveMetadataState,
     locallyAcceptedUpdateIds: input.locallyAcceptedUpdateIds,
     loroWindow,
     metadataState,
@@ -346,6 +346,7 @@ async function syncDetachedContainerMetadataState(
 async function finalizeContainerMetadataSync(input: {
   documentId: string;
   isCurrent: () => boolean;
+  liveMetadataState: ContainerMetadataState;
   locallyAcceptedUpdateIds: Set<string> | undefined;
   loroWindow: DocumentSyncLoroWindow;
   metadataState: ContainerMetadataState;
@@ -424,26 +425,32 @@ async function finalizeContainerMetadataSync(input: {
   // A superseded save ran no recorder; the next pull judges its page again.
   verdicts.settle(input.runtime.util.logError);
 
+  const unparked =
+    !persisted.pullContinuationSuperseded &&
+    settleMetadataPeerRestoreAfterSync({
+      metadataState: input.liveMetadataState,
+      outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
+      pullComplete: !synced.hasIncompletePull && !synced.hasHeldPull,
+      pullPage: synced.response.pullPage,
+      settledPendingUpdateCount: synced.settledPendingUpdateIds.length,
+      writesDeferred: syncAttempt.writesDeferred,
+    });
   return {
     ...persisted,
     ...(resumedEarlierMetadataPull(syncAttempt)
       ? { resumedEarlierPull: true as const }
       : {}),
-    shouldRequestFollowupSync: shouldRequestContainerMetadataFollowup({
-      persisted,
-      settleOutgoingPass: () =>
-        settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
-    }),
+    shouldRequestFollowupSync:
+      unparked ||
+      shouldRequestContainerMetadataFollowup({
+        persisted,
+        settleOutgoingPass: () =>
+          settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
+      }),
   };
 }
 
-/**
- * Saves the page's result, recording its verdicts and closing its window in
- * the save's transaction. Loro work on the imported state runs on through
- * the save's snapshot, so a save that throws before it commits ends the
- * page uncleanly, as a document page's does: the window's settle then
- * clears no attempt of the updates it read.
- */
+/** Saves the page's result, recording verdicts and closing its Loro window. */
 async function saveContainerMetadataPage(
   input: Parameters<typeof finalizeContainerMetadataSync>[0],
 ) {
@@ -455,9 +462,13 @@ async function saveContainerMetadataPage(
       clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
         synced,
         outgoingUpdateCount,
+        syncAttempt.writesDeferred === true,
       ),
       commitSideEffect: verdicts.commitSideEffect,
-      committedVersions: documentSyncCommittedVersions(synced),
+      committedVersions: documentSyncCommittedVersions(
+        synced,
+        metadataState.doc,
+      ),
       expectedSyncState: {
         pullContinuation: syncAttempt.consumedPullContinuation ?? null,
         record: syncAttempt.requestRecord,

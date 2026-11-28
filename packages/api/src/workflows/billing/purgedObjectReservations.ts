@@ -1,10 +1,14 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
+  documentPeerOwners,
+  documentUpdateSpans,
   type PurgedObjectKind,
+  purgedDocumentPeerOwners,
   purgedObjectReservations,
   users,
 } from "@tearleads/api-shared/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { uuidValue } from "../../utils/postgresSql";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 
 /** The refusal a create of a document id reserved for another user gets. */
@@ -13,6 +17,25 @@ export const PURGED_DOCUMENT_ID_RESERVED =
 /** The refusal a create of a container id reserved for another user gets. */
 export const PURGED_CONTAINER_ID_RESERVED =
   "Container ID is reserved for its purged organization's recovery";
+
+/**
+ * The user whose personal (default) organization is `organizationId`, or null
+ * for a shared organization. Throws if invariants are violated.
+ */
+export async function findPersonalOrganizationOwnerId(
+  executor: DatabaseTransaction,
+  organizationId: string,
+): Promise<string | null> {
+  const owners = await executor
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.defaultOrganizationId, organizationId))
+    .limit(2);
+  if (owners.length > 1) {
+    throw new Error("Personal organization has more than one owner");
+  }
+  return owners[0]?.id ?? null;
+}
 
 /**
  * Reserves every container and document id a billing purge frees for the user
@@ -28,16 +51,11 @@ export async function reservePurgedOrganizationObjects(input: {
   readonly executor: DatabaseTransaction;
   readonly organizationId: string;
 }): Promise<void> {
-  const owners = await input.executor
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.defaultOrganizationId, input.organizationId))
-    .limit(2);
-  if (owners.length > 1) {
-    throw new Error("Personal organization has more than one owner");
-  }
-  const owner = owners[0];
-  if (!owner) return;
+  const ownerId = await findPersonalOrganizationOwnerId(
+    input.executor,
+    input.organizationId,
+  );
+  if (!ownerId) return;
   const objects: { objectId: string; objectKind: PurgedObjectKind }[] = [
     ...input.containerIds.map((objectId) => ({
       objectId,
@@ -54,12 +72,101 @@ export async function reservePurgedOrganizationObjects(input: {
       .values(
         batch.map((object) => ({
           ...object,
-          ownerUserId: owner.id,
+          ownerUserId: ownerId,
           purgedOrganizationId: input.organizationId,
         })),
       )
       .onConflictDoNothing();
   }
+}
+
+/**
+ * Snapshots every committed peer owner and its highest pre-purge frontier for
+ * documents being deleted in a personal-organization billing purge. Runs in
+ * the same transaction BEFORE `deleteDocumentRows` removes `document_peer_owners`
+ * and `document_update_spans`. Taking `GREATEST` preserves the full pre-purge
+ * frontier across repeated purge/stale-recreation cycles (#3263).
+ */
+export async function snapshotPurgedDocumentPeerOwners(input: {
+  readonly documentIds: readonly string[];
+  readonly executor: DatabaseTransaction;
+  readonly organizationId: string;
+}): Promise<void> {
+  if (input.documentIds.length === 0) return;
+  const ownerId = await findPersonalOrganizationOwnerId(
+    input.executor,
+    input.organizationId,
+  );
+  if (!ownerId) return;
+  const recoveryOwner = uuidValue(ownerId);
+  for (const batch of organizationPurgeBatches(input.documentIds)) {
+    const idList = sql.join(
+      batch.map((documentId) => uuidValue(documentId)),
+      sql`, `,
+    );
+    await input.executor.execute(sql`
+      insert into ${purgedDocumentPeerOwners} (
+        document_id, peer_id, owner_user_id, purged_end_counter,
+        recovery_owner_user_id
+      )
+      select
+        dpo.document_id,
+        dpo.peer_id,
+        dpo.owner_user_id,
+        greatest(coalesce(spans.max_end_counter, 0), dpo.restorable_end_counter),
+        ${recoveryOwner}
+      from ${documentPeerOwners} dpo
+      left join (
+        select document_id, peer_id, max(end_counter) as max_end_counter
+        from ${documentUpdateSpans}
+        where document_id in (${idList})
+        group by document_id, peer_id
+      ) spans
+        on spans.document_id = dpo.document_id
+        and spans.peer_id = dpo.peer_id
+      where dpo.document_id in (${idList})
+      on conflict (document_id, peer_id) do update set
+        owner_user_id = excluded.owner_user_id,
+        purged_end_counter = greatest(
+          ${purgedDocumentPeerOwners.purgedEndCounter},
+          excluded.purged_end_counter
+        ),
+        recovery_owner_user_id = excluded.recovery_owner_user_id
+    `);
+  }
+}
+
+/**
+ * Atomically moves snapshotted pre-purge peer owners back into
+ * `document_peer_owners` when the personal organization's owner recreates a
+ * reserved document. Returns true when at least one peer owner was restored.
+ */
+export async function restorePurgedDocumentPeerOwners(
+  executor: DatabaseTransaction,
+  input: {
+    readonly documentId: string;
+    readonly recoveryOwnerUserId: string;
+  },
+): Promise<boolean> {
+  const result = await executor.execute(sql`
+    with consumed as (
+      delete from ${purgedDocumentPeerOwners}
+      where document_id = ${uuidValue(input.documentId)}
+        and recovery_owner_user_id = ${uuidValue(input.recoveryOwnerUserId)}
+      returning document_id, peer_id, owner_user_id, purged_end_counter,
+        recovery_owner_user_id
+    )
+    insert into ${documentPeerOwners} (
+      document_id, peer_id, owner_user_id, restorable_end_counter,
+      recovery_owner_user_id, allow_member_restore
+    )
+    select
+      document_id, peer_id, owner_user_id, purged_end_counter,
+      recovery_owner_user_id, false
+    from consumed
+    returning peer_id
+  `);
+  return result.rows.length > 0;
 }
 
 /**

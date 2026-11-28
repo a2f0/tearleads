@@ -7,6 +7,7 @@ import { createDocumentAttachmentsRoute } from "./attachments";
 import { createDocumentAttributionRoute } from "./attribution";
 import { createDocumentBaselineStagesRoute } from "./baselineStages";
 import { createDocumentMutationsRoute } from "./mutations";
+import { createDocumentPeerRestoreRoute } from "./peerRestore";
 import { createDocumentWriterProjectionRoute } from "./writerProjection";
 
 interface DocumentsRouterDeps {
@@ -37,6 +38,10 @@ export function createDocumentsRouter({
   documentsRouter.route(
     "/",
     createDocumentMutationsRoute({ publish, requireAuth, runtime }),
+  );
+  documentsRouter.route(
+    "/",
+    createDocumentPeerRestoreRoute({ publish, requireAuth, runtime }),
   );
   documentsRouter.route(
     "/",

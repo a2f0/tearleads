@@ -40,6 +40,18 @@
       "issues": [3353],
       "snapshotFile": "snapshots/002-realtime-subtree-interest.json",
       "notes": "Declares only subtree roots (top-level roots + directly granted nested folders persisted via root_lane_member v18 migration) with hub subtree-coverage routing, 256-root declaration/installed cap, 512 pending id cap, flat 10s deadline, repeatable-read 1,024 path-container depth budget scoped via discoveryGrantSubjects/containerHasDiscoveryAccess, and marker write-back. 100x1000-folder simultaneous reconnect contention: 318-323ms total, p99 hint lag 1.7-2.6ms, 18-21 MiB peak heap."
+    },
+    {
+      "id": "003-loro-stale-recreation-rebase",
+      "seq": 3,
+      "label": "Preserved peer ownership, owner allow-restore, pull-only park, multi-segment recovery, causal closure (#3263)",
+      "kind": "checkpoint",
+      "recordedAt": "2026-11-28T08:14:32.766Z",
+      "revision": "d74895157b3aab2c8b7a80f87604240c75fd1084",
+      "dirty": true,
+      "issues": [3263],
+      "snapshotFile": "snapshots/003-loro-stale-recreation-rebase.json",
+      "notes": "Adds purged_document_peer_owners table (58th Postgres table, +2 indexes) via append-only migration 0018 (+7 bootstrap DDL statements per fresh PGlite canary; 0 extra hot-path runtime queries or plan regressions)."
     }
   ]
 }

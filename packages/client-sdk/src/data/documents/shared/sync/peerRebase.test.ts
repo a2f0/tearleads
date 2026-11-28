@@ -154,9 +154,9 @@ describe("rebaseOntoFreshPeer over random histories", () => {
       const server = scenario.device.forkAt(
         scenario.device.vvToFrontiers(versionFromCounters(scenario.committed)),
       );
-      importAll(server, result.update);
+      for (const update of result.updates) importAll(server, update);
       expect(canonicalContent(server)).toBe(liveContent);
-      importAll(scenario.foreign, result.update);
+      for (const update of result.updates) importAll(scenario.foreign, update);
       expect(canonicalContent(scenario.foreign)).toBe(liveContent);
       for (const doc of [server, result.fork, scenario.foreign]) doc.free();
       scenario.device.free();

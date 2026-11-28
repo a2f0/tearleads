@@ -1,4 +1,8 @@
-import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import {
+  createDocument,
+  exportHistorySegments,
+  type HistorySegmentSizes,
+} from "@tearleads/loro";
 import { and, eq, ne, or, sql } from "drizzle-orm";
 import {
   type DocumentAttachment,
@@ -47,23 +51,25 @@ function attachmentScopeKey(localId: string, slotId: string): string {
   return `${localId}\0${slotId}`;
 }
 
-function buildResetUpdate(input: {
+function buildResetUpdates(input: {
   appKind: string;
   doc: ResetContentDoc;
   localId: string;
-}): ResetDocumentUpdate | null {
-  const fields = createPendingUpdateFields(exportAllUpdates(input.doc));
-  if (!fields) {
-    return null;
+  segmentSizes?: HistorySegmentSizes | undefined;
+}): ResetDocumentUpdate[] {
+  const updates: ResetDocumentUpdate[] = [];
+  for (const segment of exportHistorySegments(input.doc, input.segmentSizes)) {
+    const fields = createPendingUpdateFields(segment.update);
+    if (!fields) continue;
+    updates.push({
+      appKind: input.appKind,
+      localId: input.localId,
+      updateData: fields.updateData,
+      partialStartVersionVector: fields.partialStartVersionVector,
+      partialEndVersionVector: fields.partialEndVersionVector,
+    });
   }
-
-  return {
-    appKind: input.appKind,
-    localId: input.localId,
-    updateData: fields.updateData,
-    partialStartVersionVector: fields.partialStartVersionVector,
-    partialEndVersionVector: fields.partialEndVersionVector,
-  };
+  return updates;
 }
 
 interface ResetHistoryRows {
@@ -286,6 +292,7 @@ async function loadResetPlanRows(
 export async function buildResetPlans(
   db: ClientSQLiteTransactionScope,
   documentScopes?: readonly ResetDocumentScope[],
+  options?: { readonly segmentSizes?: HistorySegmentSizes | undefined },
 ): Promise<{
   readonly attachmentUploads: ResetAttachmentUpload[];
   readonly documentUpdates: ResetDocumentUpdate[];
@@ -302,12 +309,12 @@ export async function buildResetPlans(
     if (!doc) {
       return [];
     }
-    const update = buildResetUpdate({
+    return buildResetUpdates({
       appKind: row.appKind,
       doc,
       localId: row.localId,
+      segmentSizes: options?.segmentSizes,
     });
-    return update ? [update] : [];
   });
   const attachmentIntentMaps = new Map<
     string,

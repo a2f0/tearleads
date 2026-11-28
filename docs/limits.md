@@ -328,19 +328,18 @@ writer waiting on another authorized member:
   members: one it starts is refused, and a queued move it cannot prove parks,
   until a new judge (a decoder or void-rules change) starts the count over. It
   still opens, edits, and syncs the document, and no other device waits on it.
-- **A peer a stale recreation claimed.** After a billing purge, the owner's
-  recovery from a stale copy can leave the server with less of a
-  [peer](./glossary/sync.md#peer-owner) than another device saw committed,
-  and claim that peer for the owner. A device whose queue depends on the lost
-  operations may not send them, because another user owns the peer, and must
-  not write them again under a fresh peer: every device that still holds the
-  originals would then hold both copies. It parks under
-  `document_peer_restore_awaits_owner` until a device of the peer's owner
-  republishes the peer, keeps the document readable and editable, and submits
-  its queue again on every pass. Each of those requests is refused whole, so
-  the device also receives no remote edits to the document while parked. If no
-  such device holds the lost operations it stays parked until its user
-  discards the local edits
+- **A peer a stale recreation lost.** After a personal-organization billing
+  purge, pre-purge [peer owners](./glossary/sync.md#peer-owner) and their
+  restorable counters are preserved, but recreating from a stale copy can leave
+  the server below what another member saw committed on a third user's peer.
+  That member may not extend another user's peer and must not duplicate the
+  operations on a fresh peer. It parks under
+  `document_peer_restore_awaits_owner` while keeping the document readable,
+  editable, and live for remote pulls (writes stay deferred in pull-only mode).
+  Once the peer's owner or a fresh owner device restores the peer—or the
+  personal organization owner authorizes bounded member restore
+  (`allowPeerRestore`) when no owner device holds those operations—the parked
+  device probes its queue and resumes
   ([after a stale recreation](./peer-ownership.md#after-a-stale-recreation)).
 
 For the single-path case within the carried-rekey bound, the model in

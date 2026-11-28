@@ -190,7 +190,7 @@ export async function resetDocumentServerIdentity(input: {
   }
 }
 
-/** Queues each document's rebuilt local history as one outbox update. */
+/** Queues each document's rebuilt local history as ordered outbox segments. */
 export async function queueDocumentRepublishForRemoteReset(input: {
   documentUpdates: readonly ResetDocumentUpdate[];
   now: string;

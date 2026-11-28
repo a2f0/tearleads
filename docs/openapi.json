@@ -3813,6 +3813,46 @@
         "additionalProperties": {},
         "description": "A Loro peer the request extended that another user owns, or depends on past its committed frontier."
       },
+      "DocumentPeerRestoreAllowRequest": {
+        "type": "object",
+        "properties": {
+          "allowMemberRestore": {
+            "type": "boolean",
+            "description": "True to let authorized writers replay lost operations up to each pre-purge peer frontier without claiming ownership; false to restrict restoration to each peer's owner and the organization owner."
+          }
+        },
+        "required": [
+          "allowMemberRestore"
+        ],
+        "additionalProperties": {},
+        "description": "Authorizes or revokes bounded member restoration of pre-purge peer history on a recovered document."
+      },
+      "DocumentPeerRestoreAllowResponse": {
+        "type": "object",
+        "properties": {
+          "allowMemberRestore": {
+            "type": "boolean",
+            "description": "The applied member-restoration flag."
+          },
+          "documentId": {
+            "type": "string",
+            "description": "Document id whose pre-purge peer-owner rows were updated."
+          },
+          "updatedPeerCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer",
+            "description": "Number of pre-purge peer-owner rows updated for the caller."
+          }
+        },
+        "required": [
+          "allowMemberRestore",
+          "documentId",
+          "updatedPeerCount"
+        ],
+        "additionalProperties": {},
+        "description": "Confirms the updated member-restoration policy on a recovered document's pre-purge peer rows."
+      },
       "DocumentPurgeProofResponse": {
         "type": "object",
         "properties": {
@@ -19073,6 +19113,135 @@
           {
             "description": "baselineId and baselineSegmentIndex must be absent together or both present; baselineSegmentCount and baselineSegmentsDigest appear only together and only with them, marking a baseline's final segment; only a final segment may carry coversThroughUpdateId",
             "id": "request.rotation-baseline-segment-fields"
+          }
+        ]
+      }
+    },
+    "/documents/{documentId}/peer-owners/allow-restore": {
+      "post": {
+        "operationId": "documents.allowPeerRestore",
+        "summary": "Allow members to restore lost peer history after a billing purge",
+        "description": "Authorizes or revokes member restoration of pre-purge peer history on a recovered personal-organization document. Only the personal organization's owner may toggle this flag. When enabled, any authorized writer may replay lost operations up to each peer's pre-purge frontier without claiming ownership of that peer.",
+        "tags": [
+          "Documents"
+        ],
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentPeerRestoreAllowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPeerRestoreAllowResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequiredErrorResponse"
+                }
+              }
+            },
+            "description": "Payment Required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMutationFailureResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMutationFailureResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
           }
         ]
       }

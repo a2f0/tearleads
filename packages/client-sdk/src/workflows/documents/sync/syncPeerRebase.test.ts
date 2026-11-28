@@ -19,6 +19,7 @@ import { PeerRebaseCommittedCutError } from "../../../data/documents/shared/sync
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentPeerRebaser } from "./remoteDocumentSyncPass";
+import { DOCUMENT_PEER_RESTORE_AWAITS_OWNER_ERROR_CODE } from "./syncPeerRebase";
 
 let execSql: ExecSql;
 let closeExecSql: () => void;
@@ -208,7 +209,7 @@ describe("document sync peer-owned refusal", () => {
       })),
     ).toEqual([
       {
-        code: "document_peer_restore_awaits_owner",
+        code: DOCUMENT_PEER_RESTORE_AWAITS_OWNER_ERROR_CODE,
         message:
           "The server lost committed history on a writer another user now owns; queued changes sync after that user's device restores it",
         status: null,
@@ -218,8 +219,8 @@ describe("document sync peer-owned refusal", () => {
   });
 
   // The queue already sends the lost operations and no other user owns the
-  // peer, so the wait-for-owner report would be false.
-  test("reports the server's own refusal when there is nothing to relay", async () => {
+  // peer, so nothing_to_relay must not record a spurious terminal failure row.
+  test("abandons quietly without recording a terminal failure when there is nothing to relay", async () => {
     const pass = await syncRefusedPass({
       code: DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted,
       rebase: async () => "nothing_to_relay",
@@ -227,10 +228,8 @@ describe("document sync peer-owned refusal", () => {
 
     expect(pass.synced).toBeNull();
     expect(pass.submits).toEqual([1]);
-    expect(pass.terminal.map(({ code, status }) => ({ code, status }))).toEqual(
-      [{ code: DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted, status: 409 }],
-    );
-    expect(pass.abandoned).toEqual(["the sync submit failed terminally"]);
+    expect(pass.terminal).toEqual([]);
+    expect(pass.abandoned).toEqual(["peer-relay-already-queued"]);
   });
 
   // A forged committed operation: the guard is a failure, never a recovery.

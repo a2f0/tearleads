@@ -56,8 +56,10 @@ export interface AppendDocumentUpdatesInput {
    */
   readonly contentKeyCommitment: string;
   readonly documentId: string;
-  /** A create's seed: the document has no committed spans or peer owners. */
+  /** A create's seed: the document has no committed spans yet. */
   readonly documentInsertedInTransaction: boolean;
+  /** True when a post-purge recreation restored pre-purge peer-owner rows. */
+  readonly hasRestoredPeerOwners?: boolean | undefined;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly organizationId: string;

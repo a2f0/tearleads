@@ -24,9 +24,12 @@ export const PEER_OWNERSHIP_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     id: "peer-ownership-no-rebase",
     module: MODULE,
     config: CONFIG,
-    constants: { NoRebase: "TRUE" },
+    constants: {
+      ClaimExistingPeersOnRecreate: "TRUE",
+      NoRebase: "TRUE",
+    },
     expect: { kind: "liveness", name: "HonestWorkEventuallyCommitted" },
-    why: "A device whose peer a recreation claimed is refused on every retry unless it moves its unsent operations to a fresh peer (#3194).",
+    why: "A device whose peer an unreserved recreation claimed is refused on every retry unless it moves its unsent operations to a fresh peer (#3194).",
   },
   {
     id: "peer-ownership-public-peers",
@@ -75,5 +78,21 @@ export const PEER_OWNERSHIP_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { ForgetQueuedHistory: "TRUE" },
     expect: { kind: "invariant", name: "NoDuplication" },
     why: "A queued full history (a rotation baseline or a republished history) starts every peer at counter 0, so a device that lets it lower what it saw committed forks at a frontier that fell and writes another device's committed operation again on a fresh peer (#3263).",
+  },
+  {
+    id: "peer-ownership-drops-saved-owners",
+    module: MODULE,
+    config: CONFIG,
+    constants: { DropSavedOwners: "TRUE" },
+    expect: { kind: "invariant", name: "RestoreNeverRefused" },
+    why: "Without preserved pre-purge peer owners, a partial relay claims an unowned peer for the relaying member and refuses the owner's full restoration (#3263).",
+  },
+  {
+    id: "peer-ownership-default-member-restore",
+    module: MODULE,
+    config: CONFIG,
+    constants: { DefaultAllowMemberRestore: "TRUE" },
+    expect: { kind: "invariant", name: "HonestUpdatesAccepted" },
+    why: "Letting arbitrary members restore lost counters by default allows a dishonest member to forge counters inside a peer's restorable window before honest devices restore them, causing readers to void the honest restoration (#3263).",
   },
 ];

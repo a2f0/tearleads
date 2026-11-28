@@ -4,6 +4,7 @@ import "./schemaDescriptions/authAndBilling";
 import "./schemaDescriptions/blobs";
 import "./schemaDescriptions/containers";
 import "./schemaDescriptions/documentBaselineStages";
+import "./schemaDescriptions/documentPeerRestore";
 import "./schemaDescriptions/documents";
 import "./schemaDescriptions/organizations";
 import "./schemaDescriptions/root";

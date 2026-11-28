@@ -430,20 +430,19 @@ and `settleAttachmentRemovalMarker` (`SettleAttachmentRemovalMarkerInput`,
 ### Peer rebase
 
 `SyncRemoteDocumentRequest.rebaseOntoFreshPeer` takes a `DocumentPeerRebaser`,
-which receives a `PeerRefusal`, the refusal's `kind` (a `PeerRefusalKind`)
-and `peerFrontiers`, and resolves to a `DocumentPeerRebaseOutcome`
+receiving a `PeerRefusal` (`kind`: `PeerRefusalKind`, `peerFrontiers`) and
+resolving to a `DocumentPeerRebaseOutcome`
 ([sync](configuration.md#sync-and-container-recitation)); `parked` reports
-`document_peer_restore_awaits_owner` and keeps the queue
-([peer ownership](../../peer-ownership.md#after-a-stale-recreation)). Adapters
-may implement `DocumentsPersistence.installPeerRebase`, which takes a
-`DocumentPeerRebaseInstall` of `kind` `fork`, whose `record` is a
-`DocumentPeerRebaseRecord`, or `relay`
-([custom document persistence](../custom-document-persistence.md)). A
-`document` record's `peerSalt` comes back as `DocumentRecord.peerSalt`, which
-moves every later load of the record onto the rebased writer peer. A refusal
-is judged against where the queue starts and `DocumentRecord.committedVersion`,
-which settlements and these installs raise
-([what a device knows is committed](../../peer-ownership.md#what-a-device-knows-is-committed)).
+`DOCUMENT_PEER_RESTORE_AWAITS_OWNER_ERROR_CODE`, defers queued writes in
+pull-only mode, and wakes when restored or when the owner calls
+`tearleads.documents.allowPeerRestore(documentId, true)`
+([peer ownership](../../peer-ownership.md#after-a-stale-recreation)).
+`DocumentsPersistence.installPeerRebase` takes a `DocumentPeerRebaseInstall`
+(`"fork"` with `DocumentPeerRebaseRecord`, or `"relay"`) with ordered
+`pendingUpdates` segments
+([custom document persistence](../custom-document-persistence.md)).
+`DocumentRecord.peerSalt` and `committedVersion` persist the rebased peer and
+acknowledged plus causally closed pulled spans.
 
 ### Organization data usage
 

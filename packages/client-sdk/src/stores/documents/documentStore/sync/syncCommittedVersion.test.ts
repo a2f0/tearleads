@@ -3,6 +3,8 @@ import {
   createDocument,
   decodeVersionVector,
   encodeVersionVector,
+  exportUpdatesSince,
+  getImportBlobMetadata,
   importSnapshot,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -10,9 +12,11 @@ import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
 } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
+import { planPeerRefusalRecovery } from "../../../../data/documents/shared/sync/peerRefusalRecovery";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import type { PendingUpdateRecord } from "../../../../data/persistence/documents/records";
 import { createDocumentSyncLoroWindow } from "../../../../workflows/documents/sync/loroPassWindow";
+import { documentSyncCommittedVersions } from "../../../../workflows/documents/sync/syncCommittedVersions";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
@@ -148,5 +152,103 @@ test("a pull and an acknowledgement each raise what the record saw committed", a
     fixture.remoteDocument.free();
   } finally {
     close();
+  }
+});
+
+// Residual 5 (#3263): an edit whose server acknowledgement was lost stays
+// queued locally, so `unsentStart` still starts at 0. When a later pull serves
+// a foreign edit that causally depends on it, causal closure records the
+// unacknowledged edit as committed so a stale recreation relays or parks
+// instead of throwing PeerRebaseCommittedCutError.
+test("pulled updates causally close unacknowledged local operations into committedVersion", async () => {
+  const deviceA = await createDocument("lost-ack-device-a");
+  const deviceB = await createDocument("lost-ack-device-b");
+  const deviceC = await createDocument("lost-ack-device-c");
+  try {
+    deviceA.setPeerId(11n);
+    deviceB.setPeerId(22n);
+    deviceC.setPeerId(33n);
+
+    // Device A writes "alpha " (server commits it, ack is lost so it stays queued).
+    const beforeA = encodeVersionVector(deviceA);
+    deviceA.getText("text").insert(0, "alpha ");
+    deviceA.commit();
+    const aUpdate = exportUpdatesSince(deviceA, beforeA);
+    const aMeta = getImportBlobMetadata(aUpdate);
+
+    // Device B pulls A's edit and writes "beta " depending on A.
+    deviceB.import(aUpdate);
+    const beforeB = encodeVersionVector(deviceB);
+    deviceB.getText("text").insert(6, "beta ");
+    deviceB.commit();
+    const bUpdate = exportUpdatesSince(deviceB, beforeB);
+    const bMeta = getImportBlobMetadata(bUpdate);
+
+    // Device C pulls B's edit and writes "gamma" depending transitively on A via B.
+    deviceC.import(aUpdate);
+    deviceC.import(bUpdate);
+    const beforeC = encodeVersionVector(deviceC);
+    deviceC.getText("text").insert(11, "gamma");
+    deviceC.commit();
+    const cUpdate = exportUpdatesSince(deviceC, beforeC);
+    const cMeta = getImportBlobMetadata(cUpdate);
+
+    // Device A pulls B and C (never re-served A because A advertised its own VV).
+    deviceA.import(bUpdate);
+    deviceA.import(cUpdate);
+
+    const committedVersions = documentSyncCommittedVersions(
+      {
+        decryptedUpdates: [
+          {
+            partialEndVersionVector: bMeta.partialEndVersionVector,
+            partialStartVersionVector: bMeta.partialStartVersionVector,
+            updateData: bUpdate,
+          },
+          {
+            partialEndVersionVector: cMeta.partialEndVersionVector,
+            partialStartVersionVector: cMeta.partialStartVersionVector,
+            updateData: cUpdate,
+          },
+        ],
+        plan: {
+          request: { outgoingUpdates: [] },
+        },
+        response: { acceptedOutgoingUpdateIds: [] },
+      },
+      deviceA,
+    );
+
+    expect(committedVersions).toHaveLength(1);
+    const committed = counters(committedVersions[0]);
+    expect(committed).toEqual({ "11": 6, "22": 5, "33": 5 });
+
+    // A stale recreation loses A's peer (frontier 0) and another user owns it:
+    // with causal closure, Device A parks cleanly instead of throwing
+    // PeerRebaseCommittedCutError.
+    const recovery = planPeerRefusalRecovery({
+      committedVersion: committedVersions[0],
+      live: deviceA,
+      newPeer: "99",
+      pendingBases: [beforeA],
+      queued: [
+        {
+          partialEndVersionVector: aMeta.partialEndVersionVector,
+          partialStartVersionVector: aMeta.partialStartVersionVector,
+        },
+      ],
+      refusal: {
+        kind: "peer_owned",
+        peerFrontiers: [{ committedEndCounter: 0, peerId: "11" }],
+      },
+    });
+    expect(recovery).toEqual({
+      kind: "park",
+      requiredPeers: new Map([["11", 6]]),
+    });
+  } finally {
+    deviceA.free();
+    deviceB.free();
+    deviceC.free();
   }
 });

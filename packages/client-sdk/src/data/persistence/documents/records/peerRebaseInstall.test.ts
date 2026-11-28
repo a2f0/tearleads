@@ -72,7 +72,7 @@ async function installCandidate(): Promise<
     },
     expectedDocumentId: "remote-note",
     expectedRecoveryGeneration: 2,
-    pendingUpdate,
+    pendingUpdates: [pendingUpdate],
     readVersion: encodeVersionVector(queuedDoc),
     record: { kind: "document", peerSalt: "salt" },
     scope: SCOPE,
@@ -148,11 +148,13 @@ test("replaces the record's history and queue with the fork", async () => {
     pending_base_version: candidate.checkpoint.endVersionVector,
     recovery_generation: 3,
   });
+  const [firstPending] = candidate.pendingUpdates;
+  if (!firstPending) throw new Error("expected a pending update");
   expect(stored.rows).toEqual([
     {
       origin: "outbox",
       queued: 1,
-      update_data: candidate.pendingUpdate.updateData,
+      update_data: firstPending.updateData,
     },
   ]);
   expect(stored.checkpoints).toEqual([
@@ -238,7 +240,7 @@ async function relayCandidate(): Promise<DocumentPeerRebaseInstall> {
     expectedDocumentId: fork.expectedDocumentId,
     expectedRecoveryGeneration: fork.expectedRecoveryGeneration,
     kind: "relay",
-    pendingUpdate,
+    pendingUpdates: [pendingUpdate],
     queuedUpdateIds: await queuedUpdateIds(),
     readVersion: encodeVersionVector(relayed),
     scope: SCOPE,
@@ -274,12 +276,14 @@ test("a relay replaces the queue, records what the device knew, and leaves the h
   expect(await verdictRows()).toBe(1);
   // The outbox update is dropped, the edit stays as unqueued history, and
   // the relay's update is the whole queue.
+  const [firstRelay] = candidate.pendingUpdates;
+  if (!firstRelay) throw new Error("expected a relay pending update");
   expect(await queueRows()).toEqual([
     { ...edit, queued: 0 },
     {
       origin: "outbox",
       queued: 1,
-      update_data: candidate.pendingUpdate.updateData,
+      update_data: firstRelay.updateData,
     },
   ]);
 });

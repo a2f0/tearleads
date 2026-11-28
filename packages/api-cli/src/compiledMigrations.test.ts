@@ -75,11 +75,12 @@ test.skipIf(!serverUrl)(
         expect(migration.exitCode).toBe(0);
       }
       const tables = await tableNames(databaseUrl.href);
-      expect(tables).toHaveLength(57);
+      expect(tables).toHaveLength(58);
       expect(tables).toEqual(
         expect.arrayContaining([
           "principal_directory_bindings",
           "principal_policy_commits",
+          "purged_document_peer_owners",
         ]),
       );
     } finally {

@@ -21,20 +21,31 @@ the refused peers with their frontiers. Peers are secret per record (part
 B1a), so nobody can name an honest device's peer before that peer's first
 commit, and that first commit claims it.
 
-Only a billing purge of a whole organization frees a document's id. It deletes
-the document's rows, owner rows included, and the organization's owner then
-recovers by republishing the document from local history under the same id. The
-purge reserves each freed id for that owner, so no other user can create it
-first
-([reserved ids](../../docs/developer/billing-purge-recovery.md#reserved-ids)). A
-purge of one document is permanent: a create of its id is refused with 409
-"Document was permanently purged". A recreation claims every peer in the history
-it carries, since F starts at 0. A device still holding unsent operations on
-such a peer is refused. It forks its document at A = min(live, F) on each
-refused peer, moves to a fresh secret peer, writes everything past A again on it
-(the content stays, the attribution does not), and resubmits. Nobody knows the
-fresh peer, so the resubmission claims it, and everything else it carries is
-within F.
+Only a billing purge of a whole organization frees a document's id. Before it
+deletes the document's rows, it snapshots every peer owner and its highest
+committed counter (`purged_document_peer_owners`, taking `GREATEST` across
+repeated purges), and the organization's owner then recovers by republishing
+the document from local history under the same id. The purge reserves each
+freed id for that owner, so no other user can create it first
+([reserved ids](../../docs/developer/billing-purge-recovery.md#reserved-ids)).
+Recreating the reserved id atomically restores those pre-purge owner rows with
+each peer's original owner, its `restorable_end_counter`,
+`recovery_owner_user_id`, and `allow_member_restore = false`. A single-document
+purge is permanent: a create of its id is refused with 409 "Document was
+permanently purged".
+
+Because pre-purge peer owners are restored, a stale recreation no longer claims
+another user's peer for the owner, and a fresh device of the owner can always
+restore every peer up to its pre-purge frontier without transferring ownership.
+By default (`allow_member_restore = false`), other members (including a
+re-invited dishonest member who knows peers absent from a stale copy) cannot
+claim or extend another user's lost peer either. A device still holding unsent
+operations on a peer another user owns (for instance after an unreserved copy
+import where `ClaimExistingPeersOnRecreate` holds) is refused, forks at
+A = min(live, F) on each refused peer, moves to a fresh secret peer, writes
+everything past A again on it (the content stays, the attribution does not),
+and resubmits. Nobody knows the fresh peer, so the resubmission claims it, and
+everything else it carries is within F.
 
 Each update also depends on op ids its payload builds on, and a reader that
 lacks one voids it (part B2). Before the rule below, a member who had read a
@@ -115,7 +126,7 @@ uncommitted dependencies.
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `Submit` / `Refuses` / `Preempting` / `Uncommitted` | `claimDocumentPeers`, called from `appendDocumentUpdates` with the request's newly verified updates while the document head lock is held; its pure core `judgeDocumentPeerSpans` (in the validators package) walks each update's declared dependencies, then its spans, in request order and raises each frontier as it goes |
-| `Owner` | a `document_peer_owners` row (`documentPeerOwners`), written by `claimDocumentPeers` when a span past the frontier extends an unowned peer |
+| `Owner` / `saved` / `CanRestore` | a `document_peer_owners` row (`documentPeerOwners`), snapshotted before an organization billing purge into `purged_document_peer_owners` (`snapshotPurgedDocumentPeerOwners`) and restored on reserved recreation (`restorePurgedDocumentPeerOwners`) with `restorable_end_counter`, `recovery_owner_user_id`, and `allow_member_restore`; `claimDocumentPeers` writes claims only for unowned peers and admits spans up to `restorable_end_counter` for the recovery owner (or any writer once `runAllowDocumentPeerRestoreWorkflow` sets `allow_member_restore`) without transferring ownership |
 | `Frontier` | `readCommittedDocumentPeers`, which reads each named peer's highest committed span end with its owner row |
 | `RefusedPeers` / `refusal` | the 409 `document_sync_peer_owned`, or `document_sync_dependency_uncommitted` when no span is refused, whose `peerFrontiers` name at most `MAX_DOCUMENT_PEER_FRONTIERS` refused peers with the frontier committed before the request, which rolls back |
 | `deps` and an entry's declared set | the `dependencyVersionVector` that `encryptDocumentPendingUpdate` reads from the payload with `getImportBlobMetadata` and signs in `computeDocumentContentRecordMetadataHash`; the server stores it in `documentUpdates.dependencyVersionVector` and serves it |
@@ -123,7 +134,7 @@ uncommitted dependencies.
 | `known` / `SeenCommitted` | the record's `committedVersion`, which `settleDocumentSyncResponseInTransaction` raises with the spans a sync response showed (`documentSyncCommittedVersions`: acknowledged outgoing updates and accepted served updates) and `installDocumentPeerRebase` raises with what the recovery knew; `knownCommittedOf` reads it no further than the live document. Production also counts what lies below the queue's start (`unsentStartOf`), which covers an operation committed by a create and brought by no settlement; every operation here comes from a pull or a submit, so `known` already holds it |
 | `Regressed` | the `history_regressed` result of `rebaseOntoFreshPeer`, reported before it cuts anything |
 | `Relay` / `Lost` | the relay plan of `planPeerRefusalRecovery`, installed by `installDocumentPeerRebase`, whose `replaceQueueWithRelay` replaces the queue with one update and leaves the record and its history |
-| `Park` / `AwaitsOwner` | the park plan of `planPeerRefusalRecovery`; `rebaseAfterPeerRefusal` reports it through `parkUntilOwnerRestores` as `document_peer_restore_awaits_owner` and leaves the queue |
+| `Park` / `AwaitsOwner` | the park plan of `planPeerRefusalRecovery`; `rebaseAfterPeerRefusal` reports it through `parkUntilOwnerRestores` as `document_peer_restore_awaits_owner` and leaves the queue deferred in pull-only mode (`transitionPeerRestorePark`) so `Pull` keeps remote reads live until the server tip advances or `runAllowDocumentPeerRestoreWorkflow` triggers `publishDocumentPeerRestoreAllowedEvent` |
 | `CurrentPeer` / `Nameable` | `recordPeerSeed`, which derives a record's peer from a device-local secret seed |
 | `Recreate` | the organization billing purge, whose `deleteOrganizationRemoteRows` deletes each document's rows, owner rows included, through `deleteDocumentRows`, followed by the owner's `session.recoverPurgedOrganization` (`recoverPurgedSessionOrganization`), whose remote reset queues each document's local history; document sync then creates the document under its `recoveryDocumentId` with that history as its seed, which is stale when that device's copy is. The purge reserves each freed id for that owner (`reservePurgedOrganizationObjects`), and the create guard refuses it to any other user. A single-document purge (`runPurgeDocumentWorkflow`) keeps its signed purge event, so a create of that id is refused |
 | `Restore` / `purged` | another device of the owner adopting the replacement: its remote reset (`buildResetPlans`) queues everything it holds as one update from counter 0 |
@@ -195,7 +206,11 @@ that:
 - no device accepts a committed update that a fresh reader voids
   (`ReadersAgree`), so nothing a device builds on is void for the other
   readers. A device voiding what a fresh reader accepts is a preemption of its
-  unsent operations, which `NoPreemption` excludes.
+  unsent operations, which `NoPreemption` excludes;
+- the owner's other device, holding everything committed before the purge, is
+  never refused when republishing it (`RestoreNeverRefused`), because preserved
+  peer-owner rows keep neither a stale copy nor another member's relay from
+  blocking `Restore` (#3263).
 
 A refusal here names every refused peer, so `MAX_DOCUMENT_PEER_FRONTIERS`
 never binds. A request refused on more peers than the server names keeps the
@@ -236,31 +251,32 @@ named violation on every run:
 | --- | --- |
 | `NoOwnership = TRUE` | `NoPreemption`: after a device's first commit, the dishonest member commits its next counter and the server stores it |
 | `RefuseForeignSpans = TRUE` | `ReassertionsNeverRefused`: a device that pulled another device's operation is refused for re-asserting it within F alongside its own first edit |
-| `NoRebase = TRUE` | `HonestWorkEventuallyCommitted`: a recreation claims a device's peer, and the device's unsent edit is refused on every retry |
+| `NoRebase = TRUE`, `ClaimExistingPeersOnRecreate = TRUE` | `HonestWorkEventuallyCommitted`: an unreserved recreation claims a device's peer, and the device's unsent edit is refused on every retry |
 | `PublicPeers = TRUE` | `HonestUpdatesAccepted`: the dishonest member claims a device's peer at counter 0 before its first commit, so the device's update is a re-assertion within F that every reader voids |
 | `NoDependencyCheck = TRUE` | `ReadersAgree`: after a device's first commit, while it holds its next counter unsent, the dishonest member commits an op depending on that counter; the device accepts it and a fresh reader voids it |
 | `NoDeclaredJudge = TRUE` | `ReadersAgree`: the same forged op declares no dependency, so the server's dependency rule passes it, and only the device accepts it |
 | `NoRelay = TRUE` | `NoDuplication`: a stale recreation loses a device's committed edit, the device forks at the frontier that fell and commits the edit again on a fresh peer, and the owner's other device then republishes the original |
 | `ForgetRelayed = TRUE` | `NoDuplication`: a device relays another device's lost operation and is refused again, because the republisher owns that peer; the relay lowered what it saw committed to its queue's start, so it takes the relayed operation for unsent, forks at the same frontier instead of parking, and commits it again on a fresh peer |
 | `ForgetQueuedHistory = TRUE` | `NoDuplication`: a device pulled another device's two edits and a stale recreation kept one; it sends its own edit with its full history and is refused on that peer; the queued history lowered what it saw committed to nothing, so it forks at the frontier that fell and commits the lost edit again on a fresh peer, and the other device, which still holds the original, then holds both |
+| `DropSavedOwners = TRUE` | `RestoreNeverRefused`: without preserved pre-purge peer owners, a member relaying a peer absent from a stale copy claims it for itself and refuses the owner's full restoration (#3263) |
+| `DefaultAllowMemberRestore = TRUE` | `HonestUpdatesAccepted`: if member restoration defaulted open, a dishonest member forges lost counters inside a peer's restorable window before honest devices restore them, and readers void the honest restoration (#3263) |
 
 ## Outside the Model
 
 - The causal closure `rebaseOntoFreshPeer` takes before it cuts: an operation
   on an unnamed peer that depends on a cut one is cut too. `Rebase` here keeps
   every unnamed peer whole.
-- A refused `Restore`. A relay claims an unowned peer for the relaying
-  device's user. If that device held less of the peer than the owner's other
-  device does, the republish extends another user's peer and the server
-  refuses it. Here `Restore` then never happens. In production that device's
-  remote reset counts nothing as committed, so it rebases and writes the rest
-  of the peer again on a fresh peer, and a device that still holds those
-  operations then holds both. The peer's own device, refused on a peer the
-  relaying user now owns, parks, and only that user's device, which lacks the
-  operations, could release it. Not closed (#3263).
-- A parked device that no device of the peer's owner can release, because
-  none holds the operations it saw committed. `Restore` here republishes
-  everything the server held.
+- Explicit owner opt-in via `allow_member_restore` (`allowPeerRestore`) to
+  unblock a parked device when neither the peer's owner nor the organization
+  owner's devices hold the lost operations. The `DefaultAllowMemberRestore`
+  control shows why that flag defaults to `false`: enabling it while a
+  dishonest member holds write access lets that member race inside
+  `[F, restorable_end_counter)`.
+- Pull-only write deferral while parked (`peerRestoreParkMachine`), which in
+  production defers queued writes until the server's pull tip advances or
+  `document.peer_restore_allowed` arrives; `Submit` here over-approximates it
+  by allowing a parked device to probe at any step while `Pull` keeps reads
+  live.
 - Dependencies as Loro records them: the frontier of the ops a change was made
   on. An honest update here depends on everything the device holds that it
   does not carry, which is that frontier's closure.
@@ -270,25 +286,11 @@ named violation on every run:
   Each device here is its own user.
 - A malicious republisher of offline edits on a surviving record, who can
   only be the purged organization's owner, since the purge reserves the freed
-  id for that user. The republisher here carries only what
-  a reader holds. One that commits forged content at a device's unsent
-  counters raises F over them, so the device's resubmission is a re-assertion
-  that readers void. This is an accepted residual.
-- A dishonest member who names a peer a stale recreation lost. The dishonest
-  member here names only peers in the current log. A recreation from a copy
-  that lacks a peer entirely leaves it unowned while a device still holds
-  operations on it. A member the owner re-invites into the replacement
-  organization, who knows the peer from history before the purge, can claim it
-  if it acts before a device holding those operations relays them: with forged
-  operations at the device's counters, which other readers accept and the
-  device voids, or with a void span over them and then an update that depends
-  on them, which the device accepts and other readers void. F counts the spans
-  of void updates, so the dependency rule cannot tell such a cover from
-  committed operations. This is an accepted residual (#3230). Keeping owner
-  rows across the purge would close it, but the server cannot tell an honest
-  member's relay of the lost peer from such a cover, so it would refuse the
-  relay, and the relaying device would park until the peer's own user
-  republished it.
+  id for that user. The republisher here carries only what a reader holds.
+  Preserved `saved` rows cap the republisher at `restorable_end_counter`,
+  preventing preemption of future unsent counters; forged content within
+  `[0, restorable_end_counter)` remains an accepted residual of trusting the
+  organization owner to recreate from local history.
 - The in-order walk across several updates of one request, in which an
   update may depend on an earlier one, which the collapse into one update
   leaves out.
@@ -301,28 +303,27 @@ named violation on every run:
   relay always queues an operation that was not queued. Two runtimes on one
   database can still answer the same refusal, and the second then finds the
   lost operations queued; `planPeerRefusalRecovery` reports that as
-  `nothing_to_relay` and the pass ends with the server's own refusal.
-- Lost acknowledgements. A device whose update the server committed before a
-  purge without the device learning of it still holds that update queued. If
-  it pulled an operation that depends on the update, and a stale recreation
-  then claims the peer at a frontier that covers what the device knows is
-  committed, it forks there, and the fork's closure reaches the pulled
-  operation. `rebaseOntoFreshPeer` refuses to write that operation again and
-  throws, as it does for a forged one.
+  `nothing_to_relay` and the pass abandons cleanly without recording a
+  terminal failure row.
+- Lost acknowledgements. In production, pull settlement closes
+  `committedVersion` over the causal dependencies of accepted pulled updates
+  (`documentSyncCommittedVersions`), so pulling any dependent operation proves
+  the unacknowledged operation was committed.
 
 ## Bounds
 
 The configuration bounds two edits per device, one recreation, and one
-forgery. TLC explores 569,988 generated and 156,331 distinct states at depth 23
-in about 4 minutes with one worker. Within these bounds both devices can be
-refused by one recreation and rebase, a rebased resubmission re-asserts the old
-peer the republisher owns, a forged re-assertion within F is committed and
-voided, a forged dependency on a device's unsent counter is refused, and one
-that declares no dependency is committed and voided by every reader. A stale
-recreation loses a committed edit; a device relays its own lost operations and
-another device's, claiming a peer the copy lacked; a device parks on a peer the
-recreation claimed, and after the restore rebases and lands; a device whose
-refused full history stays queued parks at a frontier that fell, and after the
-restore lands it as a re-assertion; and a restore is refused after a relay
-claimed part of a peer it extends. This is exhaustive bounded model checking,
-not an unbounded proof.
+forgery. TLC explores 409,446 generated and 109,710 distinct states at depth 20
+in about 16 seconds with parallel workers. Within these bounds pre-purge peer
+owners survive recreation, a stale recreation never claims another user's peer,
+the owner's full restoration (`Restore`) is never refused, a re-invited
+dishonest member naming even peers absent from a stale copy cannot squat or
+forge them, a forged re-assertion within F is committed and voided, a forged
+dependency on a device's unsent counter is refused, and one that declares no
+dependency is committed and voided by every reader. A stale recreation loses a
+committed edit; a device relays its own lost operations and parks on another
+user's lost peer while keeping `Pull` live; a device whose refused full history
+stays queued parks at a frontier that fell, and after the restore lands it as a
+re-assertion; and flipping `ClaimExistingPeersOnRecreate` exercises rebasing
+onto a fresh peer. This is exhaustive bounded model checking, not an unbounded
+proof.

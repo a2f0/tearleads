@@ -68,6 +68,7 @@ export function createMockApiClient(
     shareContainer: async () => null,
     initiateMultipartBlobStage: async () => null,
     uploadMultipartBlobPartBytes: async () => null,
+    allowDocumentPeerRestore: async () => null,
     syncDocument: async () => null,
     unlinkDocument: async () => null,
     ...overrides,

@@ -84,6 +84,11 @@ export interface SyncRemoteDocumentRequest {
   rotationBaselineSegmentSizes?: HistorySegmentSizes | undefined;
   /** Overrides automatic ancestor repair for each submission's current projection. */
   buildContainerRekeys?: DocumentSyncContainerRekeyBuilder;
+  /**
+   * Withhold queued writes for this pass and run pull-only (e.g. while parked
+   * behind `document_peer_restore_awaits_owner` so remote reads stay live).
+   */
+  deferQueuedWrites?: boolean | undefined;
   documentId: string;
   /** Explicit read-only recovery that bypasses rotation-baseline redirect. */
   historyMode?: "raw" | undefined;

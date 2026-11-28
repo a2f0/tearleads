@@ -157,12 +157,15 @@ export {
   stageDocumentBaselineSegmentOperation,
 } from "./documentBaselineStages";
 export {
+  allowDocumentPeerRestoreOperation,
   createDocumentOperation,
   type DocumentMutationPathParams,
   DocumentMutationPathParamsSchema,
   type DocumentPurgeProofQuery,
   DocumentPurgeProofQuerySchema,
   getDocumentPurgeProofOperation,
+  isAllowDocumentPeerRestoreOperationRequest,
+  isAllowDocumentPeerRestoreOperationResponse,
   isCreateDocumentOperationRequest,
   isCreateDocumentOperationResponse,
   isDocumentLinkSetMutationOperationRequest,

@@ -231,3 +231,93 @@ test("a final segment builds on the peers its stage extends", async () => {
       ),
   ).toEqual([{ ownerUserId: owner.userId }]);
 });
+
+test("a staged baseline admits a foreign peer inside its post-purge restorable window without claiming ownership", async () => {
+  const history = await documentWithHistory();
+  const { created, frontier, owner, root } = history;
+  const committed = [...decodeVersionVector(frontier).toJSON()].sort(
+    ([left], [right]) => compareCanonicalStrings(left, right),
+  );
+  const [first] = committed;
+  if (!first) throw new Error("Expected a committed peer");
+  const [foreignPeer, foreignEnd] = first;
+  const originalOwnerId = crypto.randomUUID();
+  await db
+    .update(documentPeerOwners)
+    .set({
+      allowMemberRestore: false,
+      ownerUserId: originalOwnerId,
+      recoveryOwnerUserId: owner.userId,
+      restorableEndCounter: foreignEnd + 2,
+    })
+    .where(
+      and(
+        eq(documentPeerOwners.documentId, created.id),
+        eq(documentPeerOwners.peerId, foreignPeer),
+      ),
+    );
+  const sign = signerFor(history, {
+    accessManifestHash: created.manifestHash,
+    contentKeyEpoch: created.contentKeyEpoch,
+    dependencyManifestHashes: [root.bundle.manifestHash],
+    targetHash: created.targetHash,
+  });
+
+  // Extending within restorableEndCounter (foreignEnd + 2) stages and promotes
+  // cleanly while preserving originalOwnerId on document_peer_owners.
+  const withinWindow = await sign({
+    ranges: peerRanges(
+      encodeVersionVectorCounters({
+        ...Object.fromEntries(committed),
+        [foreignPeer]: foreignEnd + 2,
+      }),
+    ),
+  });
+  const { baselineStageId, final } = await stageAllButFinal(
+    owner,
+    created.id,
+    withinWindow,
+    { contentKeyEpoch: created.contentKeyEpoch },
+  );
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const committedResult = await postDocumentSync(owner, created.id, {
+    ...request,
+    baselineStageId,
+    outgoingUpdates: [final],
+  });
+  expect(committedResult.status).toBe(200);
+  expect(
+    await db
+      .select({ ownerUserId: documentPeerOwners.ownerUserId })
+      .from(documentPeerOwners)
+      .where(
+        and(
+          eq(documentPeerOwners.documentId, created.id),
+          eq(documentPeerOwners.peerId, foreignPeer),
+        ),
+      ),
+  ).toEqual([{ ownerUserId: originalOwnerId }]);
+
+  // Extending past restorableEndCounter (foreignEnd + 3) is still refused.
+  const pastWindow = await sign({
+    ranges: peerRanges(
+      encodeVersionVectorCounters({
+        ...Object.fromEntries(committed),
+        [foreignPeer]: foreignEnd + 3,
+      }),
+    ),
+  });
+  const [firstPast] = pastWindow;
+  if (!firstPast?.baselineId) throw new Error("Expected a segment");
+  const opened = await openStage(owner, created.id, {
+    baselineId: firstPast.baselineId,
+    contentKeyEpoch: created.contentKeyEpoch,
+  });
+  expect(opened.status).toBe(200);
+  const refused = await putSegment(owner, created.id, firstPast);
+  expect(refused.status).toBe(409);
+});

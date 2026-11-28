@@ -2,6 +2,8 @@ import {
   type createDocument,
   encodeVersionVector,
   encodeVersionVectorCounters,
+  exportHistorySegments,
+  type HistorySegmentSizes,
 } from "@tearleads/loro";
 import {
   DOCUMENT_SYNC_ERROR_CODES,
@@ -13,7 +15,6 @@ import {
   type PeerCounters,
   rebaseOntoFreshPeer,
   unsentStartOf,
-  versionOf,
 } from "./peerRebase";
 
 type RecoveryDocument = Awaited<ReturnType<typeof createDocument>>;
@@ -72,6 +73,8 @@ export interface PeerRefusalRecoveryInput {
     readonly partialStartVersionVector: string;
   }[];
   readonly refusal: PeerRefusal;
+  /** Optional segment byte caps for large-document recovery splitting. */
+  readonly segmentSizes?: HistorySegmentSizes | undefined;
 }
 
 /**
@@ -104,17 +107,21 @@ export interface PeerRefusalRecoveryInput {
 export type PeerRefusalRecovery =
   | { readonly kind: "nothing_to_cut" }
   | { readonly kind: "nothing_to_relay" }
-  | { readonly kind: "park" }
+  | {
+      readonly kind: "park";
+      /** Per regressed peer, the committed counter this device waits to see restored. */
+      readonly requiredPeers: ReadonlyMap<string, number>;
+    }
   | {
       readonly kind: "rebase";
       readonly committedVersion: string;
       readonly fork: RecoveryDocument;
-      readonly update: Uint8Array;
+      readonly updates: readonly Uint8Array[];
     }
   | {
       readonly kind: "relay";
       readonly committedVersion: string;
-      readonly update: Uint8Array;
+      readonly updates: readonly Uint8Array[];
     };
 
 function encoded(peerCounters: PeerCounters): string {
@@ -161,6 +168,7 @@ export function planPeerRefusalRecovery(
         frontier.committedEndCounter,
       ]),
     ),
+    segmentSizes: input.segmentSizes,
     unsentStart,
   });
   switch (rebase.kind) {
@@ -171,16 +179,26 @@ export function planPeerRefusalRecovery(
         committedVersion: encoded(rebase.knownCommitted),
         fork: rebase.fork,
         kind: "rebase",
-        update: rebase.update,
+        updates: rebase.updates,
       };
     case "history_regressed": {
-      if (refusal.kind === "peer_owned") return { kind: "park" };
+      if (refusal.kind === "peer_owned") {
+        const requiredPeers = new Map<string, number>();
+        for (const peer of rebase.regressedFrontiers.keys()) {
+          requiredPeers.set(peer, rebase.knownCommitted.get(peer) ?? 0);
+        }
+        return { kind: "park", requiredPeers };
+      }
       const start = relayStart(unsentStart, rebase.regressedFrontiers);
       if (!start) return { kind: "nothing_to_relay" };
+      const updates = [
+        ...exportHistorySegments(live, input.segmentSizes, encoded(start)),
+      ].map((segment) => segment.update);
+      if (updates.length === 0) return { kind: "nothing_to_relay" };
       return {
         committedVersion: encoded(rebase.knownCommitted),
         kind: "relay",
-        update: live.export({ from: versionOf(start), mode: "update" }),
+        updates,
       };
     }
   }

@@ -1,4 +1,9 @@
 export {
+  type AllowDocumentPeerRestoreInput,
+  type DocumentPeerRestoreAllowWorkflowResult,
+  runAllowDocumentPeerRestoreWorkflow,
+} from "./allowDocumentPeerRestore";
+export {
   createDocumentWithExecutor,
   type DocumentCreateWorkflowResult,
   runCreateDocumentWorkflow,

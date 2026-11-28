@@ -2,6 +2,8 @@ import {
   type createDocument,
   decodeVersionVector,
   encodeVersionVectorCounters,
+  exportHistorySegments,
+  type HistorySegmentSizes,
   listVersionVectorSpans,
 } from "@tearleads/loro";
 
@@ -68,6 +70,8 @@ export interface PeerRebaseInput {
    * them committed whatever the queue holds.
    */
   readonly committedVersion: PeerCounters;
+  /** Optional segment byte caps for large-document rebase splitting. */
+  readonly segmentSizes?: HistorySegmentSizes | undefined;
 }
 
 export type PeerRebase =
@@ -102,8 +106,11 @@ export type PeerRebase =
        * not refused.
        */
       readonly unsentBase: PeerCounters;
-      /** The fork's operations after B, as one Loro update. */
-      readonly update: Uint8Array;
+      /**
+       * The fork's operations after B, split into ordered Loro update segments
+       * bounded within the sync request byte cap (#3263).
+       */
+      readonly updates: readonly Uint8Array[];
     };
 
 function counters(version: DocumentVersion): Map<string, number> {
@@ -184,7 +191,7 @@ export function committedSpansVersion(
     : encodeVersionVectorCounters(ends);
 }
 
-export function versionOf(peerCounters: PeerCounters): DocumentVersion {
+function versionOf(peerCounters: PeerCounters): DocumentVersion {
   return decodeVersionVector(
     encodeVersionVectorCounters(Object.fromEntries(peerCounters)),
   );
@@ -432,12 +439,22 @@ export function rebaseOntoFreshPeer(input: PeerRebaseInput): PeerRebase {
   }
   const fork = forkOnFreshPeer(live, kept, newPeer);
   const unsentBase = minimumCounters(kept, input.unsentStart);
+  const unsentBaseEncoded = encodeVersionVectorCounters(
+    Object.fromEntries(unsentBase),
+  );
+  const updates = [
+    ...exportHistorySegments(fork, input.segmentSizes, unsentBaseEncoded),
+  ].map((segment) => segment.update);
+  if (updates.length === 0) {
+    fork.free();
+    return { kind: "nothing_to_cut" };
+  }
   return {
     fork,
     keptVersion: kept,
     kind: "rebased",
     knownCommitted,
     unsentBase,
-    update: fork.export({ from: versionOf(unsentBase), mode: "update" }),
+    updates,
   };
 }

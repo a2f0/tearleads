@@ -106,16 +106,18 @@ async function submittedDocumentSyncResult(
     {
       ...result,
       hasDeferredPendingUpdates:
-        (input.materializedPlan.plan.request.pullCursor !== undefined &&
-          input.pendingUpdateIds.length > 0 &&
-          result.exhaustedPendingUpdateCount === 0) ||
-        hasDeferredPendingUpdatesAfterSubmit({
-          acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
-          exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
-          pendingUpdateIds: input.pendingUpdateIds,
-          rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
-          settledPendingUpdateIds: result.settledPendingUpdateIds,
-        }),
+        input.sync.deferQueuedWrites === true
+          ? false
+          : (input.materializedPlan.plan.request.pullCursor !== undefined &&
+              input.pendingUpdateIds.length > 0 &&
+              result.exhaustedPendingUpdateCount === 0) ||
+            hasDeferredPendingUpdatesAfterSubmit({
+              acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
+              exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
+              pendingUpdateIds: input.pendingUpdateIds,
+              rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
+              settledPendingUpdateIds: result.settledPendingUpdateIds,
+            }),
     },
     input.pullComplete,
   );

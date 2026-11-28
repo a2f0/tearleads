@@ -81,6 +81,8 @@ export {
   type DocumentLinkSetMutationRequest,
   DocumentLinkSetMutationRequestSchema,
   type DocumentOutgoingUpdate,
+  type DocumentPeerRestoreAllowRequest,
+  DocumentPeerRestoreAllowRequestSchema,
   type DocumentPurgeRequest,
   DocumentPurgeRequestSchema,
   DocumentSyncOutgoingUpdateSchema,
@@ -90,6 +92,7 @@ export {
   isDocumentContentKeyBundleRequest,
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
+  isDocumentPeerRestoreAllowRequest,
   isDocumentPurgeRequest,
   isDocumentSyncRequest,
 } from "./document";
