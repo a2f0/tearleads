@@ -11,6 +11,7 @@ import { loadContainerManifestBundleByHash } from "../../../containers/writerPro
 import { createContainerWriterProjectionContext } from "../../../containers/writerProjection/context";
 import { toManifestBundleResponse } from "../../../containers/writerProjection/records";
 import { verifyStoredContainerManifest } from "../../../containers/writerProjection/storedManifestVerification";
+import type { ContainerWriterProjectionContext } from "../../../containers/writerProjection/types";
 import { ContainerWriterProjectionError } from "../../../containers/writerProjection/types";
 import {
   DocumentMutationError,
@@ -38,26 +39,15 @@ export type LockedContainerHeadRows = ReadonlyMap<
   { readonly manifestHash: string }
 >;
 
-async function resolveCurrentContainerManifestRefs(
-  executor: DatabaseSession,
-  flatRefs: readonly {
-    readonly ref: ContainerManifestRef;
-    readonly refLabel: string;
-  }[],
-  lockedHeads?: LockedContainerHeadRows,
-): Promise<VerifiedContainerAccessManifest[]> {
-  // Resolve every referenced manifest from storage in one batch.
-  const storedBundles = await getAccessManifestBundles(
-    flatRefs.map(({ ref }) => ref.manifestHash),
-    executor,
-  );
-
-  const context = createContainerWriterProjectionContext(executor);
-  const resolved: {
-    readonly manifest: VerifiedContainerAccessManifest;
-    readonly refLabel: string;
-  }[] = [];
-  for (const { ref, refLabel } of flatRefs) {
+async function resolveVerifiedManifestRef(input: {
+  readonly context: ContainerWriterProjectionContext;
+  readonly ref: ContainerManifestRef;
+  readonly refLabel: string;
+  readonly storedBundles: Awaited<ReturnType<typeof getAccessManifestBundles>>;
+}): Promise<VerifiedContainerAccessManifest> {
+  const { context, ref, refLabel, storedBundles } = input;
+  let manifest = context.verifiedManifestByHash.get(ref.manifestHash);
+  if (!manifest) {
     const stored = storedBundles.get(ref.manifestHash);
     if (stored?.manifest.objectKind !== "container") {
       // 409, not 404 — a document-route 404 is the client's wipe signal.
@@ -65,7 +55,6 @@ async function resolveCurrentContainerManifestRefs(
     }
 
     context.verificationMarkers.seed(stored);
-    let manifest: VerifiedContainerAccessManifest;
     try {
       manifest = await verifyStoredContainerManifest({
         bundle: toManifestBundleResponse(stored),
@@ -79,15 +68,50 @@ async function resolveCurrentContainerManifestRefs(
       }
       throw error;
     }
+  }
 
-    // The client-supplied containerId is advisory; reject a confused reference
-    // before the current-head lookup authorizes against another container.
-    if (ref.containerId !== manifest.state.containerId) {
-      throw new DocumentMutationError(
-        `${refLabel} container id does not match the referenced manifest`,
-        400,
-      );
-    }
+  // The client-supplied containerId is advisory; reject a confused reference
+  // before the current-head lookup authorizes against another container.
+  if (ref.containerId !== manifest.state.containerId) {
+    throw new DocumentMutationError(
+      `${refLabel} container id does not match the referenced manifest`,
+      400,
+    );
+  }
+  return manifest;
+}
+
+async function resolveCurrentContainerManifestRefs(
+  executor: DatabaseSession,
+  flatRefs: readonly {
+    readonly ref: ContainerManifestRef;
+    readonly refLabel: string;
+  }[],
+  lockedHeads?: LockedContainerHeadRows,
+  sharedContext?: ContainerWriterProjectionContext,
+): Promise<VerifiedContainerAccessManifest[]> {
+  const context =
+    sharedContext ?? createContainerWriterProjectionContext(executor);
+  // Resolve only manifests not already verified in this transaction's context.
+  const unverifiedHashes = flatRefs
+    .map(({ ref }) => ref.manifestHash)
+    .filter((hash) => !context.verifiedManifestByHash.has(hash));
+  const storedBundles =
+    unverifiedHashes.length === 0
+      ? new Map()
+      : await getAccessManifestBundles(unverifiedHashes, executor);
+
+  const resolved: {
+    readonly manifest: VerifiedContainerAccessManifest;
+    readonly refLabel: string;
+  }[] = [];
+  for (const { ref, refLabel } of flatRefs) {
+    const manifest = await resolveVerifiedManifestRef({
+      context,
+      ref,
+      refLabel,
+      storedBundles,
+    });
     resolved.push({ manifest, refLabel });
   }
 
@@ -106,15 +130,23 @@ async function resolveCurrentContainerManifestRefs(
     executor,
   );
 
-  const liveOrganizations = await loadLiveContainerOrganizations(
-    executor,
-    resolved.map(({ manifest }) => manifest.state.containerId),
-  );
+  const unverifiedLiveIds = resolved
+    .map(({ manifest }) => manifest.state.containerId)
+    .filter((id) => !context.liveContainerOrganizationById.has(id));
+  if (unverifiedLiveIds.length > 0) {
+    const liveOrganizations = await loadLiveContainerOrganizations(
+      executor,
+      unverifiedLiveIds,
+    );
+    for (const [id, organizationId] of liveOrganizations) {
+      context.liveContainerOrganizationById.set(id, organizationId);
+    }
+  }
   return resolved.map(({ manifest, refLabel }) => {
-    if (
-      liveOrganizations.get(manifest.state.containerId) !==
-      manifest.state.organizationId
-    ) {
+    const liveOrganizationId = context.liveContainerOrganizationById.get(
+      manifest.state.containerId,
+    );
+    if (liveOrganizationId !== manifest.state.organizationId) {
       throw documentContainerUnavailable(refLabel);
     }
     const head =
@@ -138,6 +170,7 @@ export async function assertCurrentContainerPathRefGroups(
   groups: readonly (readonly ContainerManifestRef[])[] | undefined,
   label: string,
   lockedHeads?: LockedContainerHeadRows,
+  context?: ContainerWriterProjectionContext,
 ): Promise<VerifiedContainerAccessManifest[][] | undefined> {
   if (groups === undefined) {
     return undefined;
@@ -154,6 +187,7 @@ export async function assertCurrentContainerPathRefGroups(
     executor,
     flatRefs,
     lockedHeads,
+    context,
   );
 
   // Reshape the flat verified manifests back into the original group structure.
@@ -179,6 +213,7 @@ export async function assertCurrentContainerPathRefs(
   refs: readonly ContainerManifestRef[] | undefined,
   label: string,
   lockedHeads?: LockedContainerHeadRows,
+  context?: ContainerWriterProjectionContext,
 ): Promise<VerifiedContainerAccessManifest[] | undefined> {
   if (refs === undefined) {
     return undefined;
@@ -187,6 +222,7 @@ export async function assertCurrentContainerPathRefs(
     executor,
     refs.map((ref, index) => ({ ref, refLabel: `${label}[${index}]` })),
     lockedHeads,
+    context,
   );
   assertContainerPathEdges(path, label);
   return path;

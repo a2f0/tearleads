@@ -12,33 +12,34 @@ across greenfield optimization PRs. Started 2026-11-27T22:34:02.103Z.
 | `001-server-counts-parent-lanes` | checkpoint | `d7e01be58` | — | #3342 | Server update counts & parent-lane batch (#3342) | 12 improved, 2 regressed, 8 tradeoffs |
 | `002-realtime-subtree-interest` | checkpoint | `0aa3ec975` | — | #3353 | Subtree-root realtime interest & hub caps (#3353) | 10 improved, 0 regressed, 0 tradeoffs |
 | `003-loro-stale-recreation-rebase` | checkpoint | `d74895157` | — | #3263 | Preserved peer ownership, owner allow-restore, pull-only park, multi-segment recovery, causal closure (#3263) | 0 improved, 7 regressed, 0 tradeoffs |
+| `004-api-repeats-plans` | checkpoint | `da79619ff` | — | #3396 | PR #7 (#3396 Leads 1 & 4): API tx memo and PG plans | 7 improved, 2 regressed, 3 tradeoffs |
 
-## Cumulative Scorecard (`000-baseline` -> `003-loro-stale-recreation-rebase`)
+## Cumulative Scorecard (`000-baseline` -> `004-api-repeats-plans`)
 
 | Dimension | Metric | Baseline | Latest | Delta | Verdict |
 | --- | --- | ---: | ---: | ---: | --- |
-| Schema | API Postgres tables | 57 tables | 58 tables | +1 (+1.8%) | changed |
-| Schema | API Postgres indexes | 183 indexes | 185 indexes | +2 (+1.1%) | changed |
-| Schema | API duplicate indexes | 0 indexes | 0 indexes | 0 | unchanged |
-| Schema | Client SQLite tables | 63 tables | 63 tables | 0 | unchanged |
-| Schema | Unread 2xx OpenAPI fields | 3 fields | 3 fields | 0 | unchanged |
-| Schema | Drifted canary ceilings | 14 phases | 19 phases | +5 (+35.7%) | REGRESSED |
+| Schema | API Postgres tables | 57 tables | — | — | n/a |
+| Schema | API Postgres indexes | 183 indexes | — | — | n/a |
+| Schema | API duplicate indexes | 0 indexes | — | — | n/a |
+| Schema | Client SQLite tables | 63 tables | — | — | n/a |
+| Schema | Unread 2xx OpenAPI fields | 3 fields | — | — | n/a |
+| Schema | Drifted canary ceilings | 14 phases | — | — | n/a |
 | Wire | Canary requests | 340 reqs | 306 reqs | -34 (-10%) | improved |
 | Wire | Canary request bytes | 1,609,389 B | 1,607,684 B | -1,705 (-0.1%) | unchanged |
 | Wire | Canary response bytes | 1,492,860 B | 1,398,775 B | -94,085 (-6.3%) | improved |
 | Wire | Canary redundant response bytes | 198,160 B | 188,401 B | -9,759 (-4.9%) | improved |
 | Wire | Exact-head policy re-reads | 42 reads | 37 reads | -5 (-11.9%) | improved |
-| API DB | Canary API SQL statements | 36,878 stmts | 36,264 stmts | -614 (-1.7%) | improved |
-| API DB | Canary API in-tx statements | 30,788 stmts | 31,232 stmts | +444 (+1.4%) | REGRESSED |
-| API DB | Canary API lock-hold statements | 22,227 stmts | 21,998 stmts | -229 (-1%) | improved |
-| API DB | Canary API pure read repeats | 4,744 repeats | 4,705 repeats | -39 (-0.8%) | improved |
-| Client SQLite | Canary client SQLite statements | 131,525 stmts | 125,246 stmts | -6,279 (-4.8%) | improved |
-| Client SQLite | Canary SQLite tx controls | 32,446 stmts | 30,614 stmts | -1,832 (-5.6%) | improved |
-| Client SQLite | Canary SQLite total duration | 13,058.2 ms | 12,695.8 ms | -362.4 (-2.8%) | unchanged |
-| Client SQLite | Canary SQLite max lock hold | 49.4 ms | 197.8 ms | +148.4 (+300.4%) | REGRESSED |
+| API DB | Canary API SQL statements | 36,878 stmts | 32,934 stmts | -3,944 (-10.7%) | improved |
+| API DB | Canary API in-tx statements | 30,788 stmts | 27,909 stmts | -2,879 (-9.4%) | improved |
+| API DB | Canary API lock-hold statements | 22,227 stmts | 18,671 stmts | -3,556 (-16%) | improved |
+| API DB | Canary API pure read repeats | 4,744 repeats | 1,681 repeats | -3,063 (-64.6%) | improved |
+| Client SQLite | Canary client SQLite statements | 131,525 stmts | 125,318 stmts | -6,207 (-4.7%) | improved |
+| Client SQLite | Canary SQLite tx controls | 32,446 stmts | 30,656 stmts | -1,790 (-5.5%) | improved |
+| Client SQLite | Canary SQLite total duration | 13,058.2 ms | 12,720.9 ms | -337.3 (-2.6%) | unchanged |
+| Client SQLite | Canary SQLite max lock hold | 49.4 ms | 76.5 ms | +27.1 (+54.9%) | REGRESSED |
 | Plans | Postgres generic Seq Scans | 0 queries | 0 queries | 0 | unchanged |
-| Plans | Postgres generic Sort plans | 3 queries | 3 queries | 0 | unchanged |
-| Plans | Postgres generic Materialize plans | 1 queries | 1 queries | 0 | unchanged |
+| Plans | Postgres generic Sort plans | 3 queries | 1 queries | -2 (-66.7%) | improved |
+| Plans | Postgres generic Materialize plans | 1 queries | 0 queries | -1 (-100%) | improved |
 | Scenarios | Bob-and-Alice HTTP requests | 4,975 reqs | — | — | n/a |
 | Scenarios | Bob-and-Alice API statements | 122,420 stmts | — | — | n/a |
 | Scenarios | Bob-and-Alice pure read repeats | 14,321 repeats | — | — | n/a |
@@ -158,16 +159,52 @@ PGlite canary; 0 extra hot-path runtime queries or plan regressions).
 | Client SQLite | Canary SQLite tx controls | 30,516 stmts | 30,614 stmts | +98 (+0.3%) | REGRESSED |
 | Client SQLite | Canary SQLite max lock hold | 45 ms | 197.8 ms | +152.8 (+339.6%) | REGRESSED |
 
+### `003-loro-stale-recreation-rebase` -> `004-api-repeats-plans`
+
+PR #7 (#3396 Leads 1 & 4): API tx memo and PG plans. Revisions: `d74895157` ->
+`da79619ff`. Improved: **7**, Regressed: **2**, Tradeoffs: **3**.
+
+Notes: Eliminated API pure read repeats inside transactions/lock holds
+(principal policy evidence reuse, container manifest/org memoization,
+prelocked provisioning scope, verified pre-lock sync access reuse under held
+frontier locks) and eliminated Postgres generic-plan Sort/Materialize.
+
+| Dimension | Metric | Before | After | Delta | Verdict |
+| --- | --- | ---: | ---: | ---: | --- |
+| API DB | Canary API SQL statements | 36,264 stmts | 32,934 stmts | -3,330 (-9.2%) | improved |
+| API DB | Canary API in-tx statements | 31,232 stmts | 27,909 stmts | -3,323 (-10.6%) | improved |
+| API DB | Canary API lock-hold statements | 21,998 stmts | 18,671 stmts | -3,327 (-15.1%) | improved |
+| API DB | Canary API pure read repeats | 4,705 repeats | 1,681 repeats | -3,024 (-64.3%) | improved |
+| Client SQLite | Canary client SQLite statements | 125,246 stmts | 125,318 stmts | +72 (+0.1%) | REGRESSED |
+| Client SQLite | Canary SQLite tx controls | 30,614 stmts | 30,656 stmts | +42 (+0.1%) | REGRESSED |
+| Client SQLite | Canary SQLite max lock hold | 197.8 ms | 76.5 ms | -121.3 (-61.3%) | improved |
+| Plans | Postgres generic Sort plans | 3 queries | 1 queries | -2 (-66.7%) | improved |
+| Plans | Postgres generic Materialize plans | 1 queries | 0 queries | -1 (-100%) | improved |
+
+**Tradeoffs:**
+
+- **API DB** (Canary API SQL statements: -3330 stmts (-9.2%); Canary API in-tx
+  statements: -3323 stmts (-10.6%); Canary API lock-hold statements: -3327
+  stmts (-15.1%)) vs **Client SQLite** (Canary client SQLite statements: +72
+  stmts (+0.1%); Canary SQLite tx controls: +42 stmts (+0.1%))
+- **Client SQLite** (Canary SQLite max lock hold: -121.3 ms (-61.3%)) vs
+  **Client SQLite** (Canary client SQLite statements: +72 stmts (+0.1%);
+  Canary SQLite tx controls: +42 stmts (+0.1%))
+- **Plans** (Postgres generic Sort plans: -2 queries (-66.7%); Postgres
+  generic Materialize plans: -1 queries (-100%)) vs **Client SQLite** (Canary
+  client SQLite statements: +72 stmts (+0.1%); Canary SQLite tx controls: +42
+  stmts (+0.1%))
+
 ## Latest Per-Canary Breakdown
 
 | Canary | Reqs | Req B | Res B | Redundant B | Head Re-reads | API Stmts | Pure Repeats | Client SQL |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `DeviceFirstOfflineRequestVolume` | 0 | 0 | 0 | 0 | 0 | 1,550 | 177 | 5,215 |
-| `DualPaneProvider.groupsRequestVolume` | 90 | 681,592 | 544,052 | 63,666 | 12 | 2,842 | 335 | 9,003 |
-| `DualPaneProvider.sharing` | 46 | 104,424 | 337,321 | 42,247 | 5 | 11,214 | 1,375 | 38,000 |
-| `ExplorerUploadRequestVolume` | 5 | 34,558 | 2,176 | 384 | 0 | 1,160 | 150 | 2,522 |
-| `FolderMutationRequestVolume` | 26 | 114,602 | 62,707 | 16,942 | 8 | 1,778 | 198 | 7,499 |
-| `GroupMutationRequestVolume` | 42 | 165,104 | 275,866 | 53,672 | 4 | 2,846 | 340 | 9,476 |
-| `OrganizationBootstrapRequestVolume` | 27 | 486,205 | 40,168 | 5,651 | 3 | 2,251 | 326 | 4,574 |
-| `PaneReconnectRequestVolume` | 24 | 5,127 | 71,816 | 3,290 | 3 | 3,520 | 439 | 14,135 |
-| `PaneRestartRequestVolume` | 46 | 16,072 | 64,669 | 2,549 | 2 | 9,103 | 1,365 | 34,822 |
+| `DeviceFirstOfflineRequestVolume` | 0 | 0 | 0 | 0 | 0 | 1,423 | 61 | 5,215 |
+| `DualPaneProvider.groupsRequestVolume` | 90 | 681,592 | 544,052 | 63,666 | 12 | 2,633 | 142 | 9,003 |
+| `DualPaneProvider.sharing` | 46 | 104,424 | 337,321 | 42,247 | 5 | 10,298 | 540 | 37,997 |
+| `ExplorerUploadRequestVolume` | 5 | 34,558 | 2,176 | 384 | 0 | 1,057 | 62 | 2,522 |
+| `FolderMutationRequestVolume` | 26 | 114,602 | 62,707 | 16,942 | 8 | 1,649 | 82 | 7,499 |
+| `GroupMutationRequestVolume` | 42 | 165,104 | 275,866 | 53,672 | 4 | 2,636 | 161 | 9,479 |
+| `OrganizationBootstrapRequestVolume` | 27 | 486,205 | 40,168 | 5,651 | 3 | 1,973 | 93 | 4,574 |
+| `PaneReconnectRequestVolume` | 24 | 5,127 | 71,816 | 3,290 | 3 | 3,205 | 131 | 14,174 |
+| `PaneRestartRequestVolume` | 46 | 16,072 | 64,669 | 2,549 | 2 | 8,060 | 409 | 34,855 |

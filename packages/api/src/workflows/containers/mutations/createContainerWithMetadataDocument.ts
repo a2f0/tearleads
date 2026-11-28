@@ -7,6 +7,10 @@ import {
   documentCreateSeedResponse,
 } from "../../documents/mutations/createDocument";
 import { DocumentMutationError } from "../../documents/mutations/errors";
+import {
+  createContainerWriterProjectionContext,
+  seedVerifiedContainerManifestsInContext,
+} from "../writerProjection/context";
 import { createContainerOutcome } from "./createContainer";
 import { ContainerMutationError, toMutationError } from "./errors";
 import type { ApiDatabase } from "./types";
@@ -94,7 +98,10 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
       const {
         ancestorIds: containerAncestorIds,
         metadataDocumentId,
+        parentContainerPath,
         response: container,
+        verifiedManifest,
+        verifiedPrincipalPolicies,
       } = await createContainerOutcome({
         executor: tx,
         fingerprint: input.fingerprint,
@@ -102,6 +109,15 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
         userId: input.userId,
       });
       assertContainerSystemSlot(container, input.request.systemSlot ?? null);
+
+      const verifiedContainerContext = createContainerWriterProjectionContext(
+        tx,
+        verifiedPrincipalPolicies,
+      );
+      seedVerifiedContainerManifestsInContext(verifiedContainerContext, [
+        ...(parentContainerPath ?? []),
+        verifiedManifest,
+      ]);
 
       const {
         containerPaths: metadataContainerPaths,
@@ -115,6 +131,8 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
         fingerprint: input.fingerprint,
         request: input.request.metadataDocument,
         userId: input.userId,
+        verifiedContainerContext,
+        verifiedPrincipalPolicies,
       });
       if (metadataDocument.id !== metadataDocumentId) {
         throw new ContainerMutationError(

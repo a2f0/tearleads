@@ -27,6 +27,7 @@ import type { resolveCurrentDocumentKekTargets as resolveTargets } from "../../.
 import { readProjectionAccessEvent } from "../../../../keyingProjectionRecords";
 import { createContainerWriterProjectionContext } from "../../../containers/writerProjection/context";
 import { toManifestBundleResponse } from "../../../containers/writerProjection/records";
+import type { ContainerWriterProjectionContext } from "../../../containers/writerProjection/types";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../../../signerPublicKey";
 import {
@@ -108,24 +109,40 @@ export async function verifyDocumentEvent(input: {
 }
 
 export async function verifyDocumentManifestFromRequest(input: {
+  readonly context?: ContainerWriterProjectionContext | undefined;
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseTransaction;
   readonly lockedContainerHeads?: LockedContainerHeadRows;
   readonly request: DocumentCreateRequest;
-}): Promise<VerifiedDocumentLinkSetManifest> {
+  readonly verifiedPrincipalPolicies?:
+    | readonly PrincipalPolicyAuthorization[]
+    | undefined;
+}): Promise<{
+  readonly context: ContainerWriterProjectionContext;
+  readonly manifest: VerifiedDocumentLinkSetManifest;
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
+}> {
   assertDependencies(input.request, input.event.event);
+  const context =
+    input.context ??
+    createContainerWriterProjectionContext(
+      input.executor,
+      input.verifiedPrincipalPolicies,
+    );
   // Run sequentially because both reads share one transaction connection.
   const targetContainerPath = await assertCurrentContainerPathRefs(
     input.executor,
     input.request.targetContainerPathRefs,
     "targetContainerPathRefs",
     input.lockedContainerHeads,
+    context,
   );
   const authorizingContainerPaths = await assertCurrentContainerPathRefGroups(
     input.executor,
     input.request.authorizingContainerPathRefs,
     "authorizingContainerPathRefs",
     input.lockedContainerHeads,
+    context,
   );
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
@@ -133,6 +150,7 @@ export async function verifyDocumentManifestFromRequest(input: {
       ...(targetContainerPath ? [targetContainerPath] : []),
       ...(authorizingContainerPaths ?? []),
     ],
+    input.verifiedPrincipalPolicies,
   );
   // The request carries only the hash: the initial manifest is derived from
   // the signed event and the target path, and must hash to it.
@@ -152,7 +170,7 @@ export async function verifyDocumentManifestFromRequest(input: {
     throw result.error;
   }
 
-  return result.value;
+  return { context, manifest: result.value, principalPolicies };
 }
 
 interface VerifiedDocumentLinkSetMutationAuthorization {
@@ -172,6 +190,7 @@ export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(inpu
   readonly request: DocumentLinkSetMutationRequest;
 }): Promise<VerifiedDocumentLinkSetMutationAuthorization> {
   assertDependencies(input.request, input.event.event);
+  const context = createContainerWriterProjectionContext(input.executor);
   // Run sequentially: this verification runs inside a transaction, so both
   // reads share one pinned connection. Concurrent issue only trips pg's
   // already-executing-query deprecation without buying any parallelism.
@@ -180,12 +199,14 @@ export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(inpu
     input.request.targetContainerPathRefs,
     "targetContainerPathRefs",
     input.lockedContainerHeads,
+    context,
   );
   const authorizingContainerPaths = await assertCurrentContainerPathRefGroups(
     input.executor,
     input.request.authorizingContainerPathRefs,
     "authorizingContainerPathRefs",
     input.lockedContainerHeads,
+    context,
   );
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
@@ -223,6 +244,7 @@ export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(inpu
 async function resolveStoredDocumentManifest(
   manifestHash: string,
   executor: DatabaseSession,
+  sharedContext?: ContainerWriterProjectionContext,
 ): Promise<VerifiedDocumentLinkSetManifest> {
   const stored = (await getAccessManifestBundles([manifestHash], executor)).get(
     manifestHash,
@@ -232,7 +254,8 @@ async function resolveStoredDocumentManifest(
       `Document link-set manifest ${manifestHash} is missing from the access manifest store`,
     );
   }
-  const containerContext = createContainerWriterProjectionContext(executor);
+  const containerContext =
+    sharedContext ?? createContainerWriterProjectionContext(executor);
   containerContext.verificationMarkers.seed(stored);
   try {
     return await verifyStoredDocumentManifest({
@@ -275,6 +298,7 @@ export async function loadCurrentDocumentManifest(
  * an explicit optimistic-concurrency pin, the same one the content-key path uses.
  */
 async function resolveCurrentDocumentManifestForWrite(input: {
+  readonly context?: ContainerWriterProjectionContext | undefined;
   readonly currentTargets: CurrentDocumentKekTargets;
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
@@ -283,7 +307,11 @@ async function resolveCurrentDocumentManifestForWrite(input: {
   if (input.request.expectedLinkSetManifestHash !== headManifestHash) {
     throw documentSyncStateStale("Document link-set manifest hash is stale");
   }
-  return resolveStoredDocumentManifest(headManifestHash, input.executor);
+  return resolveStoredDocumentManifest(
+    headManifestHash,
+    input.executor,
+    input.context,
+  );
 }
 
 /**
@@ -291,11 +319,15 @@ async function resolveCurrentDocumentManifestForWrite(input: {
  * freshness pin uses them and reads only heads the lock did not return.
  */
 export async function verifySyncWriteAuthorizationProof(input: {
+  readonly context?: ContainerWriterProjectionContext | undefined;
   readonly currentTargets: CurrentDocumentKekTargets;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly lockedContainerHeads?: LockedContainerHeadRows;
   readonly request: DocumentSyncRequest;
+  readonly verifiedPrincipalPolicies?:
+    | readonly PrincipalPolicyAuthorization[]
+    | undefined;
 }): Promise<DocumentWriteAuthorizationProof | null> {
   if (input.request.outgoingUpdates.length === 0) {
     return null;
@@ -307,13 +339,23 @@ export async function verifySyncWriteAuthorizationProof(input: {
     );
   }
 
-  const documentManifest = await resolveCurrentDocumentManifestForWrite(input);
+  const context =
+    input.context ??
+    createContainerWriterProjectionContext(
+      input.executor,
+      input.verifiedPrincipalPolicies,
+    );
+  const documentManifest = await resolveCurrentDocumentManifestForWrite({
+    ...input,
+    context,
+  });
 
   const authorizingContainerPaths = await assertCurrentContainerPathRefGroups(
     input.executor,
     input.request.authorizingContainerPathRefs,
     "authorizingContainerPathRefs",
     input.lockedContainerHeads,
+    context,
   );
   if (!authorizingContainerPaths || authorizingContainerPaths.length === 0) {
     throw new DocumentMutationError(
@@ -324,6 +366,7 @@ export async function verifySyncWriteAuthorizationProof(input: {
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
     authorizingContainerPaths,
+    input.verifiedPrincipalPolicies,
   );
 
   return {

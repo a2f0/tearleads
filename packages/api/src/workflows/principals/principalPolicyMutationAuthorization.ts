@@ -107,10 +107,25 @@ async function lockExactReplayTarget(input: {
   return lockedTarget;
 }
 
+interface LockedOrganizationPolicyTarget {
+  readonly target: OrganizationPolicyTarget;
+  /** True only when direct org-admin access was verified on a non-replay path. */
+  readonly verifiedDirectAdmin: boolean;
+}
+
 export async function lockOrganizationReadModelForPolicyMutation(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
-): Promise<OrganizationPolicyTarget | null> {
+  options?: {
+    /**
+     * Organization + user whose direct admin access was already verified in
+     * this transaction under the organization's principal & read-model locks.
+     */
+    readonly verifiedDirectAdmin?:
+      | { readonly organizationId: string; readonly userId: string }
+      | undefined;
+  },
+): Promise<LockedOrganizationPolicyTarget | null> {
   const target = await loadRosterSyncTargetForPrincipal({ input, tx });
   if (!target) {
     if (
@@ -134,12 +149,15 @@ export async function lockOrganizationReadModelForPolicyMutation(
   );
   const submittedStateHash = await computePrincipalStateHash(input.state);
   if (currentState?.stateHash === submittedStateHash) {
-    return lockExactReplayTarget({
-      policy: input,
-      submittedStateHash,
-      target,
-      tx,
-    });
+    return {
+      target: await lockExactReplayTarget({
+        policy: input,
+        submittedStateHash,
+        target,
+        tx,
+      }),
+      verifiedDirectAdmin: false,
+    };
   }
   const authorizationProjection = currentState
     ? await listCurrentPrincipalProjectionMembers(
@@ -148,7 +166,10 @@ export async function lockOrganizationReadModelForPolicyMutation(
         tx,
       )
     : input.projection;
-  if (input.expectedPrincipalType === "group") {
+  const directAdminAlreadyVerified =
+    options?.verifiedDirectAdmin?.organizationId === target.organizationId &&
+    options.verifiedDirectAdmin.userId === input.state.signerUserId;
+  if (input.expectedPrincipalType === "group" && !directAdminAlreadyVerified) {
     await requireDirectOrganizationAccess({
       executor: tx,
       organizationId: target.organizationId,
@@ -185,5 +206,8 @@ export async function lockOrganizationReadModelForPolicyMutation(
   if (!lockedTarget || lockedTarget.organizationId !== target.organizationId) {
     throw policyTargetChanged();
   }
-  return lockedTarget;
+  return {
+    target: lockedTarget,
+    verifiedDirectAdmin: input.expectedPrincipalType === "group",
+  };
 }

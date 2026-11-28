@@ -18,6 +18,7 @@ import { z } from "zod";
 import { createDocumentWithExecutor } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
+import type { ProvisioningVerifiedContext } from "./provisionOrganizationSystemContainers";
 
 interface ProfileProvisioningSigner {
   readonly fingerprint: string;
@@ -51,6 +52,7 @@ async function createInitialProfileDocument(input: {
     responseMismatch: string;
   };
   profileContainer: ProfileContainer;
+  provisioningContext?: ProvisioningVerifiedContext | undefined;
   recordProfileDocumentId: (documentId: string) => Promise<boolean>;
   request: ProvisionedDocumentRequest;
   signer: ProfileProvisioningSigner;
@@ -74,6 +76,10 @@ async function createInitialProfileDocument(input: {
     fingerprint: signer.fingerprint,
     request,
     userId,
+    verifiedContainerContext:
+      input.provisioningContext?.verifiedContainerContext,
+    verifiedPrincipalPolicies:
+      input.provisioningContext?.verifiedPrincipalPolicies,
   });
   if (created.id !== requestDocumentId) {
     throw new OrganizationProvisioningError(labels.responseMismatch, 400);
@@ -107,6 +113,7 @@ export async function createInitialRosterProfileDocument(
   input: OrganizationProvisioningRequest,
   signer: ProfileProvisioningSigner,
   profileContainer: ProfileContainer | null,
+  provisioningContext?: ProvisioningVerifiedContext,
 ): Promise<DocumentCreateResponse | null> {
   if (!input.initialRosterProfileDocument) {
     return null;
@@ -128,6 +135,7 @@ export async function createInitialRosterProfileDocument(
         "Initial roster profile response does not match request",
     },
     profileContainer,
+    provisioningContext,
     recordProfileDocumentId: async (documentId) => {
       const [rosterEntry] = await tx
         .update(organizationRosterEntries)
@@ -155,6 +163,7 @@ export async function createInitialOrganizationProfileDocument(
   input: OrganizationProvisioningRequest,
   signer: ProfileProvisioningSigner,
   profileContainer: ProfileContainer,
+  provisioningContext?: ProvisioningVerifiedContext,
 ): Promise<DocumentCreateResponse | null> {
   if (!input.initialOrganizationProfileDocument) {
     return null;
@@ -170,6 +179,7 @@ export async function createInitialOrganizationProfileDocument(
         "Initial organization profile response does not match request",
     },
     profileContainer,
+    provisioningContext,
     recordProfileDocumentId: async (documentId) => {
       const [organization] = await tx
         .update(organizations)

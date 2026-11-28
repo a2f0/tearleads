@@ -1,11 +1,15 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import { getCurrentAccessManifestHeads } from "../../../access/read/accessManifestStore";
 import {
   type DocumentKekTargetsRead,
   type DocumentLinkSetFrontier,
   resolveCurrentDocumentKekTargets,
 } from "../../../access/read/documentKekTargets";
+import { getCurrentPrincipalStates } from "../../../access/read/principalStateStore";
 import { assertDocumentSyncBillingAllowed } from "../../billing/organizationSyncEligibility";
+import { loadLiveContainerOrganizations } from "../../containers/liveContainerRows";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { documentSyncStateStale } from "./errors";
@@ -17,7 +21,10 @@ import {
 import type { LockedContainerHeadRows } from "./shared/currentContainerPaths";
 import { touchContainersForDocument } from "./shared/documentRows";
 import { verifySyncWriteAuthorizationProof } from "./shared/verification";
-import { ensureSyncDocumentAccess } from "./syncAccess";
+import {
+  ensureSyncDocumentAccess,
+  type VerifiedDocumentAccessResult,
+} from "./syncAccess";
 import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
 import { assertSyncRotationBaselinesSound } from "./syncRotationAdvance";
 import { prepareSyncDocumentTransaction } from "./syncTransactionPreparation";
@@ -213,13 +220,193 @@ function takeSyncCreateSeed(input: SyncDocumentWriteInput) {
     : undefined;
 }
 
+async function principalPoliciesStillCurrent(
+  executor: DatabaseTransaction,
+  policies: readonly PrincipalPolicyAuthorization[],
+): Promise<boolean> {
+  if (policies.length === 0) return true;
+  for (const principalType of [
+    ...new Set(policies.map((policy) => policy.principalType)),
+  ]) {
+    const forType = policies.filter(
+      (policy) => policy.principalType === principalType,
+    );
+    const current = await getCurrentPrincipalStates(
+      principalType,
+      forType.map((policy) => policy.principalId),
+      executor,
+    );
+    for (const policy of forType) {
+      const state = current.get(policy.principalId);
+      if (
+        !state ||
+        state.version !== policy.version ||
+        state.stateHash !== policy.stateHash
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+async function pullPathStillCurrent(
+  executor: DatabaseTransaction,
+  prelockAccess: VerifiedDocumentAccessResult,
+): Promise<boolean> {
+  const { principalPolicies, verifiedPath } = prelockAccess.access;
+  const containerIds = verifiedPath.map((m) => m.state.containerId);
+  const currentHeads = await getCurrentAccessManifestHeads(
+    "container",
+    containerIds,
+    executor,
+  );
+  const headsMatch = verifiedPath.every(
+    (m) =>
+      currentHeads.get(m.state.containerId)?.manifestHash === m.manifestHash,
+  );
+  if (!headsMatch) return false;
+  const liveOrgs = await loadLiveContainerOrganizations(executor, containerIds);
+  const orgsMatch = verifiedPath.every(
+    (m) => liveOrgs.get(m.state.containerId) === m.state.organizationId,
+  );
+  return (
+    orgsMatch && principalPoliciesStillCurrent(executor, principalPolicies)
+  );
+}
+
+async function canReusePrelockSyncAccess(params: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly frontier: DocumentLinkSetFrontier;
+  readonly input: SyncDocumentWriteInput;
+  readonly lockedContainerHeads:
+    | Awaited<
+        ReturnType<typeof lockSyncDocumentFrontier>
+      >["lockedContainerHeads"]
+    | undefined;
+  readonly prelockAccess: VerifiedDocumentAccessResult;
+}): Promise<boolean> {
+  if ((params.input.request.containerRekeys?.length ?? 0) > 0) return false;
+  if (params.input.request.outgoingUpdates.length === 0) {
+    return (
+      params.currentTargets.linkSetManifestHash ===
+        params.frontier.linkSetManifestHash &&
+      pullPathStillCurrent(params.input.tx, params.prelockAccess)
+    );
+  }
+  const { lockedContainerHeads, prelockAccess } = params;
+  const headsMatch =
+    lockedContainerHeads !== undefined &&
+    prelockAccess.access.verifiedPath.every(
+      (m) =>
+        lockedContainerHeads.get(m.state.containerId)?.manifestHash ===
+        m.manifestHash,
+    );
+  return (
+    headsMatch &&
+    principalPoliciesStillCurrent(
+      params.input.tx,
+      prelockAccess.access.principalPolicies,
+    )
+  );
+}
+
+async function resolveLockedSyncDocumentAccess(params: {
+  readonly createdDocument: ReturnType<typeof takeSyncCreateSeed>;
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly frontier: DocumentLinkSetFrontier;
+  readonly input: SyncDocumentWriteInput;
+  readonly lockedContainerHeads:
+    | Awaited<
+        ReturnType<typeof lockSyncDocumentFrontier>
+      >["lockedContainerHeads"]
+    | undefined;
+  readonly prelockAccess: VerifiedDocumentAccessResult | undefined;
+}): Promise<VerifiedDocumentAccessResult> {
+  const { createdDocument, currentTargets, input, prelockAccess } = params;
+  if (
+    prelockAccess &&
+    (await canReusePrelockSyncAccess({ ...params, prelockAccess }))
+  ) {
+    // Clear pre-lock container liveness cache so write proof verifies live
+    // containers under the held frontier locks.
+    prelockAccess.context.liveContainerOrganizationById.clear();
+    return prelockAccess;
+  }
+  const reuseCreatedEvidence =
+    createdDocument !== undefined &&
+    createdDocument.targets.targets === currentTargets;
+  return ensureSyncDocumentAccess({
+    containerIds: currentTargets.targets.map((target) => target.containerId),
+    context: reuseCreatedEvidence
+      ? createdDocument.verifiedContainerContext
+      : undefined,
+    executor: input.tx,
+    request: input.request,
+    userId: input.userId,
+    verifiedPrincipalPolicies: reuseCreatedEvidence
+      ? createdDocument.verifiedPrincipalPolicies
+      : undefined,
+  });
+}
+
+async function authorizeLockedSyncDocumentWrite(params: {
+  readonly createdDocument: ReturnType<typeof takeSyncCreateSeed>;
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly frontier: DocumentLinkSetFrontier;
+  readonly input: SyncDocumentWriteInput;
+  readonly lockedContainerHeads:
+    | Awaited<
+        ReturnType<typeof lockSyncDocumentFrontier>
+      >["lockedContainerHeads"]
+    | undefined;
+  readonly prelockAccess: VerifiedDocumentAccessResult | undefined;
+}) {
+  const { createdDocument, currentTargets, input, lockedContainerHeads } =
+    params;
+  const reuseCreatedEvidence =
+    createdDocument !== undefined &&
+    createdDocument.targets.targets === currentTargets;
+  const verifiedAccess = await resolveLockedSyncDocumentAccess(params);
+  await assertSyncBillingAllowed(input, currentTargets.organizationId);
+  // A lock excludes competing writers, not this transaction's own rekeys.
+  // Carried seeds currently forbid rekeys; keep that boundary explicit here
+  // too, rather than letting a future caller reuse a pre-rekey snapshot.
+  const carriedHeads = input.request.containerRekeys?.length
+    ? undefined
+    : input.seed?.lockedContainerHeads;
+  return verifySyncWriteAuthorizationProof({
+    context: verifiedAccess.context,
+    currentTargets,
+    documentId: input.documentId,
+    executor: input.tx,
+    lockedContainerHeads: new Map([
+      ...(carriedHeads ?? []),
+      ...(lockedContainerHeads ?? []),
+    ]),
+    request: input.request,
+    verifiedPrincipalPolicies: [
+      ...(reuseCreatedEvidence
+        ? (createdDocument.verifiedPrincipalPolicies ?? [])
+        : []),
+      ...verifiedAccess.access.principalPolicies,
+    ],
+  });
+}
+
 export async function commitSyncDocumentWrites(
   input: SyncDocumentWriteInput,
 ): Promise<CommittedSyncDocumentWrites> {
   const createdDocument = takeSyncCreateSeed(input);
   const documentInsertedInTransaction =
     input.seed?.documentInsertedInTransaction ?? false;
-  const frontier = await prepareSyncDocumentTransaction({
+  const { frontier, prelockAccess } = await prepareSyncDocumentTransaction({
     ...input,
     createdFrontier: createdDocument?.frontier,
     documentInsertedInTransaction,
@@ -247,28 +434,13 @@ export async function commitSyncDocumentWrites(
       tx: input.tx,
     });
   const currentTargets = lockedTargets.targets;
-  await ensureSyncDocumentAccess({
-    containerIds: currentTargets.targets.map((target) => target.containerId),
-    executor: input.tx,
-    request: input.request,
-    userId: input.userId,
-  });
-  await assertSyncBillingAllowed(input, currentTargets.organizationId);
-  // A lock excludes competing writers, not this transaction's own rekeys.
-  // Carried seeds currently forbid rekeys; keep that boundary explicit here
-  // too, rather than letting a future caller reuse a pre-rekey snapshot.
-  const carriedHeads = input.request.containerRekeys?.length
-    ? undefined
-    : input.seed?.lockedContainerHeads;
-  const writeAuthorization = await verifySyncWriteAuthorizationProof({
+  const writeAuthorization = await authorizeLockedSyncDocumentWrite({
+    createdDocument,
     currentTargets,
-    documentId: input.documentId,
-    executor: input.tx,
-    lockedContainerHeads: new Map([
-      ...(carriedHeads ?? []),
-      ...(lockedContainerHeads ?? []),
-    ]),
-    request: input.request,
+    frontier,
+    input,
+    lockedContainerHeads,
+    prelockAccess,
   });
   // Must run before the bundle store below advances the latest epoch and
   // before the append inserts any baseline row.

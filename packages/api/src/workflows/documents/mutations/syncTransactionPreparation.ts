@@ -7,7 +7,10 @@ import {
 } from "../../../access/read/documentKekTargets";
 import { documentNotFound } from "./errors";
 import { assertSyncContentKeyBundleMatchesRequest } from "./shared/records";
-import { ensureSyncDocumentAccess } from "./syncAccess";
+import {
+  ensureSyncDocumentAccess,
+  type VerifiedDocumentAccessResult,
+} from "./syncAccess";
 import { reserveInlineRekeyCommit } from "./syncInlineRekeyCommit";
 
 export async function prepareSyncDocumentTransaction(input: {
@@ -18,31 +21,33 @@ export async function prepareSyncDocumentTransaction(input: {
   readonly request: DocumentSyncRequest;
   readonly tx: DatabaseTransaction;
   readonly userId: string;
-}): Promise<DocumentLinkSetFrontier> {
+}): Promise<{
+  readonly frontier: DocumentLinkSetFrontier;
+  readonly prelockAccess?: VerifiedDocumentAccessResult | undefined;
+}> {
   const stored = input.documentInsertedInTransaction
     ? undefined
     : await getDocumentWithCurrentHeadAndLinks(input.documentId, input.tx);
   if (stored && !stored.exists) throw documentNotFound();
   assertSyncContentKeyBundleMatchesRequest(input.request);
-  // Authorize against the currently committed link set before probing the
-  // durable replay marker. Inline requests carry successor path refs that are
-  // not stored until their rekeys apply, so this preflight intentionally uses
-  // the server's stored links rather than request path material. Access and
-  // the lock plan need only the linked container ids; the KEK targets are
-  // resolved once, after the heads are locked.
+  // Authorize against the currently committed link set before taking locks or
+  // probing the durable replay marker, so an unauthorized caller who only knows
+  // a document UUID cannot serialize writers or probe replay state.
   const frontier =
     input.createdFrontier ??
     (await readDocumentLinkSetFrontier(input.documentId, input.tx, stored));
-  await ensureSyncDocumentAccess({
-    containerIds: frontier.linkedContainerIds,
-    executor: input.tx,
-    request: input.request,
-    userId: input.userId,
-  });
+  const prelockAccess = input.documentInsertedInTransaction
+    ? undefined
+    : await ensureSyncDocumentAccess({
+        containerIds: frontier.linkedContainerIds,
+        executor: input.tx,
+        request: input.request,
+        userId: input.userId,
+      });
   await reserveInlineRekeyCommit({
     documentId: input.documentId,
     executor: input.tx,
     request: input.request,
   });
-  return frontier;
+  return { frontier, prelockAccess };
 }

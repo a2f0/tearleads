@@ -2,7 +2,10 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
+import type {
+  PrincipalPolicyAuthorization,
+  VerifiedDocumentLinkSetManifest,
+} from "@tearleads/crypto";
 import {
   type DocumentCreateRequest,
   type DocumentCreateSeedRequest,
@@ -23,6 +26,7 @@ import {
   restorePurgedDocumentPeerOwners,
 } from "../../billing/purgedObjectReservations";
 import { applyContainerRekeys } from "../../containers/mutations";
+import type { ContainerWriterProjectionContext } from "../../containers/writerProjection/types";
 
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { markStoredDocumentManifest } from "../markStoredDocumentManifest";
@@ -218,6 +222,14 @@ interface CreateDocumentWithExecutorInput {
   readonly fingerprint: string;
   readonly request: DocumentCreateRequest;
   readonly userId: string;
+  /** Container context already verified under this transaction's locks. */
+  readonly verifiedContainerContext?:
+    | ContainerWriterProjectionContext
+    | undefined;
+  /** Principal policies already verified under this transaction's locks. */
+  readonly verifiedPrincipalPolicies?:
+    | readonly PrincipalPolicyAuthorization[]
+    | undefined;
 }
 
 export async function createDocumentWithExecutor(
@@ -285,6 +297,34 @@ async function insertCreatedDocumentRow(
   return { document, hasRestoredPeerOwners };
 }
 
+async function persistCreatedDocumentArtifacts(
+  input: CreateDocumentWithExecutorInput,
+  manifest: VerifiedDocumentLinkSetManifest,
+) {
+  const { document, hasRestoredPeerOwners } = await insertCreatedDocumentRow(
+    input,
+    manifest,
+  );
+  await storeVerifiedAccessManifestInTransaction(
+    { verifiedManifest: manifest },
+    input.executor,
+  );
+  await markStoredDocumentManifest(input.executor, manifest.manifestHash);
+  await recordDocumentManifestObservationInTransaction(input.executor, {
+    documentId: manifest.state.documentId,
+    manifestHash: manifest.manifestHash,
+    userId: input.userId,
+  });
+  const contentKeyBundle = await storeDocumentContentKeyBundleInTransaction(
+    toStoredContentKeyBundleInput(
+      manifest.state.documentId,
+      input.request.contentKeyBundle,
+    ),
+    input.executor,
+  );
+  return { contentKeyBundle, document, hasRestoredPeerOwners };
+}
+
 // The content-key bundle store resolves the document's current KEK targets
 // in this transaction; nothing after it changes heads, links, or epochs, so
 // its organization is the one a fresh resolution would return. The caller
@@ -321,11 +361,20 @@ async function createDocumentInTransaction(
       input.executor,
       input.request,
     );
-    const manifest = await verifyDocumentManifestFromRequest({
+    const hasRekeys = (input.request.containerRekeys?.length ?? 0) > 0;
+    const {
+      context: verifiedContainerContext,
+      manifest,
+      principalPolicies,
+    } = await verifyDocumentManifestFromRequest({
+      context: hasRekeys ? undefined : input.verifiedContainerContext,
       event,
       executor: input.executor,
       lockedContainerHeads,
       request: input.request,
+      verifiedPrincipalPolicies: hasRekeys
+        ? undefined
+        : input.verifiedPrincipalPolicies,
     });
 
     if (
@@ -346,27 +395,8 @@ async function createDocumentInTransaction(
       manifest.state.documentId,
     );
 
-    const { document, hasRestoredPeerOwners } = await insertCreatedDocumentRow(
-      input,
-      manifest,
-    );
-    await storeVerifiedAccessManifestInTransaction(
-      { verifiedManifest: manifest },
-      input.executor,
-    );
-    await markStoredDocumentManifest(input.executor, manifest.manifestHash);
-    await recordDocumentManifestObservationInTransaction(input.executor, {
-      documentId: manifest.state.documentId,
-      manifestHash: manifest.manifestHash,
-      userId: input.userId,
-    });
-    const contentKeyBundle = await storeDocumentContentKeyBundleInTransaction(
-      toStoredContentKeyBundleInput(
-        manifest.state.documentId,
-        input.request.contentKeyBundle,
-      ),
-      input.executor,
-    );
+    const { contentKeyBundle, document, hasRestoredPeerOwners } =
+      await persistCreatedDocumentArtifacts(input, manifest);
 
     return {
       containerPaths: contentKeyBundle.currentTargets.containerPaths,
@@ -383,6 +413,7 @@ async function createDocumentInTransaction(
         manifest,
         contentKeyBundle,
         hasRestoredPeerOwners,
+        { context: verifiedContainerContext, principalPolicies },
       ),
     };
   } catch (error) {

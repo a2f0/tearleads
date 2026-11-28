@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   groups,
+  organizationRosterEntries,
   organizations,
   principalPolicyCommits,
   users,
@@ -13,8 +14,11 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
-import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import {
+  isCommitOrganizationGroupPolicyResponse,
+  ORGANIZATION_TWO_FACTOR_ERROR_CODES,
+} from "@tearleads/validators/response";
+import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { withGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
@@ -380,4 +384,76 @@ test("compound commits reject groups rebound to another organization", async () 
       db,
     ),
   ).toMatchObject({ stateHash: prepared.previousOrganizationStateHash });
+});
+
+test("replayed groupPolicy cannot bypass 2FA standing for a new memberPolicy", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const prepared = await prepareCompoundPolicy({
+    actor,
+    commitNextGroupHead: true,
+    // Fails at assertGroupPolicyNamePreserved (400) before sync entitlement
+    // runs, proving requireDirectOrganizationAccess (403 2FA) gated it first.
+    groupPayload: { name: "Other" },
+  });
+  const adminState = await getCurrentPrincipalState(
+    "group",
+    prepared.organization.adminGroupId,
+    db,
+  );
+  invariant(adminState, "expected Admins policy");
+  const adminBundle = await getPrincipalPolicyForStateWithExecutor(
+    db,
+    adminState,
+  );
+  await db
+    .update(organizationRosterEntries)
+    .set({ twoFactorRequired: true })
+    .where(
+      and(
+        eq(
+          organizationRosterEntries.organizationId,
+          prepared.organization.organizationId,
+        ),
+        eq(organizationRosterEntries.userId, actor.userId),
+      ),
+    );
+  // Re-authenticate so the session carries the organization's 2FA requirement
+  // with twoFactorVerified = false (matching real login before 2FA enrollment).
+  await authenticate(actor);
+
+  const response = await routeApp.request(
+    `/organizations/${prepared.organization.organizationId}/groups/${prepared.organization.adminGroupId}/policy-commit`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        groupPolicy: {
+          state: adminBundle.currentState,
+          encryptedPayload: adminBundle.currentPayload,
+          projection: adminBundle.currentProjection,
+          grants: adminBundle.currentGrants,
+          memberEnvelopes: adminBundle.currentMemberEnvelopes.envelopes,
+        },
+        memberPolicy: prepared.groupPolicy,
+        organizationPolicy: prepared.organizationPolicy,
+      }),
+    },
+  );
+
+  expect(response.status).toBe(403);
+  expect(await response.json()).toMatchObject({
+    code: ORGANIZATION_TWO_FACTOR_ERROR_CODES.required,
+  });
+  expect(
+    await getCurrentPrincipalState(
+      "group",
+      prepared.organization.memberGroupId,
+      db,
+    ),
+  ).toMatchObject({ stateHash: prepared.previousGroupStateHash });
 });

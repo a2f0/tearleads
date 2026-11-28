@@ -136,15 +136,24 @@ export async function assertCurrentContainerPath(
     path.push(manifest);
   }
 
-  const liveOrganizations = await loadLiveContainerOrganizations(
-    context.executor,
-    path.map((manifest) => manifest.state.containerId),
-  );
+  const unverifiedContainerIds = path
+    .map((manifest) => manifest.state.containerId)
+    .filter((id) => !context.verifiedLiveContainerOrgs?.has(id));
+  const liveOrganizations =
+    unverifiedContainerIds.length === 0
+      ? new Map<string, string>()
+      : await loadLiveContainerOrganizations(
+          context.executor,
+          unverifiedContainerIds,
+        );
+  for (const [id, organizationId] of liveOrganizations) {
+    context.verifiedLiveContainerOrgs?.set(id, organizationId);
+  }
   for (const [index, manifest] of path.entries()) {
-    if (
-      liveOrganizations.get(manifest.state.containerId) !==
-      manifest.state.organizationId
-    ) {
+    const liveOrganizationId =
+      context.verifiedLiveContainerOrgs?.get(manifest.state.containerId) ??
+      liveOrganizations.get(manifest.state.containerId);
+    if (liveOrganizationId !== manifest.state.organizationId) {
       throw containerUnavailable(`${label}[${index}]`);
     }
   }

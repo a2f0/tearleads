@@ -52,6 +52,18 @@
       "issues": [3263],
       "snapshotFile": "snapshots/003-loro-stale-recreation-rebase.json",
       "notes": "Adds purged_document_peer_owners table (58th Postgres table, +2 indexes) via append-only migration 0018 (+7 bootstrap DDL statements per fresh PGlite canary; 0 extra hot-path runtime queries or plan regressions)."
+    },
+    {
+      "id": "004-api-repeats-plans",
+      "seq": 4,
+      "label": "PR #7 (#3396 Leads 1 & 4): API tx memo and PG plans",
+      "kind": "checkpoint",
+      "recordedAt": "2026-11-28T10:18:42.629Z",
+      "revision": "da79619ff1e29dbff09af67b7275c1e5552b55bf",
+      "dirty": true,
+      "issues": [3396],
+      "snapshotFile": "snapshots/004-api-repeats-plans.json",
+      "notes": "Eliminated API pure read repeats inside transactions/lock holds (principal policy evidence reuse, container manifest/org memoization, prelocked provisioning scope, verified pre-lock sync access reuse under held frontier locks) and eliminated Postgres generic-plan Sort/Materialize."
     }
   ]
 }

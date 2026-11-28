@@ -3,6 +3,7 @@ import {
   accessManifestHeads,
   accessManifests,
 } from "@tearleads/api-shared/schema";
+import { compareCanonicalStrings } from "@tearleads/crypto";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
@@ -95,19 +96,24 @@ export async function loadCurrentContainerManifestTargetClosure(input: {
       depth as "depth",
       cycle_detected as "cycleDetected"
     from ancestor_path
-    order by object_id asc
   `);
+  const parsedRows = result.rows
+    .map((value) => {
+      const parsed = containerAncestorClosureRowSchema.safeParse(value);
+      if (!parsed.success) {
+        throw new ContainerKekTargetError(
+          "Unexpected row shape from container ancestor KEK closure",
+          409,
+        );
+      }
+      return parsed.data;
+    })
+    // Sort in JS instead of SQL so PostgreSQL avoids an explicit Sort node on
+    // the recursive CTE while keeping validation errors deterministic (#3396).
+    .sort((left, right) => compareCanonicalStrings(left.id, right.id));
   const targetByContainerId = new Map<string, ContainerManifestTarget>();
 
-  for (const value of result.rows) {
-    const parsed = containerAncestorClosureRowSchema.safeParse(value);
-    if (!parsed.success) {
-      throw new ContainerKekTargetError(
-        "Unexpected row shape from container ancestor KEK closure",
-        409,
-      );
-    }
-    const row = parsed.data;
+  for (const row of parsedRows) {
     if (row.cycleDetected) {
       throw new ContainerKekTargetError(
         `Container parent cycle detected at container ${row.id}`,
