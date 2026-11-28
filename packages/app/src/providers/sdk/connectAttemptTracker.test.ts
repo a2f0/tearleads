@@ -35,7 +35,12 @@ function fakeTimers() {
 test("a declaration whose acknowledgement never arrives releases the deferral", () => {
   const events = new Events();
   const clock = fakeTimers();
-  const attempts = trackConnectAttempts(events, clock.timers);
+  let timedOut = 0;
+  const attempts = trackConnectAttempts(events, clock.timers, {
+    onTimeout: () => {
+      timedOut += 1;
+    },
+  });
 
   attempts.begin();
   expect(events.pendingConnectAttempt).toBe(1);
@@ -47,6 +52,7 @@ test("a declaration whose acknowledgement never arrives releases the deferral", 
   // The server holds the acknowledgement past the deadline.
   clock.fireAll();
   expect(events.pendingConnectAttempt).toBeUndefined();
+  expect(timedOut).toBe(1);
 });
 
 test("an acknowledged attempt is not ended by its stale deadline", () => {

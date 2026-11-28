@@ -1,4 +1,5 @@
 import {
+  type DomainScope,
   getOrCreateDomainSyncCoordinator,
   type Tearleads,
 } from "@tearleads/client-sdk";
@@ -11,6 +12,10 @@ import {
   startContainerInterestDeclaration as declareInterest,
 } from "./containerInterest";
 import {
+  type ContainerInterestBindingState,
+  transitionContainerInterestBinding,
+} from "./containerInterestBindingMachine";
+import {
   attachOrganizationReadModelSocket,
   handleOrganizationReadModelAccessRevoked,
   handleOrganizationReadModelHint,
@@ -19,29 +24,121 @@ import {
 import { startServerEventsConnectionLoop } from "./serverEventsConnectionLoop";
 import { routeIncomingWsMessage } from "./serverEventsRouting";
 
+export interface StartContainerInterestBindingOptions {
+  /** Guard preventing rebind after a sign-in replacement retires the session. */
+  readonly canRebind?: () => boolean;
+  /** Called if an asynchronous rebind cannot open the replacement scope's store. */
+  readonly onRebindUnavailable?: () => void;
+}
+
+const NOOP_DECLARATION: ContainerInterestDeclaration = {
+  acknowledge: () => false,
+  awaitingInitialAcknowledgement: () => false,
+  invalidate: () => undefined,
+  retryRefused: () => undefined,
+  stop: () => undefined,
+  sync: () => undefined,
+};
+
+function closeRetiredSocket(
+  tearleads: Tearleads,
+  scope: DomainScope,
+  ws: WebSocket,
+): void {
+  if (tearleads.domainScope === scope || tearleads.events.connected) {
+    tearleads.events.setConnected(false);
+  }
+  ws.close();
+}
+
 export function startContainerInterestDeclaration(
   tearleads: Tearleads,
   ws: WebSocket,
-) {
-  const scope = tearleads.domainScope;
-  const coordinator = getOrCreateDomainSyncCoordinator(scope);
-  const handle = declareInterest(tearleads, ws);
-  // A socket owns its declaration queue and its acknowledged tree. Retiring
-  // them together lets the existing reconnect loop establish a fresh barrier.
-  const retire = () => {
-    if (!coordinator.isDisposed()) return;
-    handle.stop();
-    if (tearleads.domainScope === scope) tearleads.events.setConnected(false);
-    ws.close();
+  options?: StartContainerInterestBindingOptions,
+): ContainerInterestDeclaration {
+  let state: ContainerInterestBindingState = {
+    status: "awaiting-tree",
+    scope: tearleads.domainScope,
   };
-  const detach = coordinator.subscribe(retire);
-  retire();
+  let activeHandle: ContainerInterestDeclaration = NOOP_DECLARATION;
+  let detachCoordinator: (() => void) | null = null;
+
+  const detachActive = (): void => {
+    detachCoordinator?.();
+    detachCoordinator = null;
+    activeHandle.stop();
+    activeHandle = NOOP_DECLARATION;
+  };
+
+  const handleScopeRetired = (scope: DomainScope): void => {
+    const transition = transitionContainerInterestBinding(state, {
+      type: "scope-retired",
+      nextScope: tearleads.domainScope,
+      canRebind: options?.canRebind?.() ?? true,
+      socketOpen: ws.readyState === WebSocket.OPEN,
+    });
+    state = transition.state;
+    if (transition.effect === "rebind" && state.status === "awaiting-tree") {
+      bindScope(state.scope, true);
+      return;
+    }
+    if (transition.effect === "close-socket") {
+      detachActive();
+      closeRetiredSocket(tearleads, scope, ws);
+    }
+  };
+
+  const bindScope = (scope: DomainScope, isRebind: boolean): void => {
+    detachActive();
+    const coordinator = getOrCreateDomainSyncCoordinator(scope);
+    let unavailable = false;
+    activeHandle = declareInterest(tearleads, ws, {
+      onDeclared: () => {
+        state = transitionContainerInterestBinding(state, {
+          type: "declaration-sent",
+        }).state;
+      },
+      onUnavailable: () => {
+        unavailable = true;
+        const next = transitionContainerInterestBinding(state, {
+          type: "bind-failed",
+        });
+        state = next.state;
+        if (isRebind && next.effect === "mark-unavailable") {
+          options?.onRebindUnavailable?.();
+        }
+      },
+    });
+    if (unavailable) return;
+    // A socket owns its declaration queue and its acknowledged tree. When the
+    // bound scope retires before anything was declared on the socket (e.g.
+    // SQLite finished booting after recovery-key restore), rebind in place to
+    // the replacement scope; once a declaration was sent, close the socket so
+    // the reconnect loop establishes a fresh ordering barrier.
+    const onCoordinatorChange = (): void => {
+      if (coordinator.isDisposed()) handleScopeRetired(scope);
+    };
+    detachCoordinator = coordinator.subscribe(onCoordinatorChange);
+    onCoordinatorChange();
+  };
+
+  bindScope(state.scope, false);
+
   return {
-    ...handle,
+    acknowledge: (declarationId, acceptedIds) =>
+      activeHandle.acknowledge(declarationId, acceptedIds),
+    awaitingInitialAcknowledgement: () =>
+      (state.status === "awaiting-tree" || state.status === "declared") &&
+      activeHandle.awaitingInitialAcknowledgement(),
+    invalidate: (containerId) => activeHandle.invalidate(containerId),
+    retryRefused: () => activeHandle.retryRefused(),
     stop: () => {
-      detach();
-      handle.stop();
+      state = transitionContainerInterestBinding(state, {
+        type: "stop",
+      }).state;
+      detachActive();
     },
+    sync: () => activeHandle.sync(),
   };
 }
 
@@ -308,7 +405,9 @@ export function useServerEventsBinding(
       detachOrganizationSocket?.();
       detachOrganizationSocket = null;
     };
-    const attempts = trackConnectAttempts(tearleads.events);
+    const attempts = trackConnectAttempts(tearleads.events, undefined, {
+      onTimeout: () => log("WebSocket: interest acknowledgement timed out"),
+    });
     const stopLoop = startServerEventsConnectionLoop({
       onAttemptStart: attempts.begin,
       onAttemptFailed: attempts.end,
@@ -326,7 +425,13 @@ export function useServerEventsBinding(
         // ordering barrier: the matching acknowledgement is, after the server
         // has synchronously installed the authoritative current set.
         interestHandle?.stop();
-        interestHandle = startContainerInterestDeclaration(tearleads, ws);
+        interestHandle = startContainerInterestDeclaration(tearleads, ws, {
+          canRebind: signInCurrent,
+          onRebindUnavailable: () => {
+            attempts.end();
+            ws.close();
+          },
+        });
         // A declaration waiting for the local tree to load sends once it is
         // ready, usually milliseconds later: work that defers to this attempt
         // keeps waiting, bounded by the acknowledgement deadline. A socket

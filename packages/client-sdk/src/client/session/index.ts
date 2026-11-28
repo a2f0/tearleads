@@ -127,6 +127,7 @@ class SessionService implements Session {
       this.dependencies.identity.snapshot.signingFingerprint,
     );
     if (this.isAuthenticated && acknowledgedRoot) {
+      if (this.containerId === null) this.setContainerId(acknowledgedRoot);
       return { containerId: acknowledgedRoot, created: false };
     }
     const result = await bootstrapRootContainer(
@@ -139,9 +140,7 @@ class SessionService implements Session {
     if (!signInCurrent() || !isCurrent())
       throw new Error("Identity change was superseded.");
     this.setContainerId(result.containerId);
-    if (result.created) {
-      this.dependencies.log("Root container created");
-    }
+    if (result.created) this.dependencies.log("Root container created");
     return result;
   }
 

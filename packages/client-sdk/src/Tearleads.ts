@@ -174,12 +174,7 @@ export class Tearleads {
     });
     this.containerContents = createContainerContents(runtime);
     this.deviceFirst = createDeviceFirst(runtime, this.containerContents);
-    sessionLifetime(session).onBoundary = () => {
-      const previous = this.domainScopeValue;
-      this.deviceFirst.dispose();
-      disposeDomainSyncCoordinator(previous);
-      this.events.clear();
-    };
+    this.bindDomainScopeLifecycle(session);
     this.organizations = createOrganizations(
       runtime,
       () => this.deviceFirst.open().reconciler,
@@ -350,18 +345,50 @@ export class Tearleads {
     return openServerEventsSocket(wsUrl, ticket);
   }
 
-  get domainScope(): DomainScope {
-    const nextScopeKey = JSON.stringify([
+  private bindDomainScopeLifecycle(session: Session): void {
+    this.domainScopeKey = this.currentDomainScopeKey();
+    this.database.subscribe(() => {
+      this.syncDomainScope();
+    });
+    this.identity.subscribe(() => {
+      this.syncDomainScope();
+    });
+    sessionLifetime(session).onBoundary = () => {
+      const previous = this.domainScopeValue;
+      this.domainScopeKey = this.currentDomainScopeKey();
+      this.domainScopeValue = createDomainScope();
+      this.deviceFirst.dispose();
+      disposeDomainSyncCoordinator(previous);
+      this.events.clear();
+    };
+  }
+
+  private currentDomainScopeKey(): string {
+    return JSON.stringify([
       this.database.id,
       this.identity.signingFingerprint,
       sessionLifetime(this.session).epoch,
     ]);
+  }
+
+  private syncDomainScope(): DomainScope {
+    const nextScopeKey = this.currentDomainScopeKey();
+    if (this.domainScopeKey === null) {
+      this.domainScopeKey = nextScopeKey;
+      return this.domainScopeValue;
+    }
     if (this.domainScopeKey !== nextScopeKey) {
+      const previous = this.domainScopeValue;
       this.domainScopeKey = nextScopeKey;
       this.domainScopeValue = createDomainScope();
+      disposeDomainSyncCoordinator(previous);
     }
 
     return this.domainScopeValue;
+  }
+
+  get domainScope(): DomainScope {
+    return this.syncDomainScope();
   }
 
   /**

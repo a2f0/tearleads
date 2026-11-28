@@ -26,6 +26,10 @@ const DEFAULT_TIMERS: ConnectAttemptTimers = {
   schedule: (callback, delayMs) => setTimeout(callback, delayMs),
 };
 
+export interface ConnectAttemptTrackerOptions {
+  readonly onTimeout?: () => void;
+}
+
 /**
  * Work the acknowledgement of the connect attempt in flight also does waits
  * for that attempt (`connectAttemptWaitMachine.ts` in the SDK): an opened
@@ -39,6 +43,7 @@ const DEFAULT_TIMERS: ConnectAttemptTimers = {
 export function trackConnectAttempts(
   events: ConnectAttemptEvents,
   timers: ConnectAttemptTimers = DEFAULT_TIMERS,
+  options?: ConnectAttemptTrackerOptions,
 ) {
   let attempt: number | null = null;
   let deadline: ReturnType<typeof setTimeout> | null = null;
@@ -57,7 +62,10 @@ export function trackConnectAttempts(
     /** The declaration is sent: release the wait if no ack arrives in time. */
     awaitAcknowledgement: (): void => {
       if (attempt === null || deadline !== null) return;
-      deadline = timers.schedule(end, CONNECT_ACKNOWLEDGEMENT_TIMEOUT_MS);
+      deadline = timers.schedule(() => {
+        options?.onTimeout?.();
+        end();
+      }, CONNECT_ACKNOWLEDGEMENT_TIMEOUT_MS);
     },
     /** Stop the loop, then end an attempt it left pending. */
     endingWith:
