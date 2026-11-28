@@ -29,8 +29,10 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { lockUnheldAccessManifestHeads } from "../../access/read/accessManifestStore";
 import { forgetTransactionAccessManifestBundles } from "../../access/write/accessManifestStore";
 import { forgetPrincipalTransactionMemo } from "../../access/write/principalStateStore";
+import { uniqueSortedStrings } from "../../utils/array";
 import {
   lockBlobMutationRows,
   planBlobMutationLockIds,
@@ -38,7 +40,10 @@ import {
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
-import { reservePurgedOrganizationObjects } from "./purgedObjectReservations";
+import {
+  reservePurgedOrganizationObjects,
+  snapshotPurgedDocumentPeerOwners,
+} from "./purgedObjectReservations";
 
 async function deleteContainerRows(input: {
   readonly executor: DatabaseTransaction;
@@ -268,18 +273,37 @@ export async function deleteOrganizationRemoteRows(input: {
     .where(eq(organizationRosterEntries.organizationId, input.organizationId));
   // Same transaction as the deletes: a create sees the rows or the
   // reservation, never neither.
-  await reservePurgedOrganizationObjects({
+  const recoveryOwnerUserId = await reservePurgedOrganizationObjects({
     containerIds: input.scope.containerIds,
     documentIds: input.scope.freedDocumentIds,
     executor: input.executor,
     organizationId: input.organizationId,
   });
-  for (const documentBatch of organizationPurgeBatches(
-    input.scope.documentIds,
-  )) {
+  // Lock every document head in UUID order before snapshotting and deleting
+  // document rows so purge serializes after in-flight syncs and allow-restore
+  // mutations, matching their head -> document_peer_owners lock order.
+  const sortedDocumentIds = uniqueSortedStrings(input.scope.documentIds);
+  for (const documentBatch of organizationPurgeBatches(sortedDocumentIds)) {
+    await lockUnheldAccessManifestHeads(
+      "document",
+      documentBatch,
+      input.executor,
+      "update",
+    );
+  }
+  // Snapshot pre-purge peer owners and frontiers before deleting document rows
+  // so post-purge recreations preserve rightful ownership and restorable bounds.
+  await snapshotPurgedDocumentPeerOwners({
+    documentIds: sortedDocumentIds,
+    executor: input.executor,
+    organizationId: input.organizationId,
+    recoveryOwnerUserId,
+  });
+  for (const documentBatch of organizationPurgeBatches(sortedDocumentIds)) {
     await deleteDocumentRows({
       documentIds: documentBatch,
       executor: input.executor,
+      headsLocked: true,
       orphanedBlobIds: [],
       retainAccessHistory: false,
     });

@@ -3,10 +3,19 @@ import {
   MAX_DOCUMENT_PEER_FRONTIERS,
 } from "./response/documentSyncError";
 
-/** A peer's committed frontier (exclusive) and owner; null when unowned. */
+/** A peer's committed frontier (exclusive), owner, and post-purge restore window. */
 export interface CommittedDocumentPeer {
   readonly committedEndCounter: number;
   readonly ownerUserId: string | null;
+  /**
+   * Highest counter committed on this peer before an organization billing
+   * purge. Past `committedEndCounter` and at or below this counter, the
+   * recovery owner (and, when `allowMemberRestore` is true, any authorized
+   * writer) may restore the lost operations without claiming ownership.
+   */
+  readonly restorableEndCounter?: number | undefined;
+  readonly recoveryOwnerUserId?: string | null | undefined;
+  readonly allowMemberRestore?: boolean | undefined;
 }
 
 /** One op an update depends on: its peer, and one past its counter. */
@@ -47,7 +56,7 @@ export type DocumentPeerVerdict =
  * Code-unit order, the same as `compareCanonicalStrings` in
  * `@tearleads/crypto`, which this leaf package cannot import.
  */
-function comparePeerIds(left: string, right: string): number {
+export function compareDocumentPeerIds(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
@@ -56,12 +65,18 @@ function namedFrontiers(
   committedPeers: ReadonlyMap<string, CommittedDocumentPeer>,
 ): DocumentPeerFrontier[] {
   return [...peerIds]
-    .sort(comparePeerIds)
+    .sort(compareDocumentPeerIds)
     .slice(0, MAX_DOCUMENT_PEER_FRONTIERS)
     .map((peerId) => ({
       peerId,
       committedEndCounter: committedPeers.get(peerId)?.committedEndCounter ?? 0,
     }));
+}
+
+interface RestorablePeerWindow {
+  readonly allowMemberRestore: boolean;
+  readonly endCounter: number;
+  readonly recoveryOwnerUserId: string | null;
 }
 
 /** The walk's state: each peer's reached frontier and owner, and its findings. */
@@ -70,6 +85,7 @@ interface DocumentPeerWalk {
   readonly frontiers: Map<string, number>;
   readonly owned: Set<string>;
   readonly owners: Map<string, string>;
+  readonly restorable: Map<string, RestorablePeerWindow>;
   readonly uncommitted: Set<string>;
 }
 
@@ -81,11 +97,20 @@ function startDocumentPeerWalk(
     frontiers: new Map(),
     owned: new Set(),
     owners: new Map(),
+    restorable: new Map(),
     uncommitted: new Set(),
   };
   for (const [peerId, peer] of committedPeers) {
     walk.frontiers.set(peerId, peer.committedEndCounter);
     if (peer.ownerUserId !== null) walk.owners.set(peerId, peer.ownerUserId);
+    const restorableEnd = peer.restorableEndCounter ?? 0;
+    if (restorableEnd > 0) {
+      walk.restorable.set(peerId, {
+        allowMemberRestore: peer.allowMemberRestore === true,
+        endCounter: restorableEnd,
+        recoveryOwnerUserId: peer.recoveryOwnerUserId ?? null,
+      });
+    }
   }
   return walk;
 }
@@ -102,6 +127,18 @@ function walkDependencies(
   }
 }
 
+function canRestoreForeignPeerSpan(
+  window: RestorablePeerWindow | undefined,
+  endCounter: number,
+  userId: string,
+): boolean {
+  return (
+    window !== undefined &&
+    endCounter <= window.endCounter &&
+    (window.allowMemberRestore || window.recoveryOwnerUserId === userId)
+  );
+}
+
 function walkSpans(
   walk: DocumentPeerWalk,
   spans: readonly DocumentPeerSpan[],
@@ -114,7 +151,14 @@ function walkSpans(
     if (owner === undefined) {
       walk.owners.set(span.peerId, userId);
       walk.claimed.add(span.peerId);
-    } else if (owner !== userId) {
+    } else if (
+      owner !== userId &&
+      !canRestoreForeignPeerSpan(
+        walk.restorable.get(span.peerId),
+        span.endCounter,
+        userId,
+      )
+    ) {
       walk.owned.add(span.peerId);
     }
   }
@@ -129,11 +173,13 @@ function walkSpans(
  * within the frontier the walk has reached: committed, or written by an
  * earlier update of the request. Then each of its spans: one ending at or
  * below the frontier re-asserts committed counters, which any writer may do;
- * one ending past it claims an unowned peer, extends the writer's own, or is
- * refused when another user owns the peer. The frontier rises as the walk
- * goes, so a request may chain updates on one peer. Refused peers report the
- * frontier committed before the request, which rolls back; a peer another
- * user owns outranks an uncommitted dependency.
+ * one ending past it claims an unowned peer, extends the writer's own,
+ * restores counters within a post-purge restorable window without transferring
+ * ownership (for the recovery owner, or any writer when member restore is
+ * enabled), or is refused when another user owns the peer. The frontier rises
+ * as the walk goes, so a request may chain updates on one peer. Refused peers
+ * report the frontier committed before the request, which rolls back; a peer
+ * another user owns outranks an uncommitted dependency.
  */
 export function judgeDocumentPeerSpans(input: {
   readonly committedPeers: ReadonlyMap<string, CommittedDocumentPeer>;
@@ -159,6 +205,6 @@ export function judgeDocumentPeerSpans(input: {
   }
   return {
     kind: "accepted",
-    claimedPeerIds: [...walk.claimed].sort(comparePeerIds),
+    claimedPeerIds: [...walk.claimed].sort(compareDocumentPeerIds),
   };
 }

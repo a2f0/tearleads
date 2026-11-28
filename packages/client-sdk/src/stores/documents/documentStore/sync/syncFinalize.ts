@@ -33,6 +33,7 @@ import type {
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
 import { noteDocumentDownloadDrained } from "./downloadCompletion";
 import { applyingPage } from "./ownPeerPage";
+import { settleDocumentPeerRestoreAfterSync } from "./peerRestorePark";
 import { logRevalidationApplied as logApplied } from "./remoteRevalidationTelemetry";
 import { noteDocumentPullCompleted } from "./replacedBindingSightings";
 import {
@@ -132,16 +133,20 @@ function coveredSyncFrontier(
 
 function documentSyncSaveOptions(
   syncAttempt: DocumentSyncAttempt,
+  importedDoc: DocumentState,
 ): SaveDocumentRecordOptions {
   return {
     acceptedPendingUpdateIds: syncAttempt.synced.settledPendingUpdateIds,
     clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
       syncAttempt.synced,
       syncAttempt.outgoingUpdateCount,
+      syncAttempt.writesDeferred === true,
     ),
-    // What this response showed the server to hold; the save's transaction
-    // raises the record's committed version with it.
-    committedVersions: documentSyncCommittedVersions(syncAttempt.synced),
+    // What this response showed the server to hold (spans + causal deps).
+    committedVersions: documentSyncCommittedVersions(
+      syncAttempt.synced,
+      importedDoc,
+    ),
     expectedSyncState: {
       pullContinuation: syncAttempt.consumedPullContinuation,
       record: syncAttempt.requestRecord,
@@ -188,7 +193,6 @@ async function persistSyncedDocument(
   const updates = synced.decryptedUpdates;
   const candidate = currentDoc.fork();
   const previousDocumentId = state.record?.documentId ?? null;
-  const options = documentSyncSaveOptions(syncAttempt);
   const isCurrent = () =>
     isDocumentStoreSyncGenerationCurrent(state, generation);
   const scope = { appKind: DOCUMENTS_APP_KIND, localId: state.localId };
@@ -198,6 +202,7 @@ async function persistSyncedDocument(
   let committed = false;
   try {
     importSyncedDocumentUpdates(candidate, updates);
+    const options = documentSyncSaveOptions(syncAttempt, candidate);
     if (state.pendingBaseVersion === null) {
       throw new Error("Document sync requires an initialized pending base");
     }
@@ -243,18 +248,13 @@ async function persistSyncedDocument(
       // After the save committed: report each void first recorded here.
       reportDocumentSyncVoids(state.runtime.util.logError, synced, verdicts);
     }
+    // Publish a remote edit only once its history and continuation commit.
     if (
       persisted &&
       isCurrent() &&
       !persisted.pullContinuationSuperseded &&
       !persisted.syncIdentitySuperseded
     ) {
-      // Publish a remote edit only once its history and continuation commit.
-      // Importing earlier lets a losing CAS expose text that the next local
-      // write authors against an older, reloaded CRDT history.
-      // The durable CAS already checked the request's complete context. The
-      // successful row is now live, so publication uses that committed context
-      // (which may contain refreshed keying metadata) and the same generation.
       applyIncomingSyncedUpdates(
         state,
         currentDoc,
@@ -296,12 +296,17 @@ async function settleUnsavedLoroWindow(
 
 export function shouldReArmDocumentSync(
   state: DocumentStoreState,
-  syncAttempt: Pick<DocumentSyncAttempt, "outgoingUpdateCount" | "synced">,
+  syncAttempt: Pick<
+    DocumentSyncAttempt,
+    "outgoingUpdateCount" | "synced" | "writesDeferred"
+  >,
 ): boolean {
   const { synced } = syncAttempt;
   const shouldReArmOutgoing = settleOutgoingPassAndDecideReArm(state, {
     exhaustedPendingUpdateCount: synced.exhaustedPendingUpdateCount,
-    outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
+    outgoingUpdateCount: syncAttempt.writesDeferred
+      ? 0
+      : syncAttempt.outgoingUpdateCount,
     rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
     settledUpdateCount: synced.settledPendingUpdateIds.length,
     acceptedRecoveryBaseline: synced.acceptedRecoveryBaseline,
@@ -466,7 +471,17 @@ export async function finalizeDocumentSync(
     nextRecord,
   );
 
-  if (shouldReArmDocumentSync(state, syncAttempt)) {
+  if (
+    settleDocumentPeerRestoreAfterSync({
+      outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
+      pullComplete: !synced.hasIncompletePull && !synced.hasHeldPull,
+      pullPage: synced.response.pullPage,
+      settledPendingUpdateCount: synced.settledPendingUpdateIds.length,
+      state,
+      writesDeferred: syncAttempt.writesDeferred,
+    }) ||
+    shouldReArmDocumentSync(state, syncAttempt)
+  ) {
     requestDocumentStoreSync(state);
   }
 

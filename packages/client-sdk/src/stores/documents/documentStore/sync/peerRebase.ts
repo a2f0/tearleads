@@ -17,7 +17,7 @@ import {
   type DocumentsPersistence,
   importDocumentHistoryTailUpdates,
   peerRebaseChangedQueue,
-  queuedRecoveryUpdate,
+  queuedRecoveryUpdates,
 } from "../../../../workflows/documents";
 import { requestDocumentStoreSync } from "../../registry";
 import { importDurableDocumentHistory } from "../history/durableDocumentReload";
@@ -30,6 +30,7 @@ import {
   setReadySnapshot,
 } from "../state";
 import { storedDocumentPeer } from "../storedDocument";
+import { recordDocumentPeerRestoreParked } from "./peerRestorePark";
 import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
@@ -155,7 +156,7 @@ async function installFork(
           snapshot: bytesToBase64(exportFullHistorySnapshot(fork)),
         },
         kind: "fork",
-        ...queuedRecoveryUpdate(rebase),
+        ...queuedRecoveryUpdates(rebase),
         record: { kind: "document", peerSalt },
       })) && isUnchanged(context, read.liveVersion);
     // A store reset after the commit reloads the installed rows itself.
@@ -186,7 +187,7 @@ async function installRelay(
   const installed = await context.install(context.state.runtime.infra.execSql, {
     ...installFence(context, read),
     kind: "relay",
-    ...queuedRecoveryUpdate(relay),
+    ...queuedRecoveryUpdates(relay),
   });
   return installed && isUnchanged(context, read.liveVersion)
     ? "relayed"
@@ -230,6 +231,9 @@ async function recoverOnWriteChain(
       case "nothing_to_relay":
         return recovery.kind;
       case "park":
+        if (recordDocumentPeerRestoreParked(state)) {
+          requestDocumentStoreSync(state);
+        }
         return "parked";
       case "relay":
         return await installRelay(context, read, recovery);

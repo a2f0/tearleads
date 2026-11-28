@@ -392,6 +392,7 @@ export async function appendDocumentUpdates(
   const refusal = await claimDocumentPeers(input.executor, {
     documentId: input.documentId,
     documentInsertedInTransaction: input.documentInsertedInTransaction,
+    hasRestoredPeerOwners: input.hasRestoredPeerOwners,
     stagedBaselineId: staged?.commit.stage.id,
     updates: newUpdates,
     userId: input.userId,

@@ -2,6 +2,8 @@ import {
   type createDocument,
   decodeVersionVector,
   encodeVersionVectorCounters,
+  exportHistorySegments,
+  type HistorySegmentSizes,
   listVersionVectorSpans,
 } from "@tearleads/loro";
 
@@ -68,6 +70,8 @@ export interface PeerRebaseInput {
    * them committed whatever the queue holds.
    */
   readonly committedVersion: PeerCounters;
+  /** Optional segment byte caps for large-document rebase splitting. */
+  readonly segmentSizes?: HistorySegmentSizes | undefined;
 }
 
 export type PeerRebase =
@@ -102,8 +106,11 @@ export type PeerRebase =
        * not refused.
        */
       readonly unsentBase: PeerCounters;
-      /** The fork's operations after B, as one Loro update. */
-      readonly update: Uint8Array;
+      /**
+       * The fork's operations after B, split into ordered Loro update segments
+       * bounded within the sync request byte cap (#3263).
+       */
+      readonly updates: readonly Uint8Array[];
     };
 
 function counters(version: DocumentVersion): Map<string, number> {
@@ -127,12 +134,13 @@ function lowerTo(
 
 /**
  * Per peer of `liveVersion`, the version before any operation a device has
- * not sent: the smallest of its pending bases (a peer a base leaves out
- * starts at zero), lowered to the start of every queued update that writes
- * on the peer. Lower is safe: the fork's update then sends more of what is
- * already committed. Everything below it is committed, but not only that:
- * a queued update may send committed operations again, and the record's
- * committed version says which (`knownCommittedOf`).
+ * not sent: the smallest of its present pending bases (absent `null`/`undefined`
+ * entries are ignored; a peer a present base leaves out starts at zero),
+ * lowered to the start of every queued update that writes on the peer. Lower
+ * is safe: the fork's update then sends more of what is already committed.
+ * Everything below it is committed, but not only that: a queued update may
+ * send committed operations again, and the record's committed version says
+ * which (`knownCommittedOf`).
  */
 export function unsentStartOf(input: {
   readonly liveVersion: string;
@@ -144,6 +152,7 @@ export function unsentStartOf(input: {
 }): Map<string, number> {
   const start = countersOf(input.liveVersion);
   for (const encoded of input.pendingBases) {
+    if (encoded == null) continue;
     const base = countersOf(encoded);
     for (const peer of [...start.keys()])
       lowerTo(start, peer, base.get(peer) ?? 0);
@@ -184,7 +193,7 @@ export function committedSpansVersion(
     : encodeVersionVectorCounters(ends);
 }
 
-export function versionOf(peerCounters: PeerCounters): DocumentVersion {
+function versionOf(peerCounters: PeerCounters): DocumentVersion {
   return decodeVersionVector(
     encodeVersionVectorCounters(Object.fromEntries(peerCounters)),
   );
@@ -432,12 +441,22 @@ export function rebaseOntoFreshPeer(input: PeerRebaseInput): PeerRebase {
   }
   const fork = forkOnFreshPeer(live, kept, newPeer);
   const unsentBase = minimumCounters(kept, input.unsentStart);
+  const unsentBaseEncoded = encodeVersionVectorCounters(
+    Object.fromEntries(unsentBase),
+  );
+  const updates = [
+    ...exportHistorySegments(fork, input.segmentSizes, unsentBaseEncoded),
+  ].map((segment) => segment.update);
+  if (updates.length === 0) {
+    fork.free();
+    return { kind: "nothing_to_cut" };
+  }
   return {
     fork,
     keptVersion: kept,
     kind: "rebased",
     knownCommitted,
     unsentBase,
-    update: fork.export({ from: versionOf(unsentBase), mode: "update" }),
+    updates,
   };
 }

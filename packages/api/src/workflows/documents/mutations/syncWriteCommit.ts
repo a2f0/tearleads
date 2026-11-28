@@ -217,11 +217,12 @@ export async function commitSyncDocumentWrites(
   input: SyncDocumentWriteInput,
 ): Promise<CommittedSyncDocumentWrites> {
   const createdDocument = takeSyncCreateSeed(input);
+  const documentInsertedInTransaction =
+    input.seed?.documentInsertedInTransaction ?? false;
   const frontier = await prepareSyncDocumentTransaction({
     ...input,
     createdFrontier: createdDocument?.frontier,
-    documentInsertedInTransaction:
-      input.seed?.documentInsertedInTransaction ?? false,
+    documentInsertedInTransaction,
   });
   // Run signed container.rekey payloads before resolving document KEK targets;
   // content-key validation then compares the write against the updated target
@@ -293,10 +294,10 @@ export async function commitSyncDocumentWrites(
     accessEpoch: resolveSyncAccessEpoch({ currentTargets, writeAuthorization }),
     contentKeyCommitment: contentKeyBundle.contentKeyCommitment,
     documentId: input.documentId,
-    documentInsertedInTransaction:
-      input.seed?.documentInsertedInTransaction ?? false,
+    documentInsertedInTransaction,
     executor: input.tx,
     fingerprint: input.fingerprint,
+    hasRestoredPeerOwners: createdDocument?.hasRestoredPeerOwners ?? true,
     organizationId: currentTargets.organizationId,
     request: input.request,
     signingPublicKey: input.signingPublicKey,

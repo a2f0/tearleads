@@ -1,4 +1,5 @@
 import {
+  allowDocumentPeerRestoreOperation,
   createDocumentOperation,
   documentSyncOperation,
   linkDocumentOperation,
@@ -7,11 +8,13 @@ import {
 import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
+  DocumentPeerRestoreAllowRequest,
   DocumentPurgeRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
   DocumentCreateResponse,
+  DocumentPeerRestoreAllowResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -28,6 +31,7 @@ import {
   type DocumentPurgeProofOptions,
   documentCreate,
   documentLink,
+  documentPeerRestoreAllow,
   documentUnlink,
 } from "../routes/documents/mutations";
 import type {
@@ -99,6 +103,34 @@ export class DocumentArea {
       this.projections.delete(documentId);
       this.projectionResults.delete(documentId);
     }
+  }
+
+  allowDocumentPeerRestore(
+    documentId: string,
+    input: DocumentPeerRestoreAllowRequest,
+    options: RequestResultOptions = {},
+  ): Promise<DocumentPeerRestoreAllowResponse | null> {
+    return this.context.send(
+      documentPeerRestoreAllow,
+      documentPeerRestoreAllow.path(documentId),
+      allowDocumentPeerRestoreOperation,
+      input,
+      options,
+    );
+  }
+
+  allowDocumentPeerRestoreResult(
+    documentId: string,
+    input: DocumentPeerRestoreAllowRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<DocumentPeerRestoreAllowResponse>> {
+    return this.context.sendResult(
+      documentPeerRestoreAllow,
+      documentPeerRestoreAllow.path(documentId),
+      allowDocumentPeerRestoreOperation,
+      input,
+      options,
+    );
   }
 
   createDocument(

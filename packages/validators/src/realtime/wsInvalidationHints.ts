@@ -29,7 +29,12 @@ export const WsDocumentMutationCreatedHintSchema = z.object({
   type: z.literal("document_mutation_created"),
   containerIds: z.array(z.string().min(1)),
   documentId: z.string().min(1),
-  eventType: z.enum(["document.link", "document.purge", "document.unlink"]),
+  eventType: z.enum([
+    "document.link",
+    "document.peer_restore_allowed",
+    "document.purge",
+    "document.unlink",
+  ]),
 });
 
 export const WsContainerMutationCreatedHintSchema = z.object({

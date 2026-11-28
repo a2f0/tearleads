@@ -20,7 +20,9 @@ import {
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { lockUnheldAccessManifestHeads } from "../../../access/read/accessManifestStore";
 import { forgetTransactionAccessManifestBundles } from "../../../access/write/accessManifestStore";
+import { uniqueSortedStrings } from "../../../utils/array";
 import { wallClockNowExpression } from "../../../utils/postgresSql";
 import { DocumentMutationError } from "./errors";
 
@@ -171,12 +173,24 @@ async function deleteDocumentAccessHistory(
 export async function deleteDocumentRows(input: {
   readonly documentIds: readonly string[];
   readonly executor: DatabaseTransaction;
+  /** Caller already locked these document heads in canonical UUID order. */
+  readonly headsLocked?: boolean | undefined;
   readonly orphanedBlobIds: readonly string[];
   readonly retainAccessHistory: boolean;
 }): Promise<void> {
   const { documentIds, executor } = input;
   if (documentIds.length === 0) return;
 
+  // Match sync/allow-restore head -> row lock order when a caller has not
+  // already locked these document heads; already-held locks are skipped.
+  if (!input.headsLocked) {
+    await lockUnheldAccessManifestHeads(
+      "document",
+      uniqueSortedStrings(documentIds),
+      executor,
+      "update",
+    );
+  }
   await deleteDocumentContentRows(documentIds, executor);
   await deleteDocumentAttachmentRows(input);
   await deleteDocumentAccessHeads(documentIds, executor);

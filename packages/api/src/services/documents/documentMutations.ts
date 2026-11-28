@@ -1,11 +1,14 @@
 import {
+  type AllowDocumentPeerRestoreInput,
   type CreateDocumentInput,
   type DocumentCreateWorkflowResult,
   type DocumentLinkSetMutationWorkflowResult,
+  type DocumentPeerRestoreAllowWorkflowResult,
   type DocumentSyncWorkflowResult,
   type MutateDocumentLinkSetInput,
   type PurgeDocumentInput,
   type PurgeDocumentWorkflowResult,
+  runAllowDocumentPeerRestoreWorkflow,
   runCreateDocumentWorkflow,
   runDocumentLinkSetMutationWorkflow,
   runDocumentPurgeProofWorkflow,
@@ -17,6 +20,11 @@ import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { DocumentMutationError } from "../../workflows/documents/mutations";
+
+export const allowDocumentPeerRestore = createDatabaseWorkflowService<
+  AllowDocumentPeerRestoreInput,
+  DocumentPeerRestoreAllowWorkflowResult
+>(runAllowDocumentPeerRestoreWorkflow);
 
 export const createDocument = createDatabaseWorkflowService<
   CreateDocumentInput,

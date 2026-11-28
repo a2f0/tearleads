@@ -46,6 +46,7 @@ import type {
 } from "../types";
 import { getAttachmentSlotSnapshot } from "./attachments/attachmentSnapshot";
 import { sameValidationIssues, shallowEqualRecord } from "./snapshotEquality";
+import { resetDocumentPeerRestorePark } from "./sync/peerRestorePark";
 import { observeRecordedAttachmentSlots } from "./sync/removedSlotDetaches";
 import {
   initialStartupProbeState,
@@ -103,14 +104,12 @@ export interface SaveDocumentRecordOptions {
 }
 export interface DocumentSyncAttempt {
   consumedPullContinuation: DocumentSyncPullContinuation | null;
-  /** The pass's read window the page was read in; its save closes it. */
   loroWindow: DocumentSyncLoroWindow;
   outgoingUpdateCount: number;
-  /** The request's policy operation; finalizing hydration reuses it. */
   policyOperation: PrincipalPolicyOperation;
   requestRecord: DocumentRecord;
   synced: SyncRemoteDocumentResult;
-  /** `writerProjectionGeneration` when the request left; gates the install. */
+  writesDeferred?: boolean | undefined;
   writerProjectionGeneration: number;
 }
 export interface DocumentStorePersistenceEffects {
@@ -366,6 +365,7 @@ function clearDocumentStoreState(
   state.startupProbe = resetStartupProbe(state.startupProbe);
   state.remoteSyncBlocked = state.startupProbe.status === "onDemand";
   state.awaitingAncestorRepair = false;
+  resetDocumentPeerRestorePark(state);
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;
   state.unsavedLocalEdits = false;

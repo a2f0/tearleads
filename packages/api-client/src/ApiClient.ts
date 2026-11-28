@@ -148,7 +148,10 @@ export class ApiClient extends ApiClientAreas {
   listContainerParentLanes = this.containerReads.listContainerParentLanes;
   listContainerDocumentLanes = this.containerReads.listContainerDocumentLanes;
 
-  // Documents: create, link set, purge, sync, and edit attribution.
+  // Documents: create, link set, purge, sync, peer restore, and edit attribution.
+  allowDocumentPeerRestore = this.documents.allowDocumentPeerRestore;
+  allowDocumentPeerRestoreResult =
+    this.documents.allowDocumentPeerRestoreResult;
   createDocument = this.documents.createDocument;
   createDocumentResult = this.documents.createDocumentResult;
   getDocumentEditAttribution = this.documents.getDocumentEditAttribution;

@@ -22,7 +22,15 @@ import {
   createDocumentRecord,
   enqueuePendingContainerUpdate,
 } from "./metadata.testFixtures";
-import { containerMetadataPeerRebaser } from "./metadataPeerRebase";
+import {
+  hasContainerMetadataDocumentUpdateEvent,
+  listContainerMetadataDocumentUpdateIds,
+} from "./metadataEvents";
+import {
+  containerMetadataPeerRebaser,
+  shouldDeferMetadataQueuedWrites,
+} from "./metadataPeerRebase";
+import { installContainerMetadataRecord } from "./metadataStateInstallation";
 import type { ContainerMetadataState } from "./metadataTypes";
 
 const WRITER_PEER = "11";
@@ -238,4 +246,47 @@ test("parks metadata at a frontier that fell although a full history is queued",
   expect(signals.rebased).toBe(0);
   expect(metadataState.doc).toBe(live);
   expect(await stored()).toEqual(before);
+});
+
+test("resumes parked metadata on resync_required and resets park on identity change", async () => {
+  const { metadataState } = await metadataCommittedBeforeThePurge();
+  const { rebase } = recovery(metadataState);
+
+  expect(
+    await rebase({
+      kind: "peer_owned",
+      peerFrontiers: [{ committedEndCounter: 0, peerId: WRITER_PEER }],
+    }),
+  ).toBe("parked");
+  expect(shouldDeferMetadataQueuedWrites(metadataState)).toBe(true);
+
+  // Predicate checks without mutating park state; list pass resumes and schedules it.
+  expect(
+    hasContainerMetadataDocumentUpdateEvent(
+      [{ type: "resync_required" }],
+      [metadataState],
+    ),
+  ).toBe(true);
+  expect(shouldDeferMetadataQueuedWrites(metadataState)).toBe(true);
+  expect(
+    listContainerMetadataDocumentUpdateIds(
+      [{ type: "resync_required" }],
+      [metadataState],
+    ),
+  ).toEqual(["metadata-document-1"]);
+  expect(shouldDeferMetadataQueuedWrites(metadataState)).toBe(false);
+
+  // Re-park and replace document identity: park state resets to active.
+  expect(
+    await rebase({
+      kind: "peer_owned",
+      peerFrontiers: [{ committedEndCounter: 0, peerId: WRITER_PEER }],
+    }),
+  ).toBe("parked");
+  expect(shouldDeferMetadataQueuedWrites(metadataState)).toBe(true);
+  installContainerMetadataRecord(metadataState, {
+    ...metadataState.record,
+    documentId: "metadata-document-2",
+  });
+  expect(shouldDeferMetadataQueuedWrites(metadataState)).toBe(false);
 });

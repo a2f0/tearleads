@@ -31,6 +31,7 @@ import {
   markDocumentStoreRemoved,
 } from "../state";
 import { documentStorePeerRebaser } from "./peerRebase";
+import { shouldDeferDocumentStoreQueuedWrites } from "./peerRestorePark";
 import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import {
   type DocumentStoreSyncGeneration,
@@ -105,6 +106,7 @@ function createDocumentSyncAttempt(input: {
   policyOperation: PrincipalPolicyOperation;
   requestedPullContinuation: DocumentStoreState["pullContinuation"];
   synced: DocumentSyncAttempt["synced"];
+  writesDeferred?: boolean | undefined;
   writerProjectionGeneration: number;
 }): DocumentSyncAttempt {
   return {
@@ -117,6 +119,7 @@ function createDocumentSyncAttempt(input: {
     policyOperation: input.policyOperation,
     requestRecord: input.currentRecord,
     synced: input.synced,
+    ...(input.writesDeferred ? { writesDeferred: true } : {}),
     writerProjectionGeneration: input.writerProjectionGeneration,
   };
 }
@@ -197,6 +200,7 @@ function runRemoteDocumentSync(
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>,
   documentId: string,
   pullStart: PullStart,
+  deferQueuedWrites: boolean,
 ) {
   const { currentDoc, currentRecord, generation, pendingUpdates, state } =
     input;
@@ -220,6 +224,7 @@ function runRemoteDocumentSync(
           buildRotationSnapshot: async () =>
             exportFullHistorySnapshot(currentDoc),
         }),
+    ...(deferQueuedWrites ? { deferQueuedWrites: true } : {}),
     documentId,
     localVersionVector: encodeVersionVector(currentDoc),
     ...pullPosition(currentRecord, pullStart),
@@ -325,6 +330,8 @@ export async function requestRemoteDocumentSync(
     scope,
   });
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
+  const deferQueuedWrites =
+    pendingUpdates.length > 0 && shouldDeferDocumentStoreQueuedWrites(state);
   const synced = await runRemoteDocumentSync(
     input,
     author,
@@ -334,6 +341,7 @@ export async function requestRemoteDocumentSync(
       maxPageUpdates,
       processedThroughUpdateId,
     },
+    deferQueuedWrites,
   );
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   if (!synced) return null;
@@ -346,6 +354,7 @@ export async function requestRemoteDocumentSync(
     policyOperation: input.policyOperation,
     requestedPullContinuation,
     synced,
+    writesDeferred: deferQueuedWrites,
     writerProjectionGeneration,
   });
 }

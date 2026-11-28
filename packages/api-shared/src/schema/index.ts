@@ -32,7 +32,10 @@ export {
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
 } from "./documentLinks";
-export { documentPeerOwners } from "./documentPeerOwners";
+export {
+  documentPeerOwners,
+  purgedDocumentPeerOwners,
+} from "./documentPeerOwners";
 export { groups, organizationGroupTombstones } from "./groups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";
 export {

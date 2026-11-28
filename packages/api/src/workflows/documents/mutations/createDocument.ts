@@ -18,7 +18,10 @@ import { storeDocumentContentKeyBundleInTransaction } from "../../../access/writ
 import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
 import { readCommitCheckpoint } from "../../../documents/commitLsn";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
-import { releasePurgedObjectReservation } from "../../billing/purgedObjectReservations";
+import {
+  releasePurgedObjectReservation,
+  restorePurgedDocumentPeerOwners,
+} from "../../billing/purgedObjectReservations";
 import { applyContainerRekeys } from "../../containers/mutations";
 
 import { loadSignerPublicKey } from "../../signerPublicKey";
@@ -264,14 +267,22 @@ async function insertCreatedDocumentRow(
     executor: input.executor,
     manifest,
   });
+  let hasRestoredPeerOwners = false;
   if (reservedForCreator) {
+    hasRestoredPeerOwners = await restorePurgedDocumentPeerOwners(
+      input.executor,
+      {
+        documentId: manifest.state.documentId,
+        recoveryOwnerUserId: input.userId,
+      },
+    );
     await releasePurgedObjectReservation(input.executor, {
       objectId: manifest.state.documentId,
       objectKind: "document",
       userId: input.userId,
     });
   }
-  return document;
+  return { document, hasRestoredPeerOwners };
 }
 
 // The content-key bundle store resolves the document's current KEK targets
@@ -335,7 +346,10 @@ async function createDocumentInTransaction(
       manifest.state.documentId,
     );
 
-    const document = await insertCreatedDocumentRow(input, manifest);
+    const { document, hasRestoredPeerOwners } = await insertCreatedDocumentRow(
+      input,
+      manifest,
+    );
     await storeVerifiedAccessManifestInTransaction(
       { verifiedManifest: manifest },
       input.executor,
@@ -368,6 +382,7 @@ async function createDocumentInTransaction(
         input.executor,
         manifest,
         contentKeyBundle,
+        hasRestoredPeerOwners,
       ),
     };
   } catch (error) {

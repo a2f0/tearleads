@@ -60,12 +60,12 @@
       "bytes": 15964
     },
     "docs/developer/client-sdk/public-api.md": {
-      "lines": 548,
-      "bytes": 38449
+      "lines": 547,
+      "bytes": 38301
     },
     "docs/limits.md": {
-      "lines": 419,
-      "bytes": 65868
+      "lines": 418,
+      "bytes": 65799
     },
     "formal/blob-attachments/StagePromotion.tla": {
       "lines": 503,
@@ -76,8 +76,8 @@
       "bytes": 24668
     },
     "formal/document-sync/PeerOwnership.tla": {
-      "lines": 569,
-      "bytes": 27259
+      "lines": 625,
+      "bytes": 30740
     },
     "formal/document-sync/RawHistoryRecovery.tla": {
       "lines": 593,
@@ -92,8 +92,8 @@
       "bytes": 38101
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 703,
-      "bytes": 20792
+      "lines": 704,
+      "bytes": 20841
     },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 525,

@@ -109,8 +109,10 @@ test("organization purge statements do not grow with its documents", async () =>
   // PostgreSQL. Reserving the freed ids for the personal organization's owner
   // reads that owner and inserts one batch per 500 ids: 65 / 67. Deleting
   // the documents' rotation baseline stages, staged segments and their spans
-  // adds three: 68 / 70.
-  expect(one).toBeLessThanOrEqual(70);
+  // adds three: 68 / 70. Locking document heads in UUID order before
+  // snapshotting pre-purge peer owners adds two (one lock + one snapshot per
+  // batch of 500): 70 / 72.
+  expect(one).toBeLessThanOrEqual(72);
 });
 
 test("organization purge statements do not grow with its blobs", async () => {
@@ -129,8 +131,10 @@ test("organization purge statements do not grow with its blobs", async () => {
   // Deleting the purged principals' history progress adds two: 64 / 66.
   // Measured before the next step: 65 / 67. Reserving the freed ids for the
   // owner adds two: 67 / 69. Deleting the documents' rotation baseline
-  // stages, staged segments and their spans adds three: 70 / 72.
-  expect(one).toBeLessThanOrEqual(72);
+  // stages, staged segments and their spans adds three: 70 / 72. Locking
+  // document heads in UUID order before snapshotting pre-purge peer owners
+  // adds two: 72 / 74.
+  expect(one).toBeLessThanOrEqual(74);
 });
 
 test("organization blob reclaim statements do not grow with its blobs", async () => {

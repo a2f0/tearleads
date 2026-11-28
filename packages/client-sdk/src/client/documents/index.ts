@@ -103,6 +103,18 @@ export interface DocumentSubscriptionOptions {
 }
 
 export interface Documents {
+  /**
+   * Lets a personal organization's owner enable or disable member restoration
+   * of lost pre-purge peer history on a recovered document (#3263).
+   */
+  allowPeerRestore(
+    documentId: string,
+    allowMemberRestore: boolean,
+  ): Promise<{
+    readonly allowMemberRestore: boolean;
+    readonly documentId: string;
+    readonly updatedPeerCount: number;
+  } | null>;
   createSeeded(
     input: SeededDocumentInput,
   ): Promise<DiscoveredDocumentInput | "purged">;
@@ -171,6 +183,16 @@ class DocumentsService implements Documents {
   >();
 
   constructor(private readonly dependencies: DocumentsDependencies) {}
+
+  allowPeerRestore(documentId: string, allowMemberRestore: boolean) {
+    const runtime = this.dependencies.runtime.workflowInput();
+    if (!runtime.auth.isAuthenticated) {
+      return Promise.resolve(null);
+    }
+    return runtime.apiClient.allowDocumentPeerRestore(documentId, {
+      allowMemberRestore,
+    });
+  }
 
   createSeeded(input: SeededDocumentInput) {
     const { runtime } = this.dependencies;

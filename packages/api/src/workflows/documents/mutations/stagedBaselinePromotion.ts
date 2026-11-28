@@ -223,6 +223,13 @@ async function assertStagedPeersNotOwnedByOthers(
         on peer_owner.document_id = ${documentId}
         and peer_owner.peer_id = staged.peer_id
       where peer_owner.owner_user_id <> ${uuidValue(input.userId)}
+        and not (
+          staged.end_counter <= peer_owner.restorable_end_counter
+          and (
+            peer_owner.recovery_owner_user_id = ${uuidValue(input.userId)}
+            or peer_owner.allow_member_restore
+          )
+        )
         and not exists (
           select 1 from ${documentUpdateSpans} committed
           where committed.document_id = ${documentId}

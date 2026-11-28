@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import { z } from "zod";
 import { documentCreateSeedRefinement } from "../documentCreateSeedRefinements";
 import {
   documentLinkSetBaselineSegmentBytesRefinement,
@@ -207,6 +207,20 @@ export const DocumentPurgeRequestSchema = loosePlainObject({
 });
 
 export type DocumentPurgeRequest = z.infer<typeof DocumentPurgeRequestSchema>;
+
+export const DocumentPeerRestoreAllowRequestSchema = loosePlainObject({
+  allowMemberRestore: z.boolean(),
+});
+
+export type DocumentPeerRestoreAllowRequest = z.infer<
+  typeof DocumentPeerRestoreAllowRequestSchema
+>;
+
+export function isDocumentPeerRestoreAllowRequest(
+  value: unknown,
+): value is DocumentPeerRestoreAllowRequest {
+  return DocumentPeerRestoreAllowRequestSchema.safeParse(value).success;
+}
 
 export function isContainerManifestRefArrayArray(
   value: unknown,

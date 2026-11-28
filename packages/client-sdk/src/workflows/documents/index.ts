@@ -229,8 +229,9 @@ export {
   requestDocumentSyncLaneAndWait,
 } from "./sync/syncLane";
 export {
+  DOCUMENT_PEER_RESTORE_AWAITS_OWNER_ERROR_CODE,
   peerRebaseChangedQueue,
-  queuedRecoveryUpdate,
+  queuedRecoveryUpdates,
 } from "./sync/syncPeerRebase";
 export {
   DOCUMENT_SYNC_TRACE_FRAGMENT,

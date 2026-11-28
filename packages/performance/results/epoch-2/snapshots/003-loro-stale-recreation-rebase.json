@@ -1,0 +1,365 @@
+{
+  "schemaVersion": 1,
+  "epoch": 2,
+  "id": "003-loro-stale-recreation-rebase",
+  "label": "Preserved peer ownership, owner allow-restore, pull-only park, multi-segment recovery, causal closure (#3263)",
+  "kind": "checkpoint",
+  "recordedAt": "2026-11-28T08:14:32.766Z",
+  "revision": "d74895157b3aab2c8b7a80f87604240c75fd1084",
+  "dirty": true,
+  "issues": [3263],
+  "runtime": {
+    "bun": "1.4.3",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M2 Pro"
+  },
+  "notes": "Adds purged_document_peer_owners table (58th Postgres table, +2 indexes) via append-only migration 0018 (+7 bootstrap DDL statements per fresh PGlite canary; 0 extra hot-path runtime queries or plan regressions).",
+  "inventory": {
+    "postgres": {
+      "tables": 58,
+      "columns": 581,
+      "indexes": 185,
+      "migrations": 19,
+      "duplicateIndexes": 0,
+      "unreadTables": 0,
+      "unreadColumns": 0
+    },
+    "sqlite": {
+      "totalTables": 63,
+      "sdkTables": 58,
+      "appProjectionTables": 5,
+      "columns": 480,
+      "indexes": 98,
+      "duplicateIndexes": 0,
+      "unreadTables": 4,
+      "unreadColumns": 0
+    },
+    "openapi": {
+      "paths": 95,
+      "operations": 100,
+      "distinctResponseFields": 412,
+      "unreadResponseFieldLeads": 3,
+      "unreadFields": ["leaseExpiresAt", "portalUrl", "stagedBytes"]
+    },
+    "canaries": {
+      "budgetAssertions": 5,
+      "driftedPhases": 19,
+      "maxHeadroom": 14,
+      "totalHeadroom": 56
+    }
+  },
+  "canaries": {
+    "canaryCount": 9,
+    "wallMs": 132843,
+    "requests": 306,
+    "requestBytes": 1607684,
+    "responseBytes": 1398775,
+    "redundantBytes": 188401,
+    "echoBytes": 16756,
+    "redeliveredBytes": 150539,
+    "reDownloadedUploadBytes": 21106,
+    "exactHeadRereads": 37,
+    "manifestCitations": 682,
+    "wsHints": 18,
+    "apiStatements": 36264,
+    "apiTxStatements": 31232,
+    "apiLockHoldStatements": 21998,
+    "apiSameKeyRepeats": 5754,
+    "apiPureReadRepeats": 4705,
+    "clientSqlStatements": 125246,
+    "clientSqlInLock": 78656,
+    "clientSqlDurationMs": 12695.8,
+    "clientSqlMutations": 17166,
+    "clientSqlTxControls": 30614,
+    "clientSqlMaxHoldMs": 197.8,
+    "clientSqlMaxWaitMs": 34,
+    "topApiRoutes": [
+      {
+        "route": "POST /auth/register",
+        "requests": 25,
+        "statements": 10025,
+        "txStatements": 9975,
+        "lockHoldStatements": 9925,
+        "pureReadRepeats": 2050
+      },
+      {
+        "route": "POST /documents/{documentId}/sync",
+        "requests": 209,
+        "statements": 5755,
+        "txStatements": 5546,
+        "lockHoldStatements": 3824,
+        "pureReadRepeats": 1070
+      },
+      {
+        "route": "POST /containers/with-metadata-document",
+        "requests": 53,
+        "statements": 3869,
+        "txStatements": 3816,
+        "lockHoldStatements": 3392,
+        "pureReadRepeats": 848
+      },
+      {
+        "route": "POST /documents",
+        "requests": 62,
+        "statements": 2159,
+        "txStatements": 2133,
+        "lockHoldStatements": 2009,
+        "pureReadRepeats": 234
+      },
+      {
+        "route": "POST /containers/documents/query",
+        "requests": 143,
+        "statements": 1700,
+        "txStatements": 0,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 0
+      },
+      {
+        "route": "GET /principals/{principalType}/{principalId}/policy",
+        "requests": 283,
+        "statements": 1525,
+        "txStatements": 1525,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 22
+      },
+      {
+        "route": "PUT /organizations/{organizationId}/groups/{groupId}/policy-commit",
+        "requests": 7,
+        "statements": 1418,
+        "txStatements": 1383,
+        "lockHoldStatements": 1376,
+        "pureReadRepeats": 198
+      },
+      {
+        "route": "GET /documents/{documentId}/writer-projection",
+        "requests": 52,
+        "statements": 1333,
+        "txStatements": 1333,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 2
+      },
+      {
+        "route": "GET /containers/{containerId}/writer-projection",
+        "requests": 89,
+        "statements": 1307,
+        "txStatements": 1307,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 0
+      },
+      {
+        "route": "POST /containers/parent-lanes/query",
+        "requests": 73,
+        "statements": 1087,
+        "txStatements": 1059,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 0
+      }
+    ],
+    "topClientQueries": [
+      {
+        "sql": "select \"version\", \"state_hash\" from \"principal_policy_checkpoints\" where (\"principal_policy_checkpoints\".\"principal_type\" = ? and \"principal_policy_checkpoints\"…",
+        "count": 8449,
+        "durationMs": 417.9
+      },
+      {
+        "sql": "select \"identity_trust_domain\", \"user_id\", \"format_version\", \"signing_suite\", \"signing_public_key\", \"signing_key_fingerprint\", \"encapsulation_suite\", \"encapsula…",
+        "count": 8150,
+        "durationMs": 662.9
+      },
+      {
+        "sql": "select \"leaf_hash\", \"entry_json\" from \"principal_history_entries\" where (\"principal_history_entries\".\"scope_id\" = ? and \"principal_history_entries\".\"leaf_hash\" …",
+        "count": 8051,
+        "durationMs": 349.1
+      },
+      {
+        "sql": "select \"id\", \"generation\", \"invalidated_through\" from \"document_discovery_sequence\" limit ?",
+        "count": 2872,
+        "durationMs": 139.1
+      },
+      {
+        "sql": "select \"hash\", \"left_hash\", \"right_hash\" from \"principal_history_nodes\" where (\"principal_history_nodes\".\"scope_id\" = ? and \"principal_history_nodes\".\"hash\" in …",
+        "count": 1505,
+        "durationMs": 67.6
+      },
+      {
+        "sql": "select \"documents\".\"local_id\", \"documents\".\"document_id\", \"documents\".\"recovery_generation\", \"documents\".\"recovery_document_id\", \"documents\".\"snapshot_end_versi…",
+        "count": 1494,
+        "durationMs": 179.8
+      },
+      {
+        "sql": "select \"identity_trust_domain\", \"user_id\", \"format_version\", \"signing_suite\", \"signing_public_key\", \"signing_key_fingerprint\", \"encapsulation_suite\", \"encapsula…",
+        "count": 954,
+        "durationMs": 53.2
+      },
+      {
+        "sql": "select \"update_id\", \"origin\", \"update_data\", \"partial_start_version_vector\", \"partial_end_version_vector\", \"rekey_count\" from \"document_history_updates\" where (…",
+        "count": 780,
+        "durationMs": 61
+      },
+      {
+        "sql": "select \"scope_id\", \"organization_id\", \"hash\", \"reference_count\", \"managed\", \"left_hash\", \"right_hash\" from \"principal_history_nodes\" where (\"principal_history_n…",
+        "count": 525,
+        "durationMs": 22.4
+      },
+      {
+        "sql": "select \"principal_id\", \"version\", \"state_hash\" from \"principal_policy_checkpoints\" where (\"principal_policy_checkpoints\".\"principal_type\" = ? and \"principal_pol…",
+        "count": 504,
+        "durationMs": 11.8
+      }
+    ],
+    "byCanary": [
+      {
+        "canary": "DeviceFirstOfflineRequestVolume",
+        "wallMs": 6467,
+        "requests": 0,
+        "requestBytes": 0,
+        "responseBytes": 0,
+        "redundantBytes": 0,
+        "exactHeadRereads": 0,
+        "apiStatements": 1550,
+        "apiTxStatements": 1180,
+        "apiPureReadRepeats": 177,
+        "clientSqlStatements": 5215,
+        "clientSqlMaxHoldMs": 27.4
+      },
+      {
+        "canary": "DualPaneProvider.groupsRequestVolume",
+        "wallMs": 8639,
+        "requests": 90,
+        "requestBytes": 681592,
+        "responseBytes": 544052,
+        "redundantBytes": 63666,
+        "exactHeadRereads": 12,
+        "apiStatements": 2842,
+        "apiTxStatements": 2412,
+        "apiPureReadRepeats": 335,
+        "clientSqlStatements": 9003,
+        "clientSqlMaxHoldMs": 41.5
+      },
+      {
+        "canary": "DualPaneProvider.sharing",
+        "wallMs": 29291,
+        "requests": 46,
+        "requestBytes": 104424,
+        "responseBytes": 337321,
+        "redundantBytes": 42247,
+        "exactHeadRereads": 5,
+        "apiStatements": 11214,
+        "apiTxStatements": 10189,
+        "apiPureReadRepeats": 1375,
+        "clientSqlStatements": 38000,
+        "clientSqlMaxHoldMs": 197.8
+      },
+      {
+        "canary": "ExplorerUploadRequestVolume",
+        "wallMs": 4605,
+        "requests": 5,
+        "requestBytes": 34558,
+        "responseBytes": 2176,
+        "redundantBytes": 384,
+        "exactHeadRereads": 0,
+        "apiStatements": 1160,
+        "apiTxStatements": 803,
+        "apiPureReadRepeats": 150,
+        "clientSqlStatements": 2522,
+        "clientSqlMaxHoldMs": 28.2
+      },
+      {
+        "canary": "FolderMutationRequestVolume",
+        "wallMs": 7661,
+        "requests": 26,
+        "requestBytes": 114602,
+        "responseBytes": 62707,
+        "redundantBytes": 16942,
+        "exactHeadRereads": 8,
+        "apiStatements": 1778,
+        "apiTxStatements": 1402,
+        "apiPureReadRepeats": 198,
+        "clientSqlStatements": 7499,
+        "clientSqlMaxHoldMs": 27.5
+      },
+      {
+        "canary": "GroupMutationRequestVolume",
+        "wallMs": 9130,
+        "requests": 42,
+        "requestBytes": 165104,
+        "responseBytes": 275866,
+        "redundantBytes": 53672,
+        "exactHeadRereads": 4,
+        "apiStatements": 2846,
+        "apiTxStatements": 2418,
+        "apiPureReadRepeats": 340,
+        "clientSqlStatements": 9476,
+        "clientSqlMaxHoldMs": 43.4
+      },
+      {
+        "canary": "OrganizationBootstrapRequestVolume",
+        "wallMs": 7148,
+        "requests": 27,
+        "requestBytes": 486205,
+        "responseBytes": 40168,
+        "redundantBytes": 5651,
+        "exactHeadRereads": 3,
+        "apiStatements": 2251,
+        "apiTxStatements": 1841,
+        "apiPureReadRepeats": 326,
+        "clientSqlStatements": 4574,
+        "clientSqlMaxHoldMs": 28.5
+      },
+      {
+        "canary": "PaneReconnectRequestVolume",
+        "wallMs": 14778,
+        "requests": 24,
+        "requestBytes": 5127,
+        "responseBytes": 71816,
+        "redundantBytes": 3290,
+        "exactHeadRereads": 3,
+        "apiStatements": 3520,
+        "apiTxStatements": 2984,
+        "apiPureReadRepeats": 439,
+        "clientSqlStatements": 14135,
+        "clientSqlMaxHoldMs": 31.1
+      },
+      {
+        "canary": "PaneRestartRequestVolume",
+        "wallMs": 45124,
+        "requests": 46,
+        "requestBytes": 16072,
+        "responseBytes": 64669,
+        "redundantBytes": 2549,
+        "exactHeadRereads": 2,
+        "apiStatements": 9103,
+        "apiTxStatements": 8003,
+        "apiPureReadRepeats": 1365,
+        "clientSqlStatements": 34822,
+        "clientSqlMaxHoldMs": 27.9
+      }
+    ]
+  },
+  "plans": {
+    "inspected": 25,
+    "planned": 23,
+    "skipped": 2,
+    "seqScanQueries": 0,
+    "sortQueries": 3,
+    "materializeQueries": 1,
+    "flagged": [
+      {
+        "count": 653,
+        "warnings": ["Sort"],
+        "sqlPrefix": "with recursive ancestor_path as ( select h.object_id, h.manifest_hash, m.object_kind, m.object_id as manifest_object_id,…"
+      },
+      {
+        "count": 544,
+        "warnings": ["Sort"],
+        "sqlPrefix": "select \"access_manifest_heads\".\"id\", \"access_manifest_heads\".\"object_kind\", \"access_manifest_heads\".\"object_id\", \"access…"
+      },
+      {
+        "count": 373,
+        "warnings": ["Sort", "Materialize"],
+        "sqlPrefix": "select publication::text as publication, (select coalesce(jsonb_agg(rows order by rows.\"discoveryOrder\"::bigint, rows.id…"
+      }
+    ]
+  }
+}

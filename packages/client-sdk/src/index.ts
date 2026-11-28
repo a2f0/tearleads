@@ -496,6 +496,7 @@ export {
   assertNoVoidedDocumentSyncUpdates,
   buildMaterializedDocumentCreatePlan,
   createDocumentProjectionUserKeyResolver,
+  DOCUMENT_PEER_RESTORE_AWAITS_OWNER_ERROR_CODE,
   DOCUMENT_SYNC_TRACE_FRAGMENT,
   DOCUMENT_SYNC_TRACE_PATTERN,
   DOCUMENTS_APP_KIND,

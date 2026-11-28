@@ -6,6 +6,7 @@ import {
   nonEmptyArraySchema,
   nonEmptyStringSchema,
   positiveIntegerSchema,
+  safeNonNegativeIntegerSchema,
   sha256HexStringSchema,
 } from "../schema";
 import {
@@ -137,6 +138,16 @@ export const DocumentPurgeResponseSchema = loosePlainObject({
 });
 
 export type DocumentPurgeResponse = z.infer<typeof DocumentPurgeResponseSchema>;
+
+export const DocumentPeerRestoreAllowResponseSchema = loosePlainObject({
+  allowMemberRestore: z.boolean(),
+  documentId: z.string(),
+  updatedPeerCount: safeNonNegativeIntegerSchema,
+});
+
+export type DocumentPeerRestoreAllowResponse = z.infer<
+  typeof DocumentPeerRestoreAllowResponseSchema
+>;
 
 export const DocumentWriterProjectionResponseSchema = loosePlainObject({
   policyEvidence: ProjectionPolicyEvidenceResponseSchema,
@@ -278,6 +289,12 @@ export function isDocumentPurgeResponse(
   value: unknown,
 ): value is DocumentPurgeResponse {
   return DocumentPurgeResponseSchema.safeParse(value).success;
+}
+
+export function isDocumentPeerRestoreAllowResponse(
+  value: unknown,
+): value is DocumentPeerRestoreAllowResponse {
+  return DocumentPeerRestoreAllowResponseSchema.safeParse(value).success;
 }
 
 export function isDocumentPurgeProofResponse(

@@ -187,7 +187,7 @@ export class QueueDevice {
       this.pendingBase = encodeVersionVector(recovery.fork);
     }
     if (recovery.kind === "rebase" || recovery.kind === "relay") {
-      this.queue = [queuedUpdate(recovery.update)];
+      this.queue = recovery.updates.map(queuedUpdate);
       this.raiseCommittedVersion(recovery.committedVersion);
     }
     return recovery.kind;

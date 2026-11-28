@@ -29,6 +29,10 @@ import {
   persistCreatedRemoteDocument,
 } from "./createdDocumentPersistence";
 import {
+  isDocumentPeerRestorePullNeeded,
+  shouldDeferDocumentStoreQueuedWrites,
+} from "./peerRestorePark";
+import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
@@ -157,8 +161,12 @@ export function shouldSkipCleanScheduledDocumentSync(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
   state: DocumentStoreState;
 }): boolean {
+  if (isDocumentPeerRestorePullNeeded(input.state)) return false;
+  const hasActivePendingUpdates =
+    input.pendingUpdates.length > 0 &&
+    !shouldDeferDocumentStoreQueuedWrites(input.state);
   return (
-    input.pendingUpdates.length === 0 &&
+    !hasActivePendingUpdates &&
     input.state.pendingAttachments.length === 0 &&
     input.state.pullContinuation === null &&
     !input.currentRecord.pullContinuationRecoveryRequired &&

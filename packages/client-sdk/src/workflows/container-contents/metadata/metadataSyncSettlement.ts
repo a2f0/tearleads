@@ -3,6 +3,7 @@ import { importUpdates } from "@tearleads/loro";
 import type { DocumentSyncPullContinuation } from "../../documents";
 import type { ContainerDocumentRecord as DocumentRecord } from "../containerPersistence";
 import { createContainerMetadataDocument } from "./containerMetadataDocument";
+import { resetMetadataPeerRestorePark } from "./metadataPeerRebase";
 import type { ContainerMetadataState } from "./metadataTypes";
 
 export interface ExpectedContainerMetadataSyncState {
@@ -60,4 +61,5 @@ export async function replaceSupersededMetadataIdentity(input: {
   }
   input.metadataState.doc = replacementDoc;
   input.metadataState.metadataWriterProjection = null;
+  resetMetadataPeerRestorePark(input.metadataState);
 }

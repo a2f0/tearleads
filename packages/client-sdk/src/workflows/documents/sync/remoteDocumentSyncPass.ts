@@ -45,8 +45,9 @@ import type { DocumentSyncTraceEmitter } from "./syncTrace";
  * - `nothing_to_relay`: the server lost such operations and refused a
  *   dependency on them, but the queue already sends them from every
  *   frontier that fell, so the refused request was not this queue. No other
- *   user is waited on, so it is not a park: the pass reports the server's
- *   own refusal as terminal, and the next pass sends the queue.
+ *   user is waited on, so it is not a park: the pass abandons cleanly
+ *   without recording a terminal failure row, and the next pass sends the
+ *   queue.
  */
 export type DocumentPeerRebaseOutcome =
   | "nothing_to_cut"
@@ -61,8 +62,8 @@ export type DocumentPeerRebaseOutcome =
  * changed. It rebases the record's unsent operations on the refused peers
  * onto a fresh peer, or, when a named frontier is below what the device saw
  * committed, relays the lost operations or parks. A rebase or a relay
- * replaces the record's queued updates with one update; every other outcome
- * leaves the queue.
+ * replaces the record's queued updates with one or more ordered segments;
+ * every other outcome leaves the queue.
  */
 export type DocumentPeerRebaser = (
   refusal: PeerRefusal,
@@ -84,6 +85,11 @@ export interface SyncRemoteDocumentRequest {
   rotationBaselineSegmentSizes?: HistorySegmentSizes | undefined;
   /** Overrides automatic ancestor repair for each submission's current projection. */
   buildContainerRekeys?: DocumentSyncContainerRekeyBuilder;
+  /**
+   * Withhold queued writes for this pass and run pull-only (e.g. while parked
+   * behind `document_peer_restore_awaits_owner` so remote reads stay live).
+   */
+  deferQueuedWrites?: boolean | undefined;
   documentId: string;
   /** Explicit read-only recovery that bypasses rotation-baseline redirect. */
   historyMode?: "raw" | undefined;

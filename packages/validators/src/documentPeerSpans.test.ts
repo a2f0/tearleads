@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  compareDocumentPeerIds,
   type DocumentPeerSpan,
   type DocumentUpdatePeers,
   judgeDocumentPeerSpans,
@@ -156,4 +157,105 @@ test("a peer another user owns outranks an uncommitted dependency", () => {
     kind: "peer_owned",
     peerFrontiers: [{ committedEndCounter: 2, peerId: "1" }],
   });
+});
+
+test("a recovery owner may restore a foreign peer within its restorable window without claiming it", () => {
+  const recoveryOwner = "recovery-owner";
+  const committedPeers = new Map([
+    [
+      "11",
+      {
+        allowMemberRestore: false,
+        committedEndCounter: 2,
+        ownerUserId: other,
+        recoveryOwnerUserId: recoveryOwner,
+        restorableEndCounter: 5,
+      },
+    ],
+  ]);
+
+  expect(
+    judgeDocumentPeerSpans({
+      committedPeers,
+      updates: [{ dependencies: [], spans: [{ peerId: "11", endCounter: 5 }] }],
+      userId: recoveryOwner,
+    }),
+  ).toEqual({ claimedPeerIds: [], kind: "accepted" });
+
+  // Past the pre-purge frontier, even the recovery owner is refused.
+  expect(
+    judgeDocumentPeerSpans({
+      committedPeers,
+      updates: [{ dependencies: [], spans: [{ peerId: "11", endCounter: 6 }] }],
+      userId: recoveryOwner,
+    }),
+  ).toEqual({
+    kind: "peer_owned",
+    peerFrontiers: [{ committedEndCounter: 2, peerId: "11" }],
+  });
+
+  // Another member is refused while allowMemberRestore is false.
+  expect(
+    judgeDocumentPeerSpans({
+      committedPeers,
+      updates: [{ dependencies: [], spans: [{ peerId: "11", endCounter: 5 }] }],
+      userId: writer,
+    }),
+  ).toEqual({
+    kind: "peer_owned",
+    peerFrontiers: [{ committedEndCounter: 2, peerId: "11" }],
+  });
+});
+
+test("member restore allows any writer up to the restorable frontier without transferring ownership", () => {
+  const committedPeers = new Map([
+    [
+      "11",
+      {
+        allowMemberRestore: true,
+        committedEndCounter: 0,
+        ownerUserId: other,
+        recoveryOwnerUserId: "recovery-owner",
+        restorableEndCounter: 4,
+      },
+    ],
+  ]);
+
+  expect(
+    judgeDocumentPeerSpans({
+      committedPeers,
+      updates: [{ dependencies: [], spans: [{ peerId: "11", endCounter: 4 }] }],
+      userId: writer,
+    }),
+  ).toEqual({ claimedPeerIds: [], kind: "accepted" });
+
+  expect(
+    judgeDocumentPeerSpans({
+      committedPeers,
+      updates: [{ dependencies: [], spans: [{ peerId: "11", endCounter: 5 }] }],
+      userId: writer,
+    }),
+  ).toEqual({
+    kind: "peer_owned",
+    peerFrontiers: [{ committedEndCounter: 0, peerId: "11" }],
+  });
+
+  // The rightful owner still owns the peer past the restorable frontier.
+  expect(
+    judgeDocumentPeerSpans({
+      committedPeers,
+      updates: [{ dependencies: [], spans: [{ peerId: "11", endCounter: 7 }] }],
+      userId: other,
+    }),
+  ).toEqual({ claimedPeerIds: [], kind: "accepted" });
+});
+
+test("compareDocumentPeerIds orders strings by code unit", () => {
+  expect(["10", "2", "1", "100", "9"].sort(compareDocumentPeerIds)).toEqual([
+    "1",
+    "10",
+    "100",
+    "2",
+    "9",
+  ]);
 });

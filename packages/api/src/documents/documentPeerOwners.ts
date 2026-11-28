@@ -42,8 +42,9 @@ function isNamedPeer(column: Column, peerIdsJson: string): SQL {
 
 /**
  * One statement: each named peer's committed frontier from its spans and its
- * owner, as separate rows so a peer with spans but no owner row (or the
- * reverse) still reads correctly. Never depend on UNION order.
+ * owner + post-purge restore window, as separate rows so a peer with spans
+ * but no owner row (or the reverse) still reads correctly. Never depend on
+ * UNION order.
  */
 async function readCommittedDocumentPeers(
   executor: DatabaseSession,
@@ -53,9 +54,12 @@ async function readCommittedDocumentPeers(
   const peerIdsJson = JSON.stringify(peerIds);
   const rows = await executor
     .select({
-      peerId: documentUpdateSpans.peerId,
+      allowMemberRestore: sql<boolean | null>`null`,
       committedEndCounter: max(documentUpdateSpans.endCounter),
       ownerUserId: sql<string | null>`null`,
+      peerId: documentUpdateSpans.peerId,
+      recoveryOwnerUserId: sql<string | null>`null`,
+      restorableEndCounter: sql<number | null>`null`,
     })
     .from(documentUpdateSpans)
     .where(
@@ -68,9 +72,18 @@ async function readCommittedDocumentPeers(
     .unionAll(
       executor
         .select({
-          peerId: documentPeerOwners.peerId,
+          allowMemberRestore: sql<
+            boolean | null
+          >`${documentPeerOwners.allowMemberRestore}`,
           committedEndCounter: sql<number | null>`null`,
           ownerUserId: sql<string | null>`${documentPeerOwners.ownerUserId}`,
+          peerId: documentPeerOwners.peerId,
+          recoveryOwnerUserId: sql<
+            string | null
+          >`${documentPeerOwners.recoveryOwnerUserId}`,
+          restorableEndCounter: sql<
+            number | null
+          >`${documentPeerOwners.restorableEndCounter}`,
         })
         .from(documentPeerOwners)
         .where(
@@ -83,10 +96,23 @@ async function readCommittedDocumentPeers(
   const peers = new Map<string, CommittedDocumentPeer>();
   for (const row of rows) {
     const known = peers.get(row.peerId);
+    const restorableEndCounter =
+      row.restorableEndCounter ?? known?.restorableEndCounter ?? 0;
+    const recoveryOwnerUserId =
+      row.recoveryOwnerUserId ?? known?.recoveryOwnerUserId ?? null;
+    const allowMemberRestore =
+      row.allowMemberRestore ?? known?.allowMemberRestore ?? false;
     peers.set(row.peerId, {
       committedEndCounter:
         row.committedEndCounter ?? known?.committedEndCounter ?? 0,
       ownerUserId: row.ownerUserId ?? known?.ownerUserId ?? null,
+      ...(restorableEndCounter > 0
+        ? {
+            allowMemberRestore,
+            recoveryOwnerUserId,
+            restorableEndCounter,
+          }
+        : {}),
     });
   }
   return peers;
@@ -148,6 +174,7 @@ async function overlayStagedBaseline(
     const peer = committedPeers.get(peerId);
     if (endCounter <= (peer?.committedEndCounter ?? 0)) continue;
     committedPeers.set(peerId, {
+      ...peer,
       committedEndCounter: endCounter,
       ownerUserId: peer?.ownerUserId ?? input.userId,
     });
@@ -156,20 +183,23 @@ async function overlayStagedBaseline(
 
 /**
  * Claims every unowned peer a write extends for its writer, unless the write
- * extends a peer another user owns or depends on an op nobody committed: then
- * it claims nothing and returns the refusal, and the caller refuses the whole
- * request. Pass only the request's newly verified updates, in request order.
- * The caller holds the document head lock from this read through the insert
- * of the updates' spans, so no other write moves a frontier or an owner in
- * between. A document this transaction inserted has nothing committed: every
- * delete of a document row deletes its spans and owners, so a create's seed
- * skips the read, may depend on nothing, and claims every peer it carries.
+ * extends a peer another user owns (outside its post-purge restorable window)
+ * or depends on an op nobody committed: then it claims nothing and returns the
+ * refusal, and the caller refuses the whole request. Pass only the request's
+ * newly verified updates, in request order. The caller holds the document head
+ * lock from this read through the insert of the updates' spans, so no other
+ * write moves a frontier or an owner in between. A newly inserted document
+ * without restored pre-purge peer owners has nothing committed, so its create
+ * seed skips the read; a recreation with restored owners reads them so the
+ * seed cannot hijack another user's peer.
  */
 export async function claimDocumentPeers(
   executor: DatabaseSession,
   input: {
     readonly documentId: string;
     readonly documentInsertedInTransaction: boolean;
+    /** True when a post-purge recreation restored pre-purge peer-owner rows. */
+    readonly hasRestoredPeerOwners?: boolean | undefined;
     /** The stage the request commits, not yet promoted, if it commits one. */
     readonly stagedBaselineId?: string | undefined;
     readonly updates: readonly DocumentUpdatePeerSource[];
@@ -193,9 +223,10 @@ export async function claimDocumentPeers(
   ].sort(compareCanonicalStrings);
   if (peerIds.length === 0) return null;
 
-  const committedPeers = input.documentInsertedInTransaction
-    ? new Map<string, CommittedDocumentPeer>()
-    : await readCommittedDocumentPeers(executor, input.documentId, peerIds);
+  const committedPeers =
+    input.documentInsertedInTransaction && input.hasRestoredPeerOwners === false
+      ? new Map<string, CommittedDocumentPeer>()
+      : await readCommittedDocumentPeers(executor, input.documentId, peerIds);
   if (input.stagedBaselineId !== undefined) {
     await overlayStagedBaseline(executor, committedPeers, {
       baselineId: input.stagedBaselineId,

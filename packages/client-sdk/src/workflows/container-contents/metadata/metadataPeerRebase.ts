@@ -12,16 +12,101 @@ import {
   type PeerRefusalRecovery,
   planPeerRefusalRecovery,
 } from "../../../data/documents/shared/sync/peerRefusalRecovery";
+import {
+  documentSyncPullTip,
+  INITIAL_PEER_RESTORE_PARK_STATE,
+  type PeerRestoreParkState,
+  shouldDeferQueuedWritesWhileParked,
+  transitionPeerRestorePark,
+} from "../../../data/documents/shared/sync/peerRestoreParkMachine";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type DocumentPeerRebaseOutcome,
   type DocumentPeerRebaser,
   peerRebaseChangedQueue,
-  queuedRecoveryUpdate,
+  queuedRecoveryUpdates,
 } from "../../documents";
 import { containerMetadataScope } from "./metadataSyncVerdicts";
 import type { ContainerMetadataState } from "./metadataTypes";
+
+const metadataPeerRestorePark = new WeakMap<
+  ContainerMetadataState,
+  PeerRestoreParkState
+>();
+
+function transitionMetadataPark(
+  metadataState: ContainerMetadataState,
+  event: Parameters<typeof transitionPeerRestorePark>[1],
+): boolean {
+  const current =
+    metadataPeerRestorePark.get(metadataState) ??
+    INITIAL_PEER_RESTORE_PARK_STATE;
+  const next = transitionPeerRestorePark(current, event);
+  if (next.state.status === "active") {
+    metadataPeerRestorePark.delete(metadataState);
+  } else {
+    metadataPeerRestorePark.set(metadataState, next.state);
+  }
+  return next.requestSync;
+}
+
+export function shouldDeferMetadataQueuedWrites(
+  metadataState: ContainerMetadataState,
+): boolean {
+  const current =
+    metadataPeerRestorePark.get(metadataState) ??
+    INITIAL_PEER_RESTORE_PARK_STATE;
+  return shouldDeferQueuedWritesWhileParked(current);
+}
+
+export function isMetadataPeerRestorePullNeeded(
+  metadataState: ContainerMetadataState,
+): boolean {
+  return (
+    metadataPeerRestorePark.get(metadataState)?.status === "parked_pull_needed"
+  );
+}
+
+export function settleMetadataPeerRestoreAfterSync(input: {
+  readonly metadataState: ContainerMetadataState;
+  readonly outgoingUpdateCount: number;
+  readonly pullComplete: boolean;
+  readonly pullPage: {
+    readonly throughUpdateCount: number;
+    readonly throughUpdateId: string | null;
+  };
+  readonly settledPendingUpdateCount: number;
+  readonly writesDeferred: boolean | undefined;
+}): boolean {
+  if (input.writesDeferred) {
+    if (!input.pullComplete) return false;
+    return transitionMetadataPark(input.metadataState, {
+      pullTip: documentSyncPullTip(input.pullPage),
+      type: "pull_settled",
+    });
+  }
+  if (input.outgoingUpdateCount > 0 && input.settledPendingUpdateCount > 0) {
+    transitionMetadataPark(input.metadataState, {
+      type: "write_pass_succeeded",
+    });
+  }
+  return false;
+}
+
+export function resumeMetadataPeerRestoreOnHint(
+  metadataState: ContainerMetadataState,
+): boolean {
+  return transitionMetadataPark(metadataState, {
+    type: "peer_restore_allowed_hint",
+  });
+}
+
+export function resetMetadataPeerRestorePark(
+  metadataState: ContainerMetadataState,
+): void {
+  transitionMetadataPark(metadataState, { type: "reset" });
+}
 
 type InstallPeerRebase = NonNullable<
   ContainerContentsPersistence["installPeerRebase"]
@@ -33,6 +118,7 @@ interface MetadataPeerRebaseContext {
   readonly isCurrent: () => boolean;
   /** The live state, never the pass's detached copy. */
   readonly metadataState: ContainerMetadataState;
+  readonly onPullNeeded?: (() => void) | undefined;
   readonly onRebased: () => void;
   readonly persistence: ContainerContentsPersistence;
 }
@@ -102,7 +188,7 @@ async function installMetadataFork(
           snapshot: bytesToBase64(metadataUpdates),
         },
         kind: "fork",
-        ...queuedRecoveryUpdate(rebase),
+        ...queuedRecoveryUpdates(rebase),
         record: { kind: "container_metadata" },
       })) && fence.stillCurrent();
     if (!installed) return "superseded";
@@ -162,7 +248,12 @@ async function recoverLiveMetadata(
     ) {
       return recovery.kind;
     }
-    if (recovery.kind === "park") return "parked";
+    if (recovery.kind === "park") {
+      if (transitionMetadataPark(metadataState, { type: "parked" })) {
+        context.onPullNeeded?.();
+      }
+      return "parked";
+    }
     const fence = {
       expectedDocumentId: documentId,
       expectedRecoveryGeneration: record.recoveryGeneration ?? 0,
@@ -179,7 +270,7 @@ async function recoverLiveMetadata(
     const installed = await context.install(context.execSql, {
       ...fence,
       kind: "relay",
-      ...queuedRecoveryUpdate(recovery),
+      ...queuedRecoveryUpdates(recovery),
     });
     return installed && stillCurrent() ? "relayed" : "superseded";
   } finally {

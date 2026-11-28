@@ -162,3 +162,27 @@ export async function publishDocumentPurgeEvent(input: {
     "document purge event",
   );
 }
+
+export async function publishDocumentPeerRestoreAllowedEvent(input: {
+  readonly containerIds: readonly string[];
+  readonly containerPaths?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
+  readonly documentId: string;
+  readonly origin: DocumentMutationOrigin;
+  readonly publish: Publish;
+}): Promise<void> {
+  const containerPaths = toMutableContainerPaths(input.containerPaths);
+  await publishBestEffort(
+    input.publish,
+    {
+      type: "document_mutation_created",
+      containerIds: uniqueSortedStrings(input.containerIds),
+      ...(containerPaths === undefined ? {} : { containerPaths }),
+      documentId: input.documentId,
+      eventType: "document.peer_restore_allowed",
+      origin: input.origin,
+    },
+    "document peer restore allowed event",
+  );
+}

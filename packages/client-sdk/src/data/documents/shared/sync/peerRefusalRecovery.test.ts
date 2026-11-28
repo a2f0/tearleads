@@ -106,7 +106,7 @@ describe("planPeerRefusalRecovery", () => {
     expect(recovery.kind).toBe(expected);
     if (recovery.kind === "relay") {
       // The lost operations go again under their own peer, with the edit.
-      expect(spansOf(recovery.update)).toEqual([
+      expect(recovery.updates.flatMap(spansOf)).toEqual([
         { endCounter: 11, peerId: MEMBER_PEER, startCounter: frontier },
       ]);
       // The install records what the device knew, below which this starts.
@@ -167,8 +167,8 @@ describe("planPeerRefusalRecovery", () => {
 
     expect(recovery.kind).toBe(expected);
     if (recovery.kind !== "rebase") return;
-    // The one update still sends the queued operations under their own peer.
-    expect(spansOf(recovery.update)).toEqual([
+    // The queued segments still send the queued operations under their own peer.
+    expect(recovery.updates.flatMap(spansOf)).toEqual([
       { endCounter: 6, peerId: MEMBER_PEER, startCounter: 0 },
       { endCounter: 5, peerId: NEW_PEER, startCounter: 0 },
     ]);
@@ -194,7 +194,10 @@ describe("planPeerRefusalRecovery", () => {
         },
       });
 
-    expect(refused("peer_owned", 2)).toEqual({ kind: "park" });
+    expect(refused("peer_owned", 2)).toEqual({
+      kind: "park",
+      requiredPeers: new Map([[MEMBER_PEER, 6]]),
+    });
     const relay = refused("dependency_uncommitted", 0);
     if (relay.kind !== "relay") throw new Error("expected a relay");
     // The relay queues "hello " again, so its install must record it.
@@ -411,4 +414,81 @@ describe("recovery after a stale recreation", () => {
       expect(await server.readerText()).toBe("seed bb BB aaa ddd");
     },
   );
+
+  it("splits a large relay into ordered segments within the requested byte cap", async () => {
+    const live = await documentOnPeer(Number(MEMBER_PEER));
+    for (let index = 0; index < 30; index += 1) {
+      append(live, `segment-${index}-${"x".repeat(40)}\n`);
+    }
+    const committed = encodeVersionVector(live);
+    append(live, "after-purge-edit");
+    const queued = {
+      partialEndVersionVector: encodeVersionVector(live),
+      partialStartVersionVector: committed,
+    };
+
+    const recovery = planPeerRefusalRecovery({
+      committedVersion: committed,
+      live,
+      newPeer: NEW_PEER,
+      pendingBases: [encodeVersionVector(live)],
+      queued: [queued],
+      refusal: {
+        kind: "dependency_uncommitted",
+        peerFrontiers: [{ committedEndCounter: 0, peerId: MEMBER_PEER }],
+      },
+      segmentSizes: { maxBytes: 400, targetBytes: 250 },
+    });
+
+    if (recovery.kind !== "relay") throw new Error("expected a relay");
+    expect(recovery.updates.length).toBeGreaterThan(1);
+    const server = new PeerServer();
+    for (const update of recovery.updates) {
+      expect(update.byteLength).toBeLessThanOrEqual(400);
+      expect(server.submit(MEMBER, [update]).kind).toBe("accepted");
+    }
+    expect(await server.readerText()).toBe(textOf(live));
+    live.free();
+  });
+
+  it("splits a large rebase into ordered segments within the requested byte cap", async () => {
+    const live = await documentOnPeer(Number(MEMBER_PEER));
+    append(live, "base\n");
+    const committed = encodeVersionVector(live);
+    for (let i = 0; i < 30; i += 1) append(live, `u-${i}-${"y".repeat(40)}\n`);
+    const queued = {
+      partialEndVersionVector: encodeVersionVector(live),
+      partialStartVersionVector: committed,
+    };
+    const recovery = planPeerRefusalRecovery({
+      committedVersion: committed,
+      live,
+      newPeer: NEW_PEER,
+      pendingBases: [encodeVersionVector(live)],
+      queued: [queued],
+      refusal: {
+        kind: "peer_owned",
+        peerFrontiers: [{ committedEndCounter: 5, peerId: MEMBER_PEER }],
+      },
+      segmentSizes: { maxBytes: 400, targetBytes: 250 },
+    });
+    if (recovery.kind !== "rebase") throw new Error("expected a rebase");
+    expect(recovery.updates.length).toBeGreaterThan(1);
+    const reader = await documentOnPeer(777);
+    reader.import(
+      live.export({
+        mode: "updates-in-range",
+        spans: [{ id: { counter: 0, peer: MEMBER_PEER }, len: 5 }],
+      }),
+    );
+    for (const update of recovery.updates) {
+      expect(update.byteLength).toBeLessThanOrEqual(400);
+      const status = reader.import(update);
+      expect(status.pending == null || status.pending.size === 0).toBe(true);
+    }
+    expect(textOf(reader)).toBe(textOf(live));
+    reader.free();
+    recovery.fork.free();
+    live.free();
+  });
 });

@@ -46,12 +46,14 @@ export interface ContainerMetadataSyncAttempt {
   outgoingUpdateCount: number;
   requestRecord: ContainerMetadataState["record"];
   synced: SyncRemoteDocumentResult;
+  writesDeferred?: boolean | undefined;
 }
 
 interface SyncRemoteContainerMetadataInput {
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   containerId: string;
   currentDocument: ContainerMetadataState["doc"];
+  deferQueuedWrites?: boolean | undefined;
   documentId: string | null;
   isCurrent: () => boolean;
   lastCommitLsn?: string | null | undefined;
@@ -80,6 +82,7 @@ function createContainerMetadataSyncAttempt(input: {
   requestedPullContinuation: ContainerMetadataState["pullContinuation"];
   requestRecord: ContainerMetadataState["record"];
   synced: SyncRemoteDocumentResult;
+  writesDeferred?: boolean | undefined;
 }): ContainerMetadataSyncAttempt {
   return {
     consumedPullContinuation:
@@ -89,6 +92,7 @@ function createContainerMetadataSyncAttempt(input: {
     outgoingUpdateCount: input.outgoingUpdateCount,
     requestRecord: input.requestRecord,
     synced: input.synced,
+    ...(input.writesDeferred ? { writesDeferred: true } : {}),
   };
 }
 
@@ -128,6 +132,28 @@ async function readMetadataPullStart(
   };
 }
 
+function metadataTerminalFailureHandler(input: {
+  readonly execSql: ContainerMetadataSyncRuntime["infra"]["execSql"];
+  readonly isCurrent: () => boolean;
+  readonly metadataScope: ReturnType<typeof containerMetadataScope>;
+}) {
+  return async (failure: {
+    readonly message: string;
+    readonly status: number | null;
+  }) => {
+    await recordCurrentMetadataSyncFailure({
+      execSql: input.execSql,
+      failure: {
+        attemptedAt: new Date().toISOString(),
+        message: describeDocumentSyncSubmitFailure(failure),
+        status: failure.status,
+      },
+      isCurrent: input.isCurrent,
+      metadataScope: input.metadataScope,
+    });
+  };
+}
+
 export async function syncRemoteContainerMetadata(
   input: SyncRemoteContainerMetadataInput,
 ): Promise<ContainerMetadataSyncAttempt | null> {
@@ -150,6 +176,7 @@ export async function syncRemoteContainerMetadata(
     .syncRemoteDocument({
       author,
       buildRotationSnapshot: input.buildRotationSnapshot,
+      ...(input.deferQueuedWrites ? { deferQueuedWrites: true } : {}),
       documentId,
       localVersionVector: input.localVersionVector,
       maxPageUpdates,
@@ -166,18 +193,11 @@ export async function syncRemoteContainerMetadata(
       onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,
       onPullContinuationInvalidated: input.onPullContinuationInvalidated,
       onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
-      onTerminalSubmitFailure: async (failure) => {
-        await recordCurrentMetadataSyncFailure({
-          execSql,
-          failure: {
-            attemptedAt: new Date().toISOString(),
-            message: describeDocumentSyncSubmitFailure(failure),
-            status: failure.status,
-          },
-          isCurrent,
-          metadataScope,
-        });
-      },
+      onTerminalSubmitFailure: metadataTerminalFailureHandler({
+        execSql,
+        isCurrent,
+        metadataScope,
+      }),
       pendingUpdates: input.pendingUpdates,
       persistedState: input.persistedState,
       processedThroughUpdateId,
@@ -214,5 +234,6 @@ export async function syncRemoteContainerMetadata(
     requestedPullContinuation: input.pullContinuation,
     requestRecord: input.persistedState,
     synced,
+    writesDeferred: input.deferQueuedWrites,
   });
 }

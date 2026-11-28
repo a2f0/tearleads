@@ -1,11 +1,13 @@
 import {
   isContainerProjectionInvalidationHint,
+  isDocumentPeerRestoreAllowedEvent,
   isDocumentUpdateCreatedEvent,
 } from "../../../../data/documents/documentSync";
 import { sequenceUnchanged } from "../../../../workflows/documents/sync/syncLane";
 import { resumeAfterAncestorRepairHint } from "../ancestorRepairPark";
 import type { DocumentStoreState } from "../state";
 import { invalidateDocumentWriterProjection } from "../writerProjectionGeneration";
+import { resumeDocumentPeerRestoreOnHint } from "./peerRestorePark";
 import {
   allowDocumentStoreRemoteSync,
   markDocumentStoreRemoteSyncPending,
@@ -109,11 +111,27 @@ export function handleDocumentRemoteEvents(
   // Writes parked behind an ancestor another member must re-key: this hint is
   // the only signal that the repair may have landed. It names no ancestor, so
   // any one re-runs the pass, which parks again if the path is still stale.
+  const documentId = state.record?.documentId;
   if (
-    state.record?.documentId &&
+    documentId &&
     projectionInvalidated &&
     resumeAfterAncestorRepairHint(state)
   ) {
+    scheduleSync();
+  }
+
+  const peerRestoreAllowed =
+    documentId !== null &&
+    documentId !== undefined &&
+    nextEvents.some(
+      (event) =>
+        (isDocumentPeerRestoreAllowedEvent(event) &&
+          event.documentId === documentId) ||
+        (typeof event === "object" &&
+          event !== null &&
+          Reflect.get(event, "type") === "resync_required"),
+    );
+  if (peerRestoreAllowed && resumeDocumentPeerRestoreOnHint(state)) {
     scheduleSync();
   }
 

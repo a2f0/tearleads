@@ -1,6 +1,9 @@
 import {
+  allowDocumentPeerRestoreOperation,
   createDocumentOperation,
   getDocumentPurgeProofOperation,
+  isAllowDocumentPeerRestoreOperationRequest,
+  isAllowDocumentPeerRestoreOperationResponse,
   isCreateDocumentOperationRequest,
   isCreateDocumentOperationResponse,
   isDocumentLinkSetMutationOperationRequest,
@@ -18,6 +21,14 @@ import {
 export interface DocumentPurgeProofOptions {
   readonly documentCheckpointManifestHash?: string;
 }
+
+export const documentPeerRestoreAllow = {
+  isRequest: isAllowDocumentPeerRestoreOperationRequest,
+  isResponse: isAllowDocumentPeerRestoreOperationResponse,
+  method: allowDocumentPeerRestoreOperation.method,
+  path: (documentId: string) =>
+    operationRequestPath(allowDocumentPeerRestoreOperation, { documentId }),
+} as const;
 
 export const documentCreate = {
   isRequest: isCreateDocumentOperationRequest,

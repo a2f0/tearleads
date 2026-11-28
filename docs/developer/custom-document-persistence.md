@@ -115,16 +115,16 @@ the expected `documentId` and `recoveryGeneration`, that no checkpoint or
 history row ends past `readVersion`, and that exactly the `queuedUpdateIds`
 are still queued. For
 `"fork"` it then replaces every history row with the supplied checkpoint and
-one queued outgoing update, deletes the scope's void rows and preemption
-notices, and, for a `document` record, stores `peerSalt`, sets the pending base
-and snapshot end to the checkpoint's frontier, and advances
+the ordered `pendingUpdates` segments, deletes the scope's void rows and
+preemption notices, and, for a `document` record, stores `peerSalt`, sets the
+pending base and snapshot end to the checkpoint's frontier, and advances
 `recoveryGeneration`. For `"relay"` it stops queueing every queued update,
 dropping an outbox row and keeping a history-tail row as history, and queues
-`pendingUpdate` as an outbox row; the rest of the record, its checkpoint, its
-void rows, and `recoveryGeneration` stay. For either kind it raises the
-record's `committedVersion` by the input's `committedVersion`. It returns
-false and writes nothing when any check fails or `stillCurrent()` is false at
-commit.
+the ordered `pendingUpdates` segments as outbox rows; the rest of the record,
+its checkpoint, its void rows, and `recoveryGeneration` stay. For either kind it
+raises the record's `committedVersion` by the input's `committedVersion`. It
+returns false and writes nothing when any check fails or `stillCurrent()` is
+false at commit.
 
 The record keeps `committedVersion` (`DocumentRecord.committedVersion`): per
 peer, the highest counter a sync settlement showed the server to hold
@@ -136,8 +136,9 @@ operations again, so an adapter that installs peer rebases must maintain it:
   with or without a lost compare-and-set and in `settleAcceptedPendingUpdates`,
   it raises `committedVersion` in the same transaction by every version in the
   input's `committedVersions`: what the response showed the server to hold,
-  the spans of the acknowledged updates and of the served updates the pass
-  accepted. Raising merges the [version vectors](../glossary/content.md#version-vector)
+  the spans of the acknowledged updates, the spans of the served updates the
+  pass accepted, and the causal dependencies of those accepted served updates.
+  Raising merges the [version vectors](../glossary/content.md#version-vector)
   and keeps the higher counter on each peer.
 - `installPeerRebase` raises it the same way by its input's
   `committedVersion`, what the device knew when it planned the recovery.
