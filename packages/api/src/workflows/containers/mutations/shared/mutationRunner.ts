@@ -53,6 +53,7 @@ function collectReferencedPrincipalHeads(
 }
 
 async function readCurrentPrincipalPolicies(input: {
+  readonly evidence?: readonly PrincipalPolicyAuthorization[] | undefined;
   readonly executor: MutateContainerWithExecutorInput["executor"];
   readonly request: MutateContainerWithExecutorInput["request"];
   readonly referencedPrincipalHeads: readonly ReferencedPrincipalHead[];
@@ -62,6 +63,7 @@ async function readCurrentPrincipalPolicies(input: {
     input.executor,
     input.request.principalPolicyRefs,
     {
+      evidence: input.evidence,
       referencedPrincipalHeads: input.referencedPrincipalHeads,
       requesterUserId: input.requesterUserId,
     },
@@ -171,6 +173,7 @@ async function verifyMutationArtifacts(
     previousManifest,
   );
   const principalPolicies = await readCurrentPrincipalPolicies({
+    evidence: context.verifiedPrincipalPolicies,
     executor: context.executor,
     request: input.request,
     requesterUserId: input.userId,
@@ -313,6 +316,25 @@ export async function prelockContainerMutationBatch(
   prelockedBatchScopeByContext.set(context, scope);
 }
 
+/** Locks a newly provisioned org and reserved groups once (#3396). */
+export async function prelockProvisionedOrganizationScope(
+  context: ContainerMutationContext,
+  scope: {
+    readonly groupIds: readonly string[];
+    readonly organizationId: string;
+  },
+): Promise<void> {
+  if (prelockedBatchScopeByContext.has(context)) {
+    throw new Error("Container mutation context already has a prelocked batch");
+  }
+  const batchScope: PrelockedContainerMutationBatchScope = {
+    groupIds: new Set(scope.groupIds),
+    organizationIds: new Set([scope.organizationId]),
+  };
+  await lockVerifiedBatchScope(context, batchScope);
+  prelockedBatchScopeByContext.set(context, batchScope);
+}
+
 function assertMutationWithinPrelockedScope(
   scope: PrelockedContainerMutationBatchScope,
   manifest: VerifiedContainerAccessManifest,
@@ -330,17 +352,18 @@ function assertMutationWithinPrelockedScope(
   }
 }
 
-/**
- * A committed mutation, its verified ancestor paths for realtime routing, and
- * the parent its verified previous manifest named (which a move's hint needs).
- */
+/** Committed mutation, verified ancestor paths, and move previous parent. */
 export interface ContainerMutationOutcome {
   readonly ancestorIds: readonly string[];
-  /** The verified state's metadata document, which the response omits. */
   readonly metadataDocumentId: string;
+  readonly parentContainerPath?:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
   readonly previousAncestorIds?: readonly string[] | undefined;
   readonly previousParentId: string | null | undefined;
   readonly response: ContainerMutationResponse;
+  readonly verifiedManifest: VerifiedContainerAccessManifest;
+  readonly verifiedPrincipalPolicies: readonly PrincipalPolicyAuthorization[];
 }
 
 async function finalizeVerifiedContainerMutation(input: {
@@ -363,6 +386,9 @@ async function finalizeVerifiedContainerMutation(input: {
   return {
     ...ancestors,
     metadataDocumentId: artifacts.manifest.state.metadataDocumentId,
+    ...(artifacts.parentContainerPath !== undefined
+      ? { parentContainerPath: artifacts.parentContainerPath }
+      : {}),
     previousParentId:
       expectedEventType === "container.move"
         ? artifacts.previousManifest?.state.parentContainerId
@@ -375,6 +401,8 @@ async function finalizeVerifiedContainerMutation(input: {
       artifacts.previousManifest,
       artifacts.previousContainerPath,
     ),
+    verifiedManifest: artifacts.manifest,
+    verifiedPrincipalPolicies: artifacts.principalPolicies,
   };
 }
 
@@ -384,6 +412,7 @@ export async function mutateContainerWithExecutorOutcome(
   const context: ContainerMutationContext = input.context ?? {
     executor: input.executor,
     manifestHeadByContainerId: new Map(),
+    verifiedLiveContainerOrgs: new Map(),
     verifiedManifestByHash: new Map(),
     writerProjectionContext: createContainerWriterProjectionContext(
       input.executor,
@@ -413,6 +442,8 @@ export async function mutateContainerWithExecutorOutcome(
   // Clear the read cache and repeat all mutable source checks under those locks
   // so a concurrently revoked writer cannot commit stale authorization.
   context.manifestHeadByContainerId.clear();
+  context.verifiedLiveContainerOrgs?.clear();
+  context.writerProjectionContext.liveContainerOrganizationById.clear();
   const artifacts = await verifyMutationArtifacts(context, input);
   await assertGroupGrantSetChangesAreAtomic(context, artifacts);
   if (prelockedBatchScope) {

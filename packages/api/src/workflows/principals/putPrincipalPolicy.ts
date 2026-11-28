@@ -234,9 +234,19 @@ export async function putPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
   identityTrustDomain: string,
+  options?: {
+    readonly verifiedDirectAdmin?:
+      | { readonly organizationId: string; readonly userId: string }
+      | undefined;
+  },
 ): Promise<PutPrincipalPolicyResult> {
   return (
-    await preparePrincipalPolicyInTransaction(tx, input, identityTrustDomain)
+    await preparePrincipalPolicyInTransaction(
+      tx,
+      input,
+      identityTrustDomain,
+      options,
+    )
   )();
 }
 
@@ -245,11 +255,17 @@ export async function preparePrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
   identityTrustDomain: string,
+  options?: {
+    readonly verifiedDirectAdmin?:
+      | { readonly organizationId: string; readonly userId: string }
+      | undefined;
+  },
 ): Promise<() => Promise<PutPrincipalPolicyResult>> {
   await lockPolicyPrincipalMutation(tx, input);
   const policyTarget = await lockOrganizationReadModelForPolicyMutation(
     tx,
     input,
+    options,
   );
   if (!policyTarget) {
     throw new PrincipalPolicyError("Principal policy target not found", 404);

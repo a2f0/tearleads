@@ -1,10 +1,14 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
+import type {
+  PrincipalPolicyAuthorization,
+  VerifiedDocumentLinkSetManifest,
+} from "@tearleads/crypto";
 import type { StoredDocumentContentKeyBundle } from "../../../../access/read/documentContentKeyStore";
 import type {
   DocumentKekTargetsRead,
   DocumentLinkSetFrontier,
 } from "../../../../access/read/documentKekTargets";
+import type { ContainerWriterProjectionContext } from "../../../containers/writerProjection/types";
 
 const createdDocumentSeed = Symbol("created document seed");
 
@@ -19,6 +23,12 @@ interface CreatedDocumentSeedRead {
   readonly hasRestoredPeerOwners: boolean;
   readonly targets: DocumentKekTargetsRead;
   readonly bundle: StoredDocumentContentKeyBundle;
+  readonly verifiedContainerContext?:
+    | ContainerWriterProjectionContext
+    | undefined;
+  readonly verifiedPrincipalPolicies?:
+    | readonly PrincipalPolicyAuthorization[]
+    | undefined;
 }
 
 const reads = new WeakMap<CreatedDocumentSeed, CreatedDocumentSeedRead>();
@@ -30,12 +40,20 @@ export function rememberCreatedDocumentSeed(
     readonly currentTargets: DocumentKekTargetsRead["targets"];
   },
   hasRestoredPeerOwners: boolean,
+  verified?: {
+    readonly context?: ContainerWriterProjectionContext | undefined;
+    readonly principalPolicies?:
+      | readonly PrincipalPolicyAuthorization[]
+      | undefined;
+  },
 ): CreatedDocumentSeed {
   const seed = Object.freeze({ [createdDocumentSeed]: true as const });
   reads.set(seed, {
     executor,
     bundle,
     hasRestoredPeerOwners,
+    verifiedContainerContext: verified?.context,
+    verifiedPrincipalPolicies: verified?.principalPolicies,
     // The create bundle store resolves strictly before returning these targets.
     targets: {
       allowHistoricalParentEpochs: false,

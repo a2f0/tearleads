@@ -4,8 +4,11 @@ import {
   accessManifestHeads,
   documents,
 } from "@tearleads/api-shared/schema";
-import type { AccessObjectKind } from "@tearleads/crypto";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import {
+  type AccessObjectKind,
+  compareCanonicalStrings,
+} from "@tearleads/crypto";
+import { and, eq, inArray } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import {
   type StoredAccessManifestHead,
@@ -95,13 +98,17 @@ export async function getCurrentDocumentHeadWithLinks(
         eq(accessManifestHeads.objectKind, "document"),
         eq(accessManifestHeads.objectId, documentId),
       ),
-    )
-    .orderBy(asc(accessManifestDocumentLinkProjection.containerId));
+    );
   const [first] = rows;
   if (!first) return null;
   return {
     head: toStoredAccessManifestHead(first.head),
-    links: rows.flatMap(({ link }) => (link ? [link] : [])),
+    // Sort the tiny per-document link set in JS to avoid a Postgres Sort node (#3396).
+    links: rows
+      .flatMap(({ link }) => (link ? [link] : []))
+      .sort((left, right) =>
+        compareCanonicalStrings(left.containerId, right.containerId),
+      ),
   };
 }
 
@@ -135,15 +142,18 @@ export async function getDocumentWithCurrentHeadAndLinks(
         accessManifestHeads.manifestHash,
       ),
     )
-    .where(eq(documents.id, documentId))
-    .orderBy(asc(accessManifestDocumentLinkProjection.containerId));
+    .where(eq(documents.id, documentId));
   const first = rows[0];
   return {
     exists: first !== undefined,
     current: first?.head
       ? {
           head: toStoredAccessManifestHead(first.head),
-          links: rows.flatMap(({ link }) => (link ? [link] : [])),
+          links: rows
+            .flatMap(({ link }) => (link ? [link] : []))
+            .sort((left, right) =>
+              compareCanonicalStrings(left.containerId, right.containerId),
+            ),
         }
       : null,
   };

@@ -16,9 +16,11 @@ import { readCommitCheckpoint } from "../../documents/commitLsn";
 import {
   type OrganizationProvisioningSigner,
   provisionOrganizationInTransaction,
-  toOrganizationProvisioningError,
 } from "../organizations/provisionOrganization";
-import { OrganizationProvisioningError } from "../organizations/provisionOrganizationError";
+import {
+  OrganizationProvisioningError,
+  toOrganizationProvisioningError,
+} from "../organizations/provisionOrganizationError";
 import { validateOrganizationProvisioningInput } from "../organizations/provisionOrganizationValidation";
 
 export { OrganizationProvisioningError as RegistrationError };

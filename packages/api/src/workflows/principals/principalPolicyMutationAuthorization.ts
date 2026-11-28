@@ -110,6 +110,15 @@ async function lockExactReplayTarget(input: {
 export async function lockOrganizationReadModelForPolicyMutation(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
+  options?: {
+    /**
+     * Organization + user whose direct admin access was already verified in
+     * this transaction under the organization's principal & read-model locks.
+     */
+    readonly verifiedDirectAdmin?:
+      | { readonly organizationId: string; readonly userId: string }
+      | undefined;
+  },
 ): Promise<OrganizationPolicyTarget | null> {
   const target = await loadRosterSyncTargetForPrincipal({ input, tx });
   if (!target) {
@@ -148,7 +157,10 @@ export async function lockOrganizationReadModelForPolicyMutation(
         tx,
       )
     : input.projection;
-  if (input.expectedPrincipalType === "group") {
+  const directAdminAlreadyVerified =
+    options?.verifiedDirectAdmin?.organizationId === target.organizationId &&
+    options.verifiedDirectAdmin.userId === input.state.signerUserId;
+  if (input.expectedPrincipalType === "group" && !directAdminAlreadyVerified) {
     await requireDirectOrganizationAccess({
       executor: tx,
       organizationId: target.organizationId,

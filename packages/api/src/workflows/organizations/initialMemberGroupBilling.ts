@@ -1,4 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { VerifiedPrincipalPolicyCurrent } from "@tearleads/crypto";
 import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
 import { recordFreeTrialInitialized } from "../billing/organizationTrialLifecycle";
@@ -10,9 +11,13 @@ export async function storeInitialMemberGroupPolicy(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
   identityTrustDomain: string,
-): Promise<string> {
+): Promise<{
+  readonly policy: VerifiedPrincipalPolicyCurrent;
+  readonly stateHash: string;
+}> {
   const { initialGroupPolicy } = input.initialMemberGroup;
-  const storedState = await storeVerifiedPrincipalPolicyInTransaction(
+  let verifiedPolicy: VerifiedPrincipalPolicyCurrent | undefined;
+  const stored = await storeVerifiedPrincipalPolicyInTransaction(
     {
       state: initialGroupPolicy.state,
       encryptedPayload: initialGroupPolicy.encryptedPayload,
@@ -21,10 +26,18 @@ export async function storeInitialMemberGroupPolicy(
       memberEnvelopes: initialGroupPolicy.memberEnvelopes,
     },
     tx,
-    { identityTrustDomain },
+    {
+      identityTrustDomain,
+      onVerified: (policy) => {
+        verifiedPolicy = policy;
+      },
+    },
   );
+  if (!verifiedPolicy) {
+    throw new Error("Expected verified principal policy after storage");
+  }
 
-  return storedState.stateHash;
+  return { policy: verifiedPolicy, stateHash: stored.stateHash };
 }
 
 export async function syncInitialRosterAndBillingSeats(input: {

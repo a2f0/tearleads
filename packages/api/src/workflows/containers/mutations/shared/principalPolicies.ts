@@ -1,8 +1,9 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
-import type {
-  PrincipalPolicyAuthorization,
-  ReferencedPrincipalHead,
+import {
+  type PrincipalPolicyAuthorization,
+  principalPolicyMatchesReference,
+  type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyRef } from "@tearleads/validators/request";
 import { PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT } from "@tearleads/validators/util";
@@ -113,6 +114,24 @@ async function stalePrincipalPolicyError(input: {
   });
 }
 
+function matchingEvidencePolicy(input: {
+  readonly evidence: readonly PrincipalPolicyAuthorization[] | undefined;
+  readonly ref: PrincipalPolicyRef;
+  readonly referencesForPrincipal: readonly ReferencedPrincipalHead[];
+}): PrincipalPolicyAuthorization | undefined {
+  if (!input.evidence || input.evidence.length === 0) return undefined;
+  return input.evidence.find(
+    (policy) =>
+      policy.principalType === input.ref.principalType &&
+      policy.principalId === input.ref.principalId &&
+      policy.version === input.ref.version &&
+      policy.stateHash === input.ref.stateHash &&
+      input.referencesForPrincipal.every((reference) =>
+        principalPolicyMatchesReference({ policy, reference }),
+      ),
+  );
+}
+
 /**
  * Each ref must name its principal's current head. The returned
  * authorizations are the server's own verified copies of those heads; the
@@ -123,6 +142,7 @@ export async function assertPrincipalPoliciesCurrent(
   executor: DatabaseTransaction,
   principalPolicyRefs: readonly PrincipalPolicyRef[],
   options: {
+    readonly evidence?: readonly PrincipalPolicyAuthorization[] | undefined;
     readonly referencedPrincipalHeads?: readonly ReferencedPrincipalHead[];
     readonly requesterUserId: string;
   },
@@ -160,14 +180,22 @@ export async function assertPrincipalPoliciesCurrent(
       throw mutationStateStale("Principal policy is stale");
     }
 
+    const referencesForPrincipal = referencedPrincipalHeads.filter(
+      (reference) =>
+        reference.principalType === ref.principalType &&
+        reference.principalId === ref.principalId,
+    );
+    const verifiedEvidence = matchingEvidencePolicy({
+      evidence: options.evidence,
+      ref,
+      referencesForPrincipal,
+    });
+    if (verifiedEvidence) return [verifiedEvidence];
+
     const storedBatches = await loadPrincipalPolicyReferenceBatches(
       executor,
       currentState,
-      referencedPrincipalHeads.filter(
-        (reference) =>
-          reference.principalType === ref.principalType &&
-          reference.principalId === ref.principalId,
-      ),
+      referencesForPrincipal,
     );
     return storedBatches.map(({ policy }) => policy);
   });

@@ -1,4 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { VerifiedPrincipalPolicyCurrent } from "@tearleads/crypto";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import {
@@ -43,6 +44,8 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   options: StoreVerifiedPrincipalStateOptions & {
     readonly identityTrustDomain: string;
+    /** Receives the policy verified from stored rows before commit. */
+    readonly onVerified?: (policy: VerifiedPrincipalPolicyCurrent) => void;
     /** The state is its organization's reserved Admins group. */
     readonly reservedAdmins?: boolean;
   },
@@ -78,16 +81,24 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
     tx,
     stored,
   );
+  let verifiedPolicy: VerifiedPrincipalPolicyCurrent | undefined;
   await withPrincipalHistorySuccessorStep(state, async () => {
-    await verifyStoredPrincipalPolicyForStateWithExecutor(tx, state);
+    verifiedPolicy = await verifyStoredPrincipalPolicyForStateWithExecutor(
+      tx,
+      state,
+    );
     if (options.reservedAdmins === true)
       await verifyStrictAdminsAuthority(tx, state);
   });
+  if (!verifiedPolicy) {
+    throw new Error("Expected verified principal policy after storage");
+  }
 
   await storeVerifiedPrincipalDirectoryBindings({
     executor: tx,
     state,
     ciphertext: input.encryptedPayload.ciphertext,
   });
+  options.onVerified?.(verifiedPolicy);
   return state;
 }

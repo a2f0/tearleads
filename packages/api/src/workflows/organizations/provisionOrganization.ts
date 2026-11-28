@@ -5,7 +5,10 @@ import {
   organizationReadModelHeads,
   organizations,
 } from "@tearleads/api-shared/schema";
-import { normalizePrincipalContainerGrants } from "@tearleads/crypto";
+import {
+  normalizePrincipalContainerGrants,
+  type PrincipalPolicyAuthorization,
+} from "@tearleads/crypto";
 import {
   documentCreateSeedSyncRequest,
   type OrganizationProvisioningRequest,
@@ -16,15 +19,10 @@ import type {
   DocumentCreateResponse,
 } from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
-import { ContainerMutationError } from "../containers/mutations/errors";
-import {
-  createDocumentWithExecutor,
-  DocumentMutationError,
-} from "../documents/mutations";
+import { createDocumentWithExecutor } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
 import { listCurrentPrincipalContainerGrants } from "../principals/principalContainerGrants";
 import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
-import { toPrincipalPolicyError } from "../principals/shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
 import { wasOrganizationGroupDeleted } from "./groupTombstone";
 import {
@@ -47,6 +45,8 @@ import {
   createInitialOrganizationMetadataContainer,
   createInitialRosterProfileContainer,
   createProvisionedSystemContainers,
+  createProvisioningVerifiedContext,
+  type ProvisioningVerifiedContext,
 } from "./provisionOrganizationSystemContainers";
 
 /**
@@ -152,7 +152,8 @@ async function storeInitialPolicy(
   bundle: PutPrincipalPolicyRequest,
   identityTrustDomain: string,
   reservedAdmins = false,
-): Promise<void> {
+): Promise<PrincipalPolicyAuthorization> {
+  let verifiedPolicy: PrincipalPolicyAuthorization | undefined;
   await storeVerifiedPrincipalPolicyInTransaction(
     {
       state: bundle.state,
@@ -162,8 +163,18 @@ async function storeInitialPolicy(
       memberEnvelopes: bundle.memberEnvelopes,
     },
     tx,
-    { identityTrustDomain, reservedAdmins },
+    {
+      identityTrustDomain,
+      onVerified: (policy) => {
+        verifiedPolicy = policy;
+      },
+      reservedAdmins,
+    },
   );
+  if (!verifiedPolicy) {
+    throw new Error("Expected verified principal policy after storage");
+  }
+  return verifiedPolicy;
 }
 
 async function assertProvisionedGroupGrantIndex(
@@ -200,6 +211,7 @@ async function createInitialRootMetadataDocument(
   rootMetadata: {
     metadataDocumentId: string;
   },
+  provisioningContext: ProvisioningVerifiedContext,
 ): Promise<DocumentCreateResponse> {
   const requestDocumentId = readDocumentCreateRequestId(
     input.initialRootMetadataDocument,
@@ -218,6 +230,8 @@ async function createInitialRootMetadataDocument(
       fingerprint: signer.fingerprint,
       request: input.initialRootMetadataDocument,
       userId: input.userId,
+      verifiedContainerContext: provisioningContext.verifiedContainerContext,
+      verifiedPrincipalPolicies: provisioningContext.verifiedPrincipalPolicies,
     });
   if (created.id !== rootMetadata.metadataDocumentId) {
     throw new OrganizationProvisioningError(
@@ -276,11 +290,8 @@ export interface ProvisionOrganizationOptions {
   readonly identityTrustDomain: string;
   readonly initialBilling: InitialOrganizationBilling;
   /**
-   * Invoked in-transaction immediately after the organization row and its root
-   * container are created, before groups/policies/roster are stored.
-   * Registration uses this to insert the founding user row with the new
-   * organization as their default; creating an additional organization omits it
-   * (the founding user already exists).
+   * Invoked after creating the org row and root container, before groups and
+   * policies (used by registration to insert the founding user).
    */
   readonly onOrganizationRootCreated?:
     | ((organizationId: string) => Promise<void>)
@@ -308,7 +319,11 @@ async function provisionOrganizationAuthorityAndBilling(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
   options: ProvisionOrganizationOptions,
-): Promise<{ organizationId: string; rootContainerId: string }> {
+): Promise<{
+  organizationId: string;
+  rootContainerId: string;
+  verifiedPrincipalPolicies: readonly PrincipalPolicyAuthorization[];
+}> {
   await lockProvisioningOrganizationPrincipalId(tx, input);
   await lockProvisioningGroupPrincipalIds(tx, input);
   const org = await createOrganizationRow(tx, {
@@ -336,18 +351,15 @@ async function provisionOrganizationAuthorityAndBilling(
     groupId: input.initialMemberGroup.groupId,
     organizationId: org.id,
   });
-  await storeInitialPolicy(
+  const adminPolicy = await storeInitialPolicy(
     tx,
     input.initialAdminGroup.initialGroupPolicy,
     options.identityTrustDomain,
     true,
   );
-  const initialMemberGroupStateHash = await storeInitialMemberGroupPolicy(
-    tx,
-    input,
-    options.identityTrustDomain,
-  );
-  await storeInitialPolicy(
+  const { policy: memberPolicy, stateHash: initialMemberGroupStateHash } =
+    await storeInitialMemberGroupPolicy(tx, input, options.identityTrustDomain);
+  const organizationPolicy = await storeInitialPolicy(
     tx,
     input.initialOrganizationPolicy,
     options.identityTrustDomain,
@@ -359,18 +371,75 @@ async function provisionOrganizationAuthorityAndBilling(
     provisioning: input,
     tx,
   });
-  return { organizationId: org.id, rootContainerId: container.id };
+  return {
+    organizationId: org.id,
+    rootContainerId: container.id,
+    verifiedPrincipalPolicies: [adminPolicy, memberPolicy, organizationPolicy],
+  };
+}
+
+async function provisionOrganizationContainersAndProfiles(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+  signer: OrganizationProvisioningSigner,
+  rootMetadata: { readonly metadataDocumentId: string },
+  provisioningContext: ProvisioningVerifiedContext,
+) {
+  const rootMetadataDocument = await createInitialRootMetadataDocument(
+    tx,
+    input,
+    signer,
+    rootMetadata,
+    provisioningContext,
+  );
+  const rosterProfileContainer = await createInitialRosterProfileContainer(
+    tx,
+    input,
+    signer,
+    provisioningContext,
+  );
+  const rosterProfileDocument = await createInitialRosterProfileDocument(
+    tx,
+    input,
+    signer,
+    rosterProfileContainer?.container ?? null,
+    provisioningContext,
+  );
+  const organizationMetadataContainer =
+    await createInitialOrganizationMetadataContainer(
+      tx,
+      input,
+      signer,
+      provisioningContext,
+    );
+  const organizationProfileDocument =
+    await createInitialOrganizationProfileDocument(
+      tx,
+      input,
+      signer,
+      organizationMetadataContainer.container,
+      provisioningContext,
+    );
+  const systemContainers = await createProvisionedSystemContainers(
+    tx,
+    input,
+    signer,
+    provisioningContext,
+  );
+  return {
+    organizationMetadataContainer,
+    organizationProfileDocument,
+    rootMetadataDocument,
+    rosterProfileContainer,
+    rosterProfileDocument,
+    systemContainers,
+  };
 }
 
 /**
- * Bootstraps a fresh organization from the client-signed provisioning
- * artifacts, inside the caller's transaction: the organization row + initial
- * billing, the root container and its verified access manifest/KEK state, the
- * admin/member group policies, the initial roster, builtin grants, and the
- * optional roster/organization profile documents. The founding admin
- * (`input.userId`) must already exist by the time roster sync runs — pass
- * `options.onOrganizationRootCreated` to create it (registration) or ensure it
- * exists beforehand (additional organization).
+ * Bootstraps a fresh organization inside the caller's transaction: org row,
+ * billing, root container, reserved group policies, roster, builtin grants,
+ * and system/profile containers and documents.
  */
 export async function provisionOrganizationInTransaction(
   tx: DatabaseTransaction,
@@ -378,40 +447,32 @@ export async function provisionOrganizationInTransaction(
   signer: OrganizationProvisioningSigner,
   options: ProvisionOrganizationOptions,
 ): Promise<ProvisionedOrganization> {
-  const { organizationId, rootContainerId } =
+  const { organizationId, rootContainerId, verifiedPrincipalPolicies } =
     await provisionOrganizationAuthorityAndBilling(tx, input, options);
-  const rootMetadata = await storeInitialRootContainer(tx, input, signer);
-  const rootMetadataDocument = await createInitialRootMetadataDocument(
+  const rootMetadata = await storeInitialRootContainer(
     tx,
     input,
     signer,
-    rootMetadata,
+    verifiedPrincipalPolicies,
   );
-  const rosterProfileContainer = await createInitialRosterProfileContainer(
+  const provisioningContext = await createProvisioningVerifiedContext({
+    groupIds: [
+      input.initialAdminGroup.groupId,
+      input.initialMemberGroup.groupId,
+    ],
+    organizationId,
+    rootManifest: rootMetadata.verifiedManifest,
     tx,
-    input,
-    signer,
-  );
-  const rosterProfileDocument = await createInitialRosterProfileDocument(
-    tx,
-    input,
-    signer,
-    rosterProfileContainer?.container ?? null,
-  );
-  const organizationMetadataContainer =
-    await createInitialOrganizationMetadataContainer(tx, input, signer);
-  const organizationProfileDocument =
-    await createInitialOrganizationProfileDocument(
+    verifiedPrincipalPolicies,
+  });
+  const provisionedContainers =
+    await provisionOrganizationContainersAndProfiles(
       tx,
       input,
       signer,
-      organizationMetadataContainer.container,
+      rootMetadata,
+      provisioningContext,
     );
-  const systemContainers = await createProvisionedSystemContainers(
-    tx,
-    input,
-    signer,
-  );
   await assertProvisionedGroupGrantIndex(
     tx,
     input.initialAdminGroup.initialGroupPolicy,
@@ -427,44 +488,8 @@ export async function provisionOrganizationInTransaction(
     rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
     rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,
     rootMetadataDocumentId: rootMetadata.metadataDocumentId,
-    rootMetadataDocument,
-    rosterProfileContainer,
-    rosterProfileDocument,
-    organizationMetadataContainer,
-    organizationProfileDocument,
-    systemContainers,
+    ...provisionedContainers,
     committedCoreMetadataUpdateIds: listCommittedCoreMetadataUpdateIds(input),
     committedProfileUpdateIds: listCommittedProfileUpdateIds(input),
   };
-}
-
-/**
- * Maps the principal-policy / document / container mutation errors raised while
- * storing provisioning artifacts into a status-bearing
- * {@link OrganizationProvisioningError}. Returns null for unrelated errors so
- * the caller can rethrow.
- */
-export function toOrganizationProvisioningError(
-  error: unknown,
-): OrganizationProvisioningError | null {
-  if (!(error instanceof Error)) {
-    return null;
-  }
-
-  const policyError = toPrincipalPolicyError(error);
-  if (policyError) {
-    return new OrganizationProvisioningError(
-      policyError.message,
-      policyError.status,
-    );
-  }
-
-  if (
-    error instanceof DocumentMutationError ||
-    error instanceof ContainerMutationError
-  ) {
-    return new OrganizationProvisioningError(error.message, error.status);
-  }
-
-  return null;
 }

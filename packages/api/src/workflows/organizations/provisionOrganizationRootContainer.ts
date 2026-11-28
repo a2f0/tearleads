@@ -1,6 +1,7 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   type ContainerKeyEpoch,
+  type PrincipalPolicyAuthorization,
   readKeyingCanonicalJson,
   type VerifiedAccessEvent,
   type VerifiedContainerAccessManifest,
@@ -136,11 +137,13 @@ export async function storeInitialRootContainer(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
   signer: RootContainerSigner,
+  verifiedPrincipalPolicies?: readonly PrincipalPolicyAuthorization[],
 ): Promise<{
   bundleDigest: string;
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
   metadataDocumentId: string;
+  verifiedManifest: VerifiedContainerAccessManifest;
 }> {
   const request = input.initialRootContainer;
   const keyEpoch: ContainerKeyEpoch = parseProjection(
@@ -154,7 +157,7 @@ export async function storeInitialRootContainer(
   const principalPolicies = await assertPrincipalPoliciesCurrent(
     tx,
     request.principalPolicyRefs,
-    { requesterUserId: input.userId },
+    { evidence: verifiedPrincipalPolicies, requesterUserId: input.userId },
   );
 
   const event = requireRootVerification(
@@ -223,5 +226,6 @@ export async function storeInitialRootContainer(
     metadataAccessEpoch: manifest.state.epoch,
     metadataAccessStateHash: manifest.manifestHash,
     metadataDocumentId: manifest.state.metadataDocumentId,
+    verifiedManifest: manifest,
   };
 }

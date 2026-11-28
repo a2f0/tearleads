@@ -227,6 +227,10 @@ function currentContainerDocumentsQuery(input: {
             accessManifestHeads.manifestHash,
           ),
           eq(
+            accessManifestDocumentLinkProjection.documentId,
+            accessManifestHeads.objectId,
+          ),
+          eq(
             accessManifestDocumentLinkProjection.containerId,
             input.containerId,
           ),
@@ -258,7 +262,7 @@ function currentContainerDocumentsQuery(input: {
         input.watermark,
       )}
     `)
-      .orderBy(asc(documents.discoveryOrder), asc(accessManifestHeads.objectId))
+      .orderBy(asc(documents.discoveryOrder), asc(documents.id))
       .limit(input.limit + 1)
   );
 }

@@ -29,9 +29,11 @@ import { validateOrganizationReplacementAuthorization } from "./organizationRepl
 import {
   type OrganizationProvisioningSigner,
   provisionOrganizationInTransaction,
-  toOrganizationProvisioningError,
 } from "./provisionOrganization";
-import { OrganizationProvisioningError } from "./provisionOrganizationError";
+import {
+  OrganizationProvisioningError,
+  toOrganizationProvisioningError,
+} from "./provisionOrganizationError";
 import { toOrganizationProvisioningResponse } from "./provisionOrganizationResponse";
 import { validateOrganizationProvisioningInput } from "./provisionOrganizationValidation";
 

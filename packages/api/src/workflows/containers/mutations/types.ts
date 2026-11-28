@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import type {
   AccessEventType,
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type {
@@ -35,7 +36,7 @@ export interface MutateContainerRotationInput
 }
 
 export interface MutateContainerWithExecutorInput extends MutateContainerInput {
-  readonly context?: ContainerMutationContext;
+  readonly context?: ContainerMutationContext | undefined;
   readonly executor: DatabaseTransaction;
 }
 
@@ -69,6 +70,12 @@ export interface ContainerMutationContext {
    */
   readonly mutatingGroupPrincipalId?: string | undefined;
   readonly manifestHeadByContainerId: Map<string, CurrentAccessManifestHead>;
+  /** Live container -> organizationId proved after the current lock boundary. */
+  readonly verifiedLiveContainerOrgs?: Map<string, string> | undefined;
+  /** Verified principal policies already proved under this transaction's locks. */
+  readonly verifiedPrincipalPolicies?:
+    | readonly PrincipalPolicyAuthorization[]
+    | undefined;
   /** Independently verified manifests created earlier in the same batch. */
   readonly verifiedManifestByHash: Map<string, VerifiedContainerAccessManifest>;
   // Shared only with hash/id-addressed projection loaders during this write

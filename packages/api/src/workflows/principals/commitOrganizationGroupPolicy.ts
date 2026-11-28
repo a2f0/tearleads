@@ -88,6 +88,14 @@ async function commitRosterEnrollment(
         tx,
         memberInput,
         identityTrustDomain,
+        {
+          // preparePrincipalPolicyInTransaction just verified direct org admin
+          // access under the same organization principal & read-model locks.
+          verifiedDirectAdmin: {
+            organizationId: input.organizationId,
+            userId: input.requesterUserId,
+          },
+        },
       )
     : null;
 }

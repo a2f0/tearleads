@@ -78,6 +78,8 @@ export interface ContainerWriterProjectionContext {
     Promise<ContainerKekProjection>
   >;
   readonly containerPathRowById: Map<string, Promise<ContainerPathRow>>;
+  /** Live container -> organizationId already proved in this context's scope. */
+  readonly liveContainerOrganizationById: Map<string, string>;
   readonly executor: DatabaseSession;
   readonly currentManifestBundleByContainerId: Map<
     string,

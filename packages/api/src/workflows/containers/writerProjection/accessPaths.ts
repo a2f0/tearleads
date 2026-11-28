@@ -120,6 +120,7 @@ async function loadContainerPathRow(
         throw new ContainerWriterProjectionError("Container not found", 404);
       }
 
+      context.liveContainerOrganizationById.set(row.id, row.organizationId);
       return row;
     },
   );
@@ -217,6 +218,7 @@ function seedContainerPathRows(
 ): void {
   for (const { container: row, bundle } of rows) {
     if (bundle) seedCurrentBundle(context, row.id, bundle);
+    context.liveContainerOrganizationById.set(row.id, row.organizationId);
     if (context.containerPathRowById.has(row.id)) continue;
     context.containerPathRowById.set(row.id, Promise.resolve(row));
     if (row.parentId !== null) parentIds.add(row.parentId);
@@ -400,7 +402,7 @@ export async function resolveSingleContainerAccessProjection(input: {
   const principalPolicies = await loadPrincipalPoliciesForAccessPaths(
     input.context.executor,
     [accessPath.verifiedPath],
-    [],
+    input.context.principalPolicyAuthorizationEvidence,
     input.context.principalPolicyByReference,
   );
 
