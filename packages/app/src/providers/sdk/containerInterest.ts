@@ -45,10 +45,12 @@ function diffInterest(
 }
 
 /**
- * Select the subtree roots this client declares to the realtime hub: top-level
- * roots, directly granted nested folders (`rootLaneMember`), and any node whose
- * parent is absent from the local snapshot. Ordinary descendants under a held
- * parent are covered by their root's subscription on the hub.
+ * Select the subtree roots this client declares to the realtime hub in
+ * priority order so top-level roots are never displaced by >256 nested shares
+ * or orphaned nodes:
+ *   1. Top-level roots (`parentId === null || parentId === undefined`)
+ *   2. Directly granted nested roots (`rootLaneMember === true`)
+ *   3. Orphaned nodes whose parent is absent from the local snapshot
  */
 function selectDeclaredRootIds(
   nodes: ReadonlyArray<{
@@ -58,17 +60,22 @@ function selectDeclaredRootIds(
   }>,
 ): Set<string> {
   const nodeIds = new Set(nodes.map((node) => node.id));
-  const roots = new Set<string>();
+  const topLevel: string[] = [];
+  const directNested: string[] = [];
+  const orphaned: string[] = [];
   for (const node of nodes) {
-    if (
-      node.parentId === null ||
-      node.parentId === undefined ||
-      node.rootLaneMember === true ||
-      !nodeIds.has(node.parentId)
-    ) {
-      roots.add(node.id);
-      if (roots.size >= MAX_WS_INTEREST_CONTAINER_IDS) break;
+    if (node.parentId === null || node.parentId === undefined) {
+      topLevel.push(node.id);
+    } else if (node.rootLaneMember === true) {
+      directNested.push(node.id);
+    } else if (!nodeIds.has(node.parentId)) {
+      orphaned.push(node.id);
     }
+  }
+  const roots = new Set<string>();
+  for (const id of [...topLevel, ...directNested, ...orphaned]) {
+    roots.add(id);
+    if (roots.size >= MAX_WS_INTEREST_CONTAINER_IDS) break;
   }
   return roots;
 }
@@ -195,8 +202,9 @@ function declareInterest(
     }
 
     const { added, removed } = diffInterest(current, declared);
-    if (added.length > 0) send("known_containers.add", added);
+    // Free server-side slots before adding replacements when near the 256 cap.
     if (removed.length > 0) send("known_containers.remove", removed);
+    if (added.length > 0) send("known_containers.add", added);
     declared = current;
   };
 

@@ -34,6 +34,9 @@ test("defaults to the issue's three sizes, one sample, and a fresh seed", () => 
 
 test("rejects sizes the hub would refuse and unordered or bad counts", () => {
   expect(() => parseRealtimeOptions(["--sizes", "10001"])).toThrow(/--sizes/);
+  expect(() =>
+    parseRealtimeOptions(["--mode", "all", "--sizes", "257"]),
+  ).toThrow(/--sizes must be an integer from 1 to 256/);
   expect(() => parseRealtimeOptions(["--sizes", "0"])).toThrow(/--sizes/);
   expect(() => parseRealtimeOptions(["--sizes", "100,100"])).toThrow(
     /ascending/,

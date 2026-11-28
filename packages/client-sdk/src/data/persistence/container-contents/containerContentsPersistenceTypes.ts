@@ -119,8 +119,9 @@ export interface ContainerContentsPersistence
     input: {
       readonly addIds: ReadonlyArray<string>;
       readonly removeIds: ReadonlyArray<string>;
+      readonly stillCurrent?: (() => boolean) | undefined;
     },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   /**
    * Create an absent remotely hydrated container only when no newer durable
    * tombstone or concurrent container/dormant-metadata mutation won first.

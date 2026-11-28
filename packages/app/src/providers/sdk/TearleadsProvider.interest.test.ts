@@ -38,16 +38,29 @@ for (const initialPending of [false, true]) {
       handle.acknowledge(pending.declarationId, pending.containerIds),
     ).toBe(initialPending);
     const deltas = sent.slice(sentBefore).map((value) => JSON.parse(value));
-    expect(deltas[0]).toMatchObject({
-      type: "known_containers.add",
-      containerIds: Array.from({ length: 100 }, (_, index) => `child-${index}`),
-    });
     expect(deltas).toHaveLength(initialPending ? 1 : 2);
-    if (!initialPending)
-      expect(deltas[1]).toMatchObject({
+    if (!initialPending) {
+      // Removals precede additions so server slots free before replacements land.
+      expect(deltas[0]).toMatchObject({
         type: "known_containers.remove",
         containerIds: ["first"],
       });
+      expect(deltas[1]).toMatchObject({
+        type: "known_containers.add",
+        containerIds: Array.from(
+          { length: 100 },
+          (_, index) => `child-${index}`,
+        ),
+      });
+    } else {
+      expect(deltas[0]).toMatchObject({
+        type: "known_containers.add",
+        containerIds: Array.from(
+          { length: 100 },
+          (_, index) => `child-${index}`,
+        ),
+      });
+    }
     handle.stop();
   });
 }

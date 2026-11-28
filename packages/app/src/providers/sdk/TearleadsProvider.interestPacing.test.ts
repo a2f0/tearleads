@@ -118,3 +118,31 @@ test("more than MAX_WS_INTEREST_CONTAINER_IDS roots stay within server frame and
   );
   handle.stop();
 });
+
+test("prioritizes top-level roots ahead of >256 directly shared nested roots and orphans", () => {
+  const nestedDirect: TreeNode[] = Array.from(
+    { length: MAX_WS_INTEREST_CONTAINER_IDS },
+    (_, index) => ({
+      id: `a-direct-nested-${index}`,
+      parentId: "unseen-parent",
+      rootLaneMember: true,
+    }),
+  );
+  const topLevelRoot: TreeNode = {
+    id: "z-primary-root",
+    parentId: null,
+    rootLaneMember: true,
+  };
+  const tree = createTreeStore([...nestedDirect, topLevelRoot]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => tree.store),
+    ws,
+  );
+  const initial = JSON.parse(sent[0] ?? "null") as {
+    containerIds: string[];
+  };
+  expect(initial.containerIds).toHaveLength(MAX_WS_INTEREST_CONTAINER_IDS);
+  expect(initial.containerIds[0]).toBe("z-primary-root");
+  handle.stop();
+});

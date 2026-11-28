@@ -3,6 +3,7 @@ import {
   ascendingIntegers,
   integer,
   MAX_DECLARED_IDS,
+  MAX_TREE_SIZE,
 } from "../inProcess/optionValues";
 
 export type RealtimeDeclarationMode = "all" | "roots";
@@ -50,11 +51,13 @@ export function parseRealtimeOptions(args: string[]): RealtimeOptions | null {
     allowPositionals: false,
   });
   if (values.help) return null;
+  const mode = declarationMode(values.mode);
+  const maxSize = mode === "all" ? MAX_DECLARED_IDS : MAX_TREE_SIZE;
   return {
-    sizes: ascendingIntegers(values.sizes, "--sizes", 1, MAX_DECLARED_IDS),
-    fanout: integer(values.fanout, "--fanout", 1, MAX_DECLARED_IDS),
+    sizes: ascendingIntegers(values.sizes, "--sizes", 1, maxSize),
+    fanout: integer(values.fanout, "--fanout", 1, MAX_TREE_SIZE),
     samples: integer(values.samples, "--samples", 1, 10),
-    mode: declarationMode(values.mode),
+    mode,
     reuse: values.reuse,
   };
 }

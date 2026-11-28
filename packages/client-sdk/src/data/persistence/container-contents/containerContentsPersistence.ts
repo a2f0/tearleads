@@ -12,6 +12,7 @@ import {
 } from "../../sqlite/schema/documentProjectionSchema";
 import { documentTables } from "../../sqlite/schema/documentRecordSchema";
 import { keyingCheckpointTables } from "../../sqlite/schema/keyingCheckpointSchema";
+import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -143,31 +144,46 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   async setRootLaneMembers(execSql, input) {
     const addIds = Array.from(new Set(input.addIds));
     const removeIds = Array.from(new Set(input.removeIds));
-    if (addIds.length === 0 && removeIds.length === 0) return;
+    if (addIds.length === 0 && removeIds.length === 0) return true;
     await sqlContainerContentsPersistence.ensureSchema(execSql);
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    const batchSize = sqliteRowsPerStatement(1, 1);
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
-      await runtime.transaction(async (tx) => {
-        if (addIds.length > 0) {
-          await tx
-            .update(containers)
-            .set({ rootLaneMember: true })
-            .where(inArray(containers.id, addIds))
-            .run();
-        }
-        if (removeIds.length > 0) {
-          await tx
-            .update(containers)
-            .set({ rootLaneMember: false })
-            .where(
-              and(
-                inArray(containers.id, removeIds),
-                isNotNull(containers.parentId),
-              ),
-            )
-            .run();
-        }
-      });
+      const outcome = await runtime.guardedTransaction(
+        async (tx) => {
+          for (let offset = 0; offset < addIds.length; offset += batchSize) {
+            await tx
+              .update(containers)
+              .set({ rootLaneMember: true })
+              .where(
+                inArray(
+                  containers.id,
+                  addIds.slice(offset, offset + batchSize),
+                ),
+              )
+              .run();
+          }
+          for (let offset = 0; offset < removeIds.length; offset += batchSize) {
+            await tx
+              .update(containers)
+              .set({ rootLaneMember: false })
+              .where(
+                and(
+                  inArray(
+                    containers.id,
+                    removeIds.slice(offset, offset + batchSize),
+                  ),
+                  isNotNull(containers.parentId),
+                ),
+              )
+              .run();
+          }
+          return true;
+        },
+        input.stillCurrent ?? (() => true),
+        { behavior: "immediate" },
+      );
+      return outcome.committed;
     });
   },
   async containerExists(execSql, containerId) {

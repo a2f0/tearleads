@@ -27,15 +27,19 @@ import type {
   RemoteContainerHydrationHost,
   RemoteContainerHydrationState,
 } from "../types";
-import {
-  applyIdsOnlyParentLanePage,
-  type RootLaneMembershipSweep,
-} from "./applyIdsOnlyParentLanePage";
+import { applyIdsOnlyParentLanePage } from "./applyIdsOnlyParentLanePage";
 import {
   applyRemoteContainerPage,
   combineHydrationOutcomes as combineOutcomes,
 } from "./applyRemoteContainerPage";
 import { loadPausedContainerFilter } from "./organizationSyncPauseFilter";
+import {
+  createRootLaneMembershipSweep,
+  markRootMembershipSweepFailed,
+  type RootLaneMembershipSweep,
+  reconcileRootLaneMembers,
+  recordRootMembershipPage,
+} from "./rootLaneMembershipSweep";
 
 /** Parent lanes one crawl request lists: as many as the server accepts. */
 const CONTAINER_PARENT_LANES_PER_REQUEST = MAX_CONTAINER_PARENT_LANES;
@@ -112,19 +116,47 @@ async function oweServedDocumentLanes(
   return input.isCurrent?.() !== false;
 }
 
-function recordFullRootPageMembership(
-  rootMembership: RootLaneMembershipSweep,
-  lane: ContainerParentHydrationLane,
-  response: FetchedContainerParentLanePage["response"],
-  outcome: HydrationOutcome,
-): void {
-  if (lane.parentId !== null || lane.watermark !== null) return;
-  for (const item of response.items) {
-    rootMembership.observedIds.add(item.id);
+async function finalizeContainerParentLanePage(input: {
+  readonly changedCount: number;
+  readonly fetchedPage: FetchedContainerParentLanePage;
+  readonly isCurrent?: (() => boolean) | undefined;
+  readonly outcome: HydrationOutcome;
+  readonly queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
+  readonly reconnect?: ReconnectPages | undefined;
+  readonly rootMembership: RootLaneMembershipSweep;
+  readonly state: RemoteContainerHydrationState;
+}): Promise<HydrationProgress> {
+  const { changedCount, fetchedPage, outcome } = input;
+  const { lane, response } = fetchedPage;
+  // A bad continuation invalidates the cursor, independently verified rows still apply.
+  if (hasUnusableContinuation(fetchedPage)) {
+    markRootMembershipSweepFailed(input.rootMembership, lane);
+    return { changedCount, outcome: "retry", shouldStop: false };
   }
-  if (!response.hasMore && outcome === "complete") {
-    rootMembership.complete = true;
+  // A refused item leaves a gap in this lane. Later pages can still discover
+  // independent children, but none may move its durable cursor past the gap.
+  if (outcome !== "complete" && !input.reconnect) {
+    markRootMembershipSweepFailed(input.rootMembership, lane);
+    return { changedCount, outcome, shouldStop: false };
   }
+  const skipWatermarkWrite = lane.skipWatermarkWrite || outcome !== "complete";
+  if (!skipWatermarkWrite && !(await checkpointPage(input))) {
+    return { changedCount, outcome: "retry", shouldStop: true };
+  }
+  const sweepId = recordRootMembershipPage({
+    hasMore: response.hasMore,
+    itemIds: response.items.map((item) => item.id),
+    lane,
+    outcome,
+    sweep: input.rootMembership,
+  });
+  const nextPage =
+    sweepId !== null && lane.rootMembershipSweepId === undefined
+      ? { ...fetchedPage, lane: { ...lane, rootMembershipSweepId: sweepId } }
+      : fetchedPage;
+
+  queueNextPage(nextPage, skipWatermarkWrite, input.queueContinuationLane);
+  return { changedCount, outcome, shouldStop: false };
 }
 
 async function applyContainerParentLanePage(input: {
@@ -158,8 +190,10 @@ async function applyContainerParentLanePage(input: {
       response.nextWatermark,
       !!lane.continuationCursors,
     )
-  )
+  ) {
+    markRootMembershipSweepFailed(input.rootMembership, lane);
     return { changedCount, outcome: "retry", shouldStop: false };
+  }
   const remoteContainerItems = getApplicableRemoteContainerItems(response);
   const isPaused = await loadPausedContainerFilter(state);
   const tombstoneResult = await applyContainerTombstones({
@@ -209,21 +243,16 @@ async function applyContainerParentLanePage(input: {
   if (input.isCurrent?.() === false) {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
-  // A bad continuation invalidates the cursor, independently verified rows still apply.
-  if (hasUnusableContinuation(fetchedPage))
-    return { changedCount, outcome: "retry", shouldStop: false };
-  // A refused item leaves a gap in this lane. Later pages can still discover
-  // independent children, but none may move its durable cursor past the gap.
-  if (outcome !== "complete" && !input.reconnect)
-    return { changedCount, outcome, shouldStop: false };
-  const skipWatermarkWrite = lane.skipWatermarkWrite || outcome !== "complete";
-  if (!skipWatermarkWrite && !(await checkpointPage(input))) {
-    return { changedCount, outcome: "retry", shouldStop: true };
-  }
-  recordFullRootPageMembership(input.rootMembership, lane, response, outcome);
-
-  queueNextPage(fetchedPage, skipWatermarkWrite, input.queueContinuationLane);
-  return { changedCount, outcome, shouldStop: false };
+  return finalizeContainerParentLanePage({
+    changedCount,
+    fetchedPage,
+    isCurrent: input.isCurrent,
+    outcome,
+    queueContinuationLane: input.queueContinuationLane,
+    reconnect: input.reconnect,
+    rootMembership: input.rootMembership,
+    state,
+  });
 }
 
 function takeContainerParentLaneBatch(input: {
@@ -252,68 +281,6 @@ function takeContainerParentLaneBatch(input: {
   return batch;
 }
 
-function collectRootLaneMemberChanges(
-  containersById: RemoteContainerHydrationState["containersById"],
-  observedIds: ReadonlySet<string>,
-): { readonly addIds: string[]; readonly removeIds: string[] } {
-  const addIds: string[] = [];
-  const removeIds: string[] = [];
-  for (const [id, { container }] of containersById) {
-    if (container.parentId === null || container.serverCreatedAt == null) {
-      continue;
-    }
-    const isMember = observedIds.has(id);
-    if (isMember && container.rootLaneMember !== true) addIds.push(id);
-    else if (!isMember && container.rootLaneMember === true) removeIds.push(id);
-  }
-  return { addIds, removeIds };
-}
-
-function applyRootLaneMemberChangeInMemory(
-  containersById: RemoteContainerHydrationState["containersById"],
-  ids: readonly string[],
-  nextValue: true | undefined,
-): number {
-  let updated = 0;
-  for (const id of ids) {
-    const current = containersById.get(id);
-    if (!current || current.container.rootLaneMember === nextValue) continue;
-    current.container = { ...current.container, rootLaneMember: nextValue };
-    updated++;
-  }
-  return updated;
-}
-
-async function reconcileRootLaneMembers(input: {
-  readonly isCurrent?: (() => boolean) | undefined;
-  readonly rootMembership: RootLaneMembershipSweep;
-  readonly state: RemoteContainerHydrationState;
-}): Promise<number> {
-  if (!input.rootMembership.complete || input.isCurrent?.() === false) return 0;
-  const { addIds, removeIds } = collectRootLaneMemberChanges(
-    input.state.containersById,
-    input.rootMembership.observedIds,
-  );
-  if (addIds.length === 0 && removeIds.length === 0) return 0;
-  await input.state.persistence.setRootLaneMembers?.(
-    input.state.runtime.infra.execSql,
-    { addIds, removeIds },
-  );
-  if (input.isCurrent?.() === false) return 0;
-  return (
-    applyRootLaneMemberChangeInMemory(
-      input.state.containersById,
-      addIds,
-      true,
-    ) +
-    applyRootLaneMemberChangeInMemory(
-      input.state.containersById,
-      removeIds,
-      undefined,
-    )
-  );
-}
-
 async function applyFetchedParentLaneResult(input: {
   reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
@@ -330,6 +297,7 @@ async function applyFetchedParentLaneResult(input: {
 }): Promise<HydrationProgress> {
   const { fetchedPage, lanes } = input;
   if (fetchedPage.kind === "failure") {
+    markRootMembershipSweepFailed(input.rootMembership, fetchedPage.lane);
     // One failing lane leaves only that lane retryable; siblings still apply.
     return { changedCount: 0, outcome: "retry", shouldStop: false };
   }
@@ -430,10 +398,7 @@ export async function hydrateContainerParentLanes(input: {
   // One hydration pass is one policy operation: its pages share a discovery.
   const policyOperation = createPrincipalPolicyOperation();
   const fullRootFallbackQueued = { queued: false };
-  const rootMembership: RootLaneMembershipSweep = {
-    complete: false,
-    observedIds: new Set(),
-  };
+  const rootMembership = createRootLaneMembershipSweep(lanes);
 
   while (lanes.length > 0) {
     if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {

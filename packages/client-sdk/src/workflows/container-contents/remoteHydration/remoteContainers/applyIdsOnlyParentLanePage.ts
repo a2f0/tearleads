@@ -11,6 +11,12 @@ import type {
   RemoteContainerHydrationState,
 } from "../types";
 import { loadPausedContainerFilter } from "./organizationSyncPauseFilter";
+import {
+  markRootMembershipSweepFailed,
+  type RootLaneMembershipSweep,
+  recordRootMembershipPage,
+  startFallbackRootMembershipSweep,
+} from "./rootLaneMembershipSweep";
 
 function needsFullRootListing(
   item: ContainerParentLaneIdsPage["items"][number],
@@ -29,6 +35,52 @@ function needsFullRootListing(
   return held.container.effectiveAccessLevel !== item.effectiveAccessLevel;
 }
 
+function queueFullRootFallback(input: {
+  readonly fullRootFallbackQueued: { queued: boolean };
+  readonly queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
+  readonly rootMembership?: RootLaneMembershipSweep | undefined;
+}): void {
+  if (input.fullRootFallbackQueued.queued) return;
+  input.fullRootFallbackQueued.queued = true;
+  const fallbackSweepId = input.rootMembership
+    ? startFallbackRootMembershipSweep(input.rootMembership)
+    : undefined;
+  input.queueContinuationLane({
+    membershipOnly: true,
+    parentId: null,
+    ...(fallbackSweepId !== undefined
+      ? { rootMembershipSweepId: fallbackSweepId }
+      : {}),
+    skipWatermarkWrite: true,
+    watermark: null,
+  });
+}
+
+function advanceIdsOnlySweep(input: {
+  readonly fetchedPage: FetchedContainerParentLaneIdsPage;
+  readonly fullRootFallbackQueued: { queued: boolean };
+  readonly queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
+  readonly rootMembership?: RootLaneMembershipSweep | undefined;
+}): void {
+  const { fetchedPage } = input;
+  const { lane, response } = fetchedPage;
+  const sweepId =
+    input.rootMembership && !input.fullRootFallbackQueued.queued
+      ? recordRootMembershipPage({
+          hasMore: response.hasMore,
+          itemIds: response.items.map((item) => item.id),
+          lane,
+          outcome: "complete",
+          sweep: input.rootMembership,
+        })
+      : null;
+  const nextPage =
+    sweepId !== null && lane.rootMembershipSweepId === undefined
+      ? { ...fetchedPage, lane: { ...lane, rootMembershipSweepId: sweepId } }
+      : fetchedPage;
+  queueNextPage(nextPage, true, input.queueContinuationLane);
+}
+
 /**
  * Reconciles a compact verified `idsOnly` root-membership page against
  * already-held local containers. Steady reconnects where every visible root is
@@ -37,28 +89,6 @@ function needsFullRootListing(
  * one full unwatermarked root membership listing (without `idsOnly`) to verify
  * and ingest it.
  */
-export interface RootLaneMembershipSweep {
-  complete: boolean;
-  readonly observedIds: Set<string>;
-}
-
-function recordIdsOnlyRootMembership(
-  rootMembership: RootLaneMembershipSweep | undefined,
-  lane: ContainerParentHydrationLane,
-  response: ContainerParentLaneIdsPage,
-  fallbackQueued: boolean,
-): void {
-  if (!rootMembership || lane.parentId !== null || lane.watermark !== null) {
-    return;
-  }
-  for (const item of response.items) {
-    rootMembership.observedIds.add(item.id);
-  }
-  if (!response.hasMore && !fallbackQueued) {
-    rootMembership.complete = true;
-  }
-}
-
 export async function applyIdsOnlyParentLanePage(input: {
   readonly fetchedPage: FetchedContainerParentLaneIdsPage;
   readonly fullRootFallbackQueued: { queued: boolean };
@@ -82,6 +112,9 @@ export async function applyIdsOnlyParentLanePage(input: {
       !!lane.continuationCursors,
     )
   ) {
+    if (input.rootMembership) {
+      markRootMembershipSweepFailed(input.rootMembership, lane);
+    }
     return { outcome: "retry", shouldStop: false };
   }
   const isPaused = await loadPausedContainerFilter(state);
@@ -92,28 +125,15 @@ export async function applyIdsOnlyParentLanePage(input: {
     (item) => !isPaused(item) && needsFullRootListing(item, state),
   );
   if (requiresFullListing) {
-    input.rootMembership?.observedIds.clear();
-    if (input.rootMembership) input.rootMembership.complete = false;
-    if (!input.fullRootFallbackQueued.queued) {
-      input.fullRootFallbackQueued.queued = true;
-      input.queueContinuationLane({
-        membershipOnly: true,
-        parentId: null,
-        skipWatermarkWrite: true,
-        watermark: null,
-      });
-    }
+    queueFullRootFallback(input);
     return { outcome: "complete", shouldStop: false };
   }
   if (hasUnusableContinuation(fetchedPage)) {
+    if (input.rootMembership) {
+      markRootMembershipSweepFailed(input.rootMembership, lane);
+    }
     return { outcome: "retry", shouldStop: false };
   }
-  recordIdsOnlyRootMembership(
-    input.rootMembership,
-    lane,
-    response,
-    input.fullRootFallbackQueued.queued,
-  );
-  queueNextPage(fetchedPage, true, input.queueContinuationLane);
+  advanceIdsOnlySweep(input);
   return { outcome: "complete", shouldStop: false };
 }

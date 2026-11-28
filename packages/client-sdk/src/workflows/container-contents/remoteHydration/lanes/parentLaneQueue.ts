@@ -30,7 +30,11 @@ export function createContainerParentHydrationQueue(input: {
     // A restoration crawl resets every lane: a newly re-granted descendant
     // does not advance its parent's persisted watermark.
     if (input.resetAllLaneWatermarks) {
-      lanes.push({ parentId, watermark: null });
+      lanes.push({
+        parentId,
+        ...(parentId === null ? { rootMembershipSweepId: 1 } : {}),
+        watermark: null,
+      });
       return;
     }
     lanes.push({ parentId });
@@ -44,6 +48,7 @@ export function createContainerParentHydrationQueue(input: {
         idsOnly: true,
         membershipOnly: true,
         parentId,
+        rootMembershipSweepId: 1,
         skipWatermarkWrite: true,
         watermark: null,
       });

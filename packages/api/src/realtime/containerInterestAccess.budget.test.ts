@@ -47,3 +47,26 @@ test("admits roots within the path-container budget in order and flushes verific
     tree.close();
   }
 }, 30_000);
+
+test("unauthorized deep containers do not consume path budget or leak existence/depth", async () => {
+  const victim = await createOwnedTree(0);
+  const attacker = await createOwnedTree(0);
+  try {
+    const victimChild = await victim.createChild(victim.rootId);
+    const attackerProbe = await attacker.createChild(attacker.rootId);
+
+    // Budget = 3 would fit victimChild (depth 1 -> 2) and then starve
+    // attackerProbe (depth 1 -> 2, total 4 > 3) if unauthorized containers
+    // consumed budget. With discovery-access scoping, victimChild consumes 0
+    // budget and attackerProbe is admitted.
+    const proofs = await authorizeContainerAccessWithWorkflow(
+      attacker.owner.userId,
+      [victimChild, attackerProbe],
+      { db, maxPathContainers: 3 },
+    );
+    expect(proofs.map((proof) => proof.containerId)).toEqual([attackerProbe]);
+  } finally {
+    attacker.close();
+    victim.close();
+  }
+}, 30_000);

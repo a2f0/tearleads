@@ -9,7 +9,7 @@ test("restoration crawls reset every parent-lane watermark", () => {
   });
 
   expect(lanes).toEqual([
-    { parentId: null, watermark: null },
+    { parentId: null, rootMembershipSweepId: 1, watermark: null },
     { parentId: "known-parent", watermark: null },
   ]);
 });
@@ -26,6 +26,7 @@ test("ordinary discovery lists the root lane from its watermark and, for members
       idsOnly: true,
       membershipOnly: true,
       parentId: null,
+      rootMembershipSweepId: 1,
       skipWatermarkWrite: true,
       watermark: null,
     },
