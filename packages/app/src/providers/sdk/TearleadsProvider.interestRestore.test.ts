@@ -143,3 +143,49 @@ test("logs container-interest open errors and triggers onRebindUnavailable if as
     realSdk.dispose();
   }
 });
+
+test("closes awaiting-tree socket on sign-in boundary and closes declared socket on scope rotation", () => {
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: () => undefined },
+  });
+  const preReady = createFakeStore([]);
+  preReady.setReady(false);
+  const openSpy = sdk.deviceFirst.open.bind(sdk.deviceFirst);
+  let activeStore = preReady;
+  sdk.deviceFirst.open = (() => ({
+    containerStore: activeStore.store,
+  })) as unknown as typeof openSpy;
+
+  const first = fakeSocket(WebSocket.OPEN);
+  const firstHandle = startContainerInterestDeclaration(sdk, first.ws, {
+    canRebind: () => false,
+  });
+  try {
+    sdk.database.configure({ execSql: (async () => []) as never, id: "db-1" });
+    expect(first.close).toHaveBeenCalledTimes(1);
+    expect(firstHandle.awaitingInitialAcknowledgement()).toBe(false);
+
+    // After declaring and marking connected, rotating database.id closes the socket
+    // and marks events disconnected even though domainScope changed.
+    activeStore = createFakeStore(["root-1"]);
+    const second = fakeSocket(WebSocket.OPEN);
+    const secondHandle = startContainerInterestDeclaration(sdk, second.ws);
+    try {
+      acknowledgeInitialDeclaration(secondHandle, second.sent);
+      sdk.events.setConnected(true);
+      expect(sdk.events.connected).toBe(true);
+
+      sdk.database.configure({
+        execSql: (async () => []) as never,
+        id: "db-2",
+      });
+      expect(second.close).toHaveBeenCalledTimes(1);
+      expect(sdk.events.connected).toBe(false);
+    } finally {
+      secondHandle.stop();
+    }
+  } finally {
+    firstHandle.stop();
+    sdk.dispose();
+  }
+});

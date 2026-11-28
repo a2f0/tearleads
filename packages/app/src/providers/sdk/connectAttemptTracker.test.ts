@@ -58,20 +58,35 @@ test("a declaration whose acknowledgement never arrives releases the deferral", 
 test("an acknowledged attempt is not ended by its stale deadline", () => {
   const events = new Events();
   const clock = fakeTimers();
-  const attempts = trackConnectAttempts(events, clock.timers);
+  let timedOut = 0;
+  const attempts = trackConnectAttempts(events, clock.timers, {
+    onTimeout: () => {
+      timedOut += 1;
+    },
+  });
 
   attempts.begin();
   attempts.awaitAcknowledgement();
   events.setConnected(true);
   expect(events.connectionGeneration).toBe(1);
+  // Stale timer firing after setConnected(true) must not invoke onTimeout.
+  clock.fireAll();
+  expect(timedOut).toBe(0);
 
-  // A reconnect starts a new attempt and cancels the earlier deadline.
+  // Same when disconnected before the deadline fires.
   events.setConnected(false);
   attempts.begin();
-  expect(clock.scheduled.size).toBe(0);
-  expect(events.pendingConnectAttempt).toBe(2);
+  attempts.awaitAcknowledgement();
+  events.setConnected(false);
   clock.fireAll();
-  expect(events.pendingConnectAttempt).toBe(2);
+  expect(timedOut).toBe(0);
+
+  // A reconnect starts a new attempt and cancels the earlier deadline.
+  attempts.begin();
+  expect(clock.scheduled.size).toBe(0);
+  expect(events.pendingConnectAttempt).toBe(3);
+  clock.fireAll();
+  expect(events.pendingConnectAttempt).toBe(3);
 
   // Teardown ends the attempt the loop left pending.
   attempts.endingWith(() => undefined)();

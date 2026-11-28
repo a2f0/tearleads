@@ -317,6 +317,7 @@ function routeSocketMessage(
   event: MessageEvent,
   interestHandle: ContainerInterestDeclaration | null,
   log: (message: string) => void,
+  onInitialAcknowledged?: () => void,
 ) {
   routeIncomingWsMessage(String(event.data), {
     onContainerInterestAcknowledged: (declarationId, containerIds) => {
@@ -324,6 +325,7 @@ function routeSocketMessage(
         return;
       }
       markServerEventsConnected(tearleads, log);
+      onInitialAcknowledged?.();
     },
     onOrganizationInterestAcknowledged: (
       declarationId,
@@ -414,10 +416,18 @@ export function useServerEventsBinding(
       onDisconnect: () => {
         stopDeclarations();
         tearleads.events.setConnected(false);
+        attempts.end();
       },
       onMessage: (ws, event) => {
         if (!signInCurrent()) return;
-        routeSocketMessage(tearleads, ws, event, interestHandle, log);
+        routeSocketMessage(
+          tearleads,
+          ws,
+          event,
+          interestHandle,
+          log,
+          attempts.end,
+        );
       },
       onOpen: (ws) => {
         // A socket opens with no container interest and routes no container

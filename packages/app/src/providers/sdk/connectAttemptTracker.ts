@@ -10,7 +10,7 @@ export const CONNECT_ACKNOWLEDGEMENT_TIMEOUT_MS = 15_000;
 
 type ConnectAttemptEvents = Pick<
   Tearleads["events"],
-  "beginConnectAttempt" | "endConnectAttempt"
+  "beginConnectAttempt" | "endConnectAttempt" | "pendingConnectAttempt"
 >;
 
 interface ConnectAttemptTimers {
@@ -62,9 +62,12 @@ export function trackConnectAttempts(
     /** The declaration is sent: release the wait if no ack arrives in time. */
     awaitAcknowledgement: (): void => {
       if (attempt === null || deadline !== null) return;
+      const pending = attempt;
       deadline = timers.schedule(() => {
-        options?.onTimeout?.();
+        const timedOut =
+          attempt === pending && events.pendingConnectAttempt === pending;
         end();
+        if (timedOut) options?.onTimeout?.();
       }, CONNECT_ACKNOWLEDGEMENT_TIMEOUT_MS);
     },
     /** Stop the loop, then end an attempt it left pending. */
