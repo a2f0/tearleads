@@ -290,18 +290,32 @@ test.each(["reconnect", "manual"])(
           await release.promise;
         }
         return Response.json({
-          results: lanes.map(({ laneId }: { laneId: string }) => ({
-            laneId,
-            page: {
-              items: [],
-              tombstones: [],
-              hasMore: false,
-              nextWatermark: {
+          results: lanes.map(
+            ({ idsOnly, laneId }: { idsOnly?: boolean; laneId: string }) => {
+              const nextWatermark = {
                 id: stale ? "old" : "new",
                 updatedAt: "2026-01-01T00:00:00.000Z",
-              },
+              };
+              return idsOnly
+                ? {
+                    idsPage: {
+                      hasMore: false,
+                      items: [],
+                      nextWatermark,
+                    },
+                    laneId,
+                  }
+                : {
+                    laneId,
+                    page: {
+                      items: [],
+                      tombstones: [],
+                      hasMore: false,
+                      nextWatermark,
+                    },
+                  };
             },
-          })),
+          ),
         });
       },
     });
