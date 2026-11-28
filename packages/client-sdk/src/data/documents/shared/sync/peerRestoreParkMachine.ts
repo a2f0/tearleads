@@ -22,6 +22,7 @@ export type PeerRestoreParkState =
   | {
       readonly status: "probing_writes";
       readonly observedPullTip: string | null;
+      readonly retryOnPark: boolean;
     };
 
 export type PeerRestoreParkEvent =
@@ -59,6 +60,86 @@ export function shouldDeferQueuedWritesWhileParked(
   return state.status === "parked_pull_needed" || state.status === "parked";
 }
 
+function transitionParked(
+  state: PeerRestoreParkState,
+): PeerRestoreParkTransition {
+  if (state.status === "active") {
+    // Trigger one immediate pull-only pass so remote edits committed before
+    // the 409 arrive immediately and we capture the current server tip.
+    return {
+      requestSync: true,
+      state: { observedPullTip: null, status: "parked_pull_needed" },
+    };
+  }
+  if (state.status === "probing_writes" && state.retryOnPark) {
+    // An allow-restore hint arrived while the previous probe was in flight.
+    // Re-probe once against the updated server state before settling parked.
+    return {
+      requestSync: true,
+      state: {
+        observedPullTip: state.observedPullTip,
+        retryOnPark: false,
+        status: "probing_writes",
+      },
+    };
+  }
+  return {
+    requestSync: false,
+    state: { observedPullTip: state.observedPullTip, status: "parked" },
+  };
+}
+
+function transitionPullSettled(
+  state: PeerRestoreParkState,
+  pullTip: string,
+): PeerRestoreParkTransition {
+  if (state.status === "active" || state.status === "probing_writes") {
+    return { requestSync: false, state };
+  }
+  if (state.status === "parked_pull_needed") {
+    return {
+      requestSync: false,
+      state: { observedPullTip: pullTip, status: "parked" },
+    };
+  }
+  if (state.observedPullTip !== null && pullTip !== state.observedPullTip) {
+    // Another device committed to the document. This pull-only pass just
+    // applied any missing operations; probe queued writes once in case the
+    // missing peer was restored.
+    return {
+      requestSync: true,
+      state: {
+        observedPullTip: pullTip,
+        retryOnPark: false,
+        status: "probing_writes",
+      },
+    };
+  }
+  return {
+    requestSync: false,
+    state: { observedPullTip: pullTip, status: "parked" },
+  };
+}
+
+function transitionPeerRestoreAllowedHint(
+  state: PeerRestoreParkState,
+): PeerRestoreParkTransition {
+  if (state.status === "parked" || state.status === "parked_pull_needed") {
+    return {
+      requestSync: true,
+      state: {
+        observedPullTip: state.observedPullTip,
+        retryOnPark: false,
+        status: "probing_writes",
+      },
+    };
+  }
+  if (state.status === "probing_writes") {
+    return { requestSync: false, state: { ...state, retryOnPark: true } };
+  }
+  return { requestSync: false, state };
+}
+
 /** Pure transition function for {@link PeerRestoreParkState}. */
 export function transitionPeerRestorePark(
   state: PeerRestoreParkState,
@@ -68,58 +149,11 @@ export function transitionPeerRestorePark(
     case "reset":
     case "write_pass_succeeded":
       return { requestSync: false, state: INITIAL_PEER_RESTORE_PARK_STATE };
-    case "parked": {
-      if (state.status === "active") {
-        // Trigger one immediate pull-only pass so remote edits committed before
-        // the 409 arrive immediately and we capture the current server tip.
-        return {
-          requestSync: true,
-          state: { observedPullTip: null, status: "parked_pull_needed" },
-        };
-      }
-      return {
-        requestSync: false,
-        state: { observedPullTip: state.observedPullTip, status: "parked" },
-      };
-    }
-    case "pull_settled": {
-      if (state.status === "active" || state.status === "probing_writes") {
-        return { requestSync: false, state };
-      }
-      if (state.status === "parked_pull_needed") {
-        return {
-          requestSync: false,
-          state: { observedPullTip: event.pullTip, status: "parked" },
-        };
-      }
-      if (
-        state.observedPullTip !== null &&
-        event.pullTip !== state.observedPullTip
-      ) {
-        // Another device committed to the document. This pull-only pass just
-        // applied any missing operations; probe queued writes once in case the
-        // missing peer was restored.
-        return {
-          requestSync: true,
-          state: { observedPullTip: event.pullTip, status: "probing_writes" },
-        };
-      }
-      return {
-        requestSync: false,
-        state: { observedPullTip: event.pullTip, status: "parked" },
-      };
-    }
-    case "peer_restore_allowed_hint": {
-      if (state.status === "parked" || state.status === "parked_pull_needed") {
-        return {
-          requestSync: true,
-          state: {
-            observedPullTip: state.observedPullTip,
-            status: "probing_writes",
-          },
-        };
-      }
-      return { requestSync: false, state };
-    }
+    case "parked":
+      return transitionParked(state);
+    case "pull_settled":
+      return transitionPullSettled(state, event.pullTip);
+    case "peer_restore_allowed_hint":
+      return transitionPeerRestoreAllowedHint(state);
   }
 }

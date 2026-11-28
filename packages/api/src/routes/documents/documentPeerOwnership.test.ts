@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   documentPeerOwners,
+  organizationBilling,
   purgedDocumentPeerOwners,
   users,
 } from "@tearleads/api-shared/schema";
@@ -324,7 +325,43 @@ test("post-purge restored peer owners preserve ownership, cap recovery restore, 
       .response.status,
   ).toBe(409);
 
-  // Repeated purge snapshot preserves GREATEST(restorableEndCounter, max span) = 5.
+  // Non-UUID documentId returns 400 from path parameter validation.
+  const malformedAttempt = await routeApp.request(
+    "/documents/not-a-uuid/peer-owners/allow-restore",
+    {
+      body: JSON.stringify({ allowMemberRestore: true }),
+      headers: {
+        authorization: `Bearer ${owner.token}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  );
+  expect(malformedAttempt.status).toBe(400);
+
+  // Disabled/deleting organizations are refused by assertOrganizationCanSync (402).
+  await db
+    .update(organizationBilling)
+    .set({ status: "deleting" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  const deletingAttempt = await routeApp.request(
+    `/documents/${fixture.created.id}/peer-owners/allow-restore`,
+    {
+      body: JSON.stringify({ allowMemberRestore: false }),
+      headers: {
+        authorization: `Bearer ${owner.token}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+    },
+  );
+  expect(deletingAttempt.status).toBe(402);
+  await db
+    .update(organizationBilling)
+    .set({ status: "active" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  // Repeated purge snapshot preserves GREATEST(restorableEndCounter, max span) = 4.
   await db.transaction(async (tx) => {
     await snapshotPurgedDocumentPeerOwners({
       documentIds: [fixture.created.id],

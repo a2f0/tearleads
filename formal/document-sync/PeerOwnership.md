@@ -99,7 +99,8 @@ that fell.
   name (`Forge`): a re-assertion below F, or the peer's next counter. Or it
   commits an op on its own peer whose payload depends on a nameable peer's
   next counter, declaring that dependency or none (`ForgeDependent`). It can
-  name only peers in the committed log (`Nameable`).
+  name peers in the committed log, and also pre-purge peers in `purged` when
+  `~DropSavedOwners` (`Nameable`).
 - A republisher recreates the document from a copy of its committed history
   (`Recreate`), at most `MaxRecreations` times: what a reader held after some
   prefix of the log, which is stale unless the prefix is the whole log. In
@@ -133,11 +134,11 @@ uncommitted dependencies.
 | `Rebase` / `ForkPoint` / `Renumber` | `rebaseOntoFreshPeer`, which cuts each refused peer at min(live, F), keeps every other peer whole, and writes the cut operations' net effect under a fresh peer; the sync failure action `rebase_peer` hands the refusal to `planPeerRefusalRecovery`, which runs it, and the pass resubmits |
 | `known` / `SeenCommitted` | the record's `committedVersion`, which `settleDocumentSyncResponseInTransaction` raises with the spans a sync response showed (`documentSyncCommittedVersions`: acknowledged outgoing updates and accepted served updates) and `installDocumentPeerRebase` raises with what the recovery knew; `knownCommittedOf` reads it no further than the live document. Production also counts what lies below the queue's start (`unsentStartOf`), which covers an operation committed by a create and brought by no settlement; every operation here comes from a pull or a submit, so `known` already holds it |
 | `Regressed` | the `history_regressed` result of `rebaseOntoFreshPeer`, reported before it cuts anything |
-| `Relay` / `Lost` | the relay plan of `planPeerRefusalRecovery`, installed by `installDocumentPeerRebase`, whose `replaceQueueWithRelay` replaces the queue with one update and leaves the record and its history |
+| `Relay` / `Lost` | the relay plan of `planPeerRefusalRecovery`, installed by `installDocumentPeerRebase`, whose `replaceQueueWithRelay` replaces the queue with ordered update segments and leaves the record and its history |
 | `Park` / `AwaitsOwner` | the park plan of `planPeerRefusalRecovery`; `rebaseAfterPeerRefusal` reports it through `parkUntilOwnerRestores` as `document_peer_restore_awaits_owner` and leaves the queue deferred in pull-only mode (`transitionPeerRestorePark`) so `Pull` keeps remote reads live until the server tip advances or `runAllowDocumentPeerRestoreWorkflow` triggers `publishDocumentPeerRestoreAllowedEvent` |
 | `CurrentPeer` / `Nameable` | `recordPeerSeed`, which derives a record's peer from a device-local secret seed |
 | `Recreate` | the organization billing purge, whose `deleteOrganizationRemoteRows` deletes each document's rows, owner rows included, through `deleteDocumentRows`, followed by the owner's `session.recoverPurgedOrganization` (`recoverPurgedSessionOrganization`), whose remote reset queues each document's local history; document sync then creates the document under its `recoveryDocumentId` with that history as its seed, which is stale when that device's copy is. The purge reserves each freed id for that owner (`reservePurgedOrganizationObjects`), and the create guard refuses it to any other user. A single-document purge (`runPurgeDocumentWorkflow`) keeps its signed purge event, so a create of that id is refused |
-| `Restore` / `purged` | another device of the owner adopting the replacement: its remote reset (`buildResetPlans`) queues everything it holds as one update from counter 0 |
+| `Restore` / `purged` | another device of the owner adopting the replacement: its remote reset (`buildResetPlans`) queues everything it holds as ordered update segments from counter 0 |
 | `Reader` / `JudgeFrom` / `Pull` | `judgeOnScratch`, which voids the later carrier of a reused op id and an update whose dependencies it lacks |
 | `Unreadable` | `assertDecryptedDocumentUpdateMetadata`, which voids at stage `loro_metadata` an update whose decoded dependencies differ from its declared ones |
 | `Forge` / `ForgeDependent` | a modified client's request, judged by the same `claimDocumentPeers` |

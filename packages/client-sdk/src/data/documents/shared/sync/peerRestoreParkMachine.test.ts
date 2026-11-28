@@ -61,6 +61,7 @@ describe("peerRestoreParkMachine", () => {
     });
     expect(probe.state).toEqual({
       observedPullTip: tip2,
+      retryOnPark: false,
       status: "probing_writes",
     });
     expect(probe.requestSync).toBe(true);
@@ -89,6 +90,7 @@ describe("peerRestoreParkMachine", () => {
     });
     expect(probing.state).toEqual({
       observedPullTip: tip1,
+      retryOnPark: false,
       status: "probing_writes",
     });
     expect(probing.requestSync).toBe(true);
@@ -99,6 +101,56 @@ describe("peerRestoreParkMachine", () => {
     });
     expect(cleared.state).toEqual(INITIAL_PEER_RESTORE_PARK_STATE);
     expect(cleared.requestSync).toBe(false);
+  });
+
+  test("peer_restore_allowed_hint arriving during probing_writes retries once instead of stranding in parked", () => {
+    const parked = transitionPeerRestorePark(
+      transitionPeerRestorePark(INITIAL_PEER_RESTORE_PARK_STATE, {
+        type: "parked",
+      }).state,
+      { pullTip: tip1, type: "pull_settled" },
+    );
+    const probing = transitionPeerRestorePark(parked.state, {
+      pullTip: tip2,
+      type: "pull_settled",
+    });
+    expect(probing.state).toEqual({
+      observedPullTip: tip2,
+      retryOnPark: false,
+      status: "probing_writes",
+    });
+
+    // Hint arrives while the tip2 probe is already in flight.
+    const hintDuringProbe = transitionPeerRestorePark(probing.state, {
+      type: "peer_restore_allowed_hint",
+    });
+    expect(hintDuringProbe.state).toEqual({
+      observedPullTip: tip2,
+      retryOnPark: true,
+      status: "probing_writes",
+    });
+    expect(hintDuringProbe.requestSync).toBe(false);
+
+    // When the stale in-flight probe parks, retry once immediately.
+    const retried = transitionPeerRestorePark(hintDuringProbe.state, {
+      type: "parked",
+    });
+    expect(retried.state).toEqual({
+      observedPullTip: tip2,
+      retryOnPark: false,
+      status: "probing_writes",
+    });
+    expect(retried.requestSync).toBe(true);
+
+    // If the retry still parks (no further hint), settle back to parked without looping.
+    const reparked = transitionPeerRestorePark(retried.state, {
+      type: "parked",
+    });
+    expect(reparked.state).toEqual({
+      observedPullTip: tip2,
+      status: "parked",
+    });
+    expect(reparked.requestSync).toBe(false);
   });
 
   test("reset clears parked state cleanly", () => {

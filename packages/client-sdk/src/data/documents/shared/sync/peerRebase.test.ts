@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
   decodeVersionVector,
+  encodeVersionVector,
   encodeVersionVectorCounters,
 } from "@tearleads/loro";
-import { rebaseOntoFreshPeer } from "./peerRebase";
+import { rebaseOntoFreshPeer, unsentStartOf } from "./peerRebase";
 import {
   canonicalContent,
   closeUpward,
@@ -259,5 +260,21 @@ describe("rebaseOntoFreshPeer after a stale recreation", () => {
     );
     expect(canonicalContent(result.fork)).toBe(canonicalContent(live));
     result.fork.free();
+  });
+
+  it("ignores absent pendingBases entries instead of collapsing unsentStart to zero", async () => {
+    const live = await documentOnPeer(RECORD_PEER);
+    append(live, "hello ");
+    const base = encodeVersionVector(live);
+    append(live, "world");
+
+    const start = unsentStartOf({
+      liveVersion: encodeVersionVector(live),
+      pendingBases: [base, undefined, null],
+      queued: [],
+    });
+
+    expect(start).toEqual(new Map([[`${RECORD_PEER}`, 6]]));
+    live.free();
   });
 });

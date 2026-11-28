@@ -13,6 +13,7 @@ import {
   setReadySnapshot,
 } from "../state";
 import { createFreshPeerStoredDocument } from "../storedDocument";
+import { resetDocumentPeerRestorePark } from "../sync/peerRestorePark";
 import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
@@ -73,6 +74,9 @@ export function installDurableDocumentReload(input: {
   // Ops only the live doc held are gone unless the replacement imported them.
   if (!input.retainsLiveDocEdits) state.unsavedLocalEdits = false;
   state.writerProjection = null;
+  if (identityChanged) {
+    resetDocumentPeerRestorePark(state);
+  }
   if (identityChanged && input.registerIdentityChange !== false) {
     state.effects.registerDocumentIdentity(
       state.runtime.state.domainScope,

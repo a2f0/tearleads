@@ -5,6 +5,7 @@ import type { DocumentPeerRestoreAllowResponse } from "@tearleads/validators/res
 import { and, eq } from "drizzle-orm";
 import { lockAccessManifestHeadRows } from "../../../access/read/accessManifestStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
+import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { findPersonalOrganizationOwnerId } from "../../billing/purgedObjectReservations";
 import {
   DocumentMutationError,
@@ -65,6 +66,11 @@ export async function runAllowDocumentPeerRestoreWorkflow(
         minimumAccessLevel: "write",
         userId: input.userId,
       });
+      await assertOrganizationCanSync(
+        tx,
+        currentTargets.organizationId,
+        input.userId,
+      );
       const ownerId = await findPersonalOrganizationOwnerId(
         tx,
         currentTargets.organizationId,

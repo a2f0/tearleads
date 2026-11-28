@@ -29,8 +29,10 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { lockUnheldAccessManifestHeads } from "../../access/read/accessManifestStore";
 import { forgetTransactionAccessManifestBundles } from "../../access/write/accessManifestStore";
 import { forgetPrincipalTransactionMemo } from "../../access/write/principalStateStore";
+import { uniqueSortedStrings } from "../../utils/array";
 import {
   lockBlobMutationRows,
   planBlobMutationLockIds,
@@ -277,16 +279,26 @@ export async function deleteOrganizationRemoteRows(input: {
     executor: input.executor,
     organizationId: input.organizationId,
   });
+  // Lock every document head in UUID order before snapshotting and deleting
+  // document rows so purge serializes after in-flight syncs and allow-restore
+  // mutations, matching their head -> document_peer_owners lock order.
+  const sortedDocumentIds = uniqueSortedStrings(input.scope.documentIds);
+  for (const documentBatch of organizationPurgeBatches(sortedDocumentIds)) {
+    await lockUnheldAccessManifestHeads(
+      "document",
+      documentBatch,
+      input.executor,
+      "update",
+    );
+  }
   // Snapshot pre-purge peer owners and frontiers before deleting document rows
   // so post-purge recreations preserve rightful ownership and restorable bounds.
   await snapshotPurgedDocumentPeerOwners({
-    documentIds: input.scope.documentIds,
+    documentIds: sortedDocumentIds,
     executor: input.executor,
     organizationId: input.organizationId,
   });
-  for (const documentBatch of organizationPurgeBatches(
-    input.scope.documentIds,
-  )) {
+  for (const documentBatch of organizationPurgeBatches(sortedDocumentIds)) {
     await deleteDocumentRows({
       documentIds: documentBatch,
       executor: input.executor,

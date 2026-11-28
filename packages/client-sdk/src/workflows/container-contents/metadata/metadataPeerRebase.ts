@@ -102,6 +102,12 @@ export function resumeMetadataPeerRestoreOnHint(
   });
 }
 
+export function resetMetadataPeerRestorePark(
+  metadataState: ContainerMetadataState,
+): void {
+  transitionMetadataPark(metadataState, { type: "reset" });
+}
+
 type InstallPeerRebase = NonNullable<
   ContainerContentsPersistence["installPeerRebase"]
 >;

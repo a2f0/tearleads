@@ -29,7 +29,7 @@ export function rememberCreatedDocumentSeed(
   bundle: StoredDocumentContentKeyBundle & {
     readonly currentTargets: DocumentKekTargetsRead["targets"];
   },
-  hasRestoredPeerOwners = false,
+  hasRestoredPeerOwners: boolean,
 ): CreatedDocumentSeed {
   const seed = Object.freeze({ [createdDocumentSeed]: true as const });
   reads.set(seed, {

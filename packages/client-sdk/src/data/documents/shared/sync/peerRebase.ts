@@ -134,12 +134,13 @@ function lowerTo(
 
 /**
  * Per peer of `liveVersion`, the version before any operation a device has
- * not sent: the smallest of its pending bases (a peer a base leaves out
- * starts at zero), lowered to the start of every queued update that writes
- * on the peer. Lower is safe: the fork's update then sends more of what is
- * already committed. Everything below it is committed, but not only that:
- * a queued update may send committed operations again, and the record's
- * committed version says which (`knownCommittedOf`).
+ * not sent: the smallest of its present pending bases (absent `null`/`undefined`
+ * entries are ignored; a peer a present base leaves out starts at zero),
+ * lowered to the start of every queued update that writes on the peer. Lower
+ * is safe: the fork's update then sends more of what is already committed.
+ * Everything below it is committed, but not only that: a queued update may
+ * send committed operations again, and the record's committed version says
+ * which (`knownCommittedOf`).
  */
 export function unsentStartOf(input: {
   readonly liveVersion: string;
@@ -151,6 +152,7 @@ export function unsentStartOf(input: {
 }): Map<string, number> {
   const start = countersOf(input.liveVersion);
   for (const encoded of input.pendingBases) {
+    if (encoded == null) continue;
     const base = countersOf(encoded);
     for (const peer of [...start.keys()])
       lowerTo(start, peer, base.get(peer) ?? 0);

@@ -37,12 +37,17 @@ import {
   PrincipalHistoryPreparationResponseSchema,
   principalHistoryRollbackRefinement,
 } from "../response/principalHistoryPreparation";
+import { uuidStringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
 import { DocumentSyncPathParamsSchema } from "./documentSync";
 
 const EmptyDocumentMutationPathParamsSchema = z.strictObject({});
 
 export const DocumentMutationPathParamsSchema = DocumentSyncPathParamsSchema;
+
+const DocumentPeerRestorePathParamsSchema = z.strictObject({
+  documentId: uuidStringSchema,
+});
 
 export type DocumentMutationPathParams = z.infer<
   typeof DocumentMutationPathParamsSchema
@@ -199,7 +204,7 @@ export const allowDocumentPeerRestoreOperation = defineJsonOperation({
   description:
     "Authorizes or revokes member restoration of pre-purge peer history on a recovered personal-organization document. Only the personal organization's owner may toggle this flag. When enabled, any authorized writer may replay lost operations up to each peer's pre-purge frontier without claiming ownership of that peer.",
   method: "POST",
-  params: DocumentMutationPathParamsSchema,
+  params: DocumentPeerRestorePathParamsSchema,
   path: "/documents/{documentId}/peer-owners/allow-restore",
   responses: { 200: DocumentPeerRestoreAllowResponseSchema },
 });

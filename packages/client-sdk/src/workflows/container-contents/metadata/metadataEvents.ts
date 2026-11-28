@@ -3,8 +3,19 @@ import {
   isDocumentUpdateCreatedEvent,
 } from "../../../data/documents/documentSync";
 import type { DocumentRecord } from "../../../data/persistence/documents/records";
-import { resumeMetadataPeerRestoreOnHint } from "./metadataPeerRebase";
+import {
+  resumeMetadataPeerRestoreOnHint,
+  shouldDeferMetadataQueuedWrites,
+} from "./metadataPeerRebase";
 import type { ContainerMetadataState } from "./metadataTypes";
+
+function isResyncRequiredEvent(event: unknown): boolean {
+  return (
+    typeof event === "object" &&
+    event !== null &&
+    Reflect.get(event, "type") === "resync_required"
+  );
+}
 
 function isContainerMetadataState(value: {
   record: Pick<DocumentRecord, "documentId">;
@@ -102,6 +113,19 @@ function classifyMetadataEvent(input: {
   return event.documentId;
 }
 
+function collectResyncParkedMetadataIds(
+  statesByDocumentId: ReadonlyMap<string, ContainerMetadataState>,
+  resumeParkedOnHint: boolean,
+  eventDocumentIds: Set<string>,
+): void {
+  for (const [documentId, target] of statesByDocumentId) {
+    const shouldSchedule = resumeParkedOnHint
+      ? resumeMetadataPeerRestoreOnHint(target)
+      : shouldDeferMetadataQueuedWrites(target);
+    if (shouldSchedule) eventDocumentIds.add(documentId);
+  }
+}
+
 /**
  * `plannedDocumentIds` names the metadata documents of folders whose create is
  * in flight. A peer can edit one after the create commits but before the
@@ -121,6 +145,14 @@ export function listContainerMetadataDocumentUpdateIds(
 
   const eventDocumentIds = new Set<string>();
   for (const event of events) {
+    if (isResyncRequiredEvent(event)) {
+      collectResyncParkedMetadataIds(
+        statesByDocumentId,
+        resumeParkedOnHint,
+        eventDocumentIds,
+      );
+      continue;
+    }
     const documentId = classifyMetadataEvent({
       event,
       locallyAcceptedUpdateIds,

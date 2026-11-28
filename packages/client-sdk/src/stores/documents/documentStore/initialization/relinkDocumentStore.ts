@@ -4,6 +4,7 @@ import { chainIdentityWrite } from "../identityWriteChain";
 import type { DocumentRelinkCommitSideEffect } from "../internalRelink";
 import { documentSummaryFromRecord, persistDocument } from "../persistence";
 import type { DocumentStoreState } from "../state";
+import { resetDocumentPeerRestorePark } from "../sync/peerRestorePark";
 import {
   captureDocumentStoreSyncGeneration,
   invalidateDocumentStoreRemoteSync,
@@ -64,6 +65,7 @@ export async function relinkDocumentStore(
     );
     if (result && currentDocumentId !== input.documentId) {
       state.writerProjection = null;
+      resetDocumentPeerRestorePark(state);
       invalidateDocumentStoreRemoteSync(state);
     }
     return result;

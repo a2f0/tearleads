@@ -224,7 +224,7 @@ export async function claimDocumentPeers(
   if (peerIds.length === 0) return null;
 
   const committedPeers =
-    input.documentInsertedInTransaction && !input.hasRestoredPeerOwners
+    input.documentInsertedInTransaction && input.hasRestoredPeerOwners === false
       ? new Map<string, CommittedDocumentPeer>()
       : await readCommittedDocumentPeers(executor, input.documentId, peerIds);
   if (input.stagedBaselineId !== undefined) {

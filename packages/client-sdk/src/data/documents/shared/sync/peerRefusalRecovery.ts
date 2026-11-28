@@ -81,10 +81,10 @@ export interface PeerRefusalRecoveryInput {
  * What a device does about a peer refusal.
  *
  * - `rebase`: the refused operations are its own unsent ones. It installs
- *   `fork`, which writes them again on a fresh peer, and queues `update`.
+ *   `fork`, which writes them again on a fresh peer, and queues `updates`.
  * - `relay`: the server lost operations the device saw committed, and the
  *   refusal was for a dependency on them. The document stays as it is; the
- *   queue becomes `update`, which sends the lost operations again under
+ *   queue becomes `updates`, which send the lost operations again under
  *   their own peers from the frontier the server named.
  * - `park`: the server lost such operations on a peer another user now
  *   owns, so the device may not send them, and writing them again on a
@@ -96,12 +96,13 @@ export interface PeerRefusalRecoveryInput {
  *   frontier that fell, so a relay would queue the same operations again.
  *   The refused request was not this queue: another runtime relayed after
  *   it was built, or it carried only part of the queue. Nothing changes and
- *   no other user is waited on; the server's refusal stands for the pass.
+ *   no other user is waited on; the pass abandons cleanly so the next pass
+ *   sends the current queue.
  * - `nothing_to_cut`: no refused peer passes its frontier.
  *
  * `committedVersion` is what the device knew was committed when it planned
  * the recovery. The install raises the record's committed version to it:
- * the one update it queues may start below operations that until now were
+ * the updates it queues may start below operations that until now were
  * known committed only for being outside the queue.
  */
 export type PeerRefusalRecovery =
