@@ -230,3 +230,145 @@ test("periodic catch-up polls across flapping reconnects and cancels on connect,
   await settle();
   expect(crawls).toBe(3);
 });
+
+test("resumeOwedDiscovery defers while offline and runs immediately on regain", async () => {
+  const listeners = new Set<() => void>();
+  let online = false;
+  let crawls = 0;
+  const { host, listings, steps } = createOwedLaneHost({
+    owed: () => ["b"],
+    overrides: {
+      crawlTreeForCatchUp: async () => {
+        crawls += 1;
+        return true;
+      },
+      getRuntimeStatus: () => ({
+        dbStatus: "ready",
+        isAuthenticated: true,
+        online,
+        serverEventsConnected: false,
+      }),
+      subscribeConnectionStatus: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    },
+  });
+  const service = createReconciliationService(host);
+  try {
+    service.start();
+    service.resumeOwedDiscovery();
+    await settle();
+    expect(crawls).toBe(0);
+    expect(listings).toEqual([]);
+
+    // Regaining connectivity flushes the pending startup resume immediately.
+    online = true;
+    for (const listener of listeners) listener();
+    await waitFor(
+      () => steps.length === 1,
+      "Deferred owed resume did not flush on regain",
+    );
+    expect(crawls).toBe(1);
+    expect(listings).toEqual([["b"]]);
+  } finally {
+    service.stop();
+  }
+});
+
+test("resumeOwedDiscovery and periodic polling defer to acknowledged control and startup attempt", async () => {
+  const clock = createManualReconciliationClock();
+  const listeners = new Set<() => void>();
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
+  let status = {
+    dbStatus: "ready",
+    isAuthenticated: true,
+    online: true,
+    serverEventsConnected: false,
+    serverEventsPendingConnectAttempt: 1 as number | undefined,
+  };
+  let crawls = 0;
+  const { host } = createOwedLaneHost({
+    owed: () => ["a"],
+    overrides: {
+      clock,
+      crawlTreeForCatchUp: async () => {
+        crawls += 1;
+        return true;
+      },
+      getRuntimeStatus: () => status,
+      subscribeConnectionStatus: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+      unacknowledgedCatchUpIntervalMs: 1_000,
+    },
+  });
+  const service = createReconciliationService(host);
+  try {
+    // Initial pending connect attempt holds periodic polling until settled.
+    service.start();
+    clock.advance(5_000);
+    await settle();
+    expect(crawls).toBe(0);
+
+    // Already-connected session ignores stale resumeOwedDiscovery signals.
+    status = {
+      ...status,
+      serverEventsConnected: true,
+      serverEventsPendingConnectAttempt: undefined,
+    };
+    notify();
+    service.resumeOwedDiscovery();
+    await settle();
+    expect(crawls).toBe(0);
+  } finally {
+    service.stop();
+  }
+});
+
+test("stop during start leaves no leaked connection-status listener, and rejecting logError is contained", async () => {
+  const listeners = new Set<() => void>();
+  const host = createReconciliationTestHost({
+    crawlTreeForCatchUp: async () => {
+      throw new Error("crawl boom");
+    },
+    logError: () => Promise.reject(new Error("logger boom")),
+    registerLane: (_key, config) => {
+      // Simulate synchronous scope disposal during lane registration.
+      service.stop();
+      return createReconciliationTestHost().registerLane("test", config);
+    },
+    subscribeConnectionStatus: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  expect(listeners.size).toBe(0);
+
+  // Separate healthy service: rejecting logError on sweep failure is swallowed.
+  const failingHost = createReconciliationTestHost({
+    crawlTreeForCatchUp: async () => {
+      throw new Error("crawl boom");
+    },
+    logError: () => Promise.reject(new Error("logger boom")),
+  });
+  const failingService = createReconciliationService(failingHost);
+  try {
+    failingService.start();
+    failingService.resumeOwedDiscovery();
+    await settle();
+  } finally {
+    failingService.stop();
+  }
+});

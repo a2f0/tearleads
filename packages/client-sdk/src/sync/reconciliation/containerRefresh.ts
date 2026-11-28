@@ -127,8 +127,20 @@ async function readSweepPlan(
   return plan.containerIds;
 }
 
+function isRefreshAbandoned(
+  state: ReconciliationState,
+  lifecycleGeneration: number,
+  stop: AbortSignal,
+): boolean {
+  return (
+    !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
+    stop.aborted
+  );
+}
+
 async function refreshAndReconcileContainers(input: {
   host: ReconciliationHost;
+  lifecycleGeneration: number;
   onPlanTaken: (() => void) | undefined;
   planSweep: PlanSweep;
   refreshTree: () => Promise<void>;
@@ -137,11 +149,13 @@ async function refreshAndReconcileContainers(input: {
   /** Every caller withdrew: stop at the next safe boundary. */
   stop: AbortSignal;
 }): Promise<void> {
-  const { host, refreshTree, scope, state, stop } = input;
-  if (!canReconcile(host.getRuntimeStatus())) {
+  const { host, lifecycleGeneration, refreshTree, scope, state, stop } = input;
+  if (
+    !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
+    !canReconcile(host.getRuntimeStatus())
+  ) {
     return;
   }
-  const lifecycleGeneration = state.lifecycleGeneration;
 
   // A sweep that lists every known container takes over the queue, so each
   // container is fetched once. It hands back whatever it leaves unsettled,
@@ -158,12 +172,7 @@ async function refreshAndReconcileContainers(input: {
     // A tree refresh that failed still leaves every known container to
     // reconcile: sweep them, then report the tree failure.
     const treeError = await refreshTreeForSweep(host, refreshTree, stop);
-    if (
-      !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
-      stop.aborted
-    ) {
-      return;
-    }
+    if (isRefreshAbandoned(state, lifecycleGeneration, stop)) return;
     // Structural hydration can revoke and remove a container after a targeted
     // force already reconciled it against the old tree. Forget every id that
     // is no longer remotely listable so a later share of the same container id
@@ -171,12 +180,7 @@ async function refreshAndReconcileContainers(input: {
     // the session.
     forgetIneligibleDiscoveredContainers(host, state);
     const knownIds = await readSweepPlan(input, listedBySweep, takenOver);
-    if (
-      !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
-      stop.aborted
-    ) {
-      return;
-    }
+    if (isRefreshAbandoned(state, lifecycleGeneration, stop)) return;
     await sweepForScope({
       host,
       knownIds,
@@ -186,12 +190,7 @@ async function refreshAndReconcileContainers(input: {
       state,
       stop,
     });
-    if (
-      !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
-      stop.aborted
-    ) {
-      return;
-    }
+    if (isRefreshAbandoned(state, lifecycleGeneration, stop)) return;
     if (treeError !== undefined) throw treeError;
   } catch (error) {
     if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
@@ -303,6 +302,7 @@ export function requestContainerRefresh(input: {
     return pending.join(signal);
   }
 
+  const enqueueGeneration = state.lifecycleGeneration;
   const refresh = new SharedRefresh({
     after: pending?.promise,
     onSettled: (settled) => {
@@ -311,6 +311,7 @@ export function requestContainerRefresh(input: {
     run: (stop) =>
       refreshAndReconcileContainers({
         host: input.host,
+        lifecycleGeneration: enqueueGeneration,
         onPlanTaken: input.onPlanTaken,
         planSweep: input.planSweep,
         refreshTree: input.refreshTree,

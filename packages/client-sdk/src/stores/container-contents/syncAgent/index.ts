@@ -343,6 +343,7 @@ export function prepareContainerContentsStoreSyncAgent(input: AgentInput): {
       resetAllLaneWatermarks: options?.resetAllLaneWatermarks,
       reconnect: options?.reconnect,
       requestHydration: requestRefreshHydration,
+      retainOnReset: options?.retainOnReset,
       scheduleSyncAfterHydration: options?.scheduleSyncAfterHydration,
       state,
     });

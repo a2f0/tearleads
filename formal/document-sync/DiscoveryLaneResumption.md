@@ -31,9 +31,9 @@ crawl (`crawlTreeForCatchUp`) so settled lanes whose server row moved record a
 durable `document_lane_revalidations` request, and lists every owed lane. It
 waits while a connect attempt is pending, so an acknowledgement that arrives
 while the start waits lists each owed lane once, in its catch-up; the resume
-runs when the attempt ends without one or none was pending. Once the resume has
-run, while the device stays online without an acknowledged connection or
-connect attempt in flight, periodic watermarked catch-up
+runs when the attempt ends without one or none was pending. Once the resume
+has run, while the device stays online without an acknowledged connection
+(including across flapping reconnect attempts), periodic watermarked catch-up
 (`transitionUnacknowledgedCatchUp`) discovers peer writes made after startup.
 A later acknowledged connection is a new catch-up and may list any lane again.
 
@@ -105,7 +105,9 @@ listing returns, and
 [`DocumentListingConvergence.tla`](./DocumentListingConvergence.tla) covers
 document content edits for documents the device already holds. Access changes
 and remote resets, which delete a lane's row and so owe it again, are outside
-the model. Head verification, tombstones, and the order in which lanes apply
+the model. Head verification, tombstones, tree-crawl failure fallback (where an
+incomplete crawl falls back to listing every known lane), quiet periodic ticks
+(which stutter without changing state), and the order in which lanes apply
 are abstracted: any lane in the listing may apply next. A connect attempt that
 a reconnect replaces is modelled as `AttemptEnds` followed by `Connect`, so the
 resume runs between them and `OwedListedOnce` does not cover the replacement.

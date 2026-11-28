@@ -47,6 +47,8 @@ export interface RemoteHydrationRequestInput {
     | undefined;
   recreateOnFullyHydratedAtStart?: boolean | undefined;
   resumeRecoveryWork: () => Promise<void>;
+  /** Keep failed/interrupted crawls queued for recovery (default true). */
+  retainOnReset?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
   scheduleSyncOnHydrationChange?: boolean | undefined;
   scheduleSync: () => void;

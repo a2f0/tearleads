@@ -23,6 +23,7 @@ import {
 } from "./knownContainerSweep";
 import { rearmFailedContainer } from "./laneFailure";
 import {
+  armUnacknowledgedPolling,
   evaluateUnacknowledgedCatchUp,
   resumeOwedDocumentDiscovery,
   startUnacknowledgedCatchUp,
@@ -206,8 +207,10 @@ function createReconciliationState(
     probeContinuationCancel: null,
     queue: createReconcileQueue(),
     pendingRefresh: null,
+    pendingOwedResume: false,
     unacknowledgedCatchUp: STOPPED_UNACKNOWLEDGED_CATCH_UP,
     unacknowledgedCatchUpCancel: null,
+    unacknowledgedPollingArmed: false,
     unsubscribeConnectionStatus: null,
   };
 }
@@ -294,6 +297,7 @@ export function createReconciliationService(
   return {
     start: () => {
       startReconciliationLane(host, state);
+      if (!state.active) return;
       startUnacknowledgedCatchUp(host, state);
       scheduleDrain();
     },
@@ -325,13 +329,16 @@ export function createReconciliationService(
     reconcileNow: (options) => requestFullRefresh(host, state, options),
     reconcileAcknowledgedConnection: () => {
       const generation = state.lifecycleGeneration;
+      armUnacknowledgedPolling(state);
       const sweep = requestAcknowledgedConnectionSweep(host, state);
       evaluateUnacknowledgedCatchUp(host, state);
-      return sweep.finally(() => {
+      const evaluateIfCurrent = () => {
         if (isCurrentReconciliationLifecycle(state, generation)) {
           evaluateUnacknowledgedCatchUp(host, state);
         }
-      });
+      };
+      void sweep.then(evaluateIfCurrent, evaluateIfCurrent);
+      return sweep;
     },
     stop: () => stopReconciliationService(host, state),
   };

@@ -214,18 +214,20 @@ function createDiscoveredDocumentPrimerHost(input: {
   };
 }
 
-function createConnectionStatusNotifier(runtimeService: InternalRuntime): {
-  readonly notify: () => void;
-  readonly subscribe: (listener: () => void) => () => void;
-  readonly unsubscribeRuntime: () => void;
-} {
+function createConnectionStatusNotifier(runtimeService: InternalRuntime) {
   const listeners = new Set<() => void>();
   const notify = () => {
-    for (const listener of listeners) listener();
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch {
+        // Isolate subscriber failures.
+      }
+    }
   };
   return {
     notify,
-    subscribe: (listener) => {
+    subscribe: (listener: () => void) => {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
@@ -431,6 +433,8 @@ class DeviceFirstService implements DeviceFirst {
           serverEventsConnected:
             state.serverEventsConnected ??
             (state.serverEventsConnectionGeneration ?? 0) > 0,
+          serverEventsPendingConnectAttempt:
+            state.serverEventsPendingConnectAttempt,
         };
       },
       listKnownContainerIds: () =>

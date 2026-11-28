@@ -151,12 +151,14 @@ Every committed change remains available above a page's saved watermark
 until the client observes it.
 
 [`DiscoveryLaneResumption.tla`](./DiscoveryLaneResumption.tla) models the
-document lanes a device lists at sign-in while a reload can stop it anywhere
-between the batched listing and each lane's apply. A lane settles only with an
-applied listing that left nothing staged, and a lane still missing documents
-stays durably owed. A start that is connecting leaves the owed lanes to the
-acknowledged connection's catch-up, which lists every owed lane; otherwise, or
-when the attempt ends without an acknowledgement, it resumes them itself. The
+document lanes a device lists at sign-in and across later peer writes while a
+reload can stop it anywhere between the batched listing and each lane's apply.
+A lane settles only with an applied listing that left nothing staged, and a
+lane still missing documents stays durably owed. A start that is connecting
+leaves the owed lanes to the acknowledged connection's catch-up; otherwise, or
+when the attempt ends without an acknowledgement, it runs a watermarked tree
+crawl and resumes every owed lane itself, followed by periodic watermarked
+catch-up while the session stays online without an acknowledged connection. The
 device converges however many reloads land, and the catch-up of an attempt
 pending at the start never re-lists lanes that start's resume listed; a
 connection made after the resume ran may list any lane again. See the

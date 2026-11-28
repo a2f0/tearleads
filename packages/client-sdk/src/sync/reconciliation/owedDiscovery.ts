@@ -13,21 +13,44 @@ import {
   type UnacknowledgedCatchUpEvent,
 } from "./unacknowledgedCatchUpMachine";
 
+function isAcknowledgedControlActive(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+): boolean {
+  return (
+    state.catchUp.status !== "idle" ||
+    state.pendingRefresh?.scope === "acknowledged" ||
+    host.getRuntimeStatus().serverEventsConnected === true
+  );
+}
+
 function isUnacknowledgedCatchUpEligible(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): boolean {
   if (!state.active || !host.crawlTreeForCatchUp) return false;
-  if (state.catchUp.status !== "idle") return false;
+  if (!state.unacknowledgedPollingArmed) return false;
+  if (isAcknowledgedControlActive(host, state)) return false;
   const status = host.getRuntimeStatus();
-  // Do not cancel while a reconnect attempt is pending: a flapping socket that
-  // retries more often than the poll interval would otherwise starve catch-up.
+  // Do not cancel while a later reconnect attempt is pending: a flapping socket
+  // that retries more often than the poll interval would otherwise starve
+  // catch-up. Initial startup attempts stay gated via `unacknowledgedPollingArmed`.
   return canReconcile(status) && status.serverEventsConnected === false;
 }
 
 function cancelUnacknowledgedCatchUpTimer(state: ReconciliationState): void {
   state.unacknowledgedCatchUpCancel?.();
   state.unacknowledgedCatchUpCancel = null;
+}
+
+function logSafely(
+  host: ReconciliationHost,
+  message: string,
+  error: unknown,
+): void {
+  void Promise.resolve()
+    .then(() => host.logError?.(message, error))
+    .catch(() => undefined);
 }
 
 async function planUnacknowledgedCatchUp(
@@ -45,7 +68,7 @@ async function planUnacknowledgedCatchUp(
     );
   } catch (error) {
     if (host.isIgnorableError(error)) throw error;
-    host.logError?.("Reconciliation: owed lanes could not be read", error);
+    logSafely(host, "Reconciliation: owed lanes could not be read", error);
     return { containerIds: known };
   }
   const covered = new Set(reconcilable);
@@ -93,10 +116,7 @@ function launchUnacknowledgedCatchUpSweep(
       ) {
         return;
       }
-      return host.logError?.(
-        "Reconciliation: unacknowledged catch-up failed",
-        error,
-      );
+      logSafely(host, "Reconciliation: unacknowledged catch-up failed", error);
     })
     .finally(() => {
       if (!isCurrentReconciliationLifecycle(state, generation)) return;
@@ -105,7 +125,8 @@ function launchUnacknowledgedCatchUpSweep(
         run,
         type: "sweep-settled",
       });
-    });
+    })
+    .catch(() => undefined);
 }
 
 function scheduleUnacknowledgedCatchUpTimer(
@@ -161,6 +182,10 @@ export function startUnacknowledgedCatchUp(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): void {
+  if (!state.active) return;
+  state.pendingOwedResume = false;
+  state.unacknowledgedPollingArmed =
+    host.getRuntimeStatus().serverEventsPendingConnectAttempt === undefined;
   state.unsubscribeConnectionStatus?.();
   state.unsubscribeConnectionStatus =
     host.subscribeConnectionStatus?.(() =>
@@ -172,10 +197,36 @@ export function startUnacknowledgedCatchUp(
   });
 }
 
+export function armUnacknowledgedPolling(state: ReconciliationState): void {
+  state.unacknowledgedPollingArmed = true;
+}
+
 export function evaluateUnacknowledgedCatchUp(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): void {
+  if (!state.active) return;
+  if (isAcknowledgedControlActive(host, state)) {
+    state.pendingOwedResume = false;
+  }
+  if (
+    !state.unacknowledgedPollingArmed &&
+    host.getRuntimeStatus().serverEventsPendingConnectAttempt === undefined
+  ) {
+    state.unacknowledgedPollingArmed = true;
+  }
+  if (
+    state.pendingOwedResume &&
+    host.crawlTreeForCatchUp &&
+    !isAcknowledgedControlActive(host, state) &&
+    canReconcile(host.getRuntimeStatus())
+  ) {
+    state.pendingOwedResume = false;
+    const run = {};
+    dispatchUnacknowledgedCatchUp(host, state, { run, type: "sweep-started" });
+    launchUnacknowledgedCatchUpSweep(host, state, run);
+    return;
+  }
   dispatchUnacknowledgedCatchUp(host, state, {
     eligible: isUnacknowledgedCatchUpEligible(host, state),
     type: "evaluate",
@@ -185,6 +236,8 @@ export function evaluateUnacknowledgedCatchUp(
 export function stopUnacknowledgedCatchUp(state: ReconciliationState): void {
   state.unsubscribeConnectionStatus?.();
   state.unsubscribeConnectionStatus = null;
+  state.pendingOwedResume = false;
+  state.unacknowledgedPollingArmed = false;
   const next = transitionUnacknowledgedCatchUp(state.unacknowledgedCatchUp, {
     type: "stop",
   });
@@ -211,6 +264,16 @@ export function resumeOwedDocumentDiscovery(input: {
   const { enqueue, host, isCurrent, state } = input;
   if (host.crawlTreeForCatchUp) {
     if (!isCurrent()) return;
+    state.unacknowledgedPollingArmed = true;
+    if (isAcknowledgedControlActive(host, state)) {
+      state.pendingOwedResume = false;
+      return;
+    }
+    if (!canReconcile(host.getRuntimeStatus())) {
+      state.pendingOwedResume = true;
+      return;
+    }
+    state.pendingOwedResume = false;
     const run = {};
     dispatchUnacknowledgedCatchUp(host, state, { run, type: "sweep-started" });
     launchUnacknowledgedCatchUpSweep(host, state, run);
@@ -225,10 +288,7 @@ export function resumeOwedDocumentDiscovery(input: {
       },
       (error: unknown) => {
         if (!isCurrent() || host.isIgnorableError(error)) return;
-        return host.logError?.(
-          "Reconciliation: owed discovery lookup failed",
-          error,
-        );
+        logSafely(host, "Reconciliation: owed discovery lookup failed", error);
       },
     );
 }

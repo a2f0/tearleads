@@ -35,6 +35,8 @@ export interface ReconciliationRuntimeStatus {
   online: boolean;
   /** Whether a server-events connection currently holds acknowledged interest. */
   serverEventsConnected?: boolean | undefined;
+  /** In-flight connect attempt awaiting interest acknowledgement, if any. */
+  serverEventsPendingConnectAttempt?: number | undefined;
 }
 
 /**
