@@ -64,6 +64,18 @@
       "issues": [3396],
       "snapshotFile": "snapshots/004-api-repeats-plans.json",
       "notes": "Eliminated API pure read repeats inside transactions/lock holds (principal policy evidence reuse, container manifest/org memoization, prelocked provisioning scope, verified pre-lock sync access reuse under held frontier locks) and eliminated Postgres generic-plan Sort/Materialize."
+    },
+    {
+      "id": "005-wire-compactness",
+      "seq": 5,
+      "label": "PR #8 (#3396 Lead 2): wire compactness, authored KEK citations, held history & read-path policy warmers",
+      "kind": "checkpoint",
+      "recordedAt": "2026-11-28T11:32:14.695Z",
+      "revision": "45ce6bb0a4cc0aafe5f70cb6b711f35db0968ae6",
+      "dirty": true,
+      "issues": [3396],
+      "snapshotFile": "snapshots/005-wire-compactness.json",
+      "notes": "Normalizes containerManifestHistory out of KEK level citation digests, caches authored container KEK levels on mutation acknowledgement, verifies locally held principal policy chains before GET /principals/history, and enables preferLocalCurrent on read/verification/read-only-pull policy warmers (keeping write-planning warmers fresh)."
     }
   ]
 }

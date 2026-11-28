@@ -107,7 +107,9 @@ async function containerStateHasCurrentGroupGrantInternal(input: {
         resolveUserKey: input.resolveProjectionUserKey,
         stillCurrent,
         warmReferencedPrincipalPolicies:
-          input.runtime.principalPolicies.createWarmer(),
+          input.runtime.principalPolicies.createWarmer({
+            preferLocalCurrent: true,
+          }),
       });
       return projectionHasCurrentGroupGrant({
         accessLevel: input.accessLevel,

@@ -2,6 +2,7 @@ import {
   type AccessEvent,
   type AccessManifest,
   type ContainerAccessManifestState,
+  type ContainerKekKeyring,
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
@@ -10,8 +11,12 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
 } from "@tearleads/crypto";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { canonicalKeyingJsonString } from "../../keying/canonicalJson";
+import {
+  type ContainerKekWireLevel,
+  type ContainerMutationResponse,
+  isContainerKekWireLevel,
+} from "@tearleads/validators/response";
+import { readCanonicalRecord } from "../../keying/canonicalJson";
 import { KeyingCheckpointRepository } from "../../persistence/keyingCheckpoints/keyingCheckpointRepository";
 import {
   type LocallyAcknowledgedAccessManifestHead,
@@ -25,6 +30,12 @@ export interface AuthoredContainerMutationHead {
   readonly event: AccessEvent;
   readonly eventHash: string;
   readonly keyEpoch: ContainerKeyEpoch;
+  /** The new epoch's sealed keyring, for rotations that mint a key epoch. */
+  readonly keyring?:
+    | ContainerKekKeyring
+    | Record<string, unknown>
+    | null
+    | undefined;
   readonly manifest: AccessManifest;
   readonly manifestHash: string;
   /**
@@ -34,6 +45,14 @@ export interface AuthoredContainerMutationHead {
   readonly previousKeyring?: Record<string, unknown> | null | undefined;
   readonly state: ContainerAccessManifestState;
   readonly wraps: readonly ContainerKeyWrap[];
+}
+
+function recipientTargetKey(target: ContainerKekRecipientTarget): string {
+  return `${target.recipientKind}:${target.recipientId}:${target.recipientKeyEpochId}`;
+}
+
+function containerKeyWrapSortKey(wrap: ContainerKeyWrap): string {
+  return `${wrap.containerKeyEpochId}:${wrap.recipientKind}:${wrap.recipientId}:${wrap.recipientKeyEpochId}`;
 }
 
 function expectedRecipientTargets(
@@ -48,8 +67,8 @@ function expectedRecipientTargets(
     })),
   ].sort((left, right) =>
     compareCanonicalStrings(
-      canonicalKeyingJsonString(left, "recipient target"),
-      canonicalKeyingJsonString(right, "recipient target"),
+      recipientTargetKey(left),
+      recipientTargetKey(right),
     ),
   );
 }
@@ -158,16 +177,97 @@ async function assertResponseCommitments(
   }
 }
 
+async function acknowledgedAuthoredKeyring(
+  plan: AuthoredContainerMutationHead,
+  keyringHash: string | null,
+): Promise<Record<string, unknown> | null | undefined> {
+  if (keyringHash === null) return null;
+  const candidate = plan.keyring ?? plan.previousKeyring ?? null;
+  if (candidate === null) return undefined;
+  const keyring = readCanonicalRecord(
+    candidate,
+    "Authored container KEK keyring",
+  );
+  return (await computeContainerKekKeyringHash(keyring)) === keyringHash
+    ? keyring
+    : undefined;
+}
+
+/**
+ * The KEK level a writer projection serves for an authored container head,
+ * built from the acknowledged plan so subsequent reads cite it via `k:`
+ * instead of re-downloading the wraps and keyring this device just uploaded.
+ */
+async function authoredContainerKekLevel(
+  plan: AuthoredContainerMutationHead,
+  response: ContainerMutationResponse,
+): Promise<ContainerKekWireLevel | null> {
+  try {
+    const keyring = await acknowledgedAuthoredKeyring(
+      plan,
+      response.containerKek.keyringHash,
+    );
+    if (keyring === undefined) return null;
+    const candidate = {
+      containerId: plan.containerId,
+      accessManifestHash: plan.manifestHash,
+      containerKeyEpochId: plan.keyEpoch.id,
+      containerKeyEpoch: plan.keyEpoch.keyEpoch,
+      keyring,
+      keyEpoch: {
+        id: plan.keyEpoch.id,
+        containerId: plan.keyEpoch.containerId,
+        keyEpoch: plan.keyEpoch.keyEpoch,
+        accessManifestHash: plan.keyEpoch.accessManifestHash,
+        parentContainerKeyEpochId: plan.keyEpoch.parentContainerKeyEpochId,
+        createdByEventHash: plan.keyEpoch.createdByEventHash,
+        createdByManifestHash: plan.keyEpoch.createdByManifestHash,
+      },
+      keyEpochHash: response.containerKek.keyEpochHash,
+      keyTargetHash: response.containerKek.keyTargetHash,
+      parentContainerKeyEpochId: plan.keyEpoch.parentContainerKeyEpochId,
+      containerManifestHistory: [],
+      recipientTargets: expectedRecipientTargets(plan.wraps).map((target) => ({
+        recipientKind: target.recipientKind,
+        recipientId: target.recipientId,
+        recipientKeyEpochId: target.recipientKeyEpochId,
+        recipientKeyFingerprint: target.recipientKeyFingerprint,
+      })),
+      wraps: [...plan.wraps]
+        .sort((left, right) =>
+          compareCanonicalStrings(
+            containerKeyWrapSortKey(left),
+            containerKeyWrapSortKey(right),
+          ),
+        )
+        .map((wrap) => ({
+          containerKeyEpochId: wrap.containerKeyEpochId,
+          recipientKind: wrap.recipientKind,
+          recipientId: wrap.recipientId,
+          recipientKeyEpochId: wrap.recipientKeyEpochId,
+          recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+          kemCipherText: wrap.kemCipherText,
+          wrappedKey: wrap.wrappedKey,
+          wrapManifestHash: wrap.wrapManifestHash,
+        })),
+    };
+    return isContainerKekWireLevel(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function locallyAcknowledgedContainerMutationHead(input: {
   readonly plan: AuthoredContainerMutationHead;
   readonly response: ContainerMutationResponse;
 }): Promise<LocallyAcknowledgedAccessManifestHead> {
   assertResponseIdentity(input.plan, input.response);
   await assertResponseCommitments(input.plan, input.response);
-  return locallyAcknowledgedAuthoredHead(
-    input.plan,
-    input.response.bundleDigest,
-  );
+  const [authored, kekLevel] = await Promise.all([
+    locallyAcknowledgedAuthoredHead(input.plan, input.response.bundleDigest),
+    authoredContainerKekLevel(input.plan, input.response),
+  ]);
+  return { ...authored, kekLevel };
 }
 
 /** Correlates an API acknowledgement to the locally signed plan before pinning. */

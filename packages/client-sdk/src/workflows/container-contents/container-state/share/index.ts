@@ -216,7 +216,9 @@ async function prepareContainerStateGroupRewrapInternal(input: {
       resolveUserKey: input.resolveProjectionUserKey,
       stillCurrent: input.stillCurrent,
       warmReferencedPrincipalPolicies:
-        input.runtime.principalPolicies.createWarmer(),
+        input.runtime.principalPolicies.createWarmer({
+          preferLocalCurrent: true,
+        }),
     });
     if (input.stillCurrent?.() === false) return null;
     const verifiedState = readContainerState(
@@ -261,7 +263,9 @@ async function prepareContainerStateGroupRewrapInternal(input: {
     secretKey: targetSecretKey,
     stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies:
-      input.runtime.principalPolicies.createWarmer(),
+      input.runtime.principalPolicies.createWarmer({
+        preferLocalCurrent: true,
+      }),
   });
   if (input.stillCurrent?.() === false) return null;
   const targetKek = keksByEpochId.get(target.kek.containerKeyEpochId);

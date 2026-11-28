@@ -120,7 +120,10 @@ test("a resumed older stage preserves a compatible higher completed prefix", asy
     const before = await f.db.select().from(principalHistoryPrefixes);
     f.requests.length = 0;
     await recoverPublicPrincipalHistory(older);
-    expect(f.requests).toEqual([32, 64]);
+    // The newer completed history already stored entries 33..66 locally, so
+    // resuming the older stage verifies them without re-fetching pages.
+    expect(f.requests).toEqual([]);
+    expect(await f.db.select().from(principalHistoryStages)).toEqual([]);
     expect(await f.db.select().from(principalHistoryPrefixes)).toEqual(before);
     f.requests.length = 0;
     const offline = await recoverPublicPrincipalHistory({
@@ -216,12 +219,9 @@ test("strict public Admins verification cannot reuse a general history prefix", 
     await expect(
       recoverPublicPrincipalHistory({ ...f.options, strictAdmins: true }),
     ).rejects.toThrow("only direct admin users");
-    // The refusal with the held head is confirmed once against the served one.
-    expect(f.requests).toEqual([0, 0]);
-    expect(f.knownHashes.slice(-2)).toEqual([
-      signed.bundle.currentState.stateHash,
-      null,
-    ]);
+    // The refusal with the held history is confirmed once against the served one.
+    expect(f.requests).toEqual([0]);
+    expect(f.knownHashes.slice(-1)).toEqual([null]);
   } finally {
     f.close();
   }

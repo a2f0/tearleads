@@ -93,45 +93,98 @@ async function loadHeldHead(
   return knownCurrentState;
 }
 
+async function loadHeldPages(
+  input: PublicPrincipalHistoryOptions,
+  afterVersion: number,
+  held: HeldHeadCell,
+): Promise<readonly PrincipalPolicySnapshotPage[] | null> {
+  if (held.state.status !== "eligible") return null;
+  const pages = await new PrincipalPolicyBundleRepository(
+    input.execSql,
+  ).loadHeldPrincipalHistoryPages(input.source.head, afterVersion);
+  if (pages) {
+    held.state = transitionHeldHeadState(held.state, { type: "heldLoaded" });
+  }
+  return pages;
+}
+
+async function applyPublicPage(
+  input: PublicPrincipalHistoryOptions,
+  progress: PublicPrincipalHistoryProgress,
+  page: PrincipalPolicySnapshotPage,
+  current: () => boolean,
+): Promise<PublicPrincipalHistoryProgress> {
+  assertProjectionVerificationCurrent(current);
+  assertPage(input, page, progress.afterVersion);
+  if (progress.completedHead)
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Completed public history returned additional entries",
+    );
+  return appendPublicPrincipalHistoryPage(input, progress, page);
+}
+
+async function readServedPublicPages(
+  input: PublicPrincipalHistoryOptions,
+  initial: PublicPrincipalHistoryProgress,
+  held: HeldHeadCell,
+  current: () => boolean,
+) {
+  let progress = initial;
+  let lastPage: PrincipalPolicySnapshotPage | undefined;
+  const knownCurrentState = await loadHeldHead(input, held);
+  for await (const result of input.historyReader.getProjectionPolicyHistoryPages(
+    input.source,
+    {
+      afterVersion: progress.afterVersion,
+      knownCurrentState,
+      signal: input.signal,
+      stillCurrent: input.stillCurrent,
+    },
+  )) {
+    assertProjectionVerificationCurrent(current);
+    if (!result.ok) throw new PrincipalPolicyHistoryReadError(result);
+    progress = await applyPublicPage(input, progress, result.data, current);
+    lastPage = result.data;
+  }
+  return { progress, lastPage };
+}
+
+async function readHeldPublicPages(
+  input: PublicPrincipalHistoryOptions,
+  initial: PublicPrincipalHistoryProgress,
+  heldPages: readonly PrincipalPolicySnapshotPage[],
+  current: () => boolean,
+) {
+  let progress = initial;
+  let lastPage: PrincipalPolicySnapshotPage | undefined;
+  for (const page of heldPages) {
+    progress = await applyPublicPage(input, progress, page, current);
+    lastPage = page;
+  }
+  return { progress, lastPage };
+}
+
 async function readPublicPages(
   input: PublicPrincipalHistoryOptions,
   initial: PublicPrincipalHistoryProgress,
   held: HeldHeadCell,
 ) {
   const current = () => !input.signal?.aborted && input.stillCurrent();
-  let progress = initial;
-  let lastPage: PrincipalPolicySnapshotPage | undefined;
   // Completed progress already verified every signed entry through the cited
   // head; a read pinned to that head could only repeat it or refuse.
-  if (!input.offline && !progress.completedHead) {
-    const knownCurrentState = await loadHeldHead(input, held);
-    for await (const result of input.historyReader.getProjectionPolicyHistoryPages(
-      input.source,
-      {
-        afterVersion: progress.afterVersion,
-        knownCurrentState,
-        signal: input.signal,
-        stillCurrent: input.stillCurrent,
-      },
-    )) {
-      assertProjectionVerificationCurrent(current);
-      if (!result.ok) throw new PrincipalPolicyHistoryReadError(result);
-      const page = result.data;
-      assertPage(input, page, progress.afterVersion);
-      if (progress.completedHead)
-        throw new KeyingVerificationError(
-          "invalid_shape",
-          "Completed public history returned additional entries",
-        );
-      progress = await appendPublicPrincipalHistoryPage(input, progress, page);
-      lastPage = page;
-    }
-    if (lastPage?.historyPage.nextAfterVersion !== null)
-      throw new KeyingVerificationError(
-        "missing_dependency",
-        "Public history transport did not complete",
-      );
+  if (input.offline || initial.completedHead) {
+    return { progress: initial, lastPage: undefined };
   }
+  const heldPages = await loadHeldPages(input, initial.afterVersion, held);
+  const { progress, lastPage } = heldPages
+    ? await readHeldPublicPages(input, initial, heldPages, current)
+    : await readServedPublicPages(input, initial, held, current);
+  if (lastPage?.historyPage.nextAfterVersion !== null)
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Public history transport did not complete",
+    );
   return { progress, lastPage };
 }
 

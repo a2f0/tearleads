@@ -85,6 +85,7 @@ export async function hydrateAttachmentBlobs(
       stillCurrent: generationIsCurrent,
       warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
         operation: policyOperation,
+        preferLocalCurrent: true,
       }),
     });
   if (!generationIsCurrent()) return;
