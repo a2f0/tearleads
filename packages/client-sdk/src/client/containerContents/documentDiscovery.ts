@@ -80,6 +80,7 @@ function createDiscoveryLane(input: {
   const warmReferencedPrincipalPolicies =
     runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
+      preferLocalCurrent: true,
     });
   const loadHead = createDocumentHeadLinkSetLoader(
     runtime,

@@ -278,6 +278,7 @@ function runRemoteDocumentSync(
     validateIncomingUpdates: documentImportJudge(input, documentId),
     warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
+      preferLocalCurrent: true,
     }),
     writerProjection:
       state.writerProjection?.documentId === currentRecord.documentId &&

@@ -244,7 +244,9 @@ async function drainRemoteContainerIngestQueue(input: {
       }
       await cacheRemoteContainerPrincipalPolicies({
         cacheReferencedPrincipalPolicies:
-          state.runtime.principalPolicies.createWarmer(),
+          state.runtime.principalPolicies.createWarmer({
+            preferLocalCurrent: true,
+          }),
         remoteContainers: queuedRemoteContainers,
         stillCurrent: input.isCurrent,
       });

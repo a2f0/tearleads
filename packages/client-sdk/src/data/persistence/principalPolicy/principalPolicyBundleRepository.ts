@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/crypto";
 import type {
   PrincipalPolicyBundleResponse,
+  PrincipalPolicySnapshotPage,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { asc, desc } from "drizzle-orm";
@@ -25,6 +26,7 @@ import {
   type PrincipalKeyEnvelopeCandidate,
   selectPrincipalKeyEnvelopeCandidates,
 } from "../principalKeys/principalKeyEnvelopeCandidates";
+import { selectHeldPrincipalHistoryPages } from "./heldPrincipalHistoryPages";
 import { selectHeldPrincipalState } from "./heldPrincipalState";
 import {
   assertLocallyAcknowledgedPrincipalPolicyBundles,
@@ -146,6 +148,24 @@ export class PrincipalPolicyBundleRepository {
     await this.ensurePrincipalPolicyTables();
     const { db } = getClientSQLitePersistenceRuntime(this.execSql);
     return selectHeldPrincipalState(db, head);
+  }
+
+  /**
+   * Paginated signed history entries this device already holds for `head` after
+   * `afterVersion`, from cached policy bundles or verified history evidence.
+   * Untrusted: callers verify every page cryptographically and fall back online
+   * on any miss or verification rejection.
+   */
+  async loadHeldPrincipalHistoryPages(
+    head: ReferencedPrincipalHead,
+    afterVersion: number,
+  ): Promise<readonly PrincipalPolicySnapshotPage[] | null> {
+    await ensureSqlTables(this.execSql, [
+      ...principalPolicyTables,
+      ...principalHistoryEvidenceTables,
+    ]);
+    const { db } = getClientSQLitePersistenceRuntime(this.execSql);
+    return selectHeldPrincipalHistoryPages(db, head, afterVersion);
   }
 
   /**

@@ -186,18 +186,12 @@ function bundleResolver(
   };
 }
 
-function sameHashes(left: readonly string[], right: readonly string[]) {
-  return (
-    left.length === right.length &&
-    left.every((hash, index) => hash === right[index])
-  );
-}
-
 /**
  * Each cited KEK level becomes its own copy of the exact held level this
- * request declared under that digest. A digest the request did not cite, or
- * a held level whose manifest citations differ from the stub's, makes the
- * path unusable: the caller refetches in full.
+ * request declared under that digest, paired with the stub's manifest
+ * citations (which are resolved and verified against `bundles`/`omittedBundles`).
+ * A digest the request did not cite makes the path unusable: the caller
+ * refetches in full.
  */
 function fillKekLevels(
   path: ContainerKeyingPathWireResponse,
@@ -210,12 +204,11 @@ function fillKekLevels(
       continue;
     }
     const held = heldLevels.get(kek.levelDigest);
-    if (
-      !held ||
-      !sameHashes(held.containerManifestHistory, kek.containerManifestHistory)
-    )
-      return null;
-    levels.push(structuredClone(held));
+    if (!held) return null;
+    levels.push({
+      ...structuredClone(held),
+      containerManifestHistory: [...kek.containerManifestHistory],
+    });
   }
   return levels;
 }

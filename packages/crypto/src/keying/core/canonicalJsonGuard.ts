@@ -96,20 +96,24 @@ export function readKeyingCanonicalJson(
 
 /**
  * Domain-separated SHA-256 hex of a container KEK level's canonical wire JSON
- * (`tearleads.keying.container-kek-level-citation`), its manifest history
- * cited by hash: the digest a projection request cites the level by (`k:`
- * hint). The domain keeps it apart from every other keying hash that shares
- * the client's citation cache key space. Null when the level is not canonical
- * JSON, so it is never cited and always travels.
+ * (`tearleads.keying.container-kek-level-citation`). `containerManifestHistory`
+ * travels explicitly on `CitedContainerKekLevel`, so it is normalized to `[]`
+ * before hashing: authored KEK levels and unchanged levels whose manifest
+ * history grew share the same digest (#3396). Null when the level is not
+ * canonical JSON, so it is never cited and always travels.
  */
 export async function computeContainerKekLevelDigest(
   level: unknown,
 ): Promise<string | null> {
   if (!isKeyingCanonicalJson(level)) return null;
+  const payload =
+    isPlainObject(level) && Object.hasOwn(level, "containerManifestHistory")
+      ? { ...level, containerManifestHistory: [] }
+      : level;
   try {
     return await computeKeyingDomainHash(
       "tearleads.keying.container-kek-level-citation",
-      level,
+      payload,
     );
   } catch {
     return null;

@@ -310,9 +310,8 @@ testApiClient(
 );
 
 testApiClient(
-  "a level stub the held bytes cannot rebuild refetches once, complete",
+  "a level stub with an updated manifest history refills from held bytes without refetching",
   async () => {
-    // The stub's manifest citations disagree with the held level's.
     const hints = serveLevels((wire, kekLevels) =>
       kekLevels.length === 0
         ? wire
@@ -321,6 +320,38 @@ testApiClient(
             containerKeks: wire.containerKeks.map(() => ({
               levelDigest: kekLevels[0] ?? never(),
               containerManifestHistory: [LEAF],
+            })),
+            bundles: Object.fromEntries(
+              Object.entries(wire.bundles).filter(([hash]) => hash === LEAF),
+            ),
+          },
+    );
+    const client = new ApiClient(apiBaseUrl);
+    client.setVerifiedManifestCitations(heldLevel());
+    const expected = projection();
+    expected.containerKeks[0] = {
+      ...(expected.containerKeks[0] ?? never()),
+      containerManifestHistory: [expected.path[0] ?? never()],
+    };
+    expect(
+      await client.getContainerWriterProjection(projection().containerId),
+    ).toEqual(expected);
+    expect(hints).toHaveLength(1);
+  },
+);
+
+testApiClient(
+  "a level stub whose cited manifest bundle is missing refetches once, complete",
+  async () => {
+    // The stub cites GENESIS in its manifest history, but omits GENESIS from bundles.
+    const hints = serveLevels((wire, kekLevels) =>
+      kekLevels.length === 0
+        ? wire
+        : {
+            ...wire,
+            containerKeks: wire.containerKeks.map(() => ({
+              levelDigest: kekLevels[0] ?? never(),
+              containerManifestHistory: [GENESIS],
             })),
             bundles: Object.fromEntries(
               Object.entries(wire.bundles).filter(([hash]) => hash === LEAF),

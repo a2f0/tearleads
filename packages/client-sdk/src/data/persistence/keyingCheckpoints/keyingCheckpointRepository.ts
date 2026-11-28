@@ -149,9 +149,12 @@ export class KeyingCheckpointRepository {
     advance: LocallyAcknowledgedAdvance,
   ): Promise<boolean> {
     const bundleRows = await verifiedManifestBundleRows(
-      advance.heads.flatMap(({ checkpoint, servedBundle }) =>
-        servedBundle ? [{ bundle: servedBundle, checkpoint }] : [],
-      ),
+      advance.heads.flatMap(({ checkpoint, kekLevel, servedBundle }) => [
+        ...(servedBundle ? [{ bundle: servedBundle, checkpoint }] : []),
+        ...(kekLevel
+          ? [{ kekLevel, organizationId: checkpoint.organizationId }]
+          : []),
+      ]),
     );
     await ensureSqlTables(this.execSql, [
       ...keyingCheckpointTables,

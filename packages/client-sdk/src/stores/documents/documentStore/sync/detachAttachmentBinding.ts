@@ -120,6 +120,7 @@ export async function detachAttachmentBinding(input: {
     warmReferencedPrincipalPolicies:
       state.runtime.principalPolicies.createWarmer({
         operation: input.policyOperation,
+        preferLocalCurrent: true,
       }),
   };
   let detached = await blobAttachments.detachDocumentAttachment({

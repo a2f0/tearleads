@@ -6,6 +6,7 @@ import {
   type PrincipalPolicyCheckpoint,
   verifyAccessManifestLocalCheckpoint,
 } from "@tearleads/crypto";
+import type { ContainerKekWireLevel } from "@tearleads/validators/response";
 import type { ServedAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -33,6 +34,11 @@ export interface LocallyAcknowledgedAccessManifestHead {
    * digest matched the plan; stored for citation with the checkpoint.
    */
   readonly servedBundle?: ServedAccessManifestBundleWireResponse | null;
+  /**
+   * The container KEK level this client authored for the acknowledged head,
+   * stored for `k:` citation in the same transaction as its checkpoint.
+   */
+  readonly kekLevel?: ContainerKekWireLevel | null;
 }
 
 export function locallyAuthoredAccessManifestHead(plan: {

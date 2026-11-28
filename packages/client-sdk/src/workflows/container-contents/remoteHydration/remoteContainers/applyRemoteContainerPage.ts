@@ -94,6 +94,7 @@ async function prepareRemoteContainerPage(
     input.items,
     state.runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
+      preferLocalCurrent: true,
     }),
     input.reconnect?.recordManualError,
     input.isCurrent,

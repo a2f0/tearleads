@@ -151,6 +151,7 @@ function createAttachmentBaseUploadInput(input: {
     warmReferencedPrincipalPolicies:
       state.runtime.principalPolicies.createWarmer({
         operation: input.pendingUpload.policyOperation,
+        preferLocalCurrent: true,
       }),
   };
 }

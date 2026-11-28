@@ -172,7 +172,9 @@ async function verifyDestinationRole(input: {
     projection,
     resolveUserKey: runtime.resolveTrustedUserIdentity,
     stillCurrent: isCurrent,
-    warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
+    warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
+      preferLocalCurrent: true,
+    }),
   };
   const { path, verifiedByHash } =
     await verifyContainerDestinationProjection(verificationInput);

@@ -106,6 +106,7 @@ async function containerDocumentAlreadyMovedResult(input: {
     warmReferencedPrincipalPolicies:
       input.runtime.principalPolicies.createWarmer({
         operation: input.policyOperation,
+        preferLocalCurrent: true,
       }),
     onVerifiedAuthorization: (authorization) => {
       verified.head = authorization.documentManifestByHash.get(

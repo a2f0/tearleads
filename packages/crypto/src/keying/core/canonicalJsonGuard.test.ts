@@ -83,6 +83,18 @@ describe("computeContainerKekLevelDigest", () => {
         containerId: "container-1",
       }),
     ).toBe(digest);
+    // containerManifestHistory travels on CitedContainerKekLevel, so differing
+    // history arrays normalize to [] and share one KEK-level digest.
+    const withEmptyHistory = await computeContainerKekLevelDigest({
+      ...level,
+      containerManifestHistory: [],
+    });
+    expect(
+      await computeContainerKekLevelDigest({
+        ...level,
+        containerManifestHistory: ["a".repeat(64), "b".repeat(64)],
+      }),
+    ).toBe(withEmptyHistory);
   });
 
   test.each([

@@ -108,7 +108,9 @@ export async function persistAcceptedMoveIntent(input: {
     return false;
   }
 
-  await state.runtime.principalPolicies.createWarmer()({
+  await state.runtime.principalPolicies.createWarmer({
+    preferLocalCurrent: true,
+  })({
     organizationId: moved.organizationId,
     references: moved.metadataReferencedPrincipals,
     stillCurrent: input.isCurrent,
