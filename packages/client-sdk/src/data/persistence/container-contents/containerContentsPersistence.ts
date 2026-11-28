@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import {
   containerHydrationTombstones,
   containers,
@@ -140,6 +140,36 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   ...containerReconcilePersistence,
   claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,
+  async setRootLaneMembers(execSql, input) {
+    const addIds = Array.from(new Set(input.addIds));
+    const removeIds = Array.from(new Set(input.removeIds));
+    if (addIds.length === 0 && removeIds.length === 0) return;
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+      await runtime.transaction(async (tx) => {
+        if (addIds.length > 0) {
+          await tx
+            .update(containers)
+            .set({ rootLaneMember: true })
+            .where(inArray(containers.id, addIds))
+            .run();
+        }
+        if (removeIds.length > 0) {
+          await tx
+            .update(containers)
+            .set({ rootLaneMember: false })
+            .where(
+              and(
+                inArray(containers.id, removeIds),
+                isNotNull(containers.parentId),
+              ),
+            )
+            .run();
+        }
+      });
+    });
+  },
   async containerExists(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     const { db } = getClientSQLitePersistenceRuntime(execSql);

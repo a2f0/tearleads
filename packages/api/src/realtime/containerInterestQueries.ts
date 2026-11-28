@@ -9,10 +9,6 @@ import type {
 import { socketSessionKey, type WsConnection } from "./wsConnection";
 
 const MAX_AUTHORIZATION_ATTEMPTS = 3;
-// The declaration limit is 10,000 IDs; signed path work scales with that count.
-// Scale for larger trees, with a hard ceiling of six base intervals (60s).
-const IDS_PER_AUTHORIZATION_BUDGET = 100;
-const MAX_AUTHORIZATION_BUDGETS = 6;
 
 interface ActiveQuery {
   readonly changed: Set<string>;
@@ -71,13 +67,6 @@ function authorizationWasInvalidated(
           query.changed.has(id),
         ),
     )
-  );
-}
-
-function authorizationBudgets(ids: readonly string[]): number {
-  return Math.min(
-    MAX_AUTHORIZATION_BUDGETS,
-    Math.max(1, Math.ceil(ids.length / IDS_PER_AUTHORIZATION_BUDGET)),
   );
 }
 
@@ -154,7 +143,7 @@ export class ContainerInterestQueries {
     }
     const key = socketSessionKey(ws);
     const idsKey = JSON.stringify([...ids].sort());
-    const deadline = Date.now() + this.timeoutMs * authorizationBudgets(ids);
+    const deadline = Date.now() + this.timeoutMs;
     let attempts = 0;
     while (isOpen() && attempts < MAX_AUTHORIZATION_ATTEMPTS) {
       if (Date.now() >= deadline)

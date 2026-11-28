@@ -8,7 +8,7 @@ test("defaults compare one, two and four sockets at 1,000 and 10,000", () => {
     fanout: 10,
     samples: 1,
     hintIntervalMs: 10,
-    mode: "all",
+    mode: "roots",
     reuse: false,
   });
   expect(parseContentionOptions(["--help"])).toBeNull();

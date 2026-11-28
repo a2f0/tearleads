@@ -11,11 +11,17 @@ export function createContainerParentHydrationQueue(input: {
 }): {
   lanes: ContainerParentHydrationLane[];
   queueParentLane: QueueContainerParentLane;
+  unmarkSkippedParentLane: (parentId: string | null) => void;
 } {
   const queuedParentIds = new Set<string>();
   const lanes: ContainerParentHydrationLane[] = [];
+  const laneKeyFor = (parentId: string | null) =>
+    parentId === null ? "root" : `container:${parentId}`;
+  const unmarkSkippedParentLane = (parentId: string | null) => {
+    queuedParentIds.delete(laneKeyFor(parentId));
+  };
   const queueParentLane = (parentId: string | null) => {
-    const laneKey = parentId === null ? "root" : `container:${parentId}`;
+    const laneKey = laneKeyFor(parentId);
     if (queuedParentIds.has(laneKey)) {
       return;
     }
@@ -55,5 +61,5 @@ export function createContainerParentHydrationQueue(input: {
     }
   }
 
-  return { lanes, queueParentLane };
+  return { lanes, queueParentLane, unmarkSkippedParentLane };
 }

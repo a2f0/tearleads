@@ -42,7 +42,7 @@ export function parseRealtimeOptions(args: string[]): RealtimeOptions | null {
       sizes: { type: "string", default: "100,1000,10000" },
       fanout: { type: "string", default: "10" },
       samples: { type: "string", default: "1" },
-      mode: { type: "string", default: "all" },
+      mode: { type: "string", default: "roots" },
       reuse: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },

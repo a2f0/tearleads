@@ -61,6 +61,8 @@ test("sockets declare and revalidate together while hints reach the observer", a
       "1,3",
       "--hint-interval-ms",
       "2",
+      "--mode",
+      "all",
       "--reuse",
     ]),
     seed,
@@ -97,7 +99,7 @@ test("a socket left short of its folders fails the pass", async () => {
     api: fakeApi(async (_userId, ids) =>
       proofs(ids.length === 1 ? ids : ids.slice(1)),
     ),
-    options: options(["--sizes", "5", "--sockets", "2"]),
+    options: options(["--sizes", "5", "--sockets", "2", "--mode", "all"]),
     seed,
     traffic: emptyTraffic,
     idleMs: 1,

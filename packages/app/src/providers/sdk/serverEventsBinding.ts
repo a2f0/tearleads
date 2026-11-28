@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from "react";
 import type { SubscribeConnectionRefreshFn } from "../../host/AppHostConfig";
 import { trackConnectAttempts } from "./connectAttemptTracker";
+import { resyncContainerAccess } from "./containerAccessResync";
 import {
   type ContainerInterestDeclaration,
   startContainerInterestDeclaration as declareInterest,
@@ -151,52 +152,6 @@ export function startContainerInterestDeclaration(
     },
     sync: () => activeHandle.sync(),
   };
-}
-
-// Revalidate affected contents, then re-list the root lane plus each flagged
-// container's parent lane and own child lane once.
-export async function resyncContainerAccess(
-  tearleads: Tearleads,
-  containerIds: readonly string[],
-): Promise<void> {
-  const flagged = new Set(containerIds);
-  // Notify open SDK stores before re-listing: eviction removed the child from
-  // interest, so a subsequent parent hint cannot identify its stale projection.
-  tearleads.events.push({
-    id: crypto.randomUUID(),
-    type: "resync_required",
-    containerIds: [...flagged],
-  });
-  for (const containerId of flagged) {
-    try {
-      tearleads.deviceFirst
-        .open()
-        .reconciler.enqueueContainer(containerId, "active", true);
-    } catch {
-      // Runtime not ready; reconnect will revalidate the ready tree.
-    }
-  }
-  try {
-    const tree = tearleads.deviceFirst.open().containerStore;
-    const known = tree
-      .getSnapshot()
-      .nodes.filter((node) => flagged.has(node.id));
-    // Nested tombstones are returned by their parent lane, and a child created
-    // while this client missed its hint (a reconnect resync) is returned only
-    // by the flagged container's own lane. Batch both with one root refresh
-    // instead of repeating that refresh for every container.
-    const parentIds = [
-      ...new Set([
-        ...known.flatMap((node) =>
-          node.parentId !== null ? [node.parentId] : [],
-        ),
-        ...known.map((node) => node.id),
-      ]),
-    ];
-    await tree.refreshRootLane(parentIds.length ? { parentIds } : undefined);
-  } catch {
-    // Runtime not ready; the next reconnect revalidates from a ready tree.
-  }
 }
 
 // Tracks an in-flight root re-list per sign-in so shared-container hints coalesce into a

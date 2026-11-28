@@ -126,9 +126,19 @@ export async function openFolderAccount(origin: string) {
 
   return {
     userId,
-    /** Root-lane entries provisioned at registration (root + system roots). */
+    /** Root-lane entries declared under subtree-root routing. */
     rootContainerIds(): string[] {
-      return [...initial];
+      const nodes = store.getSnapshot().nodes;
+      const nodeIds = new Set(nodes.map((node) => node.id));
+      const roots = nodes
+        .filter(
+          (node) =>
+            node.parentId === null ||
+            node.rootLaneMember === true ||
+            !nodeIds.has(node.parentId),
+        )
+        .map((node) => node.id);
+      return roots.length > 0 ? roots : [rootId];
     },
     /** The initial folders, then created folders in breadth-first order. */
     declarationOrder(): string[] {

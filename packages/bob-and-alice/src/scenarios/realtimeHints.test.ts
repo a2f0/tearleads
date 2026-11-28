@@ -320,3 +320,114 @@ test("destroying a session revokes and closes its live realtime socket", async (
   }
   expectNoSecurityIncidents(world);
 }, 120_000);
+
+// Subtree-root interest (#3353): declaring only the shared root covers nested
+// descendants, scopes move-out without revealing the destination, and stops
+// hints on revocation.
+test("subtree-root declaration delivers descendant hints, scopes move-out, and stops on revoke", async () => {
+  world = await World.create();
+  const alice = await world.register("alice");
+  const bob = await world.register("bob");
+  await world.addToOrganization(alice, bob);
+
+  const privateFolder = await world.createFolder(
+    alice,
+    world.root(alice),
+    "Private",
+  );
+  const shared = await world.createFolder(alice, world.root(alice), "Shared");
+  const child = await world.createFolder(alice, shared, "Child");
+  const childDoc = await world.createDocument(alice, child, "child v1");
+  await world.shareWithUser(alice, shared, bob);
+
+  const bobDevice = bob.devices[0];
+  if (!bobDevice) throw new Error("Expected Bob's device");
+  const handle = await bobDevice.openDeviceFirst();
+  await bobDevice.holdFolder(shared.id);
+  await bobDevice.holdFolder(child.id);
+
+  let nextEventId = 0;
+  const socket = await connectRealtime(bobDevice, (frame) => {
+    if (
+      frame.type === "document_update_created" ||
+      frame.type === "document_mutation_created" ||
+      frame.type === "container_mutation_created" ||
+      frame.type === "container_children_changed" ||
+      frame.type === "container_path_changed"
+    ) {
+      bobDevice.sdk.events.push({ ...frame, id: String(nextEventId++) });
+    }
+  });
+  try {
+    // Declare ONLY the subtree root (not `child.id`), alongside Alice's private folder.
+    const authorized = await socket.declare([shared.id, privateFolder.id]);
+    expect(authorized).toEqual([shared.id]);
+
+    bobDevice.sdk.events.setConnected(true);
+    handle.view.updateRuntime(
+      bobDevice.sdk.containerContents.workflowRuntime(),
+    );
+    await until(
+      async () =>
+        (await localDocumentText(bobDevice, childDoc.documentId)) ===
+        "child v1",
+      "Bob's initial child document hydration",
+    );
+    await bobDevice.idle();
+
+    // Edits in undeclared descendant `child` still reach Bob via `shared` root coverage.
+    const beforeLiveEdit = socket.frames.length;
+    await world.editDocument(alice, childDoc, "child v2 via root");
+    await socket.waitForFrame(
+      beforeLiveEdit,
+      (frame) =>
+        frame.type === "document_update_created" &&
+        frame.documentId === childDoc.documentId,
+      "descendant document_update_created hint via root coverage",
+    );
+    await until(
+      async () =>
+        (await localDocumentText(bobDevice, childDoc.documentId)) ===
+        "child v2 via root",
+      "Bob's device-first scope to pull descendant edit via root coverage",
+    );
+
+    // Moving `child` out of `shared` into `privateFolder` notifies `shared` via
+    // `container_children_changed` without revealing `privateFolder`, and stops
+    // all later hints for `child`.
+    const beforeMove = socket.frames.length;
+    await world.moveFolder(alice, child, privateFolder);
+    const moveFrame = await socket.waitForFrame(
+      beforeMove,
+      (frame) =>
+        frame.type === "container_children_changed" &&
+        Array.isArray(frame.containerIds) &&
+        frame.containerIds.includes(shared.id),
+      "container_children_changed for moved descendant",
+    );
+    expect(JSON.stringify(moveFrame)).not.toContain(privateFolder.id);
+    const afterMove = socket.frames.length;
+    await world.editDocument(alice, childDoc, "child v3 after move out");
+    await Bun.sleep(150);
+    expect(
+      socket.frames
+        .slice(afterMove)
+        .filter((frame) => frame.documentId === childDoc.documentId),
+    ).toEqual([]);
+
+    // Revoking `shared` evicts the root and stops all subsequent hints.
+    const beforeRevoke = socket.frames.length;
+    await world.revoke(alice, shared, bob);
+    await socket.waitForFrame(
+      beforeRevoke,
+      (frame) =>
+        frame.type === "resync_required" &&
+        Array.isArray(frame.containerIds) &&
+        frame.containerIds.includes(shared.id),
+      "resync_required eviction for revoked root",
+    );
+  } finally {
+    socket.close();
+  }
+  expectNoSecurityIncidents(world);
+}, 240_000);

@@ -7,7 +7,7 @@ test("defaults to the issue's three sizes, one sample, and a fresh seed", () => 
     sizes: [100, 1_000, 10_000],
     fanout: 10,
     samples: 1,
-    mode: "all",
+    mode: "roots",
     reuse: false,
   });
   expect(parseRealtimeOptions(["--help"])).toBeNull();
@@ -20,14 +20,14 @@ test("defaults to the issue's three sizes, one sample, and a fresh seed", () => 
       "--samples",
       "10",
       "--mode",
-      "roots",
+      "all",
       "--reuse",
     ]),
   ).toEqual({
     sizes: [5, 50],
     fanout: 3,
     samples: 10,
-    mode: "roots",
+    mode: "all",
     reuse: true,
   });
 });

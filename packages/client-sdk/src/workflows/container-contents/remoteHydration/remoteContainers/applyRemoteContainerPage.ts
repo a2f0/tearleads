@@ -42,6 +42,21 @@ function currentUnlessPaused(
   return () => input.isCurrent?.() !== false && !input.isPaused(container);
 }
 
+function canReuseSeenObservation(
+  seenContainerObservations: ReadonlyMap<string, string>,
+  state: RemoteContainerHydrationState,
+  containerId: string,
+  observation: string,
+  isRootLane: boolean | undefined,
+): boolean {
+  const heldState = state.containersById.get(containerId);
+  return (
+    heldState !== undefined &&
+    seenContainerObservations.get(containerId) === observation &&
+    (!isRootLane || heldState.container.rootLaneMember === true)
+  );
+}
+
 /** The local state still matches the fingerprint the listing was read at. */
 function matchesListedState(
   state: RemoteContainerHydrationState,
@@ -54,7 +69,7 @@ function matchesListedState(
   });
 }
 
-export async function applyRemoteContainerPage(input: {
+type ApplyRemoteContainerPageInput = {
   reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
@@ -62,16 +77,20 @@ export async function applyRemoteContainerPage(input: {
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
   isPaused: (container: ListedRemoteContainerPageItem) => boolean;
+  isRootLane?: boolean | undefined;
   items: ReadonlyArray<ListedRemoteContainerPageItem>;
   /** The hydration pass's token: its pages share one directory discovery. */
   policyOperation: PrincipalPolicyOperation;
   queueParentLane: QueueContainerParentLane;
   seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
-}): Promise<{ changedCount: number; outcome: HydrationOutcome }> {
+};
+
+async function prepareRemoteContainerPage(
+  input: ApplyRemoteContainerPageInput,
+) {
   const { seenContainerObservations, state } = input;
-  let hydratedCount = 0;
-  const { items, outcome: policyOutcome } = await warmListedContainerPolicies(
+  const { items, outcome } = await warmListedContainerPolicies(
     input.items,
     state.runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
@@ -79,10 +98,7 @@ export async function applyRemoteContainerPage(input: {
     input.reconnect?.recordManualError,
     input.isCurrent,
   );
-  let outcome: HydrationOutcome = policyOutcome;
-  if (input.isCurrent?.() === false) {
-    return { changedCount: 0, outcome: "retry" };
-  }
+  if (input.isCurrent?.() === false) return null;
   const [
     containerIdsWithPendingMetadataUpdates,
     containerIdsWithPendingStructuralIntents,
@@ -96,9 +112,7 @@ export async function applyRemoteContainerPage(input: {
       state,
     }),
   ]);
-  if (input.isCurrent?.() === false) {
-    return { changedCount: 0, outcome: "retry" };
-  }
+  if (input.isCurrent?.() === false) return null;
   const prefetchedProjections = await prefetchDestinationProjections({
     containers: items.filter(
       (item) =>
@@ -110,14 +124,38 @@ export async function applyRemoteContainerPage(input: {
     isCurrent: input.isCurrent,
     runtime: state.runtime,
   });
-  for (const container of items) {
+  return {
+    containerIdsWithPendingMetadataUpdates,
+    containerIdsWithPendingStructuralIntents,
+    items,
+    outcome,
+    prefetchedProjections,
+  };
+}
+
+export async function applyRemoteContainerPage(
+  input: ApplyRemoteContainerPageInput,
+): Promise<{ changedCount: number; outcome: HydrationOutcome }> {
+  const prepared = await prepareRemoteContainerPage(input);
+  if (!prepared) {
+    return { changedCount: 0, outcome: "retry" };
+  }
+  const { seenContainerObservations, state } = input;
+  let hydratedCount = 0;
+  let outcome: HydrationOutcome = prepared.outcome;
+  for (const container of prepared.items) {
     if (input.isCurrent?.() === false) {
       return { changedCount: hydratedCount, outcome: "retry" };
     }
     const observation = JSON.stringify(container);
     if (
-      seenContainerObservations.get(container.id) === observation &&
-      state.containersById.has(container.id)
+      canReuseSeenObservation(
+        seenContainerObservations,
+        state,
+        container.id,
+        observation,
+        input.isRootLane,
+      )
     ) {
       input.queueParentLane(container.id);
       continue;
@@ -132,13 +170,16 @@ export async function applyRemoteContainerPage(input: {
     const upserted = await upsertIsolatedRemoteContainerState(
       {
         childIdsByParentId: input.childIdsByParentId,
-        containerIdsWithPendingMetadataUpdates,
-        containerIdsWithPendingStructuralIntents,
+        containerIdsWithPendingMetadataUpdates:
+          prepared.containerIdsWithPendingMetadataUpdates,
+        containerIdsWithPendingStructuralIntents:
+          prepared.containerIdsWithPendingStructuralIntents,
         host: input.host,
         isCurrent: currentUnlessPaused(input, container),
+        isRootLane: input.isRootLane,
         expectedHydrationTombstone:
           input.expectedHydrationTombstones.get(container.id) ?? null,
-        prefetchedProjection: prefetchedProjections.get(container.id),
+        prefetchedProjection: prepared.prefetchedProjections.get(container.id),
         remoteContainer: container,
         state,
       },

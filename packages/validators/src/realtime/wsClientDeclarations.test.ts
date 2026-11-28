@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   MAX_WS_CLIENT_MESSAGE_BYTES,
+  MAX_WS_INTEREST_CONTAINER_IDS,
   parseWsClientDeclaration,
   serializeWsClientDeclaration,
   type WsClientDeclaration,
@@ -110,7 +111,10 @@ test("malformed, unknown, and oversized declarations fail closed", () => {
     parseWsClientDeclaration(
       JSON.stringify({
         type: "known_containers",
-        containerIds: Array.from({ length: 10_001 }, () => C1),
+        containerIds: Array.from(
+          { length: MAX_WS_INTEREST_CONTAINER_IDS + 1 },
+          () => C1,
+        ),
       }),
     ),
   ).toBeNull();

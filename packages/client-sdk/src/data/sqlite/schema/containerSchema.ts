@@ -34,6 +34,9 @@ export const containers = sqliteTable(
     displayName: text("display_name"),
     icon: text("icon"),
     effectiveAccessLevel: text(accessLevelColumn).notNull().default("read"),
+    rootLaneMember: integer("root_lane_member", { mode: "boolean" })
+      .notNull()
+      .default(false),
     localCreatedAt: text("local_created_at").notNull(),
     localUpdatedAt: text("local_updated_at").notNull(),
     serverCreatedAt: text("server_created_at"),
@@ -147,7 +150,7 @@ export const containerMetadataRevalidations = sqliteTable(
 export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
   {
     ...defineSqlTableSchema(containers),
-    requiredColumns: ["display_name", "icon"],
+    requiredColumns: ["display_name", "icon", "root_lane_member"],
   },
   {
     ...defineSqlTableSchema(containerHydrationTombstones),

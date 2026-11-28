@@ -151,26 +151,49 @@ export async function loadContainerWriterProjectionForState(input: {
  * cached (#2395). Each open document store drops its own in-memory copy on the
  * same realtime hint; explicit document pulls obtain fresh projections.
  */
+function resolveSubtreeCoverage(
+  containersById: RemoteContainerHydrationState["containersById"],
+  startId: string,
+  inSubtree: Map<string, boolean>,
+): void {
+  const chain: string[] = [];
+  const seenInChain = new Set<string>();
+  let cursor: string | null = startId;
+  let covered = false;
+  while (cursor !== null) {
+    const cached = inSubtree.get(cursor);
+    if (cached !== undefined) {
+      covered = cached;
+      break;
+    }
+    if (seenInChain.has(cursor)) break;
+    seenInChain.add(cursor);
+    chain.push(cursor);
+    cursor = containersById.get(cursor)?.container.parentId ?? null;
+  }
+  for (const visitedId of chain) {
+    inSubtree.set(visitedId, covered);
+  }
+}
+
 export function invalidateContainerProjectionCaches(
   state: Pick<RemoteContainerHydrationState, "containersById" | "runtime">,
   invalidated: readonly string[],
 ): void {
   if (invalidated.length === 0) return;
-  const roots = new Set(invalidated);
-  const stale = new Set(invalidated);
-  for (const [id, containerState] of state.containersById) {
-    let parentId = containerState.container.parentId;
-    for (
-      let depth = 0;
-      parentId !== null &&
-      !roots.has(parentId) &&
-      depth < state.containersById.size;
-      depth++
-    )
-      parentId = state.containersById.get(parentId)?.container.parentId ?? null;
-    if (parentId !== null) stale.add(id);
+  // Memoize ancestry membership so every container in a large tree is walked
+  // at most once (O(N) instead of O(N * depth)).
+  const inSubtree = new Map<string, boolean>();
+  for (const id of invalidated) {
+    inSubtree.set(id, true);
   }
-  for (const id of stale) {
+  for (const id of state.containersById.keys()) {
+    if (!inSubtree.has(id)) {
+      resolveSubtreeCoverage(state.containersById, id, inSubtree);
+    }
+  }
+  for (const [id, covered] of inSubtree) {
+    if (!covered) continue;
     const containerState = state.containersById.get(id);
     if (containerState) invalidateContainerProjections(containerState);
   }

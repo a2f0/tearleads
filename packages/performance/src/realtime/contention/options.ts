@@ -63,7 +63,7 @@ export function parseContentionOptions(
       fanout: { type: "string", default: "10" },
       samples: { type: "string", default: "1" },
       "hint-interval-ms": { type: "string", default: "10" },
-      mode: { type: "string", default: "all" },
+      mode: { type: "string", default: "roots" },
       reuse: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },

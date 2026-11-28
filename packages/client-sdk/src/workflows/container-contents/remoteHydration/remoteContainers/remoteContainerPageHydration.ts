@@ -27,7 +27,10 @@ import type {
   RemoteContainerHydrationHost,
   RemoteContainerHydrationState,
 } from "../types";
-import { applyIdsOnlyParentLanePage } from "./applyIdsOnlyParentLanePage";
+import {
+  applyIdsOnlyParentLanePage,
+  type RootLaneMembershipSweep,
+} from "./applyIdsOnlyParentLanePage";
 import {
   applyRemoteContainerPage,
   combineHydrationOutcomes as combineOutcomes,
@@ -109,6 +112,21 @@ async function oweServedDocumentLanes(
   return input.isCurrent?.() !== false;
 }
 
+function recordFullRootPageMembership(
+  rootMembership: RootLaneMembershipSweep,
+  lane: ContainerParentHydrationLane,
+  response: FetchedContainerParentLanePage["response"],
+  outcome: HydrationOutcome,
+): void {
+  if (lane.parentId !== null || lane.watermark !== null) return;
+  for (const item of response.items) {
+    rootMembership.observedIds.add(item.id);
+  }
+  if (!response.hasMore && outcome === "complete") {
+    rootMembership.complete = true;
+  }
+}
+
 async function applyContainerParentLanePage(input: {
   reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
@@ -118,6 +136,7 @@ async function applyContainerParentLanePage(input: {
   policyOperation: PrincipalPolicyOperation;
   queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
   queueParentLane: QueueContainerParentLane;
+  rootMembership: RootLaneMembershipSweep;
   seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
 }): Promise<HydrationProgress> {
@@ -178,6 +197,7 @@ async function applyContainerParentLanePage(input: {
     host,
     isCurrent: input.isCurrent,
     isPaused,
+    isRootLane: lane.parentId === null,
     items: remoteContainerItems.filter((item) => !isPaused(item)),
     policyOperation: input.policyOperation,
     queueParentLane: input.queueParentLane,
@@ -200,6 +220,7 @@ async function applyContainerParentLanePage(input: {
   if (!skipWatermarkWrite && !(await checkpointPage(input))) {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
+  recordFullRootPageMembership(input.rootMembership, lane, response, outcome);
 
   queueNextPage(fetchedPage, skipWatermarkWrite, input.queueContinuationLane);
   return { changedCount, outcome, shouldStop: false };
@@ -208,8 +229,9 @@ async function applyContainerParentLanePage(input: {
 function takeContainerParentLaneBatch(input: {
   lanes: ContainerParentHydrationLane[];
   state: RemoteContainerHydrationState;
+  unmarkSkippedParentLane?: ((parentId: string | null) => void) | undefined;
 }): ContainerParentHydrationLane[] {
-  const { lanes, state } = input;
+  const { lanes, state, unmarkSkippedParentLane } = input;
   const batch: ContainerParentHydrationLane[] = [];
 
   while (
@@ -217,15 +239,79 @@ function takeContainerParentLaneBatch(input: {
     batch.length < CONTAINER_PARENT_LANES_PER_REQUEST
   ) {
     const lane = lanes.shift();
-    if (
-      lane &&
-      (lane.parentId === null || state.containersById.has(lane.parentId))
-    ) {
+    if (!lane) continue;
+    if (lane.parentId === null || state.containersById.has(lane.parentId)) {
       batch.push(lane);
+    } else {
+      // A hint can name an unlisted child before its parent lane hydrates it;
+      // release its dedupe slot so parent discovery can queue it immediately.
+      unmarkSkippedParentLane?.(lane.parentId);
     }
   }
 
   return batch;
+}
+
+function collectRootLaneMemberChanges(
+  containersById: RemoteContainerHydrationState["containersById"],
+  observedIds: ReadonlySet<string>,
+): { readonly addIds: string[]; readonly removeIds: string[] } {
+  const addIds: string[] = [];
+  const removeIds: string[] = [];
+  for (const [id, { container }] of containersById) {
+    if (container.parentId === null || container.serverCreatedAt == null) {
+      continue;
+    }
+    const isMember = observedIds.has(id);
+    if (isMember && container.rootLaneMember !== true) addIds.push(id);
+    else if (!isMember && container.rootLaneMember === true) removeIds.push(id);
+  }
+  return { addIds, removeIds };
+}
+
+function applyRootLaneMemberChangeInMemory(
+  containersById: RemoteContainerHydrationState["containersById"],
+  ids: readonly string[],
+  nextValue: true | undefined,
+): number {
+  let updated = 0;
+  for (const id of ids) {
+    const current = containersById.get(id);
+    if (!current || current.container.rootLaneMember === nextValue) continue;
+    current.container = { ...current.container, rootLaneMember: nextValue };
+    updated++;
+  }
+  return updated;
+}
+
+async function reconcileRootLaneMembers(input: {
+  readonly isCurrent?: (() => boolean) | undefined;
+  readonly rootMembership: RootLaneMembershipSweep;
+  readonly state: RemoteContainerHydrationState;
+}): Promise<number> {
+  if (!input.rootMembership.complete || input.isCurrent?.() === false) return 0;
+  const { addIds, removeIds } = collectRootLaneMemberChanges(
+    input.state.containersById,
+    input.rootMembership.observedIds,
+  );
+  if (addIds.length === 0 && removeIds.length === 0) return 0;
+  await input.state.persistence.setRootLaneMembers?.(
+    input.state.runtime.infra.execSql,
+    { addIds, removeIds },
+  );
+  if (input.isCurrent?.() === false) return 0;
+  return (
+    applyRootLaneMemberChangeInMemory(
+      input.state.containersById,
+      addIds,
+      true,
+    ) +
+    applyRootLaneMemberChangeInMemory(
+      input.state.containersById,
+      removeIds,
+      undefined,
+    )
+  );
 }
 
 async function applyFetchedParentLaneResult(input: {
@@ -238,6 +324,7 @@ async function applyFetchedParentLaneResult(input: {
   lanes: ContainerParentHydrationLane[];
   policyOperation: PrincipalPolicyOperation;
   queueParentLane: QueueContainerParentLane;
+  rootMembership: RootLaneMembershipSweep;
   seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
 }): Promise<HydrationProgress> {
@@ -252,6 +339,7 @@ async function applyFetchedParentLaneResult(input: {
       fullRootFallbackQueued: input.fullRootFallbackQueued,
       isCurrent: input.isCurrent,
       queueContinuationLane: (lane) => lanes.push(lane),
+      rootMembership: input.rootMembership,
       state: input.state,
     });
     return { changedCount: 0, ...idsResult };
@@ -265,6 +353,7 @@ async function applyFetchedParentLaneResult(input: {
     policyOperation: input.policyOperation,
     queueContinuationLane: (lane) => lanes.push(lane),
     queueParentLane: input.queueParentLane,
+    rootMembership: input.rootMembership,
     seenContainerObservations: input.seenContainerObservations,
     state: input.state,
   });
@@ -280,6 +369,7 @@ async function applyContainerParentLaneBatch(input: {
   lanes: ContainerParentHydrationLane[];
   policyOperation: PrincipalPolicyOperation;
   queueParentLane: QueueContainerParentLane;
+  rootMembership: RootLaneMembershipSweep;
   seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
 }): Promise<HydrationProgress> {
@@ -324,6 +414,7 @@ export async function hydrateContainerParentLanes(input: {
   queueParentLane: QueueContainerParentLane;
   seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
+  unmarkSkippedParentLane?: ((parentId: string | null) => void) | undefined;
 }): Promise<HydrationProgress> {
   const {
     childIdsByParentId,
@@ -332,19 +423,28 @@ export async function hydrateContainerParentLanes(input: {
     queueParentLane,
     seenContainerObservations,
     state,
+    unmarkSkippedParentLane,
   } = input;
   let changedCount = 0;
   let outcome: HydrationOutcome = "complete";
   // One hydration pass is one policy operation: its pages share a discovery.
   const policyOperation = createPrincipalPolicyOperation();
   const fullRootFallbackQueued = { queued: false };
+  const rootMembership: RootLaneMembershipSweep = {
+    complete: false,
+    observedIds: new Set(),
+  };
 
   while (lanes.length > 0) {
     if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
       return { changedCount, outcome: "retry", shouldStop: true };
     }
 
-    const batch = takeContainerParentLaneBatch({ lanes, state });
+    const batch = takeContainerParentLaneBatch({
+      lanes,
+      state,
+      unmarkSkippedParentLane,
+    });
     if (batch.length === 0) {
       continue;
     }
@@ -372,6 +472,7 @@ export async function hydrateContainerParentLanes(input: {
       lanes,
       policyOperation,
       queueParentLane,
+      rootMembership,
       seenContainerObservations,
       state,
     });
@@ -382,6 +483,12 @@ export async function hydrateContainerParentLanes(input: {
       return { changedCount, outcome: "retry", shouldStop: true };
     }
   }
+
+  changedCount += await reconcileRootLaneMembers({
+    isCurrent: input.isCurrent,
+    rootMembership,
+    state,
+  });
 
   return { changedCount, outcome, shouldStop: false };
 }

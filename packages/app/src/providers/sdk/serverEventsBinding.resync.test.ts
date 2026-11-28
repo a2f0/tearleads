@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
-import { resyncContainerAccess } from "./serverEventsBinding";
+import { resyncContainerAccess } from "./containerAccessResync";
 
 interface EnqueueCall {
   containerId: string;
@@ -212,4 +212,28 @@ test("resync reaches SDK projection consumers before HTTP hydration", async () =
     },
   ]);
   await pending;
+});
+
+test("resync_required for a root expands over its locally known subtree without touching siblings", async () => {
+  const { enqueueCalls, refreshRootLaneOptions, tearleads } =
+    createResyncHarness({
+      nodes: [
+        { id: "root-a", parentId: null },
+        { id: "child-a", parentId: "root-a" },
+        { id: "grandchild-a", parentId: "child-a" },
+        { id: "root-b", parentId: null },
+        { id: "child-b", parentId: "root-b" },
+      ],
+    });
+
+  await resyncContainerAccess(tearleads, ["root-a"]);
+
+  expect(enqueueCalls.map((call) => call.containerId)).toEqual([
+    "root-a",
+    "child-a",
+    "grandchild-a",
+  ]);
+  expect(refreshRootLaneOptions).toEqual([
+    { parentIds: ["root-a", "child-a", "grandchild-a"] },
+  ]);
 });

@@ -1,9 +1,11 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+import { MAX_WS_INTEREST_CONTAINER_IDS } from "@tearleads/validators/realtime";
 import {
   CONTAINER,
   fixture,
   OTHER,
 } from "../../test/helpers/realtimeContainerAuthorization";
+import * as sentry from "../diagnostics/sentry";
 
 test("a reconnecting socket starts empty and its declaration reauthorizes", async () => {
   let calls = 0;
@@ -48,19 +50,27 @@ test("a revocation observed before the declaration is never installed", async ()
   f.gateway.stop();
 });
 
-test("large declarations receive a proportional signed-verification budget", async () => {
-  const ids = Array.from({ length: 1000 }, () => crypto.randomUUID());
+test("declarations up to the cap use a flat authorization budget without scaling", async () => {
+  const capture = spyOn(sentry, "captureApiError").mockImplementation(
+    () => undefined,
+  );
+  const ids = Array.from({ length: MAX_WS_INTEREST_CONTAINER_IDS }, () =>
+    crypto.randomUUID(),
+  );
   const f = fixture({
-    timeoutMs: 50,
+    timeoutMs: 25,
     authorize: async (_user, requested) => {
-      await new Promise((resolve) => setTimeout(resolve, 75));
+      await new Promise((resolve) => setTimeout(resolve, 60));
       return requested;
     },
   });
   f.gateway.websocket.open(f.socket);
-  await f.declare("known_containers", ids);
-  expect(f.closed).toEqual([]);
-  expect(f.sent.at(-1)).toMatchObject({ containerIds: ids });
-  expect(f.router.interestedSocketCount(ids[0] ?? "")).toBe(1);
-  f.gateway.stop();
+  try {
+    await f.declare("known_containers", ids);
+    expect(f.closed).toEqual([1011]);
+    expect(f.router.interestedSocketCount(ids[0] ?? "")).toBe(0);
+  } finally {
+    capture.mockRestore();
+    f.gateway.stop();
+  }
 });

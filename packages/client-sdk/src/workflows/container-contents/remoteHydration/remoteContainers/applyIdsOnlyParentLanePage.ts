@@ -37,11 +37,34 @@ function needsFullRootListing(
  * one full unwatermarked root membership listing (without `idsOnly`) to verify
  * and ingest it.
  */
+export interface RootLaneMembershipSweep {
+  complete: boolean;
+  readonly observedIds: Set<string>;
+}
+
+function recordIdsOnlyRootMembership(
+  rootMembership: RootLaneMembershipSweep | undefined,
+  lane: ContainerParentHydrationLane,
+  response: ContainerParentLaneIdsPage,
+  fallbackQueued: boolean,
+): void {
+  if (!rootMembership || lane.parentId !== null || lane.watermark !== null) {
+    return;
+  }
+  for (const item of response.items) {
+    rootMembership.observedIds.add(item.id);
+  }
+  if (!response.hasMore && !fallbackQueued) {
+    rootMembership.complete = true;
+  }
+}
+
 export async function applyIdsOnlyParentLanePage(input: {
   readonly fetchedPage: FetchedContainerParentLaneIdsPage;
   readonly fullRootFallbackQueued: { queued: boolean };
   readonly isCurrent?: (() => boolean) | undefined;
   readonly queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
+  readonly rootMembership?: RootLaneMembershipSweep | undefined;
   readonly state: RemoteContainerHydrationState;
 }): Promise<{
   readonly outcome: HydrationOutcome;
@@ -69,6 +92,8 @@ export async function applyIdsOnlyParentLanePage(input: {
     (item) => !isPaused(item) && needsFullRootListing(item, state),
   );
   if (requiresFullListing) {
+    input.rootMembership?.observedIds.clear();
+    if (input.rootMembership) input.rootMembership.complete = false;
     if (!input.fullRootFallbackQueued.queued) {
       input.fullRootFallbackQueued.queued = true;
       input.queueContinuationLane({
@@ -83,6 +108,12 @@ export async function applyIdsOnlyParentLanePage(input: {
   if (hasUnusableContinuation(fetchedPage)) {
     return { outcome: "retry", shouldStop: false };
   }
+  recordIdsOnlyRootMembership(
+    input.rootMembership,
+    lane,
+    response,
+    input.fullRootFallbackQueued.queued,
+  );
   queueNextPage(fetchedPage, true, input.queueContinuationLane);
   return { outcome: "complete", shouldStop: false };
 }
