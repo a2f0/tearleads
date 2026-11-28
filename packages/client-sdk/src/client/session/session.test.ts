@@ -222,6 +222,13 @@ describe("session", () => {
       containerId: "server-root",
       created: false,
     });
+    // When containerId is null after restore, bootstrapping adopts the acknowledged root.
+    session.setContainerId(null);
+    expect(await session.bootstrapLocalRootContainer()).toEqual({
+      containerId: "server-root",
+      created: false,
+    });
+    expect(session.containerId).toBe("server-root");
   });
 
   test("a failed login and a logout both clear a prior root flag", async () => {

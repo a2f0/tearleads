@@ -6,7 +6,7 @@ import {
   quietLogger,
   setGeneratedIdentity,
 } from "../test/helpers/data/clientTestSupport";
-import { Database, Tearleads } from ".";
+import { Database, getOrCreateDomainSyncCoordinator, Tearleads } from ".";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import type { DocumentProjectorDefinition } from "./data/documents";
 import { resolveDocumentCreateAuthor } from "./workflows/documents";
@@ -204,12 +204,15 @@ describe("Tearleads", () => {
     ).toThrow("ready SQLite database requires a configured executor");
   });
 
-  test("rotates workflow domain scope when storage or identity changes", async () => {
+  test("rotates and retires workflow domain scope when storage or identity changes", async () => {
     const sdk = new Tearleads({
       blobStoreFactory: () => createMemoryBlobStore(),
       logger: quietLogger,
     });
     const initialScope = sdk.domainScope;
+    const initialCoordinator = getOrCreateDomainSyncCoordinator(initialScope);
+    const initialDeviceFirst = sdk.deviceFirst.open();
+    expect(initialCoordinator.isDisposed()).toBe(false);
 
     sdk.database.configure({
       client: createNoopSqlClient(),
@@ -218,13 +221,21 @@ describe("Tearleads", () => {
     const databaseScope = sdk.domainScope;
 
     expect(databaseScope).not.toBe(initialScope);
+    expect(initialCoordinator.isDisposed()).toBe(true);
     expect(sdk.runtime.input().state.domainScope).toBe(databaseScope);
+    const databaseCoordinator = getOrCreateDomainSyncCoordinator(databaseScope);
+    const databaseDeviceFirst = sdk.deviceFirst.open();
+    expect(databaseDeviceFirst.containerStore).not.toBe(
+      initialDeviceFirst.containerStore,
+    );
 
     await setGeneratedIdentity(sdk.identity);
     const identityScope = sdk.domainScope;
 
     expect(identityScope).not.toBe(databaseScope);
+    expect(databaseCoordinator.isDisposed()).toBe(true);
     expect(sdk.runtime.input().state.domainScope).toBe(identityScope);
+    sdk.dispose();
   });
 
   test("session registration skips unavailable prerequisites", async () => {

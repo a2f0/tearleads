@@ -98,11 +98,13 @@ interface DeviceFirstScopeEntry {
   disconnectReconciliationTriggers: () => void;
   removeListingAuthority: () => void;
   stopDocumentPrimer: () => void;
+  unsubscribeCoordinatorDisposal: () => void;
   unsubscribePersistedDocumentDeletions: () => void;
   unsubscribePersistedDocuments: () => void;
 }
 
 function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
+  entry.unsubscribeCoordinatorDisposal();
   entry.coordinator.dispose();
   entry.contents.reconciler.stop();
   entry.disconnectReconciliationTriggers();
@@ -327,10 +329,18 @@ class DeviceFirstService implements DeviceFirst {
         store,
       }),
       stopDocumentPrimer,
+      unsubscribeCoordinatorDisposal: () => undefined,
       unsubscribePersistedDocumentDeletions,
       unsubscribePersistedDocuments,
     };
     this.entriesByScope.set(domainScope, entry);
+    // Retiring a scope's coordinator (e.g. when database or identity rotates)
+    // must tear down this scope's reconciler and subscriptions immediately.
+    entry.unsubscribeCoordinatorDisposal = coordinator.subscribe(() => {
+      if (coordinator.isDisposed()) {
+        this.retireEntry(domainScope, entry);
+      }
+    });
     service.start();
     const current = this.entriesByScope.get(domainScope);
     if (!current || current.coordinator.isDisposed()) {

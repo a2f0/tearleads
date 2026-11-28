@@ -172,10 +172,25 @@ const INACTIVE_DECLARATION: ContainerInterestDeclaration = {
   sync: () => undefined,
 };
 
+export interface ContainerInterestDeclarationOptions {
+  /** Called once the first `known_containers` frame is written to the socket. */
+  readonly onDeclared?: () => void;
+  /** Called if `deviceFirst.open()` fails when opening the container store. */
+  readonly onUnavailable?: () => void;
+}
+
 function resolveContainerInterestStore(tearleads: Tearleads) {
   try {
     return tearleads.deviceFirst.open().containerStore;
-  } catch {
+  } catch (error) {
+    try {
+      tearleads.logError?.(
+        "Failed to open container interest store for server events",
+        error,
+      );
+    } catch {
+      // Keep logger failures from masking container-interest unavailability.
+    }
     return null;
   }
 }
@@ -187,14 +202,20 @@ type InterestTree = NonNullable<
 export function startContainerInterestDeclaration(
   sdk: Tearleads,
   ws: WebSocket,
+  options?: ContainerInterestDeclarationOptions,
 ): ContainerInterestDeclaration {
   const tree = resolveContainerInterestStore(sdk);
-  return tree ? declareInterest(ws, tree) : INACTIVE_DECLARATION;
+  if (!tree) {
+    options?.onUnavailable?.();
+    return INACTIVE_DECLARATION;
+  }
+  return declareInterest(ws, tree, options);
 }
 
 function declareInterest(
   ws: WebSocket,
   tree: Pick<InterestTree, "getSnapshot" | "subscribe">,
+  options?: ContainerInterestDeclarationOptions,
 ): ContainerInterestDeclaration {
   let declared = new Set<string>();
   const acknowledgments = new ContainerInterestAcknowledgments();
@@ -235,6 +256,7 @@ function declareInterest(
       if (declarationIds) {
         declared = current;
         initialDeclarationIds = new Set(declarationIds);
+        options?.onDeclared?.();
       }
       return;
     }
