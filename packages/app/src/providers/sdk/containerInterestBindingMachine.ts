@@ -18,7 +18,7 @@ import type { DomainScope } from "@tearleads/client-sdk";
 export type ContainerInterestBindingState =
   | { readonly status: "awaiting-tree"; readonly scope: DomainScope }
   | { readonly status: "declared"; readonly scope: DomainScope }
-  | { readonly status: "unavailable" }
+  | { readonly status: "unavailable"; readonly scope: DomainScope }
   | { readonly status: "stopped" };
 
 export type ContainerInterestBindingEvent =
@@ -44,6 +44,22 @@ export interface ContainerInterestBindingTransition {
   readonly effect: ContainerInterestBindingEffect;
 }
 
+function transitionRetiredBeforeDeclaration(
+  state: Extract<
+    ContainerInterestBindingState,
+    { status: "awaiting-tree" | "unavailable" }
+  >,
+  event: Extract<ContainerInterestBindingEvent, { type: "scope-retired" }>,
+): ContainerInterestBindingTransition {
+  if (event.nextScope !== state.scope && event.canRebind && event.socketOpen) {
+    return {
+      state: { status: "awaiting-tree", scope: event.nextScope },
+      effect: "rebind",
+    };
+  }
+  return { state: { status: "stopped" }, effect: "close-socket" };
+}
+
 function transitionAwaitingTree(
   state: Extract<ContainerInterestBindingState, { status: "awaiting-tree" }>,
   event: Exclude<ContainerInterestBindingEvent, { type: "stop" }>,
@@ -57,21 +73,11 @@ function transitionAwaitingTree(
       };
     case "bind-failed":
       return {
-        state: { status: "unavailable" },
+        state: { status: "unavailable", scope: state.scope },
         effect: "mark-unavailable",
       };
     case "scope-retired":
-      if (
-        event.nextScope !== state.scope &&
-        event.canRebind &&
-        event.socketOpen
-      ) {
-        return {
-          state: { status: "awaiting-tree", scope: event.nextScope },
-          effect: "rebind",
-        };
-      }
-      return { state: { status: "stopped" }, effect: "close-socket" };
+      return transitionRetiredBeforeDeclaration(state, event);
   }
 }
 
@@ -84,7 +90,11 @@ export function transitionContainerInterestBinding(
   }
   switch (state.status) {
     case "stopped":
+      return { state, effect: "none" };
     case "unavailable":
+      if (event.type === "scope-retired" && event.scope === state.scope) {
+        return transitionRetiredBeforeDeclaration(state, event);
+      }
       return { state, effect: "none" };
     case "awaiting-tree":
       return transitionAwaitingTree(state, event);

@@ -90,15 +90,28 @@ describe("transitionContainerInterestBinding", () => {
     ).toEqual({ state: { status: "stopped" }, effect: "close-socket" });
   });
 
-  test("marks unavailable on bind failure and honors stop", () => {
+  test("marks unavailable on bind failure, recovers on later scope rotation, and honors stop", () => {
     const scope = createDomainScope();
+    const nextScope = createDomainScope();
     const failed = transitionContainerInterestBinding(
       { status: "awaiting-tree", scope },
       { type: "bind-failed", scope },
     );
     expect(failed).toEqual({
-      state: { status: "unavailable" },
+      state: { status: "unavailable", scope },
       effect: "mark-unavailable",
+    });
+    expect(
+      transitionContainerInterestBinding(failed.state, {
+        type: "scope-retired",
+        scope,
+        nextScope,
+        canRebind: true,
+        socketOpen: true,
+      }),
+    ).toEqual({
+      state: { status: "awaiting-tree", scope: nextScope },
+      effect: "rebind",
     });
     expect(
       transitionContainerInterestBinding(failed.state, { type: "stop" }),

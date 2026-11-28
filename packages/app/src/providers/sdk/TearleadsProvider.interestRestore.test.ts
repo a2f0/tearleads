@@ -189,3 +189,41 @@ test("closes awaiting-tree socket on sign-in boundary and closes declared socket
     sdk.dispose();
   }
 });
+
+test("rebinds when the scope retires mid-open during deviceFirst.open() registration", () => {
+  const sdk = new Tearleads({
+    logger: { log: () => undefined, logError: () => undefined },
+  });
+  const replacementStore = createFakeStore(["restored-root"]);
+  const openSpy = sdk.deviceFirst.open.bind(sdk.deviceFirst);
+  let calls = 0;
+  sdk.deviceFirst.open = (() => {
+    calls += 1;
+    if (calls === 1) {
+      // Simulate SQLite booting while initial scope registration is in flight.
+      sdk.database.configure({
+        execSql: (async () => []) as never,
+        id: "booted-mid-open",
+      });
+      throw new Error("Device-first scope retired during registration");
+    }
+    return { containerStore: replacementStore.store };
+  }) as unknown as typeof openSpy;
+
+  const { close, sent, ws } = fakeSocket(WebSocket.OPEN);
+  const handle = startContainerInterestDeclaration(sdk, ws);
+  try {
+    expect(close).not.toHaveBeenCalled();
+    expect(sent).toHaveLength(1);
+    expect(JSON.parse(sent[0] ?? "null")).toMatchObject({
+      type: "known_containers",
+      containerIds: ["restored-root"],
+    });
+    expect(handle.awaitingInitialAcknowledgement()).toBe(true);
+    acknowledgeInitialDeclaration(handle, sent);
+    expect(handle.awaitingInitialAcknowledgement()).toBe(false);
+  } finally {
+    handle.stop();
+    sdk.dispose();
+  }
+});

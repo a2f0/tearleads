@@ -104,6 +104,9 @@ export function startContainerInterestDeclaration(
         }).state;
       },
       onUnavailable: () => {
+        // A scope that retired mid-open is handled by the coordinator check
+        // right below instead of stranding the socket as unavailable.
+        if (coordinator.isDisposed()) return;
         const next = transitionContainerInterestBinding(state, {
           type: "bind-failed",
           scope,
@@ -114,15 +117,15 @@ export function startContainerInterestDeclaration(
         }
       },
     });
-    if (state.status !== "awaiting-tree" && state.status !== "declared") {
+    if (state.status === "stopped") {
       detachActive();
       return;
     }
     // A socket owns its declaration queue and its acknowledged tree. When the
     // bound scope retires before anything was declared on the socket (e.g.
-    // SQLite finished booting after recovery-key restore), rebind in place to
-    // the replacement scope; once a declaration was sent, close the socket so
-    // the reconnect loop establishes a fresh ordering barrier.
+    // SQLite finished booting after recovery-key restore, or retired mid-open),
+    // rebind in place to the replacement scope; once a declaration was sent,
+    // close the socket so the reconnect loop establishes a fresh barrier.
     const onCoordinatorChange = (): void => {
       if (coordinator.isDisposed()) handleScopeRetired(scope);
     };
