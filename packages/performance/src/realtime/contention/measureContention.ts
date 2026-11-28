@@ -101,28 +101,32 @@ async function observeWork(input: {
   return { durationMs, hints, database, resources };
 }
 
-/** The sockets' own authorization calls, checked complete. */
+/** The measured sockets' own authorization calls, checked complete. */
 function socketCalls(
   calls: readonly AuthorizationCall[],
-  { size, sockets }: { readonly size: number; readonly sockets: number },
+  {
+    observerId,
+    size,
+    sockets,
+  }: {
+    readonly observerId: string;
+    readonly size: number;
+    readonly sockets: number;
+  },
   pass: ContentionPass,
 ): number[] {
-  const own = calls.filter((call) => call.ids === size);
-  // The observer socket holds 1 root container and revalidates alongside the
-  // measured sockets when `revalidateAll()` fires, so when each measured socket
-  // also holds 1 container, the revalidation batch includes the observer's call.
-  const expectedOwn =
-    pass === "revalidation" && size === 1 ? sockets + 1 : sockets;
+  const own = calls.filter(
+    (call) => call.socketId !== observerId && call.ids === size,
+  );
   if (
-    own.length !== expectedOwn ||
+    own.length !== sockets ||
     calls.some((call) => call.failed) ||
     own.some((call) => call.proofs !== size)
   )
     throw new Error(
       `The ${pass} pass did not authorize ${size} folders on each of ${sockets} sockets.`,
     );
-  const measured = pass === "revalidation" && size === 1 ? own.slice(1) : own;
-  return measured.map((call) => round(call.durationMs)).sort((a, b) => a - b);
+  return own.map((call) => round(call.durationMs)).sort((a, b) => a - b);
 }
 
 /** A hub with one observing socket that holds the tree's root. */
@@ -225,7 +229,7 @@ async function measureSockets(
         sample,
         authorizationMs: socketCalls(
           hub.calls.slice(firstCall),
-          { size: declaredCount, sockets },
+          { observerId: observer.id, size: declaredCount, sockets },
           kind,
         ),
         ...observed,

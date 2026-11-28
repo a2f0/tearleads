@@ -343,6 +343,41 @@ export interface ContainerMutationOutcome {
   readonly response: ContainerMutationResponse;
 }
 
+async function finalizeVerifiedContainerMutation(input: {
+  readonly artifacts: Awaited<ReturnType<typeof verifyMutationArtifacts>>;
+  readonly context: ContainerMutationContext;
+  readonly expectedEventType: MutateContainerWithExecutorInput["expectedEventType"];
+  readonly userId: string;
+  readonly verifiedKekMutation: Awaited<
+    ReturnType<typeof verifyContainerKekFromRequest>
+  >;
+}): Promise<ContainerMutationOutcome> {
+  const { artifacts, context, expectedEventType, userId, verifiedKekMutation } =
+    input;
+  const ancestors = deriveContainerMutationAncestors({
+    destinationParentContainerPath: artifacts.destinationParentContainerPath,
+    eventType: expectedEventType,
+    parentContainerPath: artifacts.parentContainerPath,
+    previousContainerPath: artifacts.previousContainerPath,
+  });
+  return {
+    ...ancestors,
+    metadataDocumentId: artifacts.manifest.state.metadataDocumentId,
+    previousParentId:
+      expectedEventType === "container.move"
+        ? artifacts.previousManifest?.state.parentContainerId
+        : undefined,
+    response: await persistVerifiedMutation(
+      context,
+      userId,
+      artifacts.manifest,
+      verifiedKekMutation,
+      artifacts.previousManifest,
+      artifacts.previousContainerPath,
+    ),
+  };
+}
+
 export async function mutateContainerWithExecutorOutcome(
   input: MutateContainerWithExecutorInput,
 ): Promise<ContainerMutationOutcome> {
@@ -420,23 +455,11 @@ export async function mutateContainerWithExecutorOutcome(
     input.userId,
   );
 
-  const ancestors = deriveContainerMutationAncestors({
-    destinationParentContainerPath: artifacts.destinationParentContainerPath,
-    eventType: input.expectedEventType,
-    parentContainerPath: artifacts.parentContainerPath,
-    previousContainerPath: artifacts.previousContainerPath,
+  return finalizeVerifiedContainerMutation({
+    artifacts,
+    context,
+    expectedEventType: input.expectedEventType,
+    userId: input.userId,
+    verifiedKekMutation,
   });
-  return {
-    ...ancestors,
-    metadataDocumentId: artifacts.manifest.state.metadataDocumentId,
-    previousParentId: artifacts.previousManifest?.state.parentContainerId,
-    response: await persistVerifiedMutation(
-      context,
-      input.userId,
-      artifacts.manifest,
-      verifiedKekMutation,
-      artifacts.previousManifest,
-      artifacts.previousContainerPath,
-    ),
-  };
 }

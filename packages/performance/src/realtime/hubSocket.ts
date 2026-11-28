@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { InProcessApi } from "../inProcess/inProcessApi";
 
 type GatewayDeps = NonNullable<
@@ -46,6 +47,7 @@ export interface AuthorizationCall {
   readonly proofs: number;
   readonly durationMs: number;
   readonly failed: boolean;
+  readonly socketId?: string | undefined;
 }
 
 export interface Frame {
@@ -63,9 +65,11 @@ function frameIds(frame: Frame | undefined): number {
 function timedAuthorization(
   api: InProcessApi,
   calls: AuthorizationCall[],
+  callScope: AsyncLocalStorage<string>,
 ): InProcessApi["authorizeContainerAccess"] {
   return async (userId, ids) => {
     const started = performance.now();
+    const socketId = callScope.getStore();
     let proofs = 0;
     let failed = true;
     try {
@@ -79,6 +83,7 @@ function timedAuthorization(
         proofs,
         durationMs: performance.now() - started,
         failed,
+        ...(socketId === undefined ? {} : { socketId }),
       });
     }
   };
@@ -93,15 +98,21 @@ function createProbeGateway(
   api: InProcessApi,
   timers: Set<ArmedTimer>,
   calls: AuthorizationCall[],
+  callScope: AsyncLocalStorage<string>,
 ): Gateway {
   return api.createRealtimeGateway({
-    authorizeContainerAccess: timedAuthorization(api, calls),
+    authorizeContainerAccess: timedAuthorization(api, calls, callScope),
     containerAuthorizationTimeoutMs: PROBE_BUDGET_MS / MAX_BUDGETS,
     revalidation: {
       intervalMs: REVALIDATION_INTERVAL_MS,
       random: () => 0,
       schedule: (run, delayMs) => {
-        const timer = { run, delayMs };
+        const socketId = callScope.getStore();
+        const scopedRun =
+          socketId === undefined
+            ? run
+            : () => callScope.run(socketId, () => run());
+        const timer = { run: scopedRun, delayMs };
         timers.add(timer);
         return () => {
           timers.delete(timer);
@@ -125,7 +136,8 @@ export type ProbeSocket = ReturnType<ProbeHub["openSocket"]>;
 export function createProbeHub(api: InProcessApi) {
   const timers = new Set<ArmedTimer>();
   const calls: AuthorizationCall[] = [];
-  const gateway = createProbeGateway(api, timers, calls);
+  const callScope = new AsyncLocalStorage<string>();
+  const gateway = createProbeGateway(api, timers, calls, callScope);
   const open = new Set<GatewaySocket>();
 
   /** Removes and returns every armed revalidation tick. */
@@ -139,10 +151,11 @@ export function createProbeHub(api: InProcessApi) {
   }
 
   function openSocket(userId: string) {
+    const socketId = crypto.randomUUID();
     const frames: Frame[] = [];
     const listeners = new Set<(frame: Frame) => void>();
     const socket: GatewaySocket = {
-      data: { userId, sessionId: crypto.randomUUID() },
+      data: { userId, sessionId: socketId },
       send: (message: string) => {
         // The gateway sends only serialized server messages, all objects.
         const frame: Frame = JSON.parse(message);
@@ -151,9 +164,12 @@ export function createProbeHub(api: InProcessApi) {
       },
       close: () => undefined,
     };
-    gateway.websocket.open(socket);
+    callScope.run(socketId, () => {
+      gateway.websocket.open(socket);
+    });
     open.add(socket);
     return {
+      id: socketId,
       frames,
       /** Calls `listener` with every frame the hub sends this socket. */
       listen(listener: (frame: Frame) => void): () => void {
@@ -164,13 +180,15 @@ export function createProbeHub(api: InProcessApi) {
       async declare(ids: readonly string[]): Promise<{ authorized: number }> {
         const declarationId = crypto.randomUUID();
         const firstFrame = frames.length;
-        await gateway.websocket.message(
-          socket,
-          JSON.stringify({
-            type: "known_containers",
-            declarationId,
-            containerIds: ids,
-          }),
+        await callScope.run(socketId, () =>
+          gateway.websocket.message(
+            socket,
+            JSON.stringify({
+              type: "known_containers",
+              declarationId,
+              containerIds: ids,
+            }),
+          ),
         );
         const ack = frames
           .slice(firstFrame)

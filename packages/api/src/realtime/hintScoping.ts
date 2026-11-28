@@ -36,34 +36,129 @@ function resolveDocumentHintPaths<
     PublishedHintEvent,
     { type: "document_mutation_created" | "document_update_created" }
   >,
->(event: T, movedContainers: MovedContainerMemory, now: number): T {
+>(event: T, movedContainers: MovedContainerMemory, now: number): T | null {
   if (!event.containerPaths) return event;
   const containerPaths: Record<string, string[]> = {};
+  const droppedContainerIds = new Set<string>();
   for (const [containerId, path] of Object.entries(event.containerPaths)) {
     const resolved = movedContainers.resolvePath(path, now);
+    if (resolved === null) {
+      // Cycle or path overflow: fail closed by dropping this container target.
+      droppedContainerIds.add(containerId);
+      continue;
+    }
     containerPaths[containerId] = resolved ? [...resolved] : [...path];
   }
-  return { ...event, containerPaths };
+  if (droppedContainerIds.size === 0) {
+    return { ...event, containerPaths };
+  }
+  const containerIds = event.containerIds.filter(
+    (id) => !droppedContainerIds.has(id),
+  );
+  return containerIds.length === 0
+    ? null
+    : { ...event, containerIds, containerPaths };
+}
+
+function resolvePreviousMoveAncestors(
+  event: Extract<PublishedHintEvent, { type: "container_mutation_created" }>,
+  movedContainers: MovedContainerMemory,
+  now: number,
+  stripPrevious: boolean,
+): {
+  readonly previousAncestorIds?: string[] | undefined;
+  readonly previousParentId?: string | null | undefined;
+} {
+  if (stripPrevious) {
+    return { previousAncestorIds: undefined, previousParentId: undefined };
+  }
+  if (event.previousAncestorIds === undefined) {
+    return {};
+  }
+  const resolved = movedContainers.resolvePath(event.previousAncestorIds, now);
+  if (resolved === null || resolved === undefined || resolved.length === 0) {
+    return { previousAncestorIds: undefined, previousParentId: undefined };
+  }
+  return {
+    previousAncestorIds: [...resolved],
+    previousParentId: resolved.at(-1) ?? null,
+  };
+}
+
+function resolveCurrentMoveAncestors(
+  event: Extract<PublishedHintEvent, { type: "container_mutation_created" }>,
+  movedContainers: MovedContainerMemory,
+  now: number,
+): {
+  readonly ancestorIds: string[] | undefined;
+  readonly changed: boolean;
+  readonly parentId: string | null | undefined;
+} | null {
+  if (event.ancestorIds === undefined) {
+    return {
+      ancestorIds: undefined,
+      changed: false,
+      parentId: event.parentId,
+    };
+  }
+  const resolved = movedContainers.resolveAncestors(
+    event.containerId,
+    event.ancestorIds,
+    now,
+  );
+  if (resolved === null) return null;
+  if (!resolved || sameIds(resolved, event.ancestorIds)) {
+    return {
+      ancestorIds: event.ancestorIds,
+      changed: false,
+      parentId: event.parentId,
+    };
+  }
+  return {
+    ancestorIds: [...resolved],
+    changed: true,
+    parentId: resolved.at(-1) ?? null,
+  };
 }
 
 function resolveContainerMutationPaths(
   event: Extract<PublishedHintEvent, { type: "container_mutation_created" }>,
   movedContainers: MovedContainerMemory,
   now: number,
-): PublishedHintEvent {
-  if (event.ancestorIds === undefined) return event;
-  const resolvedAncestors = movedContainers.resolveAncestors(
-    event.containerId,
-    event.ancestorIds,
+): PublishedHintEvent | null {
+  const current = resolveCurrentMoveAncestors(event, movedContainers, now);
+  if (current === null) return null;
+  const stripPrevious = current.changed && event.eventType !== "container.move";
+  const previousPatch = resolvePreviousMoveAncestors(
+    event,
+    movedContainers,
     now,
+    stripPrevious,
   );
-  if (!resolvedAncestors || sameIds(resolvedAncestors, event.ancestorIds)) {
+  if (!current.changed && Object.keys(previousPatch).length === 0) {
     return event;
   }
+  const {
+    previousAncestorIds: _oldPrevAncestors,
+    previousParentId: _oldPrevParent,
+    ...rest
+  } = event;
+  const previousAncestorIds =
+    "previousAncestorIds" in previousPatch
+      ? previousPatch.previousAncestorIds
+      : event.previousAncestorIds;
+  const previousParentId =
+    "previousParentId" in previousPatch
+      ? previousPatch.previousParentId
+      : event.previousParentId;
   return {
-    ...event,
-    ancestorIds: [...resolvedAncestors],
-    parentId: resolvedAncestors.at(-1) ?? null,
+    ...rest,
+    ...(current.ancestorIds === undefined
+      ? {}
+      : { ancestorIds: current.ancestorIds }),
+    ...(current.parentId === undefined ? {} : { parentId: current.parentId }),
+    ...(previousAncestorIds === undefined ? {} : { previousAncestorIds }),
+    ...(previousParentId === undefined ? {} : { previousParentId }),
   };
 }
 
@@ -71,30 +166,37 @@ function resolveContainerDeletedPaths(
   event: Extract<PublishedHintEvent, { type: "container_deleted" }>,
   movedContainers: MovedContainerMemory,
   now: number,
-): PublishedHintEvent {
+): PublishedHintEvent | null {
   const resolvedAncestors = movedContainers.resolveAncestors(
     event.containerId,
     event.ancestorIds,
     now,
   );
-  if (!resolvedAncestors || sameIds(resolvedAncestors, event.ancestorIds)) {
+  if (resolvedAncestors === null) return null;
+  if (!resolvedAncestors) return event;
+  const parentId = resolvedAncestors.at(-1);
+  // A deleted child always had a parent; if rewriting leaves no ancestors,
+  // fail closed rather than routing to a stale parentId.
+  if (!parentId) return null;
+  if (
+    sameIds(resolvedAncestors, event.ancestorIds) &&
+    parentId === event.parentId
+  ) {
     return event;
   }
-  const parentId = resolvedAncestors.at(-1);
-  if (!parentId) return { ...event, ancestorIds: [] };
   return { ...event, ancestorIds: [...resolvedAncestors], parentId };
 }
 
 /**
  * Rewrites any stale published paths against the hub's short-lived memory of
  * recently moved containers. Leaves events without paths untouched so they
- * continue to fail closed.
+ * continue to fail closed; returns `null` if path resolution fails closed.
  */
 export function resolveHintPaths(
   event: PublishedHintEvent,
   movedContainers: MovedContainerMemory,
   now: number,
-): PublishedHintEvent {
+): PublishedHintEvent | null {
   switch (event.type) {
     case "document_mutation_created":
     case "document_update_created":
@@ -174,11 +276,11 @@ export function hintCoverageKey(
   switch (event.type) {
     case "document_mutation_created":
     case "document_update_created":
-      return event.containerIds
-        .filter((id) =>
+      return JSON.stringify(
+        event.containerIds.filter((id) =>
           coversContainerId(id, event.containerPaths?.[id], interest),
-        )
-        .join(",");
+        ),
+      );
     case "container_mutation_created": {
       const ancestorCovered = hasAny(event.ancestorIds, interest);
       const containerCovered =

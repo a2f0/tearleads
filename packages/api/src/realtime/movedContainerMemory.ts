@@ -6,11 +6,48 @@ const MAX_MOVED_CONTAINERS = 10_000;
 interface RememberedMove {
   readonly ancestorIds: readonly string[];
   readonly expiresAt: number;
-  readonly updatedAt: string;
+  readonly seq: number;
+  readonly updatedAtMs: number | null;
+  readonly updatedAtRaw: string;
 }
 
-function sameIds(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((value, index) => value === b[index]);
+function parseTimestampMs(iso: string): number | null {
+  const parsed = Date.parse(iso);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function compareTimestamps(
+  aMs: number | null,
+  aRaw: string,
+  bMs: number | null,
+  bRaw: string,
+): number {
+  if (aMs !== null && bMs !== null && aMs !== bMs) {
+    return aMs - bMs;
+  }
+  return aRaw === bRaw ? 0 : aRaw < bRaw ? -1 : 1;
+}
+
+function combineRewrittenPath(
+  effectiveAncestors: readonly string[],
+  suffix: readonly string[],
+): readonly string[] | null {
+  const suffixSet = new Set(suffix);
+  if (effectiveAncestors.some((id) => suffixSet.has(id))) {
+    return null;
+  }
+  const combined = [...effectiveAncestors, ...suffix];
+  return combined.length > MAX_CONTAINER_PATH_LENGTH ? null : combined;
+}
+
+function compareMoveOrder(a: RememberedMove, b: RememberedMove): number {
+  const byTime = compareTimestamps(
+    a.updatedAtMs,
+    a.updatedAtRaw,
+    b.updatedAtMs,
+    b.updatedAtRaw,
+  );
+  return byTime !== 0 ? byTime : a.seq - b.seq;
 }
 
 /**
@@ -25,6 +62,7 @@ function sameIds(a: readonly string[], b: readonly string[]): boolean {
  */
 export class MovedContainerMemory {
   private readonly entries = new Map<string, RememberedMove>();
+  private nextSeq = 0;
 
   constructor(
     private readonly ttlMs: number = MOVED_CONTAINER_TTL_MS,
@@ -37,92 +75,101 @@ export class MovedContainerMemory {
     updatedAt: string,
     now: number,
   ): void {
+    const updatedAtMs = parseTimestampMs(updatedAt);
     const existing = this.entries.get(containerId);
     // Do not let an out-of-order older move overwrite a newer remembered move.
     if (
       existing &&
       existing.expiresAt > now &&
-      updatedAt < existing.updatedAt
+      compareTimestamps(
+        updatedAtMs,
+        updatedAt,
+        existing.updatedAtMs,
+        existing.updatedAtRaw,
+      ) < 0
     ) {
       return;
     }
     if (existing) {
       this.entries.delete(containerId);
     } else if (this.entries.size >= this.maxEntries) {
-      this.evictOne(now);
+      this.evictHead(now);
     }
+    this.nextSeq += 1;
     this.entries.set(containerId, {
       ancestorIds: [...ancestorIds],
       expiresAt: now + this.ttlMs,
-      updatedAt,
+      seq: this.nextSeq,
+      updatedAtMs,
+      updatedAtRaw: updatedAt,
     });
   }
 
   /**
-   * Rewrites a published `[root, ..., containerId]` path if any container in it
-   * moved recently and its published prefix disagrees with the remembered new
-   * ancestors. Returns `undefined` unchanged when the event carried no path
-   * (failing closed).
+   * Rewrites a published `[root, ..., containerId]` path against any remembered
+   * moves. Returns `undefined` when the event carried no path (fail-closed),
+   * and `null` if resolving encounters a cycle or path overflow (fail-closed).
    */
   resolvePath(
     publishedPath: readonly string[] | undefined,
     now: number,
-  ): readonly string[] | undefined {
+  ): readonly string[] | null | undefined {
     if (publishedPath === undefined || publishedPath.length === 0) {
       return publishedPath;
     }
-    let current = [...publishedPath];
-    const rewrittenNodes = new Set<string>();
-    for (let step = 0; step < MAX_CONTAINER_PATH_LENGTH; step++) {
-      const next = this.rewriteDeepestStaleNode(current, rewrittenNodes, now);
-      if (!next) return current;
-      current = next;
-    }
-    return current;
+    return this.resolvePathWithMinOrder(publishedPath, null, now, new Set());
   }
 
   /**
    * Rewrites a published `ancestorIds` (`[root, ..., parentId]`) for
    * `containerId`, taking into account moves of `containerId` itself as well as
-   * moves of any ancestor along `ancestorIds`.
+   * newer moves of any ancestor along the path. Returns `undefined` when no
+   * ancestors were supplied, and `null` on cycle or overflow (fail-closed).
    */
   resolveAncestors(
     containerId: string,
     publishedAncestors: readonly string[] | undefined,
     now: number,
-  ): readonly string[] | undefined {
+  ): readonly string[] | null | undefined {
     if (publishedAncestors === undefined) return undefined;
     const resolved = this.resolvePath(
       [...publishedAncestors, containerId],
       now,
     );
-    if (!resolved) return publishedAncestors;
-    return resolved.at(-1) === containerId ? resolved.slice(0, -1) : resolved;
+    if (resolved === null || resolved === undefined) return null;
+    return resolved.at(-1) === containerId ? resolved.slice(0, -1) : null;
   }
 
-  private rewriteDeepestStaleNode(
+  private resolvePathWithMinOrder(
     path: readonly string[],
-    rewrittenNodes: Set<string>,
+    minOrder: RememberedMove | null,
     now: number,
-  ): string[] | null {
-    // Scan from leaf toward root so the most specific moved container wins first.
+    visited: ReadonlySet<string>,
+  ): readonly string[] | null {
+    // Scan leaf-to-root so the most specific moved container wins first; only
+    // apply ancestor moves strictly newer than any descendant move already
+    // authoritative for the prefix.
     for (let index = path.length - 1; index >= 0; index--) {
       const nodeId = path[index];
-      if (!nodeId || rewrittenNodes.has(nodeId)) continue;
-      const remembered = this.readActive(nodeId, now);
-      if (!remembered) continue;
-      const prefix = path.slice(0, index);
-      if (sameIds(prefix, remembered.ancestorIds)) continue;
-      rewrittenNodes.add(nodeId);
-      const suffix = path.slice(index);
-      // Guard against a corrupted/cyclic remembered chain repeating a suffix id.
-      const suffixSet = new Set(suffix);
-      const cleanAncestors = remembered.ancestorIds.filter(
-        (id) => !suffixSet.has(id),
+      if (!nodeId) continue;
+      const entry = this.readActive(nodeId, now);
+      if (!entry) continue;
+      if (minOrder !== null && compareMoveOrder(entry, minOrder) <= 0) {
+        continue;
+      }
+      if (visited.has(nodeId)) return null;
+      const nextVisited = new Set(visited);
+      nextVisited.add(nodeId);
+      const effectiveAncestors = this.resolvePathWithMinOrder(
+        entry.ancestorIds,
+        entry,
+        now,
+        nextVisited,
       );
-      return [...cleanAncestors, ...suffix].slice(0, MAX_CONTAINER_PATH_LENGTH);
+      if (effectiveAncestors === null) return null;
+      return combineRewrittenPath(effectiveAncestors, path.slice(index));
     }
-    return null;
+    return path;
   }
 
   private readActive(containerId: string, now: number): RememberedMove | null {
@@ -135,14 +182,21 @@ export class MovedContainerMemory {
     return entry;
   }
 
-  private evictOne(now: number): void {
+  /**
+   * Entries share a uniform TTL and are re-inserted on update, so Map head
+   * order matches expiry order. Drop expired head entries first, then drop the
+   * oldest entry in O(1) if still at capacity.
+   */
+  private evictHead(now: number): void {
     for (const [key, entry] of this.entries) {
       if (entry.expiresAt <= now) {
         this.entries.delete(key);
-        return;
+        continue;
       }
+      if (this.entries.size >= this.maxEntries) {
+        this.entries.delete(key);
+      }
+      return;
     }
-    const oldest = this.entries.keys().next().value;
-    if (oldest !== undefined) this.entries.delete(oldest);
   }
 }

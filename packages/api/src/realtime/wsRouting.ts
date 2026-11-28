@@ -315,6 +315,9 @@ export class WsEventRouter {
 
   private routeHint(event: PublishedHintEvent): void {
     const resolved = resolveHintPaths(event, this.movedContainers, this.now());
+    if (!resolved) {
+      return;
+    }
     // Resolve recipients before serializing. Most events have no interested
     // socket; returning early there skips the reconstruction entirely on the
     // common no-recipient path.
@@ -344,17 +347,25 @@ export class WsEventRouter {
       }
       const interest = this.interestBySocket.get(ws);
       if (!interest) continue;
-      const key = hintCoverageKey(resolved, interest);
-      let frame = frames.get(key);
-      if (frame === undefined) {
-        const hint = scopeHintToInterest(resolved, interest);
-        frame = hint === null ? null : serializeWsServerMessage(hint);
-        frames.set(key, frame);
-      }
+      const frame = this.cachedScopedFrame(resolved, interest, frames);
       if (frame !== null) {
         sendSafely(ws, frame);
       }
     }
+  }
+
+  private cachedScopedFrame(
+    resolved: PublishedHintEvent,
+    interest: ReadonlySet<string>,
+    frames: Map<string, string | null>,
+  ): string | null {
+    const key = hintCoverageKey(resolved, interest);
+    const cached = frames.get(key);
+    if (cached !== undefined) return cached;
+    const hint = scopeHintToInterest(resolved, interest);
+    const frame = hint === null ? null : serializeWsServerMessage(hint);
+    frames.set(key, frame);
+    return frame;
   }
 
   /** Evict only subscriptions whose verified read path depends on this head. */

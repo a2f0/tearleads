@@ -50,11 +50,12 @@ over HTTP after that acknowledgement (see
   installed roots; this does not reveal the mutated ancestor.
 - **Stale-path window across concurrent moves**: a hint whose publisher read its
   path before a move committed can arrive at the hub after the move event. The
-  hub remembers each moved container's new ancestor ids for a short window (60
-  seconds) and rewrites any later hint carrying a different prefix for that
-  container or its descendants to the remembered path. Only hints that reach the
-  hub ahead of the move event itself can still route under the pre-move path,
-  matching the pre-existing event ordering bound: inside that window the socket
+  hub remembers each moved container's new ancestor ids in memory for a short
+  window (60 seconds) and rewrites any later hint carrying a different prefix
+  for that container or its descendants to the remembered path. Because that
+  memory is process-local, a Durable Object eviction within those 60 seconds
+  clears it, leaving only hints already in flight ahead of eviction to follow
+  the same pre-existing event ordering bound: inside that window the socket
   learns only that a container it could read a moment ago changed, learns no new
   id, and any HTTP read it triggers is access-checked.
 
