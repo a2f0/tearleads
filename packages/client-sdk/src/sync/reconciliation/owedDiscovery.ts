@@ -183,7 +183,6 @@ export function startUnacknowledgedCatchUp(
   state: ReconciliationState,
 ): void {
   if (!state.active) return;
-  state.pendingOwedResume = false;
   state.unacknowledgedPollingArmed =
     host.getRuntimeStatus().serverEventsPendingConnectAttempt === undefined;
   state.unsubscribeConnectionStatus?.();
@@ -206,26 +205,11 @@ export function evaluateUnacknowledgedCatchUp(
   state: ReconciliationState,
 ): void {
   if (!state.active) return;
-  if (isAcknowledgedControlActive(host, state)) {
-    state.pendingOwedResume = false;
-  }
   if (
     !state.unacknowledgedPollingArmed &&
     host.getRuntimeStatus().serverEventsPendingConnectAttempt === undefined
   ) {
     state.unacknowledgedPollingArmed = true;
-  }
-  if (
-    state.pendingOwedResume &&
-    host.crawlTreeForCatchUp &&
-    !isAcknowledgedControlActive(host, state) &&
-    canReconcile(host.getRuntimeStatus())
-  ) {
-    state.pendingOwedResume = false;
-    const run = {};
-    dispatchUnacknowledgedCatchUp(host, state, { run, type: "sweep-started" });
-    launchUnacknowledgedCatchUpSweep(host, state, run);
-    return;
   }
   dispatchUnacknowledgedCatchUp(host, state, {
     eligible: isUnacknowledgedCatchUpEligible(host, state),
@@ -236,7 +220,6 @@ export function evaluateUnacknowledgedCatchUp(
 export function stopUnacknowledgedCatchUp(state: ReconciliationState): void {
   state.unsubscribeConnectionStatus?.();
   state.unsubscribeConnectionStatus = null;
-  state.pendingOwedResume = false;
   state.unacknowledgedPollingArmed = false;
   const next = transitionUnacknowledgedCatchUp(state.unacknowledgedCatchUp, {
     type: "stop",
@@ -265,15 +248,15 @@ export function resumeOwedDocumentDiscovery(input: {
   if (host.crawlTreeForCatchUp) {
     if (!isCurrent()) return;
     state.unacknowledgedPollingArmed = true;
-    if (isAcknowledgedControlActive(host, state)) {
-      state.pendingOwedResume = false;
+    // Prerequisite loss (unauthenticated/offline) is handled on regain by
+    // `prerequisites-regained` + `connectAttemptWaitMachine`; do not latch a
+    // deferred sweep here that would race post-login bootstrap or connect ack.
+    if (
+      isAcknowledgedControlActive(host, state) ||
+      !canReconcile(host.getRuntimeStatus())
+    ) {
       return;
     }
-    if (!canReconcile(host.getRuntimeStatus())) {
-      state.pendingOwedResume = true;
-      return;
-    }
-    state.pendingOwedResume = false;
     const run = {};
     dispatchUnacknowledgedCatchUp(host, state, { run, type: "sweep-started" });
     launchUnacknowledgedCatchUpSweep(host, state, run);

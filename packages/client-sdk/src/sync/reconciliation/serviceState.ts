@@ -19,8 +19,6 @@ export interface ReconciliationState extends IdleBackfillState {
   lifecycleGeneration: number;
   probeContinuationCancel: (() => void) | null;
   pendingRefresh: SharedRefresh | null;
-  /** Set when `resumeOwedDiscovery` ran while `!canReconcile`; flushed on regain. */
-  pendingOwedResume: boolean;
   unacknowledgedCatchUp: UnacknowledgedCatchUpState;
   unacknowledgedCatchUpCancel: (() => void) | null;
   /** Armed once any initial startup connect attempt has settled. */

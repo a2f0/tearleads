@@ -207,7 +207,6 @@ function createReconciliationState(
     probeContinuationCancel: null,
     queue: createReconcileQueue(),
     pendingRefresh: null,
-    pendingOwedResume: false,
     unacknowledgedCatchUp: STOPPED_UNACKNOWLEDGED_CATCH_UP,
     unacknowledgedCatchUpCancel: null,
     unacknowledgedPollingArmed: false,

@@ -231,21 +231,23 @@ test("periodic catch-up polls across flapping reconnects and cancels on connect,
   expect(crawls).toBe(3);
 });
 
-test("resumeOwedDiscovery defers while offline and runs immediately on regain", async () => {
+test("resumeOwedDiscovery while unauthenticated or offline does not fire an immediate sweep on regain", async () => {
+  const clock = createManualReconciliationClock();
   const listeners = new Set<() => void>();
-  let online = false;
+  let isAuthenticated = false;
   let crawls = 0;
-  const { host, listings, steps } = createOwedLaneHost({
+  const { host, listings } = createOwedLaneHost({
     owed: () => ["b"],
     overrides: {
+      clock,
       crawlTreeForCatchUp: async () => {
         crawls += 1;
         return true;
       },
       getRuntimeStatus: () => ({
         dbStatus: "ready",
-        isAuthenticated: true,
-        online,
+        isAuthenticated,
+        online: true,
         serverEventsConnected: false,
       }),
       subscribeConnectionStatus: (listener) => {
@@ -254,6 +256,7 @@ test("resumeOwedDiscovery defers while offline and runs immediately on regain", 
           listeners.delete(listener);
         };
       },
+      unacknowledgedCatchUpIntervalMs: 1_000,
     },
   });
   const service = createReconciliationService(host);
@@ -262,15 +265,17 @@ test("resumeOwedDiscovery defers while offline and runs immediately on regain", 
     service.resumeOwedDiscovery();
     await settle();
     expect(crawls).toBe(0);
-    expect(listings).toEqual([]);
 
-    // Regaining connectivity flushes the pending startup resume immediately.
-    online = true;
+    // Auth gain lets prerequisites-regained / connectAttemptWaitMachine lead
+    // instead of firing an immediate sweep; periodic polling still arms if
+    // the connection stays unacknowledged.
+    isAuthenticated = true;
     for (const listener of listeners) listener();
-    await waitFor(
-      () => steps.length === 1,
-      "Deferred owed resume did not flush on regain",
-    );
+    await settle();
+    expect(crawls).toBe(0);
+
+    clock.advance(1_000);
+    await settle();
     expect(crawls).toBe(1);
     expect(listings).toEqual([["b"]]);
   } finally {

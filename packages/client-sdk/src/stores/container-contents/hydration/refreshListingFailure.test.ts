@@ -190,7 +190,9 @@ test("crawlTreeForCatchUp returns false on listing failure and retains no recove
     expect(calls).toBe(callsAfterFailure);
 
     available = true;
-    expect(await store.crawlTreeForCatchUp()).toBe(false);
+    store.updateRuntime(runtime(true));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(await store.crawlTreeForCatchUp()).toBe(true);
   } finally {
     close();
   }

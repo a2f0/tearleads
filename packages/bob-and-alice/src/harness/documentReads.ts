@@ -24,6 +24,13 @@ async function discover(
       (candidate) => candidate.documentId === document.documentId,
     );
     if (summary) return { containerId, localId: summary.id };
+    // Background reconciliation may have persisted the document and advanced
+    // the lane watermark while `tree.refresh()` was running, leaving the delta
+    // listing above empty.
+    const persistedLocalId = await device.sdk.documents.findLocalIdByDocumentId(
+      document.documentId,
+    );
+    if (persistedLocalId) return { containerId, localId: persistedLocalId };
   }
   return null;
 }
