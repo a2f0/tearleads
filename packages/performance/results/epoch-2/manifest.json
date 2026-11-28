@@ -28,6 +28,18 @@
       "issues": [3342],
       "snapshotFile": "snapshots/001-server-counts-parent-lanes.json",
       "notes": "Trigger-maintained documents.update_count + attribution_revision/updated_at; roster-profile container suppression; verified idsOnly root-membership parent-lane batch inside repeatable-read snapshot."
+    },
+    {
+      "id": "002-realtime-subtree-interest",
+      "seq": 2,
+      "label": "Subtree-root realtime interest & hub caps (#3353)",
+      "kind": "checkpoint",
+      "recordedAt": "2026-11-28T06:55:46.860Z",
+      "revision": "0aa3ec975adc8c4121163f1074ddd56de258f80f",
+      "dirty": false,
+      "issues": [3353],
+      "snapshotFile": "snapshots/002-realtime-subtree-interest.json",
+      "notes": "Declares only subtree roots (top-level roots + directly granted nested folders persisted via root_lane_member v18 migration) with hub subtree-coverage routing, 256-root declaration/installed cap, 512 pending id cap, flat 10s deadline, repeatable-read 1,024 path-container depth budget scoped via discoveryGrantSubjects/containerHasDiscoveryAccess, and marker write-back. 100x1000-folder simultaneous reconnect contention: 318-323ms total, p99 hint lag 1.7-2.6ms, 18-21 MiB peak heap."
     }
   ]
 }
