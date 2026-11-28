@@ -173,6 +173,8 @@ async function deleteDocumentAccessHistory(
 export async function deleteDocumentRows(input: {
   readonly documentIds: readonly string[];
   readonly executor: DatabaseTransaction;
+  /** Caller already locked these document heads in canonical UUID order. */
+  readonly headsLocked?: boolean | undefined;
   readonly orphanedBlobIds: readonly string[];
   readonly retainAccessHistory: boolean;
 }): Promise<void> {
@@ -181,12 +183,14 @@ export async function deleteDocumentRows(input: {
 
   // Match sync/allow-restore head -> row lock order when a caller has not
   // already locked these document heads; already-held locks are skipped.
-  await lockUnheldAccessManifestHeads(
-    "document",
-    uniqueSortedStrings(documentIds),
-    executor,
-    "update",
-  );
+  if (!input.headsLocked) {
+    await lockUnheldAccessManifestHeads(
+      "document",
+      uniqueSortedStrings(documentIds),
+      executor,
+      "update",
+    );
+  }
   await deleteDocumentContentRows(documentIds, executor);
   await deleteDocumentAttachmentRows(input);
   await deleteDocumentAccessHeads(documentIds, executor);

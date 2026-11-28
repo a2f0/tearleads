@@ -273,7 +273,7 @@ export async function deleteOrganizationRemoteRows(input: {
     .where(eq(organizationRosterEntries.organizationId, input.organizationId));
   // Same transaction as the deletes: a create sees the rows or the
   // reservation, never neither.
-  await reservePurgedOrganizationObjects({
+  const recoveryOwnerUserId = await reservePurgedOrganizationObjects({
     containerIds: input.scope.containerIds,
     documentIds: input.scope.freedDocumentIds,
     executor: input.executor,
@@ -297,11 +297,13 @@ export async function deleteOrganizationRemoteRows(input: {
     documentIds: sortedDocumentIds,
     executor: input.executor,
     organizationId: input.organizationId,
+    recoveryOwnerUserId,
   });
   for (const documentBatch of organizationPurgeBatches(sortedDocumentIds)) {
     await deleteDocumentRows({
       documentIds: documentBatch,
       executor: input.executor,
+      headsLocked: true,
       orphanedBlobIds: [],
       retainAccessHistory: false,
     });

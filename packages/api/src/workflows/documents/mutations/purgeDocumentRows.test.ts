@@ -45,17 +45,18 @@ async function countPurge(
 }
 
 test("deleting documents costs the same statements for one or many", async () => {
-  // Budget: 13 statements with history retained, 17 without (10 and 14 before
-  // rotation baseline stages, their staged segments and those segments' spans
-  // were deleted with the document, 9 and 13 before peer owners were deleted
-  // with the spans), for any batch.
+  // Budget: 14 statements with history retained, 18 without (13 and 17 before
+  // locking unheld document heads in UUID order ahead of content deletes,
+  // 10 and 14 before rotation baseline stages, their staged segments and those
+  // segments' spans were deleted with the document, 9 and 13 before peer
+  // owners were deleted with the spans), for any batch.
   for (const count of [1, 3]) {
     const ids = await insertDocuments(count);
-    expect(await countPurge(ids, false)).toBe(17);
+    expect(await countPurge(ids, false)).toBe(18);
     expect(
       await db.select().from(documents).where(inArray(documents.id, ids)),
     ).toEqual([]);
-    expect(await countPurge(await insertDocuments(count), true)).toBe(13);
+    expect(await countPurge(await insertDocuments(count), true)).toBe(14);
   }
 });
 

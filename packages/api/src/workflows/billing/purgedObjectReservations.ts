@@ -50,12 +50,12 @@ export async function reservePurgedOrganizationObjects(input: {
   readonly documentIds: readonly string[];
   readonly executor: DatabaseTransaction;
   readonly organizationId: string;
-}): Promise<void> {
+}): Promise<string | null> {
   const ownerId = await findPersonalOrganizationOwnerId(
     input.executor,
     input.organizationId,
   );
-  if (!ownerId) return;
+  if (!ownerId) return null;
   const objects: { objectId: string; objectKind: PurgedObjectKind }[] = [
     ...input.containerIds.map((objectId) => ({
       objectId,
@@ -78,6 +78,7 @@ export async function reservePurgedOrganizationObjects(input: {
       )
       .onConflictDoNothing();
   }
+  return ownerId;
 }
 
 /**
@@ -91,12 +92,16 @@ export async function snapshotPurgedDocumentPeerOwners(input: {
   readonly documentIds: readonly string[];
   readonly executor: DatabaseTransaction;
   readonly organizationId: string;
+  readonly recoveryOwnerUserId?: string | null | undefined;
 }): Promise<void> {
   if (input.documentIds.length === 0) return;
-  const ownerId = await findPersonalOrganizationOwnerId(
-    input.executor,
-    input.organizationId,
-  );
+  const ownerId =
+    input.recoveryOwnerUserId === undefined
+      ? await findPersonalOrganizationOwnerId(
+          input.executor,
+          input.organizationId,
+        )
+      : input.recoveryOwnerUserId;
   if (!ownerId) return;
   const recoveryOwner = uuidValue(ownerId);
   for (const batch of organizationPurgeBatches(input.documentIds)) {
