@@ -164,9 +164,7 @@ export async function createSeededDocument(
   let failure: { message: string; status: number | null } | undefined;
   const verification = {
     resolveProjectionUserKey: createDocumentProjectionUserKeyResolver(runtime),
-    warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
-      preferLocalCurrent: true,
-    }),
+    warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
     stillCurrent,
   };
   const created = await remote.createRemoteDocument({

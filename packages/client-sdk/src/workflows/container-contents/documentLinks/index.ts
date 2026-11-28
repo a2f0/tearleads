@@ -123,7 +123,6 @@ export async function relinkRemoteContainerDocument(input: {
       targetContainerId,
       warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
         operation: input.policyOperation,
-        preferLocalCurrent: true,
       }),
     });
     if (!result) {

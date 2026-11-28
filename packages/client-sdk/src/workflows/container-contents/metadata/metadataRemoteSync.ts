@@ -218,7 +218,7 @@ export async function syncRemoteContainerMetadata(
       stillCurrent: isCurrent,
       warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
         operation: input.policyOperation,
-        preferLocalCurrent: true,
+        preferLocalCurrent: input.pendingUpdates.length === 0,
       }),
       writerProjection: input.writerProjection,
     })

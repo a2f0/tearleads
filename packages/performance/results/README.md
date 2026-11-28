@@ -23,7 +23,7 @@ bun run perf:epoch render
 
 ## Epoch 2 Scorecard (`000-baseline` -> `005-wire-compactness`)
 
-Baseline `53819b364` -> Latest `fa756b995` (6 checkpoints recorded).
+Baseline `53819b364` -> Latest `45ce6bb0a` (6 checkpoints recorded).
 
 | Dimension | Metric | Baseline | Latest | Delta | Verdict |
 | --- | --- | ---: | ---: | ---: | --- |
@@ -33,19 +33,19 @@ Baseline `53819b364` -> Latest `fa756b995` (6 checkpoints recorded).
 | Schema | Client SQLite tables | 63 tables | — | — | n/a |
 | Schema | Unread 2xx OpenAPI fields | 3 fields | — | — | n/a |
 | Schema | Drifted canary ceilings | 14 phases | — | — | n/a |
-| Wire | Canary requests | 340 reqs | 244 reqs | -96 (-28.2%) | improved |
+| Wire | Canary requests | 340 reqs | 260 reqs | -80 (-23.5%) | improved |
 | Wire | Canary request bytes | 1,609,389 B | 1,607,684 B | -1,705 (-0.1%) | unchanged |
-| Wire | Canary response bytes | 1,492,860 B | 1,256,123 B | -236,737 (-15.9%) | improved |
-| Wire | Canary redundant response bytes | 198,160 B | 108,992 B | -89,168 (-45%) | improved |
-| Wire | Exact-head policy re-reads | 42 reads | 6 reads | -36 (-85.7%) | improved |
-| API DB | Canary API SQL statements | 36,878 stmts | 30,958 stmts | -5,920 (-16.1%) | improved |
-| API DB | Canary API in-tx statements | 30,788 stmts | 25,919 stmts | -4,869 (-15.8%) | improved |
-| API DB | Canary API lock-hold statements | 22,227 stmts | 18,671 stmts | -3,556 (-16%) | improved |
-| API DB | Canary API pure read repeats | 4,744 repeats | 1,680 repeats | -3,064 (-64.6%) | improved |
-| Client SQLite | Canary client SQLite statements | 131,525 stmts | 122,113 stmts | -9,412 (-7.2%) | improved |
-| Client SQLite | Canary SQLite tx controls | 32,446 stmts | 29,796 stmts | -2,650 (-8.2%) | improved |
-| Client SQLite | Canary SQLite total duration | 13,058.2 ms | 12,477.2 ms | -581 (-4.4%) | unchanged |
-| Client SQLite | Canary SQLite max lock hold | 49.4 ms | 55.1 ms | +5.7 (+11.5%) | REGRESSED |
+| Wire | Canary response bytes | 1,492,860 B | 1,260,907 B | -231,953 (-15.5%) | improved |
+| Wire | Canary redundant response bytes | 198,160 B | 110,912 B | -87,248 (-44%) | improved |
+| Wire | Exact-head policy re-reads | 42 reads | 18 reads | -24 (-57.1%) | improved |
+| API DB | Canary API SQL statements | 36,878 stmts | 31,446 stmts | -5,432 (-14.7%) | improved |
+| API DB | Canary API in-tx statements | 30,788 stmts | 26,432 stmts | -4,356 (-14.1%) | improved |
+| API DB | Canary API lock-hold statements | 22,227 stmts | 18,641 stmts | -3,586 (-16.1%) | improved |
+| API DB | Canary API pure read repeats | 4,744 repeats | 1,675 repeats | -3,069 (-64.7%) | improved |
+| Client SQLite | Canary client SQLite statements | 131,525 stmts | 123,422 stmts | -8,103 (-6.2%) | improved |
+| Client SQLite | Canary SQLite tx controls | 32,446 stmts | 30,226 stmts | -2,220 (-6.8%) | improved |
+| Client SQLite | Canary SQLite total duration | 13,058.2 ms | 12,500.6 ms | -557.6 (-4.3%) | unchanged |
+| Client SQLite | Canary SQLite max lock hold | 49.4 ms | 76.9 ms | +27.5 (+55.7%) | REGRESSED |
 | Plans | Postgres generic Seq Scans | 0 queries | — | — | n/a |
 | Plans | Postgres generic Sort plans | 3 queries | — | — | n/a |
 | Plans | Postgres generic Materialize plans | 1 queries | — | — | n/a |
@@ -70,4 +70,4 @@ Baseline `53819b364` -> Latest `fa756b995` (6 checkpoints recorded).
 | `002-realtime-subtree-interest` | checkpoint | `0aa3ec975` | — | #3353 | Subtree-root realtime interest & hub caps (#3353) | 10 improved, 0 regressed, 0 tradeoffs |
 | `003-loro-stale-recreation-rebase` | checkpoint | `d74895157` | — | #3263 | Preserved peer ownership, owner allow-restore, pull-only park, multi-segment recovery, causal closure (#3263) | 0 improved, 7 regressed, 0 tradeoffs |
 | `004-api-repeats-plans` | checkpoint | `da79619ff` | — | #3396 | PR #7 (#3396 Leads 1 & 4): API tx memo and PG plans | 7 improved, 2 regressed, 3 tradeoffs |
-| `005-wire-compactness` | checkpoint | `fa756b995` | — | #3396 | PR #8 (#3396 Lead 2): wire compactness, authored KEK citations, held history & policy warmers | 10 improved, 0 regressed, 0 tradeoffs |
+| `005-wire-compactness` | checkpoint | `45ce6bb0a` | — | #3396 | PR #8 (#3396 Lead 2): wire compactness, authored KEK citations, held history & read-path policy warmers | 10 improved, 0 regressed, 0 tradeoffs |

@@ -311,11 +311,12 @@ export async function ensureRemoteDocument(
     stillCurrent: generationIsCurrent,
     warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
       operation: policyOperation,
-      preferLocalCurrent: true,
     }),
   });
   if (!generationIsCurrent()) return state.record ?? nextRecord;
-  if (!created) return nextRecord;
+  if (!created) {
+    return nextRecord;
+  }
 
   return chainIdentityWrite(state, async () => {
     if (!generationIsCurrent()) return state.record ?? nextRecord;

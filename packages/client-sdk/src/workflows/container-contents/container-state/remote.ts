@@ -141,9 +141,7 @@ export async function shareRemoteContainer(input: {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies:
-      input.runtime.principalPolicies.createWarmer({
-        preferLocalCurrent: true,
-      }),
+      input.runtime.principalPolicies.createWarmer(),
   });
   if (!shared) {
     return null;
@@ -205,9 +203,7 @@ export async function shareRemoteContainerWithGroup(input: {
     stillCurrent: input.stillCurrent,
     targetSecretKey: collaborators.encapsulationSecretKey,
     warmReferencedPrincipalPolicies:
-      input.runtime.principalPolicies.createWarmer({
-        preferLocalCurrent: true,
-      }),
+      input.runtime.principalPolicies.createWarmer(),
   });
   if (!shared) {
     return null;
@@ -246,9 +242,7 @@ export async function moveRemoteContainer(input: {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies:
-      input.runtime.principalPolicies.createWarmer({
-        preferLocalCurrent: true,
-      }),
+      input.runtime.principalPolicies.createWarmer(),
   });
   if (!replayed || "applied" in replayed) {
     return replayed;

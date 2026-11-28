@@ -58,9 +58,7 @@ async function buildPlans(input: ContainerWithMetadataPlanInput) {
     signedAt: input.containerSignedAt,
     stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies:
-      input.runtime.principalPolicies.createWarmer({
-        preferLocalCurrent: true,
-      }),
+      input.runtime.principalPolicies.createWarmer(),
   });
   const childProjection = childContainerWriterProjectionFromCreatePlan({
     materializedPlan: containerPlan,
