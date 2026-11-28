@@ -129,13 +129,117 @@ test("Explorer retries signed hydration after private and public policy pages re
     unavailable = false;
     await agent.ingestRemoteContainer(root);
     expect(privateAttempts).toBeGreaterThan(failedPrivate);
-    expect(publicAttempts).toBeGreaterThan(failedPublic);
+    // Private recovery already stored the verified policy chain in coldDb, so
+    // public history verification authenticates it locally without re-fetching.
+    expect(publicAttempts).toBe(failedPublic);
     expect(state.containersById.has(root.id)).toBe(true);
     expect(snapshots).toBe(1);
     expect(fullReads).toBe(0);
     expect(incidents).toEqual([]);
     expect(keys.length).toBeGreaterThan(0);
     expect(keys.every((key) => key.every((byte) => byte === 0))).toBe(true);
+  } finally {
+    sdk.dispose();
+    coldDb.close();
+    ownerDb.close();
+  }
+}, 30_000);
+
+test("Explorer retries signed hydration via public policy pages when private pages stay unavailable", async () => {
+  useTestApiAppHandlers();
+  const ownerDb = await createTestExecSql("explorer-public-retry-owner");
+  const coldDb = await createTestExecSql("explorer-public-retry-cold");
+  const sdk = await createHeadlessApiClient(ownerDb.execSql, "public-owner");
+  const base = sdk.containerContents.workflowRuntime();
+  let publicUnavailable = true;
+  let publicAttempts = 0;
+  let snapshots = 0;
+  const readPrivate = async function* (
+    ..._args: Parameters<typeof base.apiClient.getPrincipalPolicyPages>
+  ) {
+    yield* [];
+    throw new Error("private policy pages unavailable");
+  };
+  const readPublic = async function* (
+    ...args: Parameters<typeof base.apiClient.getProjectionPolicyHistoryPages>
+  ) {
+    publicAttempts += 1;
+    if (publicUnavailable)
+      throw new Error("temporary public policy page failure");
+    yield* base.apiClient.getProjectionPolicyHistoryPages(...args);
+  };
+  const apiClient = new Proxy(base.apiClient, {
+    get(target, property) {
+      if (property === "getPrincipalPolicyPages") return readPrivate;
+      if (property === "getProjectionPolicyHistoryPages") return readPublic;
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  try {
+    const listing = await base.apiClient.listContainerParentLanes({
+      lanes: [{ laneId: "roots", parentId: null, watermark: null }],
+    });
+    const firstResult = listing?.results[0];
+    const root =
+      firstResult && "page" in firstResult
+        ? firstResult.page.items.find(
+            (item) => item.id === sdk.session.containerId,
+          )
+        : undefined;
+    if (!root) throw new Error("Registered root was not listed");
+    const runtime = createContainerContentsStoreWorkflowRuntime(
+      {
+        ...base,
+        apiClient,
+        infra: { ...base.infra, execSql: coldDb.execSql },
+        withPrincipalHistoryProtection: async (work) => {
+          const localKey = new Uint8Array(32).fill(31);
+          try {
+            return await work({
+              protection: { localKey, context: "explorer-public-retry" },
+              stillCurrent: () => true,
+            });
+          } finally {
+            localKey.fill(0);
+          }
+        },
+      },
+      () => false,
+      async () => undefined,
+    );
+    const persistence = defaultContainerContentsPersistence;
+    await persistence.ensureSchema(coldDb.execSql);
+    const state = createContainerContentsStoreState(runtime, persistence);
+    state.documentStoresNeedPriming = false;
+    state.snapshot = { ...state.snapshot, ready: true };
+    const agent = createContainerContentsStoreSyncAgent({
+      state,
+      host: {
+        persistContainerState: async (container, _patch, _update, options) => {
+          await persistence.saveContainer(
+            coldDb.execSql,
+            container.container,
+            container.record,
+            options,
+          );
+          return { record: container.record, status: "persisted" };
+        },
+        updateSnapshot: () => {
+          snapshots += 1;
+        },
+      },
+    });
+    await expect(agent.ingestRemoteContainer(root)).rejects.toThrow(
+      "temporary public policy page failure",
+    );
+    const failedPublic = publicAttempts;
+    expect(failedPublic).toBeGreaterThan(0);
+    publicUnavailable = false;
+    await agent.ingestRemoteContainer(root);
+    expect(publicAttempts).toBeGreaterThan(failedPublic);
+    expect(state.containersById.has(root.id)).toBe(true);
+    expect(snapshots).toBe(1);
   } finally {
     sdk.dispose();
     coldDb.close();
