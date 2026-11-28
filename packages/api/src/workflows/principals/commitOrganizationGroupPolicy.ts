@@ -67,6 +67,7 @@ async function commitRosterEnrollment(
   input: CommitPolicyInput,
   memberGroupId: string,
   identityTrustDomain: string,
+  verifiedDirectAdmin: boolean,
 ) {
   const memberInput = input.request.memberPolicy
     ? {
@@ -88,14 +89,16 @@ async function commitRosterEnrollment(
         tx,
         memberInput,
         identityTrustDomain,
-        {
-          // preparePrincipalPolicyInTransaction just verified direct org admin
-          // access under the same organization principal & read-model locks.
-          verifiedDirectAdmin: {
-            organizationId: input.organizationId,
-            userId: input.requesterUserId,
-          },
-        },
+        verifiedDirectAdmin
+          ? {
+              // preparePrincipalPolicyInTransaction just verified direct org admin
+              // access on a non-replay path under the org principal & read-model locks.
+              verifiedDirectAdmin: {
+                organizationId: input.organizationId,
+                userId: input.requesterUserId,
+              },
+            }
+          : undefined,
       )
     : null;
 }
@@ -142,16 +145,18 @@ async function commitInTransaction(
   // Check direct admin access against the intact predecessor directory.
   // Each apply still verifies the signed policy and its authority.
   // The organization lock remains held through all three policy writes.
-  const applyGroup = await preparePrincipalPolicyInTransaction(
-    tx,
-    groupInput,
-    identityTrustDomain,
-  );
+  const { apply: applyGroup, verifiedDirectAdmin } =
+    await preparePrincipalPolicyInTransaction(
+      tx,
+      groupInput,
+      identityTrustDomain,
+    );
   const member = await commitRosterEnrollment(
     tx,
     input,
     target.memberGroupId,
     identityTrustDomain,
+    verifiedDirectAdmin,
   );
   const group = await applyGroup();
   const organization = await putPrincipalPolicyInTransaction(

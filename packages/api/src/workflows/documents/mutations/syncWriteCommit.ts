@@ -1,6 +1,7 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import { getCurrentAccessManifestHeads } from "../../../access/read/accessManifestStore";
 import {
   type DocumentKekTargetsRead,
   type DocumentLinkSetFrontier,
@@ -8,6 +9,7 @@ import {
 } from "../../../access/read/documentKekTargets";
 import { getCurrentPrincipalStates } from "../../../access/read/principalStateStore";
 import { assertDocumentSyncBillingAllowed } from "../../billing/organizationSyncEligibility";
+import { loadLiveContainerOrganizations } from "../../containers/liveContainerRows";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { documentSyncStateStale } from "./errors";
@@ -248,6 +250,31 @@ async function principalPoliciesStillCurrent(
   return true;
 }
 
+async function pullPathStillCurrent(
+  executor: DatabaseTransaction,
+  prelockAccess: VerifiedDocumentAccessResult,
+): Promise<boolean> {
+  const { principalPolicies, verifiedPath } = prelockAccess.access;
+  const containerIds = verifiedPath.map((m) => m.state.containerId);
+  const currentHeads = await getCurrentAccessManifestHeads(
+    "container",
+    containerIds,
+    executor,
+  );
+  const headsMatch = verifiedPath.every(
+    (m) =>
+      currentHeads.get(m.state.containerId)?.manifestHash === m.manifestHash,
+  );
+  if (!headsMatch) return false;
+  const liveOrgs = await loadLiveContainerOrganizations(executor, containerIds);
+  const orgsMatch = verifiedPath.every(
+    (m) => liveOrgs.get(m.state.containerId) === m.state.organizationId,
+  );
+  return (
+    orgsMatch && principalPoliciesStillCurrent(executor, principalPolicies)
+  );
+}
+
 async function canReusePrelockSyncAccess(params: {
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
@@ -261,26 +288,28 @@ async function canReusePrelockSyncAccess(params: {
     | undefined;
   readonly prelockAccess: VerifiedDocumentAccessResult;
 }): Promise<boolean> {
-  if ((params.input.request.containerRekeys?.length ?? 0) > 0) {
-    return false;
-  }
+  if ((params.input.request.containerRekeys?.length ?? 0) > 0) return false;
   if (params.input.request.outgoingUpdates.length === 0) {
     return (
       params.currentTargets.linkSetManifestHash ===
-      params.frontier.linkSetManifestHash
+        params.frontier.linkSetManifestHash &&
+      pullPathStillCurrent(params.input.tx, params.prelockAccess)
     );
   }
   const { lockedContainerHeads, prelockAccess } = params;
-  if (!lockedContainerHeads) return false;
-  const headsStillCurrent = prelockAccess.access.verifiedPath.every(
-    (manifest) =>
-      lockedContainerHeads.get(manifest.state.containerId)?.manifestHash ===
-      manifest.manifestHash,
-  );
-  if (!headsStillCurrent) return false;
-  return principalPoliciesStillCurrent(
-    params.input.tx,
-    prelockAccess.access.principalPolicies,
+  const headsMatch =
+    lockedContainerHeads !== undefined &&
+    prelockAccess.access.verifiedPath.every(
+      (m) =>
+        lockedContainerHeads.get(m.state.containerId)?.manifestHash ===
+        m.manifestHash,
+    );
+  return (
+    headsMatch &&
+    principalPoliciesStillCurrent(
+      params.input.tx,
+      prelockAccess.access.principalPolicies,
+    )
   );
 }
 

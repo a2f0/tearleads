@@ -23,7 +23,7 @@ bun run perf:epoch render
 
 ## Epoch 2 Scorecard (`000-baseline` -> `004-api-repeats-plans`)
 
-Baseline `53819b364` -> Latest `3e3eb44e5` (5 checkpoints recorded).
+Baseline `53819b364` -> Latest `da79619ff` (5 checkpoints recorded).
 
 | Dimension | Metric | Baseline | Latest | Delta | Verdict |
 | --- | --- | ---: | ---: | ---: | --- |
@@ -38,14 +38,14 @@ Baseline `53819b364` -> Latest `3e3eb44e5` (5 checkpoints recorded).
 | Wire | Canary response bytes | 1,492,860 B | 1,398,775 B | -94,085 (-6.3%) | improved |
 | Wire | Canary redundant response bytes | 198,160 B | 188,401 B | -9,759 (-4.9%) | improved |
 | Wire | Exact-head policy re-reads | 42 reads | 37 reads | -5 (-11.9%) | improved |
-| API DB | Canary API SQL statements | 36,878 stmts | 32,420 stmts | -4,458 (-12.1%) | improved |
-| API DB | Canary API in-tx statements | 30,788 stmts | 27,388 stmts | -3,400 (-11%) | improved |
-| API DB | Canary API lock-hold statements | 22,227 stmts | 18,155 stmts | -4,072 (-18.3%) | improved |
-| API DB | Canary API pure read repeats | 4,744 repeats | 1,509 repeats | -3,235 (-68.2%) | improved |
-| Client SQLite | Canary client SQLite statements | 131,525 stmts | 125,239 stmts | -6,286 (-4.8%) | improved |
-| Client SQLite | Canary SQLite tx controls | 32,446 stmts | 30,614 stmts | -1,832 (-5.6%) | improved |
-| Client SQLite | Canary SQLite total duration | 13,058.2 ms | 12,639.8 ms | -418.4 (-3.2%) | unchanged |
-| Client SQLite | Canary SQLite max lock hold | 49.4 ms | 43.5 ms | -5.9 (-11.9%) | improved |
+| API DB | Canary API SQL statements | 36,878 stmts | 32,934 stmts | -3,944 (-10.7%) | improved |
+| API DB | Canary API in-tx statements | 30,788 stmts | 27,909 stmts | -2,879 (-9.4%) | improved |
+| API DB | Canary API lock-hold statements | 22,227 stmts | 18,671 stmts | -3,556 (-16%) | improved |
+| API DB | Canary API pure read repeats | 4,744 repeats | 1,681 repeats | -3,063 (-64.6%) | improved |
+| Client SQLite | Canary client SQLite statements | 131,525 stmts | 125,318 stmts | -6,207 (-4.7%) | improved |
+| Client SQLite | Canary SQLite tx controls | 32,446 stmts | 30,656 stmts | -1,790 (-5.5%) | improved |
+| Client SQLite | Canary SQLite total duration | 13,058.2 ms | 12,720.9 ms | -337.3 (-2.6%) | unchanged |
+| Client SQLite | Canary SQLite max lock hold | 49.4 ms | 76.5 ms | +27.1 (+54.9%) | REGRESSED |
 | Plans | Postgres generic Seq Scans | 0 queries | 0 queries | 0 | unchanged |
 | Plans | Postgres generic Sort plans | 3 queries | 1 queries | -2 (-66.7%) | improved |
 | Plans | Postgres generic Materialize plans | 1 queries | 0 queries | -1 (-100%) | improved |
@@ -69,4 +69,4 @@ Baseline `53819b364` -> Latest `3e3eb44e5` (5 checkpoints recorded).
 | `001-server-counts-parent-lanes` | checkpoint | `d7e01be58` | — | #3342 | Server update counts & parent-lane batch (#3342) | 12 improved, 2 regressed, 8 tradeoffs |
 | `002-realtime-subtree-interest` | checkpoint | `0aa3ec975` | — | #3353 | Subtree-root realtime interest & hub caps (#3353) | 10 improved, 0 regressed, 0 tradeoffs |
 | `003-loro-stale-recreation-rebase` | checkpoint | `d74895157` | — | #3263 | Preserved peer ownership, owner allow-restore, pull-only park, multi-segment recovery, causal closure (#3263) | 0 improved, 7 regressed, 0 tradeoffs |
-| `004-api-repeats-plans` | checkpoint | `3e3eb44e5` | — | #3396 | PR #7 (#3396 Leads 1 & 4): API tx memo and PG plans | 8 improved, 0 regressed, 0 tradeoffs |
+| `004-api-repeats-plans` | checkpoint | `da79619ff` | — | #3396 | PR #7 (#3396 Leads 1 & 4): API tx memo and PG plans | 7 improved, 2 regressed, 3 tradeoffs |

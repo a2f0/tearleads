@@ -247,7 +247,7 @@ export async function putPrincipalPolicyInTransaction(
       identityTrustDomain,
       options,
     )
-  )();
+  ).apply();
 }
 
 /** Check direct admin access and lock the read model before Members advances; apply verifies policy authority. */
@@ -260,23 +260,29 @@ export async function preparePrincipalPolicyInTransaction(
       | { readonly organizationId: string; readonly userId: string }
       | undefined;
   },
-): Promise<() => Promise<PutPrincipalPolicyResult>> {
+): Promise<{
+  readonly apply: () => Promise<PutPrincipalPolicyResult>;
+  readonly verifiedDirectAdmin: boolean;
+}> {
   await lockPolicyPrincipalMutation(tx, input);
-  const policyTarget = await lockOrganizationReadModelForPolicyMutation(
+  const locked = await lockOrganizationReadModelForPolicyMutation(
     tx,
     input,
     options,
   );
-  if (!policyTarget) {
+  if (!locked) {
     throw new PrincipalPolicyError("Principal policy target not found", 404);
   }
-  return () =>
-    applyPrincipalPolicyInTransaction(
-      tx,
-      input,
-      policyTarget.organizationId,
-      identityTrustDomain,
-    );
+  return {
+    apply: () =>
+      applyPrincipalPolicyInTransaction(
+        tx,
+        input,
+        locked.target.organizationId,
+        identityTrustDomain,
+      ),
+    verifiedDirectAdmin: locked.verifiedDirectAdmin,
+  };
 }
 
 async function applyPrincipalPolicyInTransaction(
