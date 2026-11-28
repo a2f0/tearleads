@@ -160,11 +160,10 @@ Model-specific gaps:
   stale stage's refusals are not exercised, and it has no clock: expiries are
   bounded, not timed. Its eventual commit holds under bounded writes and does
   not show a rotation that keeps pace with an unbounded writer.
-- `DiscoveryLaneResumption` fixes the server's documents before sign-in and
-  bounds crashes and deferrals. A peer write after a lane settles, and a hint
-  for it lost to a reload, are outside it; `DocumentListingConvergence`
-  covers edits to documents the device holds. It assumes a pending connect
-  attempt resolves, acknowledged or ended.
+- `DiscoveryLaneResumption` bounds crashes, deferrals, and post-sign-in peer
+  writes, so its liveness properties check convergence to a quiescent server;
+  `DocumentListingConvergence` covers content edits for documents the device
+  holds. It assumes a pending connect attempt resolves, acknowledged or ended.
 - `RestartProbeConvergence` and the honest `NoBrickedDevice` configuration bound
   the number of server writes, so their eventual-convergence checks reach a
   quiescent server; they do not show catch-up under unbounded writes.

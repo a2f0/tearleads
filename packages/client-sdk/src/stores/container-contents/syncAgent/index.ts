@@ -338,10 +338,12 @@ export function prepareContainerContentsStoreSyncAgent(input: AgentInput): {
   ) => observeContainerBackgroundHydration(state, requestHydration(options));
   const refresh: ContainerContentsStoreSyncAgent["refresh"] = (options) =>
     refreshAllRemoteHydration({
+      onFullyHydrated: options?.onFullyHydrated,
       // Explicit user refresh must rediscover children hidden by unsigned hints.
       resetAllLaneWatermarks: options?.resetAllLaneWatermarks,
       reconnect: options?.reconnect,
       requestHydration: requestRefreshHydration,
+      scheduleSyncAfterHydration: options?.scheduleSyncAfterHydration,
       state,
     });
   const handleRemoteEvents = () =>

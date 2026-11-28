@@ -151,6 +151,15 @@ export interface ContainerContentsStore {
     accessLevel: ContainerContentsShareAccessLevel,
     options?: { requireExistingGrant?: boolean } | undefined,
   ) => Promise<ContainerGroupRewrapPreparation | null>;
+  /**
+   * Watermarked tree crawl for unacknowledged catch-up. Returns `true` when
+   * every queued parent lane listed and applied cleanly, so containers whose
+   * row was not served did not move; `false` when it stopped short, refused a
+   * row, or could not run.
+   */
+  crawlTreeForCatchUp: (
+    options?: ContainerTreeRefreshObserver,
+  ) => Promise<boolean>;
   refresh: (options?: ContainerTreeRefreshObserver) => Promise<boolean>;
   refreshRootLane: (
     options?: RefreshRootLaneOptions & ContainerTreeRefreshObserver,

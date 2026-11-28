@@ -11,10 +11,13 @@ import {
  * root catch-up set. `acknowledged` catches up after an acknowledged
  * connection: once the tree crawl that connection owes has settled, it lists
  * the document lanes that are owed a listing, or every known lane when that
- * crawl did not vouch for the rest. `full` also refreshes the whole tree and
+ * crawl did not vouch for the rest. `unacknowledged` performs the same
+ * watermarked catch-up without waiting on an acknowledged connection, running
+ * its own watermarked tree crawl first so settled folders whose server row
+ * moved owe a listing. `full` also refreshes the whole tree from scratch and
  * revalidates every registered document.
  */
-export type RefreshScope = "root" | "acknowledged" | "full";
+export type RefreshScope = "root" | "acknowledged" | "unacknowledged" | "full";
 
 /**
  * One refresh every joining caller shares; see `sharedRefreshMachine.ts` for

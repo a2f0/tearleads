@@ -7,19 +7,20 @@
 (* is staged durably and an in-memory timer retries the lane. A reload can *)
 (* stop the process anywhere: the queue, the listing in flight, the timers *)
 (* and the socket are lost; the projection, the cursor, the lane's settled *)
-(* mark and the staged candidates survive. A later start publishes the     *)
-(* cached tree and raises no hint for a lane the tree already holds.       *)
+(* mark, the tree watermark, revalidation requests, and staged candidates  *)
+(* survive. A later start publishes the cached tree and raises no hint for *)
+(* a lane the tree already holds.                                          *)
 (*                                                                         *)
-(* Two things list lanes at a later start. The catch-up after an           *)
-(* acknowledged connection lists every known lane, but a connect attempt   *)
-(* may end without an acknowledgement, and a device may not connect at     *)
-(* all. A resume lists the lanes the durable state says are still owed.    *)
-(* It waits while an attempt is pending, so that attempt's catch-up never  *)
-(* re-lists what the resume listed. A connection made after the resume     *)
-(* ran is a new catch-up and lists every lane again.                       *)
-(*                                                                         *)
-(* Each lane holds one document the device lacks. The server's documents   *)
-(* are fixed: the account's content exists before this device signs in.    *)
+(* Peers may also write new documents or edits after a lane settles. When  *)
+(* the socket is acknowledged, realtime hints queue the lane; otherwise    *)
+(* the hint is lost and the server's container row sits past the device's  *)
+(* tree watermark. Two paths catch up on a later start: an acknowledged    *)
+(* connection's crawl and sweep, or an unacknowledged start's resume,      *)
+(* which runs a watermarked tree crawl to owe moved lanes and lists every  *)
+(* owed lane (waiting while a connect attempt is pending so that attempt's *)
+(* catch-up never re-lists what the resume listed). While the device stays *)
+(* online without an acknowledged connection, a periodic watermarked catch-*)
+(* up discovers peer writes made after startup.                            *)
 (***************************************************************************)
 EXTENDS Naturals, FiniteSets
 
@@ -27,6 +28,8 @@ CONSTANTS Lanes,
   MaxCrashes,
   \* Times verification may defer a candidate before its head is available.
   MaxDeferrals,
+  \* Peer writes committed to the server after sign-in.
+  MaxPeerWrites,
   \* A start that no acknowledgement catches up queues its owed lanes.
   ResumeOwedOnStart,
   \* A start whose connect attempt is pending leaves the owed lanes to it.
@@ -34,110 +37,146 @@ CONSTANTS Lanes,
   \* The settled mark is written with the applied listing, not on receipt.
   SettleWithApply,
   \* An applied listing that deferred a candidate does not settle its lane.
-  SettleOnlyWhenComplete
+  SettleOnlyWhenComplete,
+  \* An unacknowledged start crawls the tree from its watermark before listing.
+  CatchUpSettledOnUnacknowledgedStart,
+  \* While unacknowledged after startup, periodic catch-up crawls the tree.
+  PollWhileUnacknowledged
 
-ASSUME /\ MaxCrashes \in Nat /\ MaxDeferrals \in Nat
+ASSUME /\ MaxCrashes \in Nat /\ MaxDeferrals \in Nat /\ MaxPeerWrites \in Nat
        /\ ResumeOwedOnStart \in BOOLEAN /\ DeferToAcknowledgement \in BOOLEAN
        /\ SettleWithApply \in BOOLEAN /\ SettleOnlyWhenComplete \in BOOLEAN
+       /\ CatchUpSettledOnUnacknowledgedStart \in BOOLEAN
+       /\ PollWhileUnacknowledged \in BOOLEAN
+
+Versions == 0..(1 + MaxPeerWrites)
+ServerVersions == 1..(1 + MaxPeerWrites)
 
 VARIABLES
-  \* Durable, per lane: the document is in the local projection; the cursor
-  \* has passed it; the lane row carries its settled mark; a candidate waits
-  \* in the staged-discovery table.
-  applied, cursor, settled, staged,
-  \* Process-local: the process runs; its start has published the tree; the
-  \* reconcile queue; the lanes of the listing in flight and whether each
-  \* page held the document; the lanes whose retry timer is armed.
+  \* Server-side version per lane (starts at 1 for initial account content).
+  serverDoc,
+  \* Durable, per lane: highest version applied to projection; document lane
+  \* cursor; lane settled mark; staged candidate version; tree watermark;
+  \* durable document_lane_revalidations request.
+  applied, cursor, settled, staged, treeCursor, revalOwed,
+  \* Process-local: process runs; start published the tree; reconcile queue;
+  \* lanes of listing in flight and version each page held; armed retry timers.
   up, started, queued, listed, page, retry,
-  \* Process-local: the socket ("none", "pending" while a connect attempt
-  \* awaits its acknowledgement, "open"); an acknowledgement that arrived
-  \* before the start; the resume machine; and whether the resume listed
-  \* owed lanes while the current attempt was pending.
+  \* Process-local: socket ("none", "pending", "open"); latched ack before
+  \* start; resume machine; whether resume listed while an attempt was pending.
   conn, ackLatched, resume, resumedDuringAttempt,
-  \* History: one attempt's catch-up re-listed lanes its start's resume had
-  \* already listed.
-  listedTwice,
-  crashes, deferrals
+  \* History: an attempt's catch-up re-listed lanes its start's resume listed;
+  \* an unacknowledged start ran resume without crawling moved tree lanes.
+  listedTwice, startMissedMove,
+  crashes, deferrals, peerWrites
 
-durableVars == <<applied, cursor, settled, staged>>
+durableVars == <<applied, cursor, settled, staged, treeCursor, revalOwed>>
 processVars == <<up, started, queued, listed, page, retry>>
 connVars == <<conn, ackLatched, resume, resumedDuringAttempt>>
-vars == <<durableVars, processVars, connVars, listedTwice, crashes, deferrals>>
+historyVars == <<listedTwice, startMissedMove>>
+budgetVars == <<crashes, deferrals, peerWrites>>
+vars == <<serverDoc, durableVars, processVars, connVars, historyVars, budgetVars>>
 
-\* The lane still owes a listing: it was never settled, or it holds a
-\* staged candidate.
-Owed(l) == ~settled[l] \/ staged[l]
+\* The lane still owes a listing: never settled, holding a staged candidate,
+\* or requested by a tree crawl that saw its server container row move.
+Owed(l) == ~settled[l] \/ staged[l] > 0 \/ revalOwed[l]
 OwedLanes == {l \in Lanes : Owed(l)}
+MovedLanes == {l \in Lanes : serverDoc[l] > treeCursor[l]}
 
 TypeOK ==
-  /\ applied \in [Lanes -> BOOLEAN] /\ cursor \in [Lanes -> BOOLEAN]
-  /\ settled \in [Lanes -> BOOLEAN] /\ staged \in [Lanes -> BOOLEAN]
+  /\ serverDoc \in [Lanes -> ServerVersions]
+  /\ applied \in [Lanes -> Versions] /\ cursor \in [Lanes -> Versions]
+  /\ settled \in [Lanes -> BOOLEAN] /\ staged \in [Lanes -> Versions]
+  /\ treeCursor \in [Lanes -> ServerVersions]
+  /\ revalOwed \in [Lanes -> BOOLEAN]
   /\ up \in BOOLEAN /\ started \in BOOLEAN
   /\ queued \subseteq Lanes /\ listed \subseteq Lanes /\ retry \subseteq Lanes
-  /\ page \in [Lanes -> BOOLEAN]
+  /\ page \in [Lanes -> Versions]
   /\ conn \in {"none", "pending", "open"} /\ ackLatched \in BOOLEAN
   /\ resume \in {"awaiting-hydration", "awaiting-acknowledgement", "done"}
-  /\ resumedDuringAttempt \in BOOLEAN /\ listedTwice \in BOOLEAN
+  /\ resumedDuringAttempt \in BOOLEAN
+  /\ listedTwice \in BOOLEAN /\ startMissedMove \in BOOLEAN
   /\ crashes \in 0..MaxCrashes /\ deferrals \in 0..MaxDeferrals
+  /\ peerWrites \in 0..MaxPeerWrites
 
-\* The sign-in boot learns every lane from the remote tree, and membership
-\* growth queues them all.
+\* The sign-in boot learns every lane from the remote tree (version 1), and
+\* membership growth queues them all.
 Init ==
-  /\ applied = [l \in Lanes |-> FALSE] /\ cursor = [l \in Lanes |-> FALSE]
-  /\ settled = [l \in Lanes |-> FALSE] /\ staged = [l \in Lanes |-> FALSE]
+  /\ serverDoc = [l \in Lanes |-> 1]
+  /\ applied = [l \in Lanes |-> 0] /\ cursor = [l \in Lanes |-> 0]
+  /\ settled = [l \in Lanes |-> FALSE] /\ staged = [l \in Lanes |-> 0]
+  /\ treeCursor = [l \in Lanes |-> 1] /\ revalOwed = [l \in Lanes |-> FALSE]
   /\ up = TRUE /\ started = TRUE /\ queued = Lanes /\ listed = {}
-  /\ page = [l \in Lanes |-> FALSE] /\ retry = {}
+  /\ page = [l \in Lanes |-> 0] /\ retry = {}
   /\ conn = "none" /\ ackLatched = FALSE /\ resume = "done"
   /\ resumedDuringAttempt = FALSE /\ listedTwice = FALSE
-  /\ crashes = 0 /\ deferrals = 0
+  /\ startMissedMove = FALSE
+  /\ crashes = 0 /\ deferrals = 0 /\ peerWrites = 0
 
-\* The resume queues the owed lanes. Listing them while an attempt is
+\* Watermarked tree crawl: advances treeCursor and records durable
+\* document_lane_revalidations for every container whose row moved.
+CrawlTreeVars ==
+  /\ treeCursor' = serverDoc
+  /\ revalOwed' = [l \in Lanes |-> revalOwed[l] \/ l \in MovedLanes]
+
+\* The resume catches up an unacknowledged start: crawls the tree when
+\* enabled, then lists every owed lane. Listing while an attempt is
 \* `connecting` means that attempt's catch-up will list them again.
 ResumeOwed(connecting) ==
-  /\ queued' = IF ResumeOwedOnStart THEN queued \cup OwedLanes ELSE queued
-  /\ resumedDuringAttempt' =
-       (ResumeOwedOnStart /\ OwedLanes # {} /\ connecting)
+  LET crawled == CatchUpSettledOnUnacknowledgedStart
+      owedNow == {l \in Lanes : Owed(l) \/ (crawled /\ l \in MovedLanes)}
+  IN /\ treeCursor' = IF ResumeOwedOnStart /\ crawled THEN serverDoc ELSE treeCursor
+     /\ revalOwed' = IF ResumeOwedOnStart /\ crawled
+                     THEN [l \in Lanes |-> revalOwed[l] \/ l \in MovedLanes]
+                     ELSE revalOwed
+     /\ queued' = IF ResumeOwedOnStart THEN queued \cup owedNow ELSE queued
+     /\ resumedDuringAttempt' =
+          (ResumeOwedOnStart /\ owedNow # {} /\ connecting)
+     /\ startMissedMove' =
+          (startMissedMove \/ (ResumeOwedOnStart /\ ~crawled /\ MovedLanes # {}))
 
 \* A later start publishes the cached tree: the hydrated signal and one
 \* step of the resume machine. An acknowledgement latched before it raises
-\* the catch-up, which lists every lane.
+\* the catch-up, which crawls the tree and lists every lane.
 Start ==
   /\ up /\ ~started
   /\ started' = TRUE
   /\ IF ackLatched
-       THEN /\ queued' = Lanes /\ resume' = "done" /\ ackLatched' = FALSE
-            /\ UNCHANGED resumedDuringAttempt
+       THEN /\ CrawlTreeVars /\ queued' = Lanes /\ resume' = "done"
+            /\ ackLatched' = FALSE
+            /\ UNCHANGED <<resumedDuringAttempt, startMissedMove>>
        ELSE IF DeferToAcknowledgement /\ conn = "pending"
          THEN /\ resume' = "awaiting-acknowledgement"
-              /\ UNCHANGED <<queued, ackLatched, resumedDuringAttempt>>
+              /\ UNCHANGED <<treeCursor, revalOwed, queued, ackLatched,
+                             resumedDuringAttempt, startMissedMove>>
          ELSE /\ resume' = "done" /\ ResumeOwed(conn = "pending")
               /\ UNCHANGED ackLatched
-  /\ UNCHANGED <<durableVars, up, listed, page, retry, conn, listedTwice,
-                 crashes, deferrals>>
+  /\ UNCHANGED <<serverDoc, applied, cursor, settled, staged, up, listed,
+                 page, retry, conn, listedTwice, budgetVars>>
 
 \* A connect attempt starts. Nothing obliges a device to connect.
 Connect ==
   /\ up /\ conn = "none"
   /\ conn' = "pending"
-  /\ UNCHANGED <<durableVars, processVars, ackLatched, resume,
-                 resumedDuringAttempt, listedTwice, crashes, deferrals>>
+  /\ UNCHANGED <<serverDoc, durableVars, processVars, ackLatched, resume,
+                 resumedDuringAttempt, historyVars, budgetVars>>
 
 \* The server acknowledges the interest declaration. After the start, the
-\* catch-up lists every known lane; before it, the acknowledgement latches.
+\* catch-up crawls the tree and lists every known lane; before it, latches.
 Acknowledge ==
   /\ up /\ conn = "pending"
   /\ conn' = "open"
   /\ IF started
-       THEN /\ queued' = Lanes
+       THEN /\ CrawlTreeVars /\ queued' = Lanes
             /\ resume' = IF resume = "awaiting-acknowledgement"
                          THEN "done" ELSE resume
             /\ listedTwice' = (listedTwice \/ resumedDuringAttempt)
             /\ UNCHANGED ackLatched
        ELSE /\ ackLatched' = TRUE
-            /\ UNCHANGED <<queued, resume, listedTwice>>
+            /\ UNCHANGED <<treeCursor, revalOwed, queued, resume, listedTwice>>
   /\ resumedDuringAttempt' = FALSE
-  /\ UNCHANGED <<durableVars, up, started, listed, page, retry, crashes,
-                 deferrals>>
+  /\ UNCHANGED <<serverDoc, applied, cursor, settled, staged, up, started,
+                 listed, page, retry, startMissedMove, budgetVars>>
 
 \* The attempt ends without an acknowledgement: a ticket or socket failure,
 \* or a socket that never declares its interest. A waiting resume runs.
@@ -147,82 +186,114 @@ AttemptEnds ==
   /\ IF started /\ resume = "awaiting-acknowledgement"
        THEN /\ resume' = "done" /\ ResumeOwed(FALSE)
        ELSE /\ resumedDuringAttempt' = FALSE
-            /\ UNCHANGED <<queued, resume>>
-  /\ UNCHANGED <<durableVars, up, started, listed, page, retry, ackLatched,
-                 listedTwice, crashes, deferrals>>
+            /\ UNCHANGED <<treeCursor, revalOwed, queued, resume, startMissedMove>>
+  /\ UNCHANGED <<serverDoc, applied, cursor, settled, staged, up, started,
+                 listed, page, retry, ackLatched, listedTwice, budgetVars>>
 
 Disconnect ==
   /\ up /\ conn = "open"
   /\ conn' = "none"
-  /\ UNCHANGED <<durableVars, processVars, ackLatched, resume,
-                 resumedDuringAttempt, listedTwice, crashes, deferrals>>
+  /\ UNCHANGED <<serverDoc, durableVars, processVars, ackLatched, resume,
+                 resumedDuringAttempt, historyVars, budgetVars>>
 
-\* One batched listing pages every queued lane from its cursor. A later
-\* start's reconciler takes up to four lanes per run; the model folds those
-\* runs into one listing, since a lane a reload leaves unlisted stays owed.
+\* A peer writes a new document or edit to a lane. When the device holds an
+\* acknowledged connection, a realtime hint queues that lane; otherwise the
+\* hint is lost and the container row sits past treeCursor.
+PeerWrite(l) ==
+  /\ peerWrites < MaxPeerWrites
+  /\ serverDoc' = [serverDoc EXCEPT ![l] = @ + 1]
+  /\ peerWrites' = peerWrites + 1
+  /\ queued' = IF up /\ started /\ conn = "open" THEN queued \cup {l} ELSE queued
+  /\ UNCHANGED <<durableVars, up, started, listed, page, retry, connVars,
+                 historyVars, crashes, deferrals>>
+
+\* Periodic watermarked catch-up while online without an acknowledged socket.
+\* Runs even across flapping reconnect attempts (`conn # "open"`) once the
+\* start's resume machine is done so retries cannot starve catch-up.
+PollUnacknowledged ==
+  /\ PollWhileUnacknowledged
+  /\ up /\ started /\ conn # "open" /\ resume = "done"
+  /\ MovedLanes # {}
+  /\ CrawlTreeVars
+  /\ queued' = queued \cup {l \in Lanes : Owed(l) \/ l \in MovedLanes}
+  /\ UNCHANGED <<serverDoc, applied, cursor, settled, staged, up, started,
+                 listed, page, retry, connVars, historyVars, budgetVars>>
+
+\* One batched listing pages every queued lane from its cursor.
 BeginListing ==
   /\ up /\ started /\ queued # {} /\ listed = {}
   /\ listed' = queued /\ queued' = {}
-  /\ page' = [l \in Lanes |-> IF l \in queued THEN ~cursor[l] ELSE page[l]]
+  /\ page' = [l \in Lanes |->
+       IF l \in queued
+         THEN IF serverDoc[l] > cursor[l] THEN serverDoc[l] ELSE 0
+         ELSE page[l]]
   /\ settled' = IF SettleWithApply THEN settled
                 ELSE [l \in Lanes |-> settled[l] \/ l \in queued]
-  /\ UNCHANGED <<applied, cursor, staged, up, started, retry, connVars,
-                 listedTwice, crashes, deferrals>>
+  /\ UNCHANGED <<serverDoc, applied, cursor, staged, treeCursor, revalOwed,
+                 up, started, retry, connVars, historyVars, budgetVars>>
 
-\* Verification covers the listed document and any staged candidate. When
-\* it does not `accept`, the candidate is deferred: staged durably, with the
-\* lane's retry timer armed. The cursor and the settled mark are written in
-\* one statement after the lane applies.
-Candidate(l) == page[l] \/ staged[l]
+\* Verification covers the listed document and any staged candidate. When it
+\* does not `accept`, the candidate is deferred durably and retried via timer.
+Candidate(l) == IF page[l] >= staged[l] THEN page[l] ELSE staged[l]
 
 ApplyLane(l, accept) ==
   /\ up /\ l \in listed
-  /\ accept \/ (Candidate(l) /\ deferrals < MaxDeferrals)
-  /\ LET pending == Candidate(l) /\ ~accept
-     IN /\ applied' = [applied EXCEPT ![l] = applied[l] \/ (Candidate(l) /\ accept)]
-        /\ staged' = [staged EXCEPT ![l] = pending]
-        /\ cursor' = [cursor EXCEPT ![l] = cursor[l] \/ page[l]]
+  /\ accept \/ (Candidate(l) > 0 /\ deferrals < MaxDeferrals)
+  /\ LET cand == Candidate(l)
+         pending == cand > 0 /\ ~accept
+         nextCursor == IF page[l] > cursor[l] THEN page[l] ELSE cursor[l]
+     IN /\ applied' = [applied EXCEPT ![l] =
+              IF cand > 0 /\ accept /\ cand > @ THEN cand ELSE @]
+        /\ staged' = [staged EXCEPT ![l] = IF pending THEN cand ELSE 0]
+        /\ cursor' = [cursor EXCEPT ![l] = nextCursor]
         /\ settled' = [settled EXCEPT ![l] =
              settled[l] \/ (SettleWithApply /\ (~pending \/ ~SettleOnlyWhenComplete))]
+        /\ revalOwed' = [revalOwed EXCEPT ![l] =
+             IF ~pending /\ nextCursor >= treeCursor[l] THEN FALSE ELSE @]
         /\ retry' = IF pending THEN retry \cup {l} ELSE retry
         /\ deferrals' = IF pending THEN deferrals + 1 ELSE deferrals
   /\ listed' = listed \ {l}
-  /\ UNCHANGED <<up, started, queued, page, connVars, listedTwice, crashes>>
+  /\ UNCHANGED <<serverDoc, treeCursor, up, started, queued, page, connVars,
+                 historyVars, crashes, peerWrites>>
 
 \* The in-memory retry timer for a deferred candidate fires.
 RetryLane(l) ==
   /\ up /\ l \in retry
   /\ retry' = retry \ {l} /\ queued' = queued \cup {l}
-  /\ UNCHANGED <<durableVars, up, started, listed, page, connVars,
-                 listedTwice, crashes, deferrals>>
+  /\ UNCHANGED <<serverDoc, durableVars, up, started, listed, page, connVars,
+                 historyVars, budgetVars>>
 
 \* A reload or process exit, at any point.
 Crash ==
   /\ up /\ crashes < MaxCrashes
   /\ up' = FALSE /\ started' = FALSE /\ queued' = {} /\ listed' = {}
-  /\ page' = [l \in Lanes |-> FALSE] /\ retry' = {}
+  /\ page' = [l \in Lanes |-> 0] /\ retry' = {}
   /\ conn' = "none" /\ ackLatched' = FALSE /\ resume' = "awaiting-hydration"
   /\ resumedDuringAttempt' = FALSE
   /\ crashes' = crashes + 1
-  /\ UNCHANGED <<durableVars, listedTwice, deferrals>>
+  /\ UNCHANGED <<serverDoc, durableVars, historyVars, deferrals, peerWrites>>
 
 Restart ==
   /\ ~up
   /\ up' = TRUE
-  /\ UNCHANGED <<durableVars, started, queued, listed, page, retry, connVars,
-                 listedTwice, crashes, deferrals>>
+  /\ UNCHANGED <<serverDoc, durableVars, started, queued, listed, page, retry,
+                 connVars, historyVars, budgetVars>>
 
 Next ==
-  \/ Start \/ BeginListing \/ Crash \/ Restart
+  \/ Start \/ BeginListing \/ PollUnacknowledged \/ Crash \/ Restart
   \/ Connect \/ Acknowledge \/ AttemptEnds \/ Disconnect
-  \/ \E l \in Lanes : RetryLane(l) \/ \E accept \in BOOLEAN : ApplyLane(l, accept)
-  \* The bounded crash and deferral budgets leave a quiescent end state.
+  \/ \E l \in Lanes :
+       \/ PeerWrite(l)
+       \/ RetryLane(l)
+       \/ \E accept \in BOOLEAN : ApplyLane(l, accept)
+  \* Bounded crash, deferral, and peer-write budgets leave a quiescent state.
   \/ UNCHANGED vars
 
-\* The device's own steps are fair, and a pending connect attempt resolves:
-\* it is acknowledged or it ends. Nothing makes the device connect.
+\* The device's own steps (including periodic unacknowledged catch-up) are
+\* fair, and a pending connect attempt resolves. Nothing forces a connect.
 Fairness ==
   /\ WF_vars(Start) /\ WF_vars(BeginListing) /\ WF_vars(Restart)
+  /\ WF_vars(PollUnacknowledged)
   /\ WF_vars(Acknowledge \/ AttemptEnds)
   /\ \A l \in Lanes :
        /\ WF_vars(RetryLane(l))
@@ -230,19 +301,25 @@ Fairness ==
 
 Spec == Init /\ [][Next]_vars /\ Fairness
 
-\* A lane whose document is missing still owes a listing, durably.
-UnappliedLaneIsOwed == \A l \in Lanes : ~applied[l] => Owed(l)
+\* Any lane behind the version its tree crawl observed still owes a listing.
+UnappliedLaneIsOwed == \A l \in Lanes : applied[l] < treeCursor[l] => Owed(l)
 
-\* The settled mark means the lane's documents are in the projection.
-SettledLaneIsApplied == \A l \in Lanes : settled[l] => applied[l]
+\* A settled lane without a pending revalidation holds every version its tree
+\* crawl observed.
+SettledLaneIsApplied ==
+  \A l \in Lanes : (settled[l] /\ ~revalOwed[l]) => applied[l] >= treeCursor[l]
 
 \* An attempt's catch-up never re-lists what the same start's resume listed
 \* while that attempt was pending. A later connection may list it again.
 OwedListedOnce == ~listedTwice
 
-\* Once crashes stop, every lane's document reaches the projection, whether
-\* or not any connection is ever acknowledged.
-Converges == <>[](\A l \in Lanes : applied[l])
+\* An unacknowledged start crawls the tree so settled lanes whose server row
+\* moved are owed and queued immediately rather than skipped on resume.
+UnacknowledgedStartCoversMovedLanes == ~startMissedMove
+
+\* Once crashes and peer writes stop, every lane's latest document reaches
+\* the projection, whether or not any connection is ever acknowledged.
+Converges == <>[](\A l \in Lanes : applied[l] = serverDoc[l])
 
 \* Every lane is eventually settled, so later resumes list nothing.
 LanesSettle == <>[](\A l \in Lanes : ~Owed(l))

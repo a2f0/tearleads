@@ -30,7 +30,7 @@ function forgetIneligibleDiscoveredContainers(
  * listing itself, and a lane that cannot be listed has its documents probed.
  */
 function listsLanesUnforced(scope: RefreshScope): boolean {
-  return scope === "acknowledged";
+  return scope === "acknowledged" || scope === "unacknowledged";
 }
 
 /** Sweeps the known containers as `scope` asks; see `RefreshScope`. */
@@ -268,7 +268,10 @@ function joinsPendingRefresh(
   if (pending.stopping) return false;
   // Each catch-up plans from its own crawl's verdict, so one never joins
   // another's sweep: the earlier one may vouch for what the later may not.
-  if (scope === "acknowledged" && pending.scope === "acknowledged") {
+  if (
+    (scope === "acknowledged" && pending.scope === "acknowledged") ||
+    (scope === "unacknowledged" && pending.scope === "unacknowledged")
+  ) {
     return false;
   }
   return (

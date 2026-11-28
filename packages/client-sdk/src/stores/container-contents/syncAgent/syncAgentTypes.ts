@@ -32,8 +32,10 @@ export interface ContainerContentsStoreSyncAgent {
   ) => Promise<void>;
   refreshLocalContainers: () => Promise<void>;
   refresh: (options?: {
+    onFullyHydrated?: (() => Promise<void> | void) | undefined;
     reconnect?: ReconnectCrawl | undefined;
-    resetAllLaneWatermarks?: boolean;
+    resetAllLaneWatermarks?: boolean | undefined;
+    scheduleSyncAfterHydration?: boolean | undefined;
   }) => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestRemoteHydration: (options?: {

@@ -40,7 +40,10 @@ export function createTreeRefreshMethods(
     ContainerContentsStoreSyncAgent,
     "refresh" | "refreshRootLane"
   >,
-): Pick<ContainerContentsStore, "refresh" | "refreshRootLane"> {
+): Pick<
+  ContainerContentsStore,
+  "crawlTreeForCatchUp" | "refresh" | "refreshRootLane"
+> {
   const observe = async (
     refresh: () => Promise<boolean>,
     observer: ContainerTreeRefreshObserver | undefined,
@@ -53,6 +56,27 @@ export function createTreeRefreshMethods(
     return started;
   };
   return {
+    crawlTreeForCatchUp: async (options) => {
+      let completed = false;
+      let unavailable = false;
+      const started = await observe(
+        () =>
+          syncAgent.refresh({
+            onFullyHydrated: () => {
+              completed = true;
+            },
+            resetAllLaneWatermarks: false,
+            scheduleSyncAfterHydration: false,
+          }),
+        {
+          onListingUnavailable: () => {
+            unavailable = true;
+            options?.onListingUnavailable?.();
+          },
+        },
+      );
+      return started && completed && !unavailable;
+    },
     refresh: (options) =>
       observe(
         () => syncAgent.refresh({ resetAllLaneWatermarks: true }),

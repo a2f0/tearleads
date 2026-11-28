@@ -213,11 +213,11 @@ test("a cut-short boot leaves an owed shared folder lane that converges after re
   expectNoSecurityIncidents(world);
 }, 240_000);
 
-// Open issue #3291: once a shared folder's document lane has settled, starting
-// without an acknowledged realtime connection never re-lists that lane, so a
-// document a peer added while this device was closed is missed until the user
-// opens the folder or a connection is acknowledged.
-test.failing("#3291: a settled shared folder discovers a peer's new document without an acknowledged connection", async () => {
+// Issue #3291: once a shared folder's document lane has settled, starting
+// without an acknowledged realtime connection crawls the tree from its
+// watermark so a settled folder whose server row moved owes a listing,
+// discovering peer additions and edits while leaving untouched folders quiet.
+test("#3291: a settled shared folder discovers a peer's new document without an acknowledged connection", async () => {
   world = await World.create();
   const alice = await world.register("alice");
   const bob = await world.register("bob");
@@ -245,9 +245,69 @@ test.failing("#3291: a settled shared folder discovers a peer's new document wit
   // The connect attempt ends without an interest acknowledgement.
   bobDevice.sdk.events.endConnectAttempt(attempt);
   handle.view.updateRuntime(bobDevice.sdk.containerContents.workflowRuntime());
+  await until(
+    async () =>
+      (await localDocumentText(bobDevice, lateDoc.documentId)) ===
+      "added offline",
+    "settled shared folder to discover Alice's new document without realtime",
+  );
   await settleQuiet(bobDevice, 400);
 
   expect(
     await bobDevice.sdk.documents.findLocalIdByDocumentId(lateDoc.documentId),
   ).not.toBeNull();
+  expectNoSecurityIncidents(world);
+}, 180_000);
+
+test("#3291: a quiet settled folder sends no document listing on an unacknowledged restart, and pulls a peer edit", async () => {
+  world = await World.create();
+  const alice = await world.register("alice");
+  const bob = await world.register("bob");
+  await world.addToOrganization(alice, bob);
+  const folder = await world.createFolder(alice, world.root(alice), "Shared");
+  const doc = await world.createDocument(alice, folder, "v1");
+  await world.shareWithUser(alice, folder, bob);
+
+  const initialBob = bob.devices[0];
+  if (!initialBob) throw new Error("Expected Bob's device");
+  let bobDevice: Device = initialBob;
+  await startAcknowledgedDeviceFirst(bobDevice);
+  await until(
+    async () => (await localDocumentText(bobDevice, doc.documentId)) === "v1",
+    "Bob to hydrate initial shared document",
+  );
+  await settleQuiet(bobDevice);
+
+  // One warmup reload settles every lane watermark left by the initial boot.
+  bobDevice = await world.reloadDevice(bob, bobDevice);
+  await startAcknowledgedDeviceFirst(bobDevice);
+  await settleQuiet(bobDevice);
+
+  // Quiet unacknowledged restart: watermarked tree crawl vouches for every
+  // settled folder, so zero document-lane queries or note syncs are sent.
+  bobDevice = await world.reloadDevice(bob, bobDevice);
+  const quietFrom = bobDevice.transport.history.length;
+  const quietHandle = await bobDevice.openDeviceFirst();
+  await settleQuiet(bobDevice, 400);
+  const quietTraffic = bobDevice.transport.history.slice(quietFrom);
+  expect(
+    quietTraffic.filter(
+      ({ method, path }) =>
+        method === "POST" &&
+        (path === "/containers/documents/query" ||
+          path === `/documents/${doc.documentId}/sync`),
+    ),
+  ).toEqual([]);
+  expect(quietHandle.view.getSnapshot().ready).toBe(true);
+
+  // Alice edits the already-settled document while Bob restarts unacknowledged.
+  await world.editDocument(alice, doc, "v2");
+  bobDevice = await world.reloadDevice(bob, bobDevice);
+  await bobDevice.openDeviceFirst();
+  await until(
+    async () => (await localDocumentText(bobDevice, doc.documentId)) === "v2",
+    "Bob to pull peer edit to settled document without realtime",
+  );
+  await settleQuiet(bobDevice, 400);
+  expectNoSecurityIncidents(world);
 }, 180_000);

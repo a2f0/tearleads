@@ -192,26 +192,25 @@ listing that read the request before it was sent settles it
 ([which lanes a catch-up lists](../document-listing-coverage.md#which-lanes-a-catch-up-lists)).
 
 The catch-up after an acknowledged connection lists every owed lane, but a
-start may never get one: the socket can open without
-declaring its interest, or realtime can be down while HTTP works. So the
-local projection decides at hydration
-([`owedDiscoveryResumeMachine.ts`](../../packages/client-sdk/src/stores/local-projection/owedDiscoveryResumeMachine.ts)).
-With no connect attempt pending, it raises `owed-discovery` and the
-reconciler queues every owed known lane at idle priority. While an attempt is
-pending, it waits: an acknowledgement leaves the owed lanes to its catch-up,
-and an attempt that ends without one, or is replaced by a reconnect, resumes
-them. So an acknowledgement that arrives while the start waits lists each
-owed lane once, in its catch-up, and a device whose sign-in boot was cut
-short still lists the Contacts and organization lanes it never applied, at
-one listing per four owed lanes. Once the resume has run, a connection that
-starts or is acknowledged later, a replacing reconnect included, is a new
-catch-up: it lists the lanes still owed and the lanes its tree crawl is
-served. A settled lane is not listed by the resume; later remote changes
-reach it through hints, a visit, or the next acknowledged connection, whose
-tree crawl is served the lane's container when the lane moved.
+start may never get one: realtime can be down while HTTP works. So the local
+projection decides at hydration
+([`owedDiscoveryResumeMachine.ts`](../../packages/client-sdk/src/stores/local-projection/owedDiscoveryResumeMachine.ts)):
+with no connect attempt pending it raises `owed-discovery`, and while an attempt
+is pending it waits so an acknowledgement leaves the lanes to its catch-up
+while an attempt ending without one raises `owed-discovery`. On
+`owed-discovery`, the reconciler runs a watermarked tree crawl
+(`crawlTreeForCatchUp`) so settled folders whose server row moved record
+`document_lane_revalidations` requests, then lists only the owed lanes (falling
+back to every known lane if the crawl cannot vouch for the rest) and asks open
+stores to pull owed reads. While online and authenticated without an
+acknowledged connection,
+[`unacknowledgedCatchUpMachine.ts`](../../packages/client-sdk/src/sync/reconciliation/unacknowledgedCatchUpMachine.ts)
+schedules periodic watermarked catch-up sweeps (default 60s) without letting
+flapping reconnect attempts reset the timer, cancelling it as soon as realtime
+connects, prerequisites drop, or the service stops. Quiet settled folders cost
+zero document-lane listings;
 [`owedDiscovery.test.ts`](../../packages/client-sdk/src/client/deviceFirst/owedDiscovery.test.ts)
-restarts a device whose earlier boot applied only some of its lanes, with no
-connect attempt, with one that never acknowledges, and with one that does.
+covers cut-short boots and unacknowledged catch-up.
 
 #### Document content pull policy
 
