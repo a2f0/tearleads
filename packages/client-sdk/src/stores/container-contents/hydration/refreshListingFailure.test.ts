@@ -119,3 +119,81 @@ test("refreshes queued behind a crawl both learn of its listing failure", async 
     close();
   }
 });
+
+test("crawlTreeForCatchUp runs its own pass after an active crawl and returns true", async () => {
+  const releaseFirstCrawl = Promise.withResolvers<void>();
+  const firstCrawlStarted = Promise.withResolvers<void>();
+  let calls = 0;
+  const { close, store } = await readyStore(
+    "container-contents-store-catchup-crawl-concurrency-test",
+    async (input) => {
+      calls += 1;
+      if (calls === 1) {
+        firstCrawlStarted.resolve();
+        await releaseFirstCrawl.promise;
+      }
+      return listEmptyLanes(input);
+    },
+  );
+  try {
+    const running = store.refresh();
+    await firstCrawlStarted.promise;
+    const catchUp = store.crawlTreeForCatchUp();
+    releaseFirstCrawl.resolve();
+    const [, completed] = await Promise.all([running, catchUp]);
+    expect(completed).toBe(true);
+    expect(calls).toBeGreaterThanOrEqual(2);
+  } finally {
+    close();
+  }
+});
+
+test("crawlTreeForCatchUp returns false on listing failure and retains no recovery crawl while offline", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-store-catchup-crawl-offline-test",
+  );
+  let calls = 0;
+  let available = false;
+  try {
+    await seedLocalRootContainer(execSql, { rootContainerId: "peer-root" });
+    await new ContainerSyncWatermarkRepository(execSql).markChecked(
+      createContainerParentSyncLane(null),
+    );
+    const makeRuntime = (online: boolean) =>
+      createContainerContentsTestRuntime({
+        apiClient: createMockApiClient({
+          listContainerParentLanes: async (input) => {
+            calls += 1;
+            return available ? listEmptyLanes(input) : null;
+          },
+        }),
+        domainScope: {} as DomainScope,
+        execSql,
+        online,
+      });
+    const domainScope = {} as DomainScope;
+    const runtime = (online: boolean) => ({
+      ...makeRuntime(online),
+      state: { ...makeRuntime(online).state, domainScope },
+    });
+    const store = createContainerContentsStore(runtime(true));
+    store.updateRuntime(runtime(true));
+    await waitFor(() => store.getSnapshot().ready, "Store did not hydrate");
+
+    // Failed listing returns false so catch-up falls back to all known lanes.
+    expect(await store.crawlTreeForCatchUp()).toBe(false);
+    const callsAfterFailure = calls;
+
+    // Offline catch-up returns false without scheduling a retained recovery crawl.
+    store.updateRuntime(runtime(false));
+    expect(await store.crawlTreeForCatchUp()).toBe(false);
+    expect(calls).toBe(callsAfterFailure);
+
+    available = true;
+    store.updateRuntime(runtime(true));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(await store.crawlTreeForCatchUp()).toBe(true);
+  } finally {
+    close();
+  }
+});

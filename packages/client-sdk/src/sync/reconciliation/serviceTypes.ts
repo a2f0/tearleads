@@ -33,6 +33,10 @@ export interface ReconciliationRuntimeStatus {
   dbStatus: string;
   isAuthenticated: boolean;
   online: boolean;
+  /** Whether a server-events connection currently holds acknowledged interest. */
+  serverEventsConnected?: boolean | undefined;
+  /** In-flight connect attempt awaiting interest acknowledgement, if any. */
+  serverEventsPendingConnectAttempt?: number | undefined;
 }
 
 /**
@@ -121,6 +125,24 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
    * the other lanes and the catch-up lists every known one.
    */
   whenTreeCrawlSettles?: (() => Promise<boolean>) | undefined;
+  /**
+   * Crawls the container tree from each lane's watermark for an unacknowledged
+   * catch-up. Returns `true` when every queued lane completed cleanly, so
+   * settled lanes whose container row was not served did not move; `false`
+   * when it stopped short, refused a row, or could not run, leaving the
+   * catch-up to list every known lane.
+   */
+  crawlTreeForCatchUp?: (() => Promise<boolean>) | undefined;
+  /**
+   * Notifies the reconciler when connectivity, auth, database readiness, or
+   * server-events connection status changes so periodic unacknowledged
+   * catch-up timers can arm or cancel promptly.
+   */
+  subscribeConnectionStatus?:
+    | ((listener: () => void) => () => void)
+    | undefined;
+  /** Interval between periodic unacknowledged catch-up sweeps (default 60s). */
+  unacknowledgedCatchUpIntervalMs?: number | undefined;
   /** Refresh the container tree from the server (explicit refresh). */
   refreshTree: () => Promise<void>;
   /** Refresh only the top-level root lane from the server. */
@@ -160,11 +182,13 @@ export interface ReconciliationService {
   /** Queue known containers at idle priority. */
   enqueueIdleBackfill: () => void;
   /**
-   * Queue, at idle priority, every container whose document lane an earlier
-   * session left owed, such as one a reload cut short mid-discovery. A start
-   * whose connection is never acknowledged otherwise lists no lane until a
-   * hint names it; one that connects leaves this to
-   * {@link reconcileAcknowledgedConnection}, which lists every owed lane.
+   * Catch up after a start whose connection is not acknowledged. Crawls the
+   * container tree from each lane's watermark (when supported by the host) so
+   * settled folders whose server row moved since the last session owe a
+   * listing, then lists every owed lane — falling back to every known lane if
+   * the crawl cannot vouch for the rest — and wakes open stores with owed
+   * document reads. A start whose connection is acknowledged leaves this to
+   * {@link reconcileAcknowledgedConnection}.
    */
   resumeOwedDiscovery: () => void;
   /**

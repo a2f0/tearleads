@@ -101,10 +101,12 @@ interface DeviceFirstScopeEntry {
   unsubscribeCoordinatorDisposal: () => void;
   unsubscribePersistedDocumentDeletions: () => void;
   unsubscribePersistedDocuments: () => void;
+  unsubscribePublicRuntime: () => void;
 }
 
 function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
   entry.unsubscribeCoordinatorDisposal();
+  entry.unsubscribePublicRuntime();
   entry.coordinator.dispose();
   entry.contents.reconciler.stop();
   entry.disconnectReconciliationTriggers();
@@ -212,6 +214,29 @@ function createDiscoveredDocumentPrimerHost(input: {
   };
 }
 
+function createConnectionStatusNotifier(runtimeService: InternalRuntime) {
+  const listeners = new Set<() => void>();
+  const notify = () => {
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch {
+        // Isolate subscriber failures.
+      }
+    }
+  };
+  return {
+    notify,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    unsubscribeRuntime: runtimeService.publicRuntime.subscribe(notify),
+  };
+}
+
 class DeviceFirstService implements DeviceFirst {
   // A real Map (not WeakMap) so dispose() can iterate every scope seen this
   // session. A running reconciler holds event subscriptions that keep an idle,
@@ -283,56 +308,7 @@ class DeviceFirstService implements DeviceFirst {
       return this.getOrCreateEntry(options);
     if (coordinator.isDisposed())
       throw new Error("Device-first scope retired during registration");
-    const service = createReconciliationService(
-      this.createReconciliationHost(store, domainScope, coordinator),
-    );
-    const disconnectReconciliationTriggers = connectReconciliationTriggers({
-      service,
-      store,
-    });
-    const stopDocumentPrimer = startDiscoveredDocumentPrimer(
-      createDiscoveredDocumentPrimerHost({
-        containerContents: this.containerContents,
-        domainScope,
-        runtimeService: this.runtimeService,
-        store,
-      }),
-    );
-    const unsubscribePersistedDocumentDeletions =
-      subscribeToPersistedDocumentDeletions(domainScope, (localId) => {
-        store.removePersistedDocument(localId);
-      });
-    const unsubscribePersistedDocuments = subscribeToPersistedDocuments(
-      domainScope,
-      (document, change) =>
-        store.refreshPersistedDocument(document, change.placementChanged),
-    );
-    const view: LocalProjectionView = {
-      getSnapshot: () => store.getSnapshot(),
-      subscribe: (listener) => store.subscribe(listener),
-      setActiveContainer: (containerId) =>
-        store.setActiveContainer(containerId),
-      updateRuntime: (nextRuntime) => store.updateRuntime(nextRuntime),
-    };
-
-    const entry: DeviceFirstScopeEntry = {
-      coordinator,
-      contents: {
-        containerStore: store.getContainerStore(),
-        reconciler: service,
-        view,
-      },
-      disconnectReconciliationTriggers,
-      removeListingAuthority: installDocumentListingAuthority({
-        domainScope,
-        runtimeService: this.runtimeService,
-        store,
-      }),
-      stopDocumentPrimer,
-      unsubscribeCoordinatorDisposal: () => undefined,
-      unsubscribePersistedDocumentDeletions,
-      unsubscribePersistedDocuments,
-    };
+    const entry = this.buildScopeEntry(store, domainScope, coordinator);
     this.entriesByScope.set(domainScope, entry);
     // Retiring a scope's coordinator (e.g. when database or identity rotates)
     // must tear down this scope's reconciler and subscriptions immediately.
@@ -341,7 +317,7 @@ class DeviceFirstService implements DeviceFirst {
         this.retireEntry(domainScope, entry);
       }
     });
-    service.start();
+    entry.contents.reconciler.start();
     const current = this.entriesByScope.get(domainScope);
     if (!current || current.coordinator.isDisposed()) {
       this.retireEntry(domainScope, entry);
@@ -350,20 +326,82 @@ class DeviceFirstService implements DeviceFirst {
     return current;
   }
 
+  private buildScopeEntry(
+    store: LocalProjectionStore,
+    domainScope: DomainScope,
+    coordinator: DomainSyncCoordinator,
+  ): DeviceFirstScopeEntry {
+    const connectionStatus = createConnectionStatusNotifier(
+      this.runtimeService,
+    );
+    const service = createReconciliationService(
+      this.createReconciliationHost(
+        store,
+        domainScope,
+        coordinator,
+        connectionStatus.subscribe,
+      ),
+    );
+    const view: LocalProjectionView = {
+      getSnapshot: () => store.getSnapshot(),
+      subscribe: (listener) => store.subscribe(listener),
+      setActiveContainer: (containerId) =>
+        store.setActiveContainer(containerId),
+      updateRuntime: (nextRuntime) => {
+        store.updateRuntime(nextRuntime);
+        connectionStatus.notify();
+      },
+    };
+    return {
+      coordinator,
+      contents: {
+        containerStore: store.getContainerStore(),
+        reconciler: service,
+        view,
+      },
+      disconnectReconciliationTriggers: connectReconciliationTriggers({
+        service,
+        store,
+      }),
+      removeListingAuthority: installDocumentListingAuthority({
+        domainScope,
+        runtimeService: this.runtimeService,
+        store,
+      }),
+      stopDocumentPrimer: startDiscoveredDocumentPrimer(
+        createDiscoveredDocumentPrimerHost({
+          containerContents: this.containerContents,
+          domainScope,
+          runtimeService: this.runtimeService,
+          store,
+        }),
+      ),
+      unsubscribeCoordinatorDisposal: () => undefined,
+      unsubscribePersistedDocumentDeletions:
+        subscribeToPersistedDocumentDeletions(domainScope, (localId) => {
+          store.removePersistedDocument(localId);
+        }),
+      unsubscribePersistedDocuments: subscribeToPersistedDocuments(
+        domainScope,
+        (document, change) =>
+          store.refreshPersistedDocument(document, change.placementChanged),
+      ),
+      unsubscribePublicRuntime: connectionStatus.unsubscribeRuntime,
+    };
+  }
+
   private createReconciliationHost(
     store: LocalProjectionStore,
     domainScope: ReconciliationHost["domainScope"],
     coordinator: DomainSyncCoordinator,
+    subscribeConnectionStatus: (listener: () => void) => () => void,
   ): ReconciliationHost {
     const runtimeService = this.runtimeService;
-    const containerContents = this.containerContents;
     const requestDocumentContentPull = createReconciledDocumentContentPuller({
-      getContainer: (containerId) =>
-        store
-          .getSnapshot()
-          .containers.find((container) => container.id === containerId) ?? null,
+      getContainer: (id) =>
+        store.getSnapshot().containers.find((node) => node.id === id) ?? null,
       pullDocumentContent: (input) =>
-        containerContents.pullDocumentContent(input),
+        this.containerContents.pullDocumentContent(input),
       requestRegisteredDocumentRemoteSync: (localId, documentId) =>
         requestRegisteredDocumentRemoteSync(domainScope, localId, documentId),
     });
@@ -373,17 +411,12 @@ class DeviceFirstService implements DeviceFirst {
         .containers.find((node) => node.id === containerId);
       return container ? isRemoteBackedContainerNode(container) : false;
     };
-    const listKnownContainerIds = () =>
-      listReconcilableContainerIds(runtimeService, store);
     const listAutomaticRootCatchupContainerIds = () => {
-      const homeOrganizationId =
-        runtimeService.workflowInput().auth.organizationId;
+      const homeOrgId = runtimeService.workflowInput().auth.organizationId;
       return store
         .getSnapshot()
         .containers.flatMap((node) =>
-          isAutomaticRootCatchupContainerNode(node, homeOrganizationId)
-            ? [node.id]
-            : [],
+          isAutomaticRootCatchupContainerNode(node, homeOrgId) ? [node.id] : [],
         );
     };
     return {
@@ -392,22 +425,25 @@ class DeviceFirstService implements DeviceFirst {
       registerLane: (key, config) => coordinator.registerLane(key, config),
       canDiscoverContainerDocuments,
       getRuntimeStatus: () => {
-        const input = runtimeService.workflowInput();
+        const { auth, infra, state } = runtimeService.workflowInput();
         return {
-          dbStatus: input.infra.dbStatus,
-          isAuthenticated: input.auth.isAuthenticated,
-          online: input.state.online,
+          dbStatus: infra.dbStatus,
+          isAuthenticated: auth.isAuthenticated,
+          online: state.online,
+          serverEventsConnected:
+            state.serverEventsConnected ??
+            (state.serverEventsConnectionGeneration ?? 0) > 0,
+          serverEventsPendingConnectAttempt:
+            state.serverEventsPendingConnectAttempt,
         };
       },
-      listKnownContainerIds,
+      listKnownContainerIds: () =>
+        listReconcilableContainerIds(runtimeService, store),
       listOwedDocumentDiscoveryContainerIds: (containerIds) =>
         listOwedDocumentLaneContainerIds(
           runtimeService.workflowInput().infra.execSql,
           containerIds,
         ),
-      // Root discovery can surface directly granted non-root containers, so
-      // retain every regular container. Exclude only this identity's own system
-      // children; cold/auth backfill and explicit full Refresh cover those.
       listAutomaticRootCatchupContainerIds,
       discoverContainerDocuments: (requests, onOutcome) =>
         discoverContainerDocumentLanesForRuntime({
@@ -415,12 +451,14 @@ class DeviceFirstService implements DeviceFirst {
           requests,
           runtimeService,
         }),
-      loadContainerDelta: (containerId) =>
-        store.loadContainerDelta(containerId),
+      loadContainerDelta: (id) => store.loadContainerDelta(id),
       applyReconciled: (delta) => store.applyReconciled(delta),
       requestDocumentContentPull,
       ...createListingCoverageHost(runtimeService, domainScope),
       ...createInitialDocumentProbeHost(runtimeService, domainScope, store),
+      crawlTreeForCatchUp: () =>
+        store.getContainerStore().crawlTreeForCatchUp(),
+      subscribeConnectionStatus,
       refreshTree: () =>
         refreshContainerTree((onListingUnavailable) =>
           store.getContainerStore().refresh({ onListingUnavailable }),
@@ -431,33 +469,22 @@ class DeviceFirstService implements DeviceFirst {
         ),
       isBusyError: (error) => classifyDatabaseFailure(error) === "busy",
       isIgnorableError: isDatabaseUnavailableError,
-      // Resolve the runtime per call: it is rebuilt as the active identity
-      // changes, and a reference captured here would report into a dead host.
       logError: (message, error) =>
         logReconciliationFailure(this.workflowRuntime(), message, error),
     };
   }
 }
 
-/**
- * Runs one tree refresh and rejects if any listing request it made failed or
- * timed out: the crawl stopped short, so the tree may be stale even though
- * the refresh itself settled.
- */
 async function refreshContainerTree(
   refresh: (onListingUnavailable: () => void) => Promise<boolean>,
 ): Promise<void> {
-  let listingUnavailable = false;
+  let unavailable = false;
   await refresh(() => {
-    listingUnavailable = true;
+    unavailable = true;
   });
-  if (listingUnavailable) {
-    throw new Error("Container tree listing was unavailable");
-  }
+  if (unavailable) throw new Error("Container tree listing was unavailable");
 }
 
-// Returns the host's result: both callbacks are declared `=> void` but may be
-// async, and the lane reporter only catches a rejection it is handed.
 function logReconciliationFailure(
   runtime: ContainerContentsStoreWorkflowRuntime,
   message: string,

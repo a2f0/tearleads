@@ -197,15 +197,17 @@ crawl that the same acknowledgement starts already says which folders moved.
   refuses each time it is served leaves every reconnect crawl incomplete, so
   while that row stays, every catch-up takes this fallback. When the database
   closes under the wait, the catch-up lists nothing.
-- Outside a catch-up. A hint's tree listing, a start's, or a retried crawl's
-  owes lanes the same way and lists nothing for them at once. The request is
-  durable, so the next catch-up lists the lane, as does the owed-lane resume
-  of a start that never connects, and a listing of that lane sent for any
-  other reason settles it. That is when a lost hint was recovered before
-  lanes were owed listings: at the next acknowledged connection. A row this
-  device's own write republished owes its lane the same way, so that listing
-  is paid at the next acknowledged connection or start, where it finds
-  nothing new. A hint that arrives still forces its own lanes.
+- Outside an acknowledged catch-up. A hint's tree listing, a start's, or a
+  retried crawl's owes lanes the same way and lists nothing for them at once.
+  The request is durable, so the next acknowledged catch-up lists the lane, as
+  does an unacknowledged catch-up (on `owed-discovery` at startup and
+  periodically while online without an acknowledged socket, each running its
+  own watermarked tree crawl first and falling back to every known lane if
+  that crawl did not complete cleanly), and a listing of
+  that lane sent for any other reason settles it. A row this device's own write
+  republished owes its lane the same way, so that listing is paid at the next
+  catch-up, where it finds nothing new. A hint that arrives still forces its
+  own lanes.
 - Another tab's listings. A catch-up reloads no rows for a lane the crawl
   vouched for, so folder contents another tab sharing the database listed
   and saved reach this tab only when it next lists or reloads that lane.

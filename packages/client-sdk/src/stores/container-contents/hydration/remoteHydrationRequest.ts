@@ -139,11 +139,10 @@ function waitForActiveRemoteHydration(
   const needsCurrentGenerationHydration =
     state.remoteHydrationGeneration !== state.lifecycleGeneration ||
     state.remoteHydrationStructuralGeneration !== state.structuralGeneration;
-  // A restoration owns its sweep callback and its sync scheduling policy.
-  // Let it list after prior work settles so its durable claim can complete.
+  // A restoration or catch-up crawl with an explicit completion hook owns its
+  // callback and must run its own pass after prior work settles.
   const needsOwnCrawl =
     !!(input.onFullyHydrated || input.recreateOnFullyHydratedAfterReset) &&
-    !!input.resetAllLaneWatermarks &&
     !!input.followDiscoveredParentLanes;
   if (
     !needsOwnCrawl &&
@@ -188,20 +187,26 @@ function waitForActiveInitialization(
   const requestLifecycleGeneration = state.lifecycleGeneration;
   const requestStructuralGeneration = state.structuralGeneration;
   return activeInitialization.then(() => {
-    const recoveryInput = isRequestGenerationCurrent({
+    const current = isRequestGenerationCurrent({
       lifecycleGeneration: requestLifecycleGeneration,
       state,
       structuralGeneration: requestStructuralGeneration,
-    })
-      ? input
-      : createResetRecoveryInput(input);
-    return resumeRetainedRecoveryHydration(recoveryInput);
+    });
+    if (input.retainOnReset === false) {
+      return current && hasRemoteHydrationPrerequisites(state)
+        ? requestContainerContentsRemoteHydration(input)
+        : Promise.resolve();
+    }
+    return resumeRetainedRecoveryHydration(
+      current ? input : createResetRecoveryInput(input),
+    );
   });
 }
 
 function retryRemoteHydrationAfterReset(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
+  if (input.retainOnReset === false) return Promise.resolve();
   // The acknowledgement that superseded this crawl owes one that lists the
   // same lanes after it, so this one waits behind it and lists only if that
   // acknowledgement is lost first (`connectAttemptGate.ts`).
@@ -228,6 +233,7 @@ function retryRemoteHydrationAfterReset(
 function retainResetRecoveryHydration(
   input: RemoteHydrationRequestInput,
 ): void {
+  if (input.retainOnReset === false) return;
   queueRecoveryHydrationRequest(createResetRecoveryInput(input));
 }
 
@@ -298,7 +304,7 @@ function waitForRemoteHydrationReadiness(
     return activeInitialization;
   }
   if (!hasRemoteHydrationPrerequisites(input.state)) {
-    queueRecoveryHydrationRequest(input);
+    if (input.retainOnReset !== false) queueRecoveryHydrationRequest(input);
     return Promise.resolve();
   }
   return null;

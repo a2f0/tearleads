@@ -22,10 +22,17 @@ import {
   reconcileMarkedContainers,
 } from "./knownContainerSweep";
 import { rearmFailedContainer } from "./laneFailure";
-import { resumeOwedDocumentDiscovery } from "./owedDiscovery";
+import {
+  armUnacknowledgedPolling,
+  evaluateUnacknowledgedCatchUp,
+  resumeOwedDocumentDiscovery,
+  startUnacknowledgedCatchUp,
+  stopUnacknowledgedCatchUp,
+} from "./owedDiscovery";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
 import { canReconcile, type ReconciliationState } from "./serviceState";
 import type { ReconciliationHost, ReconciliationService } from "./serviceTypes";
+import { STOPPED_UNACKNOWLEDGED_CATCH_UP } from "./unacknowledgedCatchUpMachine";
 
 /**
  * Queued containers one lane run lists together. Each still verifies and
@@ -200,6 +207,10 @@ function createReconciliationState(
     probeContinuationCancel: null,
     queue: createReconcileQueue(),
     pendingRefresh: null,
+    unacknowledgedCatchUp: STOPPED_UNACKNOWLEDGED_CATCH_UP,
+    unacknowledgedCatchUpCancel: null,
+    unacknowledgedPollingArmed: false,
+    unsubscribeConnectionStatus: null,
   };
 }
 
@@ -209,6 +220,7 @@ function stopReconciliationService(
 ): void {
   clearPendingDiscoveryRetries(state);
   stopCatchUp(state);
+  stopUnacknowledgedCatchUp(state);
   state.active = false;
   state.probeContinuationCancel?.();
   state.probeContinuationCancel = null;
@@ -284,6 +296,8 @@ export function createReconciliationService(
   return {
     start: () => {
       startReconciliationLane(host, state);
+      if (!state.active) return;
+      startUnacknowledgedCatchUp(host, state);
       scheduleDrain();
     },
     // Reconcile the active container first; siblings remain lazy until visited.
@@ -302,6 +316,7 @@ export function createReconciliationService(
         enqueue: enqueueContainer,
         host,
         isCurrent: () => isCurrentReconciliationLifecycle(state, generation),
+        state,
       });
     },
     resetDiscovered: () => {
@@ -311,8 +326,19 @@ export function createReconciliationService(
     reconcileRootContainersNow: (options) =>
       requestRootRefresh(host, state, options),
     reconcileNow: (options) => requestFullRefresh(host, state, options),
-    reconcileAcknowledgedConnection: () =>
-      requestAcknowledgedConnectionSweep(host, state),
+    reconcileAcknowledgedConnection: () => {
+      const generation = state.lifecycleGeneration;
+      armUnacknowledgedPolling(state);
+      const sweep = requestAcknowledgedConnectionSweep(host, state);
+      evaluateUnacknowledgedCatchUp(host, state);
+      const evaluateIfCurrent = () => {
+        if (isCurrentReconciliationLifecycle(state, generation)) {
+          evaluateUnacknowledgedCatchUp(host, state);
+        }
+      };
+      void sweep.then(evaluateIfCurrent, evaluateIfCurrent);
+      return sweep;
+    },
     stop: () => stopReconciliationService(host, state),
   };
 }

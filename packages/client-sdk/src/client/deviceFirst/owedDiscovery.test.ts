@@ -169,3 +169,13 @@ test("a restart whose tree crawl fails lists every lane in the catch-up", async 
   // lane is listed, as before lanes were owed listings.
   expect(listed).toEqual([["cut-short-folder", "listed-folder", "root"]]);
 });
+
+test("an unacknowledged restart whose tree crawl fails falls back to listing every known lane", async () => {
+  const listed = await restartAfterCutShortBoot(
+    "device-first-owed-unacknowledged-unvouched",
+    { generation: 0 },
+    () => {},
+    { treeListingFails: true },
+  );
+  expect(listed).toEqual([["cut-short-folder", "listed-folder", "root"]]);
+});

@@ -3,6 +3,7 @@ import type { CatchUpState } from "./catchUpMachine";
 import type { IdleBackfillState } from "./idleBackfill";
 import type { ReconciliationRuntimeStatus } from "./serviceTypes";
 import type { SharedRefresh } from "./sharedRefresh";
+import type { UnacknowledgedCatchUpState } from "./unacknowledgedCatchUpMachine";
 
 /** Whether the runtime can reach the server on behalf of a signed-in user. */
 export function canReconcile(status: ReconciliationRuntimeStatus): boolean {
@@ -18,4 +19,9 @@ export interface ReconciliationState extends IdleBackfillState {
   lifecycleGeneration: number;
   probeContinuationCancel: (() => void) | null;
   pendingRefresh: SharedRefresh | null;
+  unacknowledgedCatchUp: UnacknowledgedCatchUpState;
+  unacknowledgedCatchUpCancel: (() => void) | null;
+  /** Armed once any initial startup connect attempt has settled. */
+  unacknowledgedPollingArmed: boolean;
+  unsubscribeConnectionStatus: (() => void) | null;
 }
