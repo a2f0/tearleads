@@ -1,16 +1,28 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { containers } from "@tearleads/api-shared/schema";
+import {
+  accessManifestContainerGrantProjection,
+  containers,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { isListContainerParentLanesResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { grantContainerThroughReadGroup } from "../../../test/helpers/containerGroupGrant";
 import {
   readContainerParentLaneResults,
   requestContainerParentLanes,
 } from "../../../test/helpers/containerParentLaneQuery";
+import { createChildContainerFixture } from "../../../test/helpers/keyingWriterProjectionChild";
+import {
+  accessManifestFromContainerResponse,
+  asVerifiedContainerManifest,
+  bootstrapRoot,
+  kekStateFromContainerResponse,
+} from "../../../test/helpers/keyingWriterProjectionKit";
 import { loadRegisteredContainerRoots } from "../../../test/helpers/listContainerRoots";
 import { createOwnedTree } from "../../../test/helpers/ownedContainerTree";
+import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -99,7 +111,7 @@ test("parent-lanes/query rejects a 33rd lane and an oversized batch page", async
   }
 });
 
-test("parent-lanes/query serves idsOnly root membership pages and rejects non-root idsOnly", async () => {
+test("parent-lanes/query serves verified idsOnly root pages with pagination and rejects non-root idsOnly", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -119,9 +131,42 @@ test("parent-lanes/query serves idsOnly root membership pages and rejects non-ro
   );
   expect(
     idsResult.idsPage.items.every(
-      (item) => item.directAccessLevel === "admin" && item.parentId === null,
+      (item) => item.effectiveAccessLevel === "admin" && item.parentId === null,
     ),
   ).toBe(true);
+
+  // Verify multi-page idsOnly pagination when limit < total roots.
+  if (roots.length >= 2) {
+    const firstPageResponse = await requestContainerParentLanes(owner.token, [
+      { idsOnly: true, laneId: "root-p1", limit: 1, parentId: null },
+    ]);
+    const [firstPage] = await readContainerParentLaneResults(firstPageResponse);
+    if (!firstPage || !("idsPage" in firstPage)) {
+      throw new Error("Expected first idsPage");
+    }
+    expect(firstPage.idsPage.hasMore).toBe(true);
+    expect(firstPage.idsPage.items).toHaveLength(1);
+    expect(firstPage.idsPage.nextWatermark).not.toBeNull();
+
+    const secondPageResponse = await requestContainerParentLanes(owner.token, [
+      {
+        idsOnly: true,
+        laneId: "root-p2",
+        limit: 10,
+        parentId: null,
+        watermark: firstPage.idsPage.nextWatermark,
+      },
+    ]);
+    const [secondPage] =
+      await readContainerParentLaneResults(secondPageResponse);
+    if (!secondPage || !("idsPage" in secondPage)) {
+      throw new Error("Expected second idsPage");
+    }
+    expect([
+      ...firstPage.idsPage.items.map((item) => item.id),
+      ...secondPage.idsPage.items.map((item) => item.id),
+    ]).toEqual(roots.map((root) => root.id));
+  }
 
   const nonRoot = await requestContainerParentLanes(owner.token, [
     { idsOnly: true, laneId: "child-ids", parentId: owner.rootContainerId },
@@ -129,7 +174,7 @@ test("parent-lanes/query serves idsOnly root membership pages and rejects non-ro
   expect(nonRoot.status).toBe(400);
 });
 
-test("parent-lanes/query isolates a corrupted child lane without failing sibling lanes", async () => {
+test("parent-lanes/query isolates corrupted full and idsOnly lanes without failing sibling lanes", async () => {
   const tree = await createOwnedTree(0);
   try {
     const healthyParent = await tree.createChild(tree.rootId);
@@ -143,12 +188,19 @@ test("parent-lanes/query isolates a corrupted child lane without failing sibling
       .where(eq(containers.id, brokenLeaf));
 
     const response = await requestContainerParentLanes(tree.owner.token, [
+      { idsOnly: true, laneId: "root-ids", parentId: null },
       { laneId: "healthy", parentId: healthyParent },
       { laneId: "broken", parentId: brokenParent },
     ]);
     expect(response.status).toBe(200);
-    const [healthyResult, brokenResult] =
+    const [rootIdsResult, healthyResult, brokenResult] =
       await readContainerParentLaneResults(response);
+    if (!rootIdsResult || !("idsPage" in rootIdsResult)) {
+      throw new Error("Expected verified root idsPage");
+    }
+    expect(rootIdsResult.idsPage.items.map((item) => item.id)).toContain(
+      tree.rootId,
+    );
     if (!healthyResult || !("page" in healthyResult)) {
       throw new Error("Expected healthy parent lane to return a page");
     }
@@ -162,7 +214,77 @@ test("parent-lanes/query isolates a corrupted child lane without failing sibling
       },
       laneId: "broken",
     });
+
+    // Corrupting the root container row itself fails closed on idsOnly (409),
+    // never returning unverified placement metadata.
+    await db
+      .update(containers)
+      .set({ organizationId: crypto.randomUUID() })
+      .where(eq(containers.id, tree.rootId));
+    const brokenIdsResponse = await requestContainerParentLanes(
+      tree.owner.token,
+      [{ idsOnly: true, laneId: "root-ids-corrupt", parentId: null }],
+    );
+    expect(brokenIdsResponse.status).toBe(200);
+    const [corruptIdsResult] =
+      await readContainerParentLaneResults(brokenIdsResponse);
+    expect(corruptIdsResult).toEqual({
+      failure: {
+        error: "Container row does not match signed manifest state",
+        status: 409,
+      },
+      laneId: "root-ids-corrupt",
+    });
   } finally {
     tree.close();
   }
+});
+
+test("parent-lanes/query idsOnly verifies group-granted access from signed manifests rather than projection rows", async () => {
+  const owner = createTestUser();
+  const reader = createTestUser();
+  await registerAndAuthenticateUsers(owner, reader);
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainerFixture({
+    parent: { bundle: root.bundle, kekState: root.kekState },
+    signer: owner,
+  });
+  const { groupId } = await grantContainerThroughReadGroup({
+    accessLevel: "read",
+    actor: owner,
+    container: {
+      bundle: await accessManifestFromContainerResponse(child.response),
+      kekState: await kekStateFromContainerResponse(child.response),
+      plaintextKek: child.plaintextKek,
+    },
+    member: reader,
+    parentKekState: root.kekState,
+    parentPath: [root.bundle],
+  });
+
+  // Tamper the unverified projection row to escalate read -> admin; idsOnly
+  // must return the manifest-verified effectiveAccessLevel ("read").
+  await db
+    .update(accessManifestContainerGrantProjection)
+    .set({ accessLevel: "admin" })
+    .where(eq(accessManifestContainerGrantProjection.subjectId, groupId));
+
+  const response = await requestContainerParentLanes(reader.token, [
+    { idsOnly: true, laneId: "reader-roots", parentId: null },
+  ]);
+  expect(response.status).toBe(200);
+  const [result] = await readContainerParentLaneResults(response);
+  if (!result || !("idsPage" in result)) {
+    throw new Error("Expected reader idsPage");
+  }
+  const shared = result.idsPage.items.find(
+    (item) => item.id === child.response.containerId,
+  );
+  const rootState = asVerifiedContainerManifest(root.bundle).state;
+  expect(shared).toEqual({
+    effectiveAccessLevel: "read",
+    id: child.response.containerId,
+    organizationId: rootState.organizationId,
+    parentId: root.kekState.containerId,
+  });
 });

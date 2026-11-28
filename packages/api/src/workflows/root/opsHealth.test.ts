@@ -3,11 +3,12 @@ import { randomUUID } from "node:crypto";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   documents,
+  documentUpdates,
   organizationBilling,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
 import { ROOT_OPS_HEALTH_SECTION_LIMIT } from "@tearleads/validators/response";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { loadRootOpsHealthReport } from "./opsHealth";
 
 // Far from the dates other suites write, so their rows stay out of the window.
@@ -307,9 +308,21 @@ test("each section stops at its limit and says so", async () => {
   );
 });
 
-test("documentUpdateCounts reports active trigger and surfaces update_count drift", async () => {
+test("documentUpdateCounts reports active trigger, surfaces drift (including actualCount > 0 and negative storedCount), and truncates at limit", async () => {
   const driftedDocumentId = randomUUID();
+  const negativeDriftedId = randomUUID();
+  const withUpdatesDriftedId = randomUUID();
   const cleanDocumentId = randomUUID();
+  const extraIds = Array.from({ length: ROOT_OPS_HEALTH_SECTION_LIMIT }, () =>
+    randomUUID(),
+  );
+  const createdIds = [
+    driftedDocumentId,
+    negativeDriftedId,
+    withUpdatesDriftedId,
+    cleanDocumentId,
+    ...extraIds,
+  ];
   await db.insert(documents).values([
     {
       createdByFingerprint: "ops-health-drift-test",
@@ -317,24 +330,90 @@ test("documentUpdateCounts reports active trigger and surfaces update_count drif
       updateCount: 4,
     },
     {
+      createdByFingerprint: "ops-health-negative-drift-test",
+      id: negativeDriftedId,
+      updateCount: -2,
+    },
+    {
+      createdByFingerprint: "ops-health-with-updates-test",
+      id: withUpdatesDriftedId,
+      updateCount: 0,
+    },
+    {
       createdByFingerprint: "ops-health-clean-test",
       id: cleanDocumentId,
       updateCount: 0,
     },
   ]);
+  await db.insert(documentUpdates).values({
+    accessEpoch: 1,
+    authorFingerprint: "ops-health-with-updates-test",
+    byteLength: 4,
+    dependencyVersionVector: "",
+    documentId: withUpdatesDriftedId,
+    encryptedData: "data",
+    id: randomUUID(),
+    partialEndVersionVector: "end",
+    partialStartVersionVector: "start",
+    plaintextHash: "hash",
+  });
+  // Deliberately introduce drift against the 1 stored update row.
+  await db
+    .update(documents)
+    .set({ updateCount: 3 })
+    .where(eq(documents.id, withUpdatesDriftedId));
   try {
-    const { documentUpdateCounts } = await loadRootOpsHealthReport(db, NOW);
-    expect(documentUpdateCounts.triggerPresent).toBe(true);
-    expect(documentUpdateCounts.rows).toContainEqual({
+    const initial = await loadRootOpsHealthReport(db, NOW);
+    expect(initial.documentUpdateCounts.triggerPresent).toBe(true);
+    expect(initial.documentUpdateCounts.rows).toContainEqual({
       actualCount: 0,
       documentId: driftedDocumentId,
       storedCount: 4,
     });
+    expect(initial.documentUpdateCounts.rows).toContainEqual({
+      actualCount: 0,
+      documentId: negativeDriftedId,
+      storedCount: -2,
+    });
+    expect(initial.documentUpdateCounts.rows).toContainEqual({
+      actualCount: 1,
+      documentId: withUpdatesDriftedId,
+      storedCount: 3,
+    });
     expect(
-      documentUpdateCounts.rows.map((row) => row.documentId),
+      initial.documentUpdateCounts.rows.map((row) => row.documentId),
     ).not.toContain(cleanDocumentId);
+
+    // Exceed section limit to verify truncation.
+    await db.insert(documents).values(
+      extraIds.map((id) => ({
+        createdByFingerprint: "ops-health-truncate-test",
+        id,
+        updateCount: 2,
+      })),
+    );
+    const truncatedReport = await loadRootOpsHealthReport(db, NOW);
+    expect(truncatedReport.documentUpdateCounts.rows).toHaveLength(
+      ROOT_OPS_HEALTH_SECTION_LIMIT,
+    );
+    expect(truncatedReport.documentUpdateCounts.truncated).toBe(true);
+
+    // Verify replica-only or disabled trigger reports triggerPresent: false.
+    await db.execute(
+      sql`ALTER TABLE public.document_updates ENABLE REPLICA TRIGGER count_document_updates`,
+    );
+    try {
+      const replicaReport = await loadRootOpsHealthReport(db, NOW);
+      expect(replicaReport.documentUpdateCounts.triggerPresent).toBe(false);
+    } finally {
+      await db.execute(
+        sql`ALTER TABLE public.document_updates ENABLE TRIGGER count_document_updates`,
+      );
+    }
   } finally {
-    await db.delete(documents).where(eq(documents.id, driftedDocumentId));
-    await db.delete(documents).where(eq(documents.id, cleanDocumentId));
+    await db
+      .delete(documentUpdates)
+      .where(inArray(documentUpdates.documentId, createdIds));
+    await db.delete(documents).where(inArray(documents.id, createdIds));
   }
 });

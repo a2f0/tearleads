@@ -38,7 +38,7 @@ testApiClient(
                   hasMore: false,
                   items: [
                     {
-                      directAccessLevel: "admin",
+                      effectiveAccessLevel: "admin",
                       id: "container-1",
                       organizationId: "org-1",
                       parentId: null,
@@ -72,7 +72,7 @@ testApiClient(
             hasMore: false,
             items: [
               {
-                directAccessLevel: "admin",
+                effectiveAccessLevel: "admin",
                 id: "container-1",
                 organizationId: "org-1",
                 parentId: null,

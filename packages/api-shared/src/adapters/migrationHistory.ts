@@ -126,9 +126,9 @@ async function assertDocumentUpdateCountTrigger(
       "API migration left public.document_updates without the count_document_updates trigger",
     );
   }
-  if (enabled === "D") {
+  if (enabled !== "O" && enabled !== "A") {
     throw new Error(
-      "API migration left the count_document_updates trigger disabled on public.document_updates",
+      "API migration left the count_document_updates trigger disabled or replica-only on public.document_updates",
     );
   }
 }

@@ -124,7 +124,7 @@ describeSchema(
     trialsEnding: "Trials ending soon, soonest first.",
     purgesDue: "Disabled organizations whose purge falls due soon.",
     documentUpdateCounts:
-      "Whether the `count_document_updates` trigger is active on `document_updates` and any document rows whose `update_count` disagrees with stored updates.",
+      "Whether the `count_document_updates` trigger is active on `document_updates` and any recently updated document rows (latest 1,000) whose `update_count` disagrees with stored updates.",
   },
 );
 

@@ -99,6 +99,7 @@ async function oweServedDocumentLanes(
   const listable = served.filter(
     (item) =>
       !item.systemSlot ||
+      !item.organizationId ||
       item.systemSlot !==
         organizationRosterProfileContainerSystemSlot(item.organizationId),
   );

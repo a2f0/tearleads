@@ -3505,7 +3505,7 @@ export type components = {
                     hasMore: boolean;
                     items: {
                         /** @enum {string} */
-                        directAccessLevel: "admin" | "read" | "write";
+                        effectiveAccessLevel: "admin" | "read" | "write";
                         id: string;
                         organizationId: string;
                         parentId: string | null;
@@ -4937,7 +4937,7 @@ export type components = {
         };
         /** @description Billing and storage maintenance trouble across organizations. Each section lists at most a bounded number of rows and says when it was truncated. */
         RootOpsHealthReportResponse: {
-            /** @description Whether the `count_document_updates` trigger is active on `document_updates` and any document rows whose `update_count` disagrees with stored updates. */
+            /** @description Whether the `count_document_updates` trigger is active on `document_updates` and any recently updated document rows (latest 1,000) whose `update_count` disagrees with stored updates. */
             documentUpdateCounts: {
                 rows: ({
                     actualCount: number;

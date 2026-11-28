@@ -33,16 +33,19 @@ test("touching an accepted sync atomically advances attribution revision", async
     throw new Error("Failed to create document");
   }
 
+  const organizationId = crypto.randomUUID();
   await db.transaction(async (tx) => {
     await touchDocumentAndLinkedContainers(tx, {
       documentId: document.id,
       incrementAttributionRevision: true,
       linkedContainerIds: [],
+      organizationId,
     });
     await touchDocumentAndLinkedContainers(tx, {
       documentId: document.id,
       incrementAttributionRevision: true,
       linkedContainerIds: [],
+      organizationId,
     });
   });
 
@@ -65,6 +68,7 @@ test("ordinary metadata touches leave attribution revision unchanged", async () 
     touchDocumentAndLinkedContainers(tx, {
       documentId: document.id,
       linkedContainerIds: [],
+      organizationId: crypto.randomUUID(),
     }),
   );
 

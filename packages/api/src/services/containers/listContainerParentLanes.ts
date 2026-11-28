@@ -16,11 +16,12 @@ import { listContainerIdsOnly, listContainers } from "./listContainers";
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 /**
- * Lanes listed at once. A request may name 32 lanes; this is the most one
- * could name before, so batching more lanes into a request does not raise
- * the database work one request holds at a time.
+ * Lanes listed at once inside the batch's single repeatable-read snapshot
+ * transaction. A single PostgreSQL transaction runs on one connection, so
+ * lanes execute serially against the shared snapshot and shared projection
+ * context without backward MVCC skew.
  */
-const CONTAINER_PARENT_LANE_CONCURRENCY = 4;
+const CONTAINER_PARENT_LANE_CONCURRENCY = 1;
 
 type ContainerParentLane = ListContainerParentLanesRequest["lanes"][number];
 type ContainerParentLaneResult =
@@ -64,6 +65,7 @@ async function listContainerParentLane(
     if (lane.idsOnly) {
       return {
         idsPage: await listContainerIdsOnly(runtime, userId, {
+          context,
           discoveryKey,
           ...(lane.limit === undefined ? {} : { limit: lane.limit }),
           parentId: lane.parentId,
@@ -91,33 +93,62 @@ async function listContainerParentLane(
 
 /**
  * Lists each requested parent independently through the singular listing:
- * the same access resolver, watermark and page bound. One request-scoped
- * projection context shares prefetched ancestor paths, manifest verification,
- * and principal policies across all lanes. Results follow the request's lane
- * order, and lane-local access/consistency errors fail only their own lane.
+ * the same access resolver, watermark and page bound. Multi-lane batches run
+ * inside one read-only repeatable-read snapshot so prefetched ancestor paths,
+ * candidate scans, and manifest verification cannot observe backward MVCC skew
+ * across concurrent shares or moves. Single-lane requests need neither
+ * pre-scan prefetching nor a cross-lane cache, so they avoid transaction
+ * control overhead and match the singular route's forward-only MVCC path.
+ * Results follow the request's lane order, and lane-local access/consistency
+ * errors fail only their own lane.
  */
 export async function listContainerParentLanes(
   runtime: ApiServiceRuntime,
   userId: string,
   request: ListContainerParentLanesRequest,
 ): Promise<ListContainerParentLanesResponse> {
-  const discoveryKey = await readDiscoveryKey(runtime);
-  const context: ContainerWriterProjectionContext = {
-    ...createContainerWriterProjectionContext(runtime.db),
-    principalPolicyByReference: new Map(),
-  };
-  const nonNullParentIds = request.lanes.flatMap((lane) =>
-    lane.idsOnly || lane.parentId === null ? [] : [lane.parentId],
-  );
-  if (nonNullParentIds.length > 0) {
-    await prefetchContainerAccessPaths(context, nonNullParentIds);
+  if (request.lanes.length === 1) {
+    const [lane] = request.lanes;
+    if (!lane) return { results: [] };
+    const discoveryKey = await readDiscoveryKey(runtime);
+    const context: ContainerWriterProjectionContext = {
+      ...createContainerWriterProjectionContext(runtime.db),
+      principalPolicyByReference: new Map(),
+    };
+    return {
+      results: [
+        await listContainerParentLane(
+          runtime,
+          userId,
+          discoveryKey,
+          lane,
+          context,
+        ),
+      ],
+    };
   }
-  const results = await mapLanesBounded(
-    request.lanes,
-    CONTAINER_PARENT_LANE_CONCURRENCY,
-    (lane) =>
-      listContainerParentLane(runtime, userId, discoveryKey, lane, context),
+  return runtime.db.transaction(
+    async (tx) => {
+      const pinned: ApiServiceRuntime = { ...runtime, db: tx };
+      const discoveryKey = await readDiscoveryKey(pinned);
+      const context: ContainerWriterProjectionContext = {
+        ...createContainerWriterProjectionContext(tx),
+        principalPolicyByReference: new Map(),
+      };
+      const nonNullParentIds = request.lanes.flatMap((lane) =>
+        lane.idsOnly || lane.parentId === null ? [] : [lane.parentId],
+      );
+      if (nonNullParentIds.length > 0) {
+        await prefetchContainerAccessPaths(context, nonNullParentIds);
+      }
+      const results = await mapLanesBounded(
+        request.lanes,
+        CONTAINER_PARENT_LANE_CONCURRENCY,
+        (lane) =>
+          listContainerParentLane(pinned, userId, discoveryKey, lane, context),
+      );
+      return { results };
+    },
+    { accessMode: "read only", isolationLevel: "repeatable read" },
   );
-
-  return { results };
 }

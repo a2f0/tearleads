@@ -280,10 +280,17 @@ const triggerEnabledRowSchema = z.object({
   enabled: z.string(),
 });
 
+/**
+ * Bounds synchronous drift verification to the most recently updated documents
+ * via `documents_updated_at_id_idx` + per-document indexed counts on
+ * `document_updates_document_sequence_idx`, keeping `ops-health` fast at scale.
+ */
+const DOCUMENT_UPDATE_COUNT_SCAN_LIMIT = 1_000;
+
 const documentUpdateCountDriftRowSchema = z.object({
   actualCount: z.number().int().nonnegative(),
   documentId: z.string().min(1),
-  storedCount: z.number().int().nonnegative(),
+  storedCount: z.number().int(),
 });
 
 async function listDocumentUpdateCountHealth(executor: DatabaseSession) {
@@ -302,20 +309,27 @@ async function listDocumentUpdateCountHealth(executor: DatabaseSession) {
     triggerResult.rows[0],
   );
   const triggerPresent =
-    parsedTrigger.success && parsedTrigger.data.enabled !== "D";
+    parsedTrigger.success &&
+    (parsedTrigger.data.enabled === "O" || parsedTrigger.data.enabled === "A");
 
   const driftResult = await executor.execute(sql`
+    WITH recent_documents AS (
+      SELECT d.id, d.update_count
+      FROM ${documents} d
+      ORDER BY d.updated_at DESC, d.id DESC
+      LIMIT ${DOCUMENT_UPDATE_COUNT_SCAN_LIMIT}
+    )
     SELECT
       d.id::text AS "documentId",
       d.update_count::int AS "storedCount",
-      COALESCE(u.actual_count, 0)::int AS "actualCount"
-    FROM ${documents} d
-    LEFT JOIN (
-      SELECT document_id, count(*)::int AS actual_count
-      FROM ${documentUpdates}
-      GROUP BY document_id
-    ) u ON u.document_id = d.id
-    WHERE d.update_count <> COALESCE(u.actual_count, 0)
+      actual.actual_count AS "actualCount"
+    FROM recent_documents d
+    CROSS JOIN LATERAL (
+      SELECT count(*)::int AS actual_count
+      FROM ${documentUpdates} u
+      WHERE u.document_id = d.id
+    ) actual
+    WHERE d.update_count <> actual.actual_count
     ORDER BY d.id ASC
     LIMIT ${ROOT_OPS_HEALTH_SECTION_LIMIT + 1}
   `);

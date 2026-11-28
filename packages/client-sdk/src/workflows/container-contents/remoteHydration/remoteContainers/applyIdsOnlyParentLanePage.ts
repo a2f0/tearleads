@@ -1,7 +1,4 @@
-import type {
-  ContainerParentLaneIdsPage,
-  EffectiveAccessLevel,
-} from "@tearleads/validators/response";
+import type { ContainerParentLaneIdsPage } from "@tearleads/validators/response";
 import { changesDiscoveryOrder } from "../../documentDiscovery/publicationWatermark";
 import {
   hasUnusableContinuation,
@@ -15,12 +12,6 @@ import type {
 } from "../types";
 import { loadPausedContainerFilter } from "./organizationSyncPauseFilter";
 
-const ACCESS_LEVEL_RANK: Record<EffectiveAccessLevel, number> = {
-  read: 1,
-  write: 2,
-  admin: 3,
-};
-
 function needsFullRootListing(
   item: ContainerParentLaneIdsPage["items"][number],
   state: RemoteContainerHydrationState,
@@ -33,17 +24,18 @@ function needsFullRootListing(
   ) {
     return true;
   }
-  const heldRank =
-    ACCESS_LEVEL_RANK[held.container.effectiveAccessLevel ?? "read"];
-  return ACCESS_LEVEL_RANK[item.directAccessLevel] > heldRank;
+  // Compare exact verified effectiveAccessLevel so both upgrades and
+  // group-membership downgrades trigger a full verified refresh.
+  return held.container.effectiveAccessLevel !== item.effectiveAccessLevel;
 }
 
 /**
- * Reconciles a compact `idsOnly` root-membership page against already-held
- * local containers. Steady reconnects where every visible root is already held
- * at matching or higher access do zero verification or persistence work; a
- * newly granted or access-upgraded root queues one full unwatermarked root
- * membership listing (without `idsOnly`) to verify and ingest it.
+ * Reconciles a compact verified `idsOnly` root-membership page against
+ * already-held local containers. Steady reconnects where every visible root is
+ * already held with matching `effectiveAccessLevel` do zero verification or
+ * persistence work; a newly granted, local-only, or access-changed root queues
+ * one full unwatermarked root membership listing (without `idsOnly`) to verify
+ * and ingest it.
  */
 export async function applyIdsOnlyParentLanePage(input: {
   readonly fetchedPage: FetchedContainerParentLaneIdsPage;

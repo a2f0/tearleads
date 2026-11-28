@@ -27,7 +27,7 @@ export function createContainerParentLaneBatchMock(
           idsPage: {
             hasMore: page.hasMore,
             items: page.items.map((item) => ({
-              directAccessLevel: item.effectiveAccessLevel,
+              effectiveAccessLevel: item.effectiveAccessLevel,
               id: item.id,
               organizationId: item.organizationId,
               parentId: item.parentId,

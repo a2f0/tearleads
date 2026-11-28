@@ -184,7 +184,7 @@ test("returns per-lane idsPage and failure results and counts lane failures", as
             hasMore: false,
             items: [
               {
-                directAccessLevel: "admin" as const,
+                effectiveAccessLevel: "admin" as const,
                 id: "root-1",
                 organizationId: "org-1",
                 parentId: null,

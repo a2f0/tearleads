@@ -4,6 +4,7 @@ import {
   loosePlainObject,
   nonEmptyStringSchema,
   nonNegativeIntegerSchema,
+  safeIntegerSchema,
 } from "../schema";
 
 /** Rows each ops-health section returns at most; `truncated` marks more. */
@@ -84,7 +85,7 @@ const RootPurgeDueSchema = loosePlainObject({
 
 const RootDocumentUpdateCountDriftSchema = loosePlainObject({
   documentId: nonEmptyStringSchema,
-  storedCount: nonNegativeIntegerSchema,
+  storedCount: safeIntegerSchema,
   actualCount: nonNegativeIntegerSchema,
 });
 

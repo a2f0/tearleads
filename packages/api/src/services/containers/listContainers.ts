@@ -374,18 +374,59 @@ export async function listContainers(
   };
 }
 
+function toVerifiedContainerIdItem(
+  accessResult:
+    | (Awaited<
+        ReturnType<typeof resolveReadableContainerAccessBatch>
+      > extends Map<string, infer Entry>
+        ? Entry
+        : never)
+    | undefined,
+): ContainerParentLaneIdsPage["items"][number] | null {
+  if (!accessResult || accessResult.status === "rejected") {
+    if (accessResult?.reason instanceof KeyingReadAccessError) {
+      if (accessResult.reason.status === 409) {
+        throw accessResult.reason;
+      }
+      return null;
+    }
+    throw new Error("Readable container access batch omitted a candidate");
+  }
+  const leaf = accessResult.value.verifiedPath.at(-1);
+  if (!leaf) {
+    throw new KeyingReadAccessError("Container access path missing leaf", 409);
+  }
+  const systemSlot = isContainerSystemSlot(leaf.state.systemSlot)
+    ? leaf.state.systemSlot
+    : null;
+  return {
+    ...(systemSlot ? { systemSlot } : {}),
+    effectiveAccessLevel: accessResult.value.accessLevel,
+    id: leaf.state.containerId,
+    organizationId: leaf.state.organizationId,
+    parentId: leaf.state.parentContainerId,
+  };
+}
+
 /**
- * Lists directly granted root-lane membership ids without resolving full
- * summaries or running manifest verification. Clients compare the returned ids
- * and direct grant levels against local state and fall back to a full root
- * listing only when a grant is missing or upgraded.
+ * Lists directly granted root-lane membership ids after verifying each
+ * candidate's signed manifest path and referenced principal policies through
+ * `resolveReadableContainerAccessBatch`. Skips metadata update counts,
+ * tombstones, and full `ContainerSummary` wire payloads; clients fall back to
+ * a full root listing only when a verified root is missing locally or its
+ * `effectiveAccessLevel` changed.
  */
 export async function listContainerIdsOnly(
   runtime: ApiServiceRuntime,
   userId: string,
   options: Pick<
     ListContainersOptions,
-    "discoveryKey" | "limit" | "parentId" | "watermark"
+    | "context"
+    | "discoveryKey"
+    | "limit"
+    | "parentId"
+    | "principalPolicyByReference"
+    | "watermark"
   > = {},
 ): Promise<ContainerParentLaneIdsPage> {
   const limit = normalizeSyncPageLimit(
@@ -425,21 +466,25 @@ export async function listContainerIdsOnly(
           lastRow.id,
           lastRow.updatedAt,
         );
+  const accessContext = options.context ?? {
+    ...createContainerWriterProjectionContext(runtime.db),
+    principalPolicyByReference: options.principalPolicyByReference ?? new Map(),
+  };
+  const accessResults = await resolveReadableContainerAccessBatch({
+    containerIds: pageRows.map((row) => row.id),
+    context: accessContext,
+    executor: runtime.db,
+    userId,
+  });
+  const items: ContainerParentLaneIdsPage["items"] = [];
+  for (const row of pageRows) {
+    const item = toVerifiedContainerIdItem(accessResults.get(row.id));
+    if (item) items.push(item);
+  }
 
   return {
     hasMore,
-    items: pageRows.map((row) => {
-      const systemSlot = isContainerSystemSlot(row.systemSlot)
-        ? row.systemSlot
-        : null;
-      return {
-        ...(systemSlot ? { systemSlot } : {}),
-        directAccessLevel: row.directAccessLevel,
-        id: row.id,
-        organizationId: row.organizationId,
-        parentId: row.parentId,
-      };
-    }),
+    items,
     nextWatermark: cursor.seal(nextWatermark, rows.publication),
   };
 }

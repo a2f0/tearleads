@@ -17,7 +17,7 @@ import { CONTAINER_NOT_FOUND_ERROR_CODE } from "./containerNotFoundError";
 import { SyncWatermarkSchema } from "./syncWatermark";
 
 const ContainerParentLaneIdItemSchema = z.strictObject({
-  directAccessLevel: EffectiveAccessLevelSchema,
+  effectiveAccessLevel: EffectiveAccessLevelSchema,
   id: z.string(),
   organizationId: z.string(),
   parentId: z.string().nullable(),
@@ -25,9 +25,9 @@ const ContainerParentLaneIdItemSchema = z.strictObject({
 });
 
 /**
- * Compact root-lane membership page returned when `idsOnly: true` is
- * requested: ids, placement metadata, and direct grant level without manifest
- * verification or container summaries.
+ * Compact verified root-lane membership page returned when `idsOnly: true` is
+ * requested: verified ids, placement metadata, and effective access level
+ * without metadata update counts, tombstones, or full container summaries.
  */
 const ContainerParentLaneIdsPageSchema = z.strictObject({
   hasMore: z.boolean(),

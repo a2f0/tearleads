@@ -8,7 +8,7 @@ export async function finalizeAttachmentMutation(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly linkedContainerIds: readonly string[];
-  readonly organizationId?: string | undefined;
+  readonly organizationId: string;
   /** True when a carried document sync already touched the document and containers. */
   readonly skipTargetsTouch?: boolean | undefined;
 }): Promise<void> {

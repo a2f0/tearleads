@@ -190,7 +190,7 @@ export async function recordDocumentLinkSetChange(input: {
   readonly executor: DatabaseTransaction;
   readonly incrementAttributionRevision?: boolean;
   readonly linkedContainerIds: readonly string[];
-  readonly organizationId?: string | undefined;
+  readonly organizationId: string;
   readonly previousLinkedContainerIds: readonly string[];
   /** True when the transaction inserts updates right after (trigger touches documents). */
   readonly skipDocumentTouch?: boolean | undefined;
@@ -288,7 +288,7 @@ export async function touchContainersForDocument(
   input: {
     readonly documentId: string;
     readonly linkedContainerIds: readonly string[];
-    readonly organizationId?: string | undefined;
+    readonly organizationId: string;
     readonly updatedAt?: Date;
   },
 ): Promise<void> {
@@ -298,37 +298,24 @@ export async function touchContainersForDocument(
   }
 
   const updatedAt = input.updatedAt ?? new Date();
-  const rosterProfileSlot = input.organizationId
-    ? organizationRosterProfileContainerSystemSlot(input.organizationId)
-    : null;
-  const shouldRepublishContainer = rosterProfileSlot
-    ? sql`(
-        exists (
-          select 1
-          from ${containerMetadataDocuments} cmd
-          where cmd.document_id = ${input.documentId}
-        )
-        or (
-          ${containers.systemSlot} is distinct from ${rosterProfileSlot}
-          and not exists (
-            select 1
-            from ${organizationRosterEntries} ore
-            where ore.profile_document_id = ${input.documentId}
-          )
-        )
-      )`
-    : sql`(
-        exists (
-          select 1
-          from ${containerMetadataDocuments} cmd
-          where cmd.document_id = ${input.documentId}
-        )
-        or not exists (
-          select 1
-          from ${organizationRosterEntries} ore
-          where ore.profile_document_id = ${input.documentId}
-        )
-      )`;
+  const rosterProfileSlot = organizationRosterProfileContainerSystemSlot(
+    input.organizationId,
+  );
+  const shouldRepublishContainer = sql`(
+    exists (
+      select 1
+      from ${containerMetadataDocuments} cmd
+      where cmd.document_id = ${input.documentId}
+    )
+    or (
+      ${containers.systemSlot} is distinct from ${rosterProfileSlot}
+      and not exists (
+        select 1
+        from ${organizationRosterEntries} ore
+        where ore.profile_document_id = ${input.documentId}
+      )
+    )
+  )`;
 
   await executor
     .update(containers)
@@ -344,7 +331,7 @@ export async function touchDocumentAndLinkedContainers(
     readonly documentId: string;
     readonly incrementAttributionRevision?: boolean;
     readonly linkedContainerIds: readonly string[];
-    readonly organizationId?: string | undefined;
+    readonly organizationId: string;
     readonly updatedAt?: Date;
   },
 ): Promise<void> {

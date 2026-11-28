@@ -193,7 +193,16 @@ test("a migration that drops or disables count_document_updates is refused", asy
   ]);
   const disabled = await openDatabase();
   await expect(disabled.migrate(disabledFolder)).rejects.toThrow(
-    "API migration left the count_document_updates trigger disabled on public.document_updates",
+    "API migration left the count_document_updates trigger disabled or replica-only on public.document_updates",
+  );
+
+  const replicaFolder = await copyMigrations();
+  await appendMigration(replicaFolder, "9999_replica_update_count_trigger", [
+    "ALTER TABLE public.document_updates ENABLE REPLICA TRIGGER count_document_updates",
+  ]);
+  const replicaOnly = await openDatabase();
+  await expect(replicaOnly.migrate(replicaFolder)).rejects.toThrow(
+    "API migration left the count_document_updates trigger disabled or replica-only on public.document_updates",
   );
 });
 
@@ -203,6 +212,7 @@ test("count_document_updates increments counts, advances attribution revision, a
   await run(folder);
 
   const documentId = crypto.randomUUID();
+  const updateId = crypto.randomUUID();
   const initialUpdatedAt = "2020-01-01 00:00:00";
   await client.query(
     `INSERT INTO public.documents (id, created_by_fingerprint, updated_at)
@@ -232,7 +242,7 @@ test("count_document_updates increments counts, advances attribution revision, a
      ) VALUES (
        $1, $2, 1, 'trigger-check', 'data', 4, 'start', 'end', '', 'hash-1'
      )`,
-    [crypto.randomUUID(), documentId],
+    [updateId, documentId],
   );
   const after = await client.query<{
     attribution_revision: number;
@@ -254,4 +264,28 @@ test("count_document_updates increments counts, advances attribution revision, a
   expect(BigInt(afterRow.discovery_order)).toBeGreaterThan(
     BigInt(beforeRow.discovery_order),
   );
+
+  // An idempotent retry inserting 0 rows leaves counts, attribution, and
+  // discovery order completely untouched.
+  await client.query(
+    `INSERT INTO public.document_updates (
+       id, document_id, access_epoch, author_fingerprint, encrypted_data,
+       byte_length, partial_start_version_vector, partial_end_version_vector,
+       dependency_version_vector, plaintext_hash
+     ) VALUES (
+       $1, $2, 1, 'trigger-check', 'data', 4, 'start', 'end', '', 'hash-1'
+     ) ON CONFLICT (id) DO NOTHING`,
+    [updateId, documentId],
+  );
+  const afterConflict = await client.query<{
+    attribution_revision: number;
+    discovery_order: string;
+    update_count: number;
+    updated_at: Date;
+  }>(
+    `SELECT attribution_revision, discovery_order::text, update_count, updated_at
+     FROM public.documents WHERE id = $1`,
+    [documentId],
+  );
+  expect(afterConflict.rows[0]).toEqual(afterRow);
 });
