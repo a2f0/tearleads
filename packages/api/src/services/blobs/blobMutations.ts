@@ -32,9 +32,21 @@ type AttachmentMutationOrigin = {
   readonly userId: string;
 };
 
+function toMutablePaths(
+  containerPaths: Readonly<Record<string, readonly string[]>> | undefined,
+): Record<string, string[]> | undefined {
+  if (!containerPaths) return undefined;
+  return Object.fromEntries(
+    Object.entries(containerPaths).map(([id, path]) => [id, [...path]]),
+  );
+}
+
 export function createAttachmentBindDocumentEvent(input: {
   /** Containers of the bind's resolved KEK targets. */
   readonly containerIds: readonly string[];
+  readonly containerPaths?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
   readonly origin: AttachmentMutationOrigin;
   readonly response: Pick<
     BlobAttachmentBindResponse,
@@ -42,9 +54,11 @@ export function createAttachmentBindDocumentEvent(input: {
   >;
 }): PublishedRealtimeEvent {
   const updateIds = input.response.documentSync?.acceptedOutgoingUpdateIds;
+  const containerPaths = toMutablePaths(input.containerPaths);
   return {
     type: "document_update_created",
     containerIds: uniqueSortedStrings(input.containerIds),
+    ...(containerPaths === undefined ? {} : { containerPaths }),
     documentId: input.response.documentId,
     // A carried document sync names its update, as a sync's event does.
     ...(updateIds ? { updateIds: [...updateIds] } : {}),
@@ -59,12 +73,17 @@ export function createAttachmentBindDocumentEvent(input: {
 
 export function createAttachmentDetachDocumentEvent(input: {
   readonly containerIds: readonly string[];
+  readonly containerPaths?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
   readonly origin: AttachmentMutationOrigin;
   readonly response: Pick<BlobAttachmentDetachResponse, "documentId">;
 }): PublishedRealtimeEvent {
+  const containerPaths = toMutablePaths(input.containerPaths);
   return {
     type: "document_update_created",
     containerIds: uniqueSortedStrings(input.containerIds),
+    ...(containerPaths === undefined ? {} : { containerPaths }),
     documentId: input.response.documentId,
     origin: input.origin,
   };
@@ -175,6 +194,7 @@ export async function bindBlobAttachment(
   await publishAttachmentDocumentEvent({
     event: createAttachmentBindDocumentEvent({
       containerIds: result.linkedContainerIds,
+      containerPaths: result.containerPaths,
       origin: { sessionId: input.sessionId, userId: input.userId },
       response: result.response,
     }),
@@ -191,6 +211,7 @@ export async function detachBlobAttachment(
   await publishAttachmentDocumentEvent({
     event: createAttachmentDetachDocumentEvent({
       containerIds: result.linkedContainerIds,
+      containerPaths: result.containerPaths,
       origin: { sessionId: input.sessionId, userId: input.userId },
       response: result.response,
     }),

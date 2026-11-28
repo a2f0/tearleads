@@ -28,6 +28,49 @@ async function waitUntil(check: () => boolean, what: string): Promise<void> {
   }
 }
 
+async function growFolderTree(input: {
+  readonly created: string[];
+  readonly fanout: number;
+  readonly heldIds: () => string[];
+  readonly progress: (held: number) => void;
+  readonly rootId: string;
+  readonly settle: () => Promise<void>;
+  readonly size: number;
+  readonly store: ContainerContentsStore;
+}): Promise<void> {
+  const order = [input.rootId, ...input.created];
+  while (input.heldIds().length < input.size) {
+    const first = input.created.length;
+    // A batch creates only folders whose parents already exist.
+    const batch = Math.min(
+      CREATE_BATCH,
+      input.size - input.heldIds().length,
+      order.length * input.fanout - first,
+    );
+    const folders = await Promise.all(
+      Array.from({ length: batch }, (_, offset) => {
+        const parentId = order[parentPosition(first + offset, input.fanout)];
+        if (!parentId) throw new Error("Folder tree parent is missing.");
+        return input.store.createChild(
+          parentId,
+          `Folder ${first + offset + 1}`,
+        );
+      }),
+    );
+    for (const folder of folders) {
+      if (!folder) throw new Error("Folder creation failed.");
+      input.created.push(folder.id);
+      order.push(folder.id);
+    }
+    await input.settle();
+    input.progress(input.heldIds().length);
+  }
+  if (input.heldIds().length !== input.size)
+    throw new Error(
+      `The tree holds ${input.heldIds().length}, not ${input.size}.`,
+    );
+}
+
 /**
  * One registered account whose folder tree grows through the public SDK, as
  * the app grows it: each folder is committed locally, then synced to the API
@@ -83,6 +126,10 @@ export async function openFolderAccount(origin: string) {
 
   return {
     userId,
+    /** Root-lane entries provisioned at registration (root + system roots). */
+    rootContainerIds(): string[] {
+      return [...initial];
+    },
     /** The initial folders, then created folders in breadth-first order. */
     declarationOrder(): string[] {
       const order = [...initial, ...created];
@@ -97,32 +144,16 @@ export async function openFolderAccount(origin: string) {
       fanout: number,
       progress: (held: number) => void = () => undefined,
     ): Promise<void> {
-      const order = [rootId, ...created];
-      while (heldIds().length < size) {
-        const first = created.length;
-        // A batch creates only folders whose parents already exist.
-        const batch = Math.min(
-          CREATE_BATCH,
-          size - heldIds().length,
-          order.length * fanout - first,
-        );
-        const folders = await Promise.all(
-          Array.from({ length: batch }, (_, offset) => {
-            const parentId = order[parentPosition(first + offset, fanout)];
-            if (!parentId) throw new Error("Folder tree parent is missing.");
-            return store.createChild(parentId, `Folder ${first + offset + 1}`);
-          }),
-        );
-        for (const folder of folders) {
-          if (!folder) throw new Error("Folder creation failed.");
-          created.push(folder.id);
-          order.push(folder.id);
-        }
-        await settle();
-        progress(heldIds().length);
-      }
-      if (heldIds().length !== size)
-        throw new Error(`The tree holds ${heldIds().length}, not ${size}.`);
+      await growFolderTree({
+        created,
+        fanout,
+        heldIds,
+        progress,
+        rootId,
+        settle,
+        size,
+        store,
+      });
     },
     close(): void {
       sdk.dispose();

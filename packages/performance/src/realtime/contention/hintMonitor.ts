@@ -106,6 +106,7 @@ export function startHintMonitor<Timer>(
         JSON.stringify({
           type: "document_update_created",
           containerIds: [input.containerId],
+          containerPaths: { [input.containerId]: [input.containerId] },
           documentId,
         }),
       )

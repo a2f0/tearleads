@@ -2,9 +2,13 @@
 
 [Realtime hints](../glossary/sync.md#realtime-hint) request HTTP refreshes; they
 do not establish content or access. The gateway routes
-[container](../glossary/access.md#container) mutations to watchers of the
-container and its current and previous parents, then constructs a frame for each
-recipient's verified interests.
+[container](../glossary/access.md#container) and document hints by subtree
+coverage: each published event carries server-only verified ancestor paths, and
+the router delivers a frame to sockets that hold a current proof for the target
+container or any container on its published path, then reconstructs the outgoing
+frame from the public schema so path metadata and authoring session never cross
+the websocket boundary. Events published without path metadata fail closed and
+match only sockets holding the target container itself.
 
 Interest belongs to one open socket. A socket opens with no container interest
 and the server sends nothing on open; the client declares its authoritative
@@ -12,34 +16,47 @@ and the server sends nothing on open; the client declares its authoritative
 only the subset `containerInterestAuthorization` verifies. No server-side copy
 of a socket's interest outlives it, so a reconnecting socket, or another tab on
 the same session, receives no container hint until its own declaration is
-installed. Hints published before then are recovered by the client:
-`known_containers_ack` follows installation, and the client reconciles over
-HTTP after that acknowledgement (see
+installed. Hints published before a root is installed are still recovered by the
+client: `known_containers_ack` follows installation, and the client reconciles
+over HTTP after that acknowledgement (see
 [client sync ordering](../client-sync-ordering.md#remote-pull-eligibility)).
 
-- A watcher of the mutated container receives `container_mutation_created` with
-  its id and event type. Parent ids appear only when that socket watches them;
-  a null parent denotes the [root](../glossary/access.md#root-container). The
-  SDK re-lists the container's lane and each parent the frame names. It
+- A socket can receive a frame naming a container its client has not listed yet
+  when that container sits under a declared root. Access only grows going down a
+  path, so the user is authorized to read that container.
+- A watcher covering the mutated container receives `container_mutation_created`
+  with its id and event type. Parent ids appear only when that socket covers
+  them; a null parent denotes the [root](../glossary/access.md#root-container).
+  The SDK re-lists the container's lane and each parent the frame names. It
   re-lists the root lane only when the frame names root, withholds an existing
   container's parent (or a move's source), or carries a grant or revoke: the
   root lane lists directly granted nested containers, and no other event
   changes direct grants.
-- A parent-only watcher receives `container_children_changed` with only the
-  parent ids it watches. That frame carries no child id, event type, other
-  parent id, author session, or mutation timestamp. The SDK clears cached
-  projections for those parents and known descendants, then refreshes the parent
-  listings and root lane. This also covers a known child whose own interest is
-  still awaiting confirmation. HTTP
+- A watcher covering only the source parent of a move out of coverage (or the
+  parent of a deleted child) receives `container_children_changed` naming only
+  that parent id. That frame carries no child id, event type, other parent id,
+  author session, or mutation timestamp. A parent watcher whose child stays
+  inside coverage receives the full `container_mutation_created` frame instead.
+  The SDK clears cached projections for those parents and known descendants,
+  then refreshes the parent listings and root lane. HTTP
   [access checks](../access-plane.md#read-surfaces) determine which children
   it can discover.
-- A previously authorized child watcher evicted by a move or revoke receives
-  `resync_required` naming the ids it previously held. The SDK drops those
-  containers' and their known descendants' cached projections, plus open document
-  projections, before HTTP revalidation. If it still watches a parent, its later
-  parent hint uses the generic frame above.
+- A previously authorized watcher evicted by a move, delete, or revoke receives
+  `resync_required` naming the installed root ids it previously held. The SDK
+  drops those containers' and their known descendants' cached projections, plus
+  open document projections, before HTTP revalidation. If it still covers a
+  source parent, its later parent hint uses `container_children_changed` above.
 - Descendant watchers retain `container_path_changed` for their own dependent
-  paths; this does not reveal the mutated ancestor.
+  installed roots; this does not reveal the mutated ancestor.
+- **Stale-path window across concurrent moves**: a hint whose publisher read its
+  path before a move committed can arrive at the hub after the move event. The
+  hub remembers each moved container's new ancestor ids for a short window (60
+  seconds) and rewrites any later hint carrying a different prefix for that
+  container or its descendants to the remembered path. Only hints that reach the
+  hub ahead of the move event itself can still route under the pre-move path,
+  matching the pre-existing event ordering bound: inside that window the socket
+  learns only that a container it could read a moment ago changed, learns no new
+  id, and any HTTP read it triggers is access-checked.
 
 A parent refresh still reveals that something changed and when the notification
 arrived. This contract minimizes event details; it does not hide traffic timing.

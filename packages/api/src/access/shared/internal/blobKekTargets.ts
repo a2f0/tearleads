@@ -11,7 +11,7 @@ import { getCurrentAccessManifestHeads } from "./accessManifestHeadReads";
 import { listAccessManifestDocumentLinkProjections } from "./accessManifestProjectionReads";
 import {
   type resolveCurrentContainerKekTargets,
-  resolveCurrentContainerKekTargetsMapped,
+  resolveCurrentContainerKekTargetsWithPathsMapped,
 } from "./containerKekTargets";
 
 export class BlobKekTargetError extends Error {
@@ -26,6 +26,7 @@ export class BlobKekTargetError extends Error {
 
 interface ResolvedBlobKekTargets {
   readonly blobId: string;
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly organizationId: string;
   readonly activeBindingIds: readonly string[];
   readonly documentManifestHashes: readonly string[];
@@ -173,6 +174,7 @@ function documentManifestHashesForBindings(input: {
 export interface BlobKekTargetPrefetch {
   readonly allowHistoricalParentEpochs: boolean;
   readonly bindingsByBlobId: ReadonlyMap<string, ActiveAttachmentBinding[]>;
+  readonly containerPaths: Readonly<Record<string, readonly string[]>> | null;
   readonly containerTargetById: ContainerKekTargetMap | null;
   readonly documentHeadById: AccessManifestHeadMap;
   readonly linkRowsByManifestHash: ReadonlyMap<string, DocumentLinkRows>;
@@ -224,28 +226,33 @@ export async function prefetchBlobKekTargets(
     );
   }
   let containerTargetById: ContainerKekTargetMap | null = null;
+  let containerPaths: Record<string, readonly string[]> | null = null;
   try {
     const targets: ContainerKekTargetMap = new Map();
+    const paths: Record<string, readonly string[]> = {};
     const containerIds = uniqueSortedStrings(
       linkRows.map((row) => row.containerId),
     );
     // Each root can expand to 100 path nodes, with three history binds per node.
     for (let offset = 0; offset < containerIds.length; offset += 100) {
-      const batch = await resolveCurrentContainerKekTargetsMapped(
+      const batch = await resolveCurrentContainerKekTargetsWithPathsMapped(
         containerIds.slice(offset, offset + 100),
         executor,
         (message, status) => new BlobKekTargetError(message, status),
         allowHistoricalParentEpochs,
       );
-      for (const [id, target] of batch) targets.set(id, target);
+      for (const [id, target] of batch.targetsById) targets.set(id, target);
+      Object.assign(paths, batch.containerPaths);
     }
     containerTargetById = targets;
+    containerPaths = paths;
   } catch (error) {
     if (!(error instanceof BlobKekTargetError)) throw error;
   }
   return {
     allowHistoricalParentEpochs,
     bindingsByBlobId,
+    containerPaths,
     containerTargetById,
     documentHeadById,
     linkRowsByManifestHash: groupDocumentLinksByManifestHash(linkRows),
@@ -258,6 +265,7 @@ async function loadBatchedBlobKekTargetState(input: {
   readonly allowHistoricalParentEpochs: boolean;
   readonly prefetch: BlobKekTargetPrefetch | undefined;
 }): Promise<{
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly containerTargetById: ContainerKekTargetMap;
   readonly documentManifestHashes: readonly string[];
   readonly documentManifestHashesByDocumentId: ReadonlyMap<string, string>;
@@ -292,19 +300,24 @@ async function loadBatchedBlobKekTargetState(input: {
           input.executor,
         ),
       );
-  const containerTargetById =
-    prefetch?.containerTargetById ??
-    (await resolveCurrentContainerKekTargetsMapped(
-      [...linkRowsByManifestHash.values()].flatMap((rows) =>
-        rows.map((row) => row.containerId),
-      ),
-      input.executor,
-      (message, status) => new BlobKekTargetError(message, status),
-      input.allowHistoricalParentEpochs,
-    ));
+  const resolvedContainers =
+    prefetch?.containerTargetById && prefetch.containerPaths
+      ? {
+          containerPaths: prefetch.containerPaths,
+          targetsById: prefetch.containerTargetById,
+        }
+      : await resolveCurrentContainerKekTargetsWithPathsMapped(
+          [...linkRowsByManifestHash.values()].flatMap((rows) =>
+            rows.map((row) => row.containerId),
+          ),
+          input.executor,
+          (message, status) => new BlobKekTargetError(message, status),
+          input.allowHistoricalParentEpochs,
+        );
 
   return {
-    containerTargetById,
+    containerPaths: resolvedContainers.containerPaths,
+    containerTargetById: resolvedContainers.targetsById,
     documentManifestHashes,
     documentManifestHashesByDocumentId,
     linkRowsByManifestHash,
@@ -427,6 +440,7 @@ export async function resolveCurrentBlobKekTargets(
 
   return {
     blobId,
+    containerPaths: targetState.containerPaths,
     organizationId: targetState.organizationId,
     activeBindingIds,
     documentManifestHashes,

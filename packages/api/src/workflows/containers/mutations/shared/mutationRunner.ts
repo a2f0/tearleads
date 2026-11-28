@@ -4,10 +4,6 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import {
-  getCurrentPrincipalState,
-  listContainerGrantsForState,
-} from "../../../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../../../billing/organizationSyncEligibility";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../../organizations/readModelChanges";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
@@ -25,13 +21,17 @@ import {
   assertAccessEventDependenciesMatchRequest,
   verifyMutationEvent,
 } from "./events";
-import { assertVerifiedContainerGrantReferencesValid } from "./groupReferences";
+import {
+  assertGroupGrantSetChangesAreAtomic,
+  assertVerifiedContainerGrantReferencesValid,
+} from "./groupReferences";
 import {
   assertCurrentContainerPath,
   assertManifestHeadCurrent,
   assertMutationHeadCanAdvance,
   verifyContainerManifestFromRequest,
 } from "./manifests";
+import { deriveContainerMutationAncestors } from "./mutationAncestors";
 import { planContainerMutationBatchLocks } from "./mutationBatchLocks";
 import { persistVerifiedMutation } from "./persistence";
 import { assertPrincipalPoliciesCurrent } from "./principalPolicies";
@@ -121,66 +121,6 @@ interface VerifiedMutationArtifacts {
     | undefined;
   readonly previousManifest: VerifiedContainerAccessManifest | null;
   readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
-}
-
-async function assertGroupGrantSetChangesAreAtomic(
-  context: ContainerMutationContext,
-  artifacts: VerifiedMutationArtifacts,
-): Promise<void> {
-  const previousByGroupId = new Map(
-    (artifacts.previousManifest?.state.directGrants ?? [])
-      .filter((grant) => grant.subjectType === "group")
-      .map((grant) => [grant.subjectId, grant] as const),
-  );
-  const currentByGroupId = new Map(
-    artifacts.manifest.state.directGrants
-      .filter((grant) => grant.subjectType === "group")
-      .map((grant) => [grant.subjectId, grant] as const),
-  );
-  const changedGroupIds = [
-    ...new Set([...previousByGroupId.keys(), ...currentByGroupId.keys()]),
-  ].filter((groupId) => {
-    const previous = previousByGroupId.get(groupId);
-    const current = currentByGroupId.get(groupId);
-    return previous?.accessLevel !== current?.accessLevel;
-  });
-  for (const groupId of changedGroupIds) {
-    if (groupId === context.mutatingGroupPrincipalId) {
-      continue;
-    }
-    const currentGrant = currentByGroupId.get(groupId);
-    if (!currentGrant) {
-      throw new ContainerMutationError(
-        "Group grants must be revoked atomically with principal rotation",
-        409,
-      );
-    }
-    const principalState = await getCurrentPrincipalState(
-      "group",
-      groupId,
-      context.executor,
-    );
-    const signedGrants = principalState
-      ? await listContainerGrantsForState(
-          "group",
-          groupId,
-          principalState.stateHash,
-          context.executor,
-        )
-      : [];
-    if (
-      !signedGrants.some(
-        (grant) =>
-          grant.containerId === artifacts.manifest.state.containerId &&
-          grant.accessLevel === currentGrant.accessLevel,
-      )
-    ) {
-      throw new ContainerMutationError(
-        "Group grant changes require a matching signed principal grant index",
-        409,
-      );
-    }
-  }
 }
 
 interface PrelockedContainerMutationBatchScope {
@@ -391,20 +331,16 @@ function assertMutationWithinPrelockedScope(
 }
 
 /**
- * A committed mutation and the parent its verified previous manifest named,
- * which a move's realtime hint needs and the request no longer carries.
+ * A committed mutation, its verified ancestor paths for realtime routing, and
+ * the parent its verified previous manifest named (which a move's hint needs).
  */
 export interface ContainerMutationOutcome {
+  readonly ancestorIds: readonly string[];
   /** The verified state's metadata document, which the response omits. */
   readonly metadataDocumentId: string;
+  readonly previousAncestorIds?: readonly string[] | undefined;
   readonly previousParentId: string | null | undefined;
   readonly response: ContainerMutationResponse;
-}
-
-export async function mutateContainerWithExecutor(
-  input: MutateContainerWithExecutorInput,
-): Promise<ContainerMutationResponse> {
-  return (await mutateContainerWithExecutorOutcome(input)).response;
 }
 
 export async function mutateContainerWithExecutorOutcome(
@@ -484,7 +420,14 @@ export async function mutateContainerWithExecutorOutcome(
     input.userId,
   );
 
+  const ancestors = deriveContainerMutationAncestors({
+    destinationParentContainerPath: artifacts.destinationParentContainerPath,
+    eventType: input.expectedEventType,
+    parentContainerPath: artifacts.parentContainerPath,
+    previousContainerPath: artifacts.previousContainerPath,
+  });
   return {
+    ...ancestors,
     metadataDocumentId: artifacts.manifest.state.metadataDocumentId,
     previousParentId: artifacts.previousManifest?.state.parentContainerId,
     response: await persistVerifiedMutation(

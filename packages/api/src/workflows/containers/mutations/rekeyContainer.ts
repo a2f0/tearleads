@@ -1,11 +1,13 @@
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { mutateContainerWithExecutor } from "./shared/mutationRunner";
+import {
+  type ContainerMutationOutcome,
+  mutateContainerWithExecutorOutcome,
+} from "./shared/mutationRunner";
 import type { ContainerMutationHandlerInput } from "./types";
 
-export async function rekeyContainer(
+export async function rekeyContainerOutcome(
   input: ContainerMutationHandlerInput,
-): Promise<ContainerMutationResponse> {
-  return mutateContainerWithExecutor({
+): Promise<ContainerMutationOutcome> {
+  return mutateContainerWithExecutorOutcome({
     ...input,
     expectedEventType: "container.rekey",
   });

@@ -293,14 +293,14 @@ function storeBindingKeys(
 }
 
 interface BindTransactionResult {
-  /** The carried document sync's accepted ids; null when none was carried. */
   readonly acceptedOutgoingUpdateIds: readonly string[] | null;
-  /** Containers of the resolved KEK targets, for the realtime hint. */
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly linkedContainerIds: readonly string[];
   readonly response: BlobAttachmentBindResponse;
 }
 
 export interface BindBlobAttachmentWorkflowResult {
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly linkedContainerIds: readonly string[];
   readonly response: BlobAttachmentBindResponse;
 }
@@ -441,9 +441,8 @@ async function bindBlobAttachmentTransaction(
   });
   return {
     acceptedOutgoingUpdateIds,
-    linkedContainerIds: currentTargets.targets.map(
-      (target) => target.containerId,
-    ),
+    containerPaths: currentTargets.containerPaths,
+    linkedContainerIds: currentTargets.targets.map((t) => t.containerId),
     response: toBindResponse({
       binding: verifiedBinding,
       blobId: input.blobId,
@@ -464,23 +463,26 @@ export async function runBindBlobAttachmentWorkflow(
     const documentVersion = parseAttachmentDocumentVersion(
       input.request.documentVersionVector,
     );
-    const { acceptedOutgoingUpdateIds, linkedContainerIds, response } =
-      await db.transaction((tx) =>
-        bindBlobAttachmentTransaction(
-          {
-            ...input,
-            documentVersion,
-            prevalidatedMultipartStage:
-              input.prevalidatedMultipartStage ?? null,
-          },
-          tx,
-        ),
-      );
+    const {
+      acceptedOutgoingUpdateIds,
+      containerPaths,
+      linkedContainerIds,
+      response,
+    } = await db.transaction((tx) =>
+      bindBlobAttachmentTransaction(
+        {
+          ...input,
+          documentVersion,
+          prevalidatedMultipartStage: input.prevalidatedMultipartStage ?? null,
+        },
+        tx,
+      ),
+    );
     if (acceptedOutgoingUpdateIds === null) {
-      return { linkedContainerIds, response };
+      return { containerPaths, linkedContainerIds, response };
     }
-    // Read after commit, as a standalone sync reports its commit position.
     return {
+      containerPaths,
       linkedContainerIds,
       response: {
         ...response,
@@ -492,9 +494,7 @@ export async function runBindBlobAttachmentWorkflow(
     };
   } catch (error) {
     const mutationError = toMutationError(error);
-    if (mutationError) {
-      throw mutationError;
-    }
+    if (mutationError) throw mutationError;
     throw error;
   }
 }

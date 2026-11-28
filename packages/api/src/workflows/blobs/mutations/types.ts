@@ -59,6 +59,7 @@ export interface DetachBlobAttachmentInput {
 }
 
 export interface DetachBlobAttachmentWorkflowResult {
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly linkedContainerIds: readonly string[];
   readonly response: BlobAttachmentDetachResponse;
 }

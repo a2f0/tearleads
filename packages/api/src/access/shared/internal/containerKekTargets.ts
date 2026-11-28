@@ -19,7 +19,36 @@ type ContainerKeyEpochById = Awaited<
   ReturnType<typeof getContainerKeyEpochsById>
 >;
 
-export async function resolveCurrentContainerKekTargetsMapped<E extends Error>(
+export interface ResolvedContainerKekTargetsWithPaths {
+  /** `[root, ..., containerId]` for each resolved container id. */
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
+  readonly targetsById: Map<string, ContainerKekTarget>;
+}
+
+function buildContainerPathsFromClosure(
+  containerIds: readonly string[],
+  targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>,
+): Readonly<Record<string, readonly string[]>> {
+  const paths: Record<string, readonly string[]> = {};
+  for (const containerId of containerIds) {
+    const reversed: string[] = [];
+    const visited = new Set<string>();
+    let current: string | null = containerId;
+    while (current !== null && !visited.has(current)) {
+      visited.add(current);
+      reversed.push(current);
+      const target = targetByContainerId.get(current);
+      if (!target) break;
+      current = target.parentContainerId;
+    }
+    paths[containerId] = reversed.reverse();
+  }
+  return paths;
+}
+
+export async function resolveCurrentContainerKekTargetsWithPathsMapped<
+  E extends Error,
+>(
   containerIds: readonly string[],
   executor: DatabaseSession,
   mapError: (
@@ -28,9 +57,9 @@ export async function resolveCurrentContainerKekTargetsMapped<E extends Error>(
     stale: boolean,
   ) => E,
   allowHistoricalParentEpochs = false,
-): Promise<Map<string, ContainerKekTarget>> {
+): Promise<ResolvedContainerKekTargetsWithPaths> {
   try {
-    return await resolveCurrentContainerKekTargets(
+    return await resolveCurrentContainerKekTargetsWithPaths(
       containerIds,
       executor,
       allowHistoricalParentEpochs,
@@ -41,6 +70,25 @@ export async function resolveCurrentContainerKekTargetsMapped<E extends Error>(
     }
     throw error;
   }
+}
+
+export async function resolveCurrentContainerKekTargetsMapped<E extends Error>(
+  containerIds: readonly string[],
+  executor: DatabaseSession,
+  mapError: (
+    message: string,
+    status: ContainerKekTargetStatus,
+    stale: boolean,
+  ) => E,
+  allowHistoricalParentEpochs = false,
+): Promise<Map<string, ContainerKekTarget>> {
+  const resolved = await resolveCurrentContainerKekTargetsWithPathsMapped(
+    containerIds,
+    executor,
+    mapError,
+    allowHistoricalParentEpochs,
+  );
+  return resolved.targetsById;
 }
 
 function getContainerKeyEpoch(
@@ -127,10 +175,24 @@ export async function resolveCurrentContainerKekTargets(
   executor: DatabaseSession,
   allowHistoricalParentEpochs = false,
 ): Promise<Map<string, ContainerKekTarget>> {
+  return (
+    await resolveCurrentContainerKekTargetsWithPaths(
+      containerIds,
+      executor,
+      allowHistoricalParentEpochs,
+    )
+  ).targetsById;
+}
+
+async function resolveCurrentContainerKekTargetsWithPaths(
+  containerIds: readonly string[],
+  executor: DatabaseSession,
+  allowHistoricalParentEpochs = false,
+): Promise<ResolvedContainerKekTargetsWithPaths> {
   const uniqueContainerIds = unique(containerIds);
 
   if (uniqueContainerIds.length === 0) {
-    return new Map();
+    return { containerPaths: {}, targetsById: new Map() };
   }
 
   const targetByContainerId = await loadCurrentContainerManifestTargetClosure({
@@ -159,7 +221,7 @@ export async function resolveCurrentContainerKekTargets(
     targetByContainerId,
   });
 
-  return new Map(
+  const targetsById = new Map(
     uniqueContainerIds.map((containerId) => {
       const target = targetByContainerId.get(containerId);
       if (!target) {
@@ -181,4 +243,11 @@ export async function resolveCurrentContainerKekTargets(
       ] as const;
     }),
   );
+  return {
+    containerPaths: buildContainerPathsFromClosure(
+      uniqueContainerIds,
+      targetByContainerId,
+    ),
+    targetsById,
+  };
 }

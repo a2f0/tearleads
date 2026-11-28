@@ -108,15 +108,21 @@ function socketCalls(
   pass: ContentionPass,
 ): number[] {
   const own = calls.filter((call) => call.ids === size);
+  // The observer socket holds 1 root container and revalidates alongside the
+  // measured sockets when `revalidateAll()` fires, so when each measured socket
+  // also holds 1 container, the revalidation batch includes the observer's call.
+  const expectedOwn =
+    pass === "revalidation" && size === 1 ? sockets + 1 : sockets;
   if (
-    own.length !== sockets ||
+    own.length !== expectedOwn ||
     calls.some((call) => call.failed) ||
     own.some((call) => call.proofs !== size)
   )
     throw new Error(
       `The ${pass} pass did not authorize ${size} folders on each of ${sockets} sockets.`,
     );
-  return own.map((call) => round(call.durationMs)).sort((a, b) => a - b);
+  const measured = pass === "revalidation" && size === 1 ? own.slice(1) : own;
+  return measured.map((call) => round(call.durationMs)).sort((a, b) => a - b);
 }
 
 /** A hub with one observing socket that holds the tree's root. */
@@ -178,9 +184,17 @@ async function measureSockets(
   passes: readonly SocketPass[],
 ): Promise<ContentionMeasurement[]> {
   const { size, sockets } = shape;
-  const ids = input.seed.containerIds.slice(0, size);
-  if (ids.length < size)
-    throw new Error(`The seeded tree holds only ${ids.length} folders.`);
+  if (input.seed.containerIds.length < size)
+    throw new Error(
+      `The seeded tree holds only ${input.seed.containerIds.length} folders.`,
+    );
+  const rootIds =
+    input.seed.rootContainerIds ?? input.seed.containerIds.slice(0, 4);
+  const ids =
+    input.options.mode === "roots"
+      ? rootIds.slice(0, size)
+      : input.seed.containerIds.slice(0, size);
+  const declaredCount = ids.length;
   const { hub, observer, containerId } = await openObservedHub(
     input.api,
     input.seed,
@@ -209,7 +223,11 @@ async function measureSockets(
         size,
         sockets,
         sample,
-        authorizationMs: socketCalls(hub.calls.slice(firstCall), shape, kind),
+        authorizationMs: socketCalls(
+          hub.calls.slice(firstCall),
+          { size: declaredCount, sockets },
+          kind,
+        ),
         ...observed,
       });
     }

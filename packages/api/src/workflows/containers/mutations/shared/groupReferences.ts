@@ -6,8 +6,13 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
+import {
+  getCurrentPrincipalState,
+  listContainerGrantsForState,
+} from "../../../../access/read/principalStateStore";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
 import { ContainerMutationError } from "../errors";
+import type { ContainerMutationContext } from "../types";
 import { assertGroupReferenceHeadsCurrent } from "./groupReferenceHeads";
 
 function grantSubjectIds(
@@ -106,4 +111,67 @@ export async function assertVerifiedContainerGrantReferencesValid(input: {
 }): Promise<void> {
   await assertGroupReferencesValid(input);
   await assertUserReferencesValid(input);
+}
+
+export async function assertGroupGrantSetChangesAreAtomic(
+  context: ContainerMutationContext,
+  artifacts: {
+    readonly manifest: VerifiedContainerAccessManifest;
+    readonly previousManifest: VerifiedContainerAccessManifest | null;
+  },
+): Promise<void> {
+  const previousByGroupId = new Map(
+    (artifacts.previousManifest?.state.directGrants ?? [])
+      .filter((grant) => grant.subjectType === "group")
+      .map((grant) => [grant.subjectId, grant] as const),
+  );
+  const currentByGroupId = new Map(
+    artifacts.manifest.state.directGrants
+      .filter((grant) => grant.subjectType === "group")
+      .map((grant) => [grant.subjectId, grant] as const),
+  );
+  const changedGroupIds = [
+    ...new Set([...previousByGroupId.keys(), ...currentByGroupId.keys()]),
+  ].filter((groupId) => {
+    const previous = previousByGroupId.get(groupId);
+    const current = currentByGroupId.get(groupId);
+    return previous?.accessLevel !== current?.accessLevel;
+  });
+  for (const groupId of changedGroupIds) {
+    if (groupId === context.mutatingGroupPrincipalId) {
+      continue;
+    }
+    const currentGrant = currentByGroupId.get(groupId);
+    if (!currentGrant) {
+      throw new ContainerMutationError(
+        "Group grants must be revoked atomically with principal rotation",
+        409,
+      );
+    }
+    const principalState = await getCurrentPrincipalState(
+      "group",
+      groupId,
+      context.executor,
+    );
+    const signedGrants = principalState
+      ? await listContainerGrantsForState(
+          "group",
+          groupId,
+          principalState.stateHash,
+          context.executor,
+        )
+      : [];
+    if (
+      !signedGrants.some(
+        (grant) =>
+          grant.containerId === artifacts.manifest.state.containerId &&
+          grant.accessLevel === currentGrant.accessLevel,
+      )
+    ) {
+      throw new ContainerMutationError(
+        "Group grant changes require a matching signed principal grant index",
+        409,
+      );
+    }
+  }
 }

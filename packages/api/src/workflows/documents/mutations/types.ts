@@ -37,6 +37,7 @@ export interface MutateDocumentLinkSetInput {
 
 export interface PurgeDocumentWorkflowResult {
   readonly containerIds: readonly string[];
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly response: DocumentPurgeResponse;
 }
 

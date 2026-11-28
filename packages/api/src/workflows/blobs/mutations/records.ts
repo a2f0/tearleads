@@ -193,7 +193,9 @@ export function toContentKeyBundleResponse(input: {
   };
 }
 
-function blobKekTargetsProjection(input: ResolvedBlobKekTargets) {
+function blobKekTargetsProjection(
+  input: Omit<ResolvedBlobKekTargets, "containerPaths">,
+) {
   return {
     blobId: input.blobId,
     organizationId: input.organizationId,
@@ -208,13 +210,13 @@ function blobKekTargetsProjection(input: ResolvedBlobKekTargets) {
 }
 
 export function toBlobKekTargetsResponse(
-  input: ResolvedBlobKekTargets,
+  input: Omit<ResolvedBlobKekTargets, "containerPaths">,
 ): BlobKekTargetsResponse {
   return blobKekTargetsProjection(input);
 }
 
 export function toBlobWriteAuthorization(
-  input: ResolvedBlobKekTargets,
+  input: Omit<ResolvedBlobKekTargets, "containerPaths">,
 ): BlobWriteAuthorization {
   return blobKekTargetsProjection(input);
 }

@@ -8,6 +8,10 @@ import {
 } from "@tearleads/crypto";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
 import type { DocumentVersionFrontier } from "../../../documents/documentUpdateStore";
+import {
+  containerPathsFromVerifiedPaths,
+  resolveMissingContainerAncestorPaths,
+} from "../../containers/containerAncestorPaths";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   applyAttachmentContainerRekeys,
@@ -31,6 +35,67 @@ import {
   type DetachBlobAttachmentInput,
   type DetachBlobAttachmentWorkflowResult,
 } from "./types";
+
+async function commitVerifiedAttachmentDetach(input: {
+  readonly activeBinding: {
+    readonly blobId: string;
+    readonly id: string;
+  };
+  readonly executor: DatabaseTransaction;
+  readonly proof: Awaited<
+    ReturnType<typeof verifyAttachmentAuthorizationProof>
+  >;
+  readonly verifiedDetach: Extract<
+    Awaited<ReturnType<typeof verifyAttachmentDetachEvent>>,
+    { readonly ok: true }
+  >["value"];
+}): Promise<DetachBlobAttachmentWorkflowResult> {
+  const { activeBinding, executor, proof, verifiedDetach } = input;
+  await lockBlobMutationRows({
+    blobIds: [activeBinding.blobId],
+    executor,
+  });
+  const lockedActiveBinding = await loadActiveAttachmentBindingById({
+    bindingId: activeBinding.id,
+    executor,
+  });
+  if (!lockedActiveBinding) {
+    throw new BlobMutationError("Attachment binding changed concurrently", 409);
+  }
+
+  await storeVerifiedAttachmentDetachInTransaction(verifiedDetach, executor);
+  await registerAttachmentBlobs({
+    blobIds: [verifiedDetach.blobId],
+    executor,
+    organizationId: proof.documentManifest.state.organizationId,
+  });
+  await finalizeAttachmentMutation({
+    dereferencedBlobId: verifiedDetach.blobId,
+    documentId: verifiedDetach.documentId,
+    executor,
+    linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
+    organizationId: proof.documentManifest.state.organizationId,
+  });
+
+  const containerPaths = await resolveMissingContainerAncestorPaths({
+    containerIds: proof.documentManifest.state.linkedContainerIds,
+    executor,
+    knownPaths: containerPathsFromVerifiedPaths(
+      proof.authorizingContainerPaths,
+    ),
+  });
+
+  return {
+    containerPaths,
+    linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
+    response: {
+      bindingId: verifiedDetach.bindingId,
+      blobId: verifiedDetach.blobId,
+      documentId: verifiedDetach.documentId,
+      slotId: verifiedDetach.slotId,
+    },
+  };
+}
 
 async function detachBlobAttachmentTransaction(
   input: DetachBlobAttachmentInput & {
@@ -104,41 +169,12 @@ async function detachBlobAttachmentTransaction(
     executor: tx,
   });
 
-  await lockBlobMutationRows({
-    blobIds: [activeBinding.blobId],
+  return commitVerifiedAttachmentDetach({
+    activeBinding,
     executor: tx,
+    proof,
+    verifiedDetach: verifiedDetach.value,
   });
-  const lockedActiveBinding = await loadActiveAttachmentBindingById({
-    bindingId: input.bindingId,
-    executor: tx,
-  });
-  if (!lockedActiveBinding) {
-    throw new BlobMutationError("Attachment binding changed concurrently", 409);
-  }
-
-  await storeVerifiedAttachmentDetachInTransaction(verifiedDetach.value, tx);
-  await registerAttachmentBlobs({
-    blobIds: [verifiedDetach.value.blobId],
-    executor: tx,
-    organizationId: proof.documentManifest.state.organizationId,
-  });
-  await finalizeAttachmentMutation({
-    dereferencedBlobId: verifiedDetach.value.blobId,
-    documentId: verifiedDetach.value.documentId,
-    executor: tx,
-    linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
-    organizationId: proof.documentManifest.state.organizationId,
-  });
-
-  return {
-    linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
-    response: {
-      bindingId: verifiedDetach.value.bindingId,
-      blobId: verifiedDetach.value.blobId,
-      documentId: verifiedDetach.value.documentId,
-      slotId: verifiedDetach.value.slotId,
-    },
-  };
 }
 
 export async function runDetachBlobAttachmentWorkflow(

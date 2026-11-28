@@ -9,6 +9,7 @@ import type { ContainerMutationHandlerInput } from "./types";
 export async function createContainerOutcome(
   input: ContainerMutationHandlerInput,
 ): Promise<{
+  readonly ancestorIds: readonly string[];
   readonly metadataDocumentId: string;
   readonly response: ContainerMutationResponse;
 }> {
@@ -17,6 +18,7 @@ export async function createContainerOutcome(
     expectedEventType: "container.create",
   });
   return {
+    ancestorIds: outcome.ancestorIds,
     metadataDocumentId: outcome.metadataDocumentId,
     response: outcome.response,
   };

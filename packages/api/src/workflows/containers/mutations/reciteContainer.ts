@@ -40,10 +40,18 @@ export interface ReciteContainerInput {
   readonly userId: string;
 }
 
+export interface ReciteContainerOutcome {
+  readonly ancestorIds: readonly string[];
+  readonly response: ContainerReciteResponse;
+}
+
 async function verifyRecitation(
   context: ContainerMutationContext,
   input: ReciteContainerInput,
-): Promise<VerifiedContainerAccessManifest> {
+): Promise<{
+  readonly ancestorIds: readonly string[];
+  readonly manifest: VerifiedContainerAccessManifest;
+}> {
   const previousContainerPath = await assertCurrentContainerPath(
     context,
     input.request.previousContainerPathRefs,
@@ -74,11 +82,21 @@ async function verifyRecitation(
     expectedEventType: "container.recite",
   });
   assertAccessEventDependenciesMatchRequest(input.request, event);
-  return verifyContainerManifestFromRequest(input.request, event, {
-    previousContainerPath,
-    previousManifest,
-    principalPolicies,
-  });
+  const manifest = await verifyContainerManifestFromRequest(
+    input.request,
+    event,
+    {
+      previousContainerPath,
+      previousManifest,
+      principalPolicies,
+    },
+  );
+  return {
+    ancestorIds: (previousContainerPath ?? [])
+      .slice(0, -1)
+      .map((entry) => entry.state.containerId),
+    manifest,
+  };
 }
 
 async function persistRecitation(
@@ -134,7 +152,7 @@ async function persistRecitation(
 export async function runReciteContainerWorkflow(
   db: ApiDatabase,
   input: ReciteContainerInput,
-): Promise<ContainerReciteResponse> {
+): Promise<ReciteContainerOutcome> {
   try {
     return await db.transaction(async (executor) => {
       const context: ContainerMutationContext = {
@@ -144,7 +162,7 @@ export async function runReciteContainerWorkflow(
         writerProjectionContext:
           createContainerWriterProjectionContext(executor),
       };
-      const initial = await verifyRecitation(context, input);
+      const { manifest: initial } = await verifyRecitation(context, input);
       await assertVerifiedContainerGrantReferencesValid({
         executor,
         manifest: initial,
@@ -161,7 +179,7 @@ export async function runReciteContainerWorkflow(
       // again after assertVerifiedContainerGrantReferencesValid acquired the
       // group locks and the organization-head lock above completed the scope.
       context.manifestHeadByContainerId.clear();
-      const manifest = await verifyRecitation(context, input);
+      const { ancestorIds, manifest } = await verifyRecitation(context, input);
       if (manifest.state.organizationId !== initial.state.organizationId)
         throw mutationStateStale("Container organization changed");
       await assertVerifiedContainerGrantReferencesValid({ executor, manifest });
@@ -171,7 +189,10 @@ export async function runReciteContainerWorkflow(
         manifest.state.organizationId,
         input.userId,
       );
-      return persistRecitation(context, manifest, input.userId);
+      return {
+        ancestorIds,
+        response: await persistRecitation(context, manifest, input.userId),
+      };
     });
   } catch (error) {
     throw toMutationError(error) ?? error;

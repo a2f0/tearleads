@@ -20,8 +20,10 @@ interface GrantSubject {
 }
 
 interface PublishContainerMutationCreatedInput {
+  readonly ancestorIds?: readonly string[] | undefined;
   readonly expectedEventType: AccessEventType;
   readonly origin: { readonly sessionId: string; readonly userId: string };
+  readonly previousAncestorIds?: readonly string[] | undefined;
   // The parent named by the verified previous manifest. Only a move changes
   // it; the workflow reports it because the request cites that manifest by
   // hash. Absent for a create, which has no previous manifest.
@@ -99,7 +101,7 @@ async function grantRecipientUserIds(
 export async function publishContainerMutationCreated(
   input: PublishContainerMutationCreatedInput,
 ) {
-  const { previousParentId } = input;
+  const { ancestorIds, previousAncestorIds, previousParentId } = input;
   const eventType =
     readContainerMutationBodyEventType(input.request) ??
     input.expectedEventType;
@@ -118,10 +120,14 @@ export async function publishContainerMutationCreated(
     input.publish,
     {
       type: "container_mutation_created",
+      ...(ancestorIds === undefined ? {} : { ancestorIds: [...ancestorIds] }),
       containerId: input.response.containerId,
       eventType,
       origin: input.origin,
       parentId: input.response.parentId,
+      ...(previousAncestorIds === undefined
+        ? {}
+        : { previousAncestorIds: [...previousAncestorIds] }),
       ...(previousParentId === undefined ? {} : { previousParentId }),
       updatedAt: input.response.updatedAt,
     },
@@ -145,6 +151,9 @@ export async function publishContainerMutationCreated(
  * says everything the hint needs.
  */
 export async function publishCarriedContainerRekeys(input: {
+  readonly ancestorIdsByContainerId?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
   readonly carried: readonly Pick<
     PublishContainerMutationCreatedInput["response"],
     "containerId" | "parentId" | "updatedAt"
@@ -153,10 +162,12 @@ export async function publishCarriedContainerRekeys(input: {
   readonly publish: PublishContainerMutationCreatedInput["publish"];
 }) {
   for (const response of input.carried) {
+    const ancestorIds = input.ancestorIdsByContainerId?.[response.containerId];
     await publishBestEffort(
       input.publish,
       {
         type: "container_mutation_created",
+        ...(ancestorIds === undefined ? {} : { ancestorIds: [...ancestorIds] }),
         containerId: response.containerId,
         eventType: "container.rekey",
         origin: input.origin,

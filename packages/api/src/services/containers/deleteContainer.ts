@@ -1,6 +1,6 @@
-import type { ContainerDeleteResponse } from "@tearleads/validators/response";
 import {
   DeleteContainerError,
+  type DeleteContainerOutcome,
   deleteContainer as runDeleteContainerWorkflow,
 } from "../../workflows/containers/deleteContainer";
 import type { ApiServiceRuntime } from "../runtime";
@@ -14,6 +14,6 @@ export function deleteContainer(
     readonly requiredAncestorId?: string | undefined;
     readonly userId: string;
   },
-): Promise<ContainerDeleteResponse> {
+): Promise<DeleteContainerOutcome> {
   return runDeleteContainerWorkflow(runtime.db, input);
 }

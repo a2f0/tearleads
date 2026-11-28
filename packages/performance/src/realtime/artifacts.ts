@@ -10,6 +10,8 @@ export interface SeededTree {
   readonly fanout: number;
   /** System folders first, then created folders in breadth-first order. */
   readonly containerIds: readonly string[];
+  /** Root-lane container ids (direct grants / roots) declared in roots mode. */
+  readonly rootContainerIds?: readonly string[] | undefined;
   readonly seededAt: string;
   readonly seedMs: number;
 }

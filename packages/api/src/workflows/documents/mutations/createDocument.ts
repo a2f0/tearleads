@@ -51,6 +51,7 @@ import {
 import type { CreateDocumentInput } from "./types";
 
 export interface DocumentCreateWorkflowResult {
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   /** Seed update ids this create inserted, for the update broadcast. */
   readonly insertedUpdateIds: readonly string[];
   /** The containers the new document is linked to, for the broadcast. */
@@ -60,6 +61,7 @@ export interface DocumentCreateWorkflowResult {
 
 /** A create committed in the caller's transaction, and its link set. */
 export interface DocumentCreatedInTransaction {
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly createdDocumentSeed: CreatedDocumentSeed;
   readonly created: DocumentCreateResponse;
   readonly linkedContainerIds: readonly string[];
@@ -120,9 +122,10 @@ export async function runCreateDocumentWorkflow(
   input: CreateDocumentInput,
 ): Promise<DocumentCreateWorkflowResult> {
   try {
-    const { created, linkedContainerIds, seed } = await db.transaction(
-      async (tx) => {
+    const { containerPaths, created, linkedContainerIds, seed } =
+      await db.transaction(async (tx) => {
         const {
+          containerPaths,
           created,
           linkedContainerIds,
           organizationId,
@@ -157,13 +160,18 @@ export async function runCreateDocumentWorkflow(
             organizationId,
           });
         }
-        return { created, linkedContainerIds, seed };
-      },
-    );
+        return { containerPaths, created, linkedContainerIds, seed };
+      });
     if (!seed) {
-      return { insertedUpdateIds: [], linkedContainerIds, response: created };
+      return {
+        containerPaths,
+        insertedUpdateIds: [],
+        linkedContainerIds,
+        response: created,
+      };
     }
     return {
+      containerPaths,
       insertedUpdateIds: seed.insertedUpdateIds,
       linkedContainerIds,
       response: {
@@ -213,6 +221,7 @@ export async function createDocumentWithExecutor(
   input: CreateDocumentWithExecutorInput,
 ): Promise<DocumentCreatedInTransaction> {
   const {
+    containerPaths,
     created,
     linkedContainerIds,
     organizationId,
@@ -227,6 +236,7 @@ export async function createDocumentWithExecutor(
     });
   }
   return {
+    containerPaths,
     created,
     linkedContainerIds,
     lockedContainerHeads,
@@ -271,6 +281,7 @@ async function insertCreatedDocumentRow(
 async function createDocumentInTransaction(
   input: CreateDocumentWithExecutorInput,
 ): Promise<{
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly created: DocumentCreateResponse;
   readonly linkedContainerIds: readonly string[];
   readonly organizationId: string;
@@ -344,6 +355,7 @@ async function createDocumentInTransaction(
     );
 
     return {
+      containerPaths: contentKeyBundle.currentTargets.containerPaths,
       created: {
         id: document.id,
         createdAt: document.createdAt.toISOString(),

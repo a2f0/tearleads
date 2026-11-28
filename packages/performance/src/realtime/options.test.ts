@@ -7,6 +7,7 @@ test("defaults to the issue's three sizes, one sample, and a fresh seed", () => 
     sizes: [100, 1_000, 10_000],
     fanout: 10,
     samples: 1,
+    mode: "all",
     reuse: false,
   });
   expect(parseRealtimeOptions(["--help"])).toBeNull();
@@ -18,9 +19,17 @@ test("defaults to the issue's three sizes, one sample, and a fresh seed", () => 
       "3",
       "--samples",
       "10",
+      "--mode",
+      "roots",
       "--reuse",
     ]),
-  ).toEqual({ sizes: [5, 50], fanout: 3, samples: 10, reuse: true });
+  ).toEqual({
+    sizes: [5, 50],
+    fanout: 3,
+    samples: 10,
+    mode: "roots",
+    reuse: true,
+  });
 });
 
 test("rejects sizes the hub would refuse and unordered or bad counts", () => {

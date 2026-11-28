@@ -51,6 +51,7 @@ import { ensureCurrentDocumentAccess } from "./syncAccess";
 import type { MutateDocumentLinkSetInput } from "./types";
 
 export interface DocumentLinkSetMutationWorkflowResult {
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly insertedUpdateIds: readonly string[];
   /** The document's KEK target containers after the mutation. */
   readonly linkedContainerIds: readonly string[];
@@ -99,8 +100,20 @@ async function toDocumentLinkSetMutationResult(input: {
   readonly documentId: string;
   readonly insertedUpdateIds: readonly string[];
   readonly manifest: Parameters<typeof documentMutationAcknowledgement>[0];
+  readonly targetContainerPath?:
+    | readonly { readonly state: { readonly containerId: string } }[]
+    | undefined;
 }): Promise<DocumentLinkSetMutationWorkflowResult> {
+  const containerPaths: Record<string, readonly string[]> = {
+    ...input.contentKeyBundle.currentTargets.containerPaths,
+  };
+  const targetLeaf = input.targetContainerPath?.at(-1);
+  if (targetLeaf && input.targetContainerPath) {
+    containerPaths[targetLeaf.state.containerId] =
+      input.targetContainerPath.map((entry) => entry.state.containerId);
+  }
   return {
+    containerPaths,
     insertedUpdateIds: input.insertedUpdateIds,
     linkedContainerIds: input.contentKeyBundle.currentTargets.targets.map(
       (target) => target.containerId,
@@ -425,6 +438,7 @@ async function mutateDocumentLinkSetWithExecutor(
         documentId: input.documentId,
         insertedUpdateIds,
         manifest,
+        targetContainerPath: authorization.targetContainerPath,
       }),
     };
   } catch (error) {

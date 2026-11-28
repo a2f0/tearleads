@@ -56,7 +56,8 @@ async function resolveSolePurgeContainerId(input: {
     input.executor,
   );
 
-  if (containerIds.length === 0) {
+  const [containerId] = containerIds;
+  if (!containerId) {
     throw new DocumentMutationError(
       "Document is not linked to any container",
       409,
@@ -68,13 +69,6 @@ async function resolveSolePurgeContainerId(input: {
       409,
     );
   }
-
-  // Exactly one element after the guards above; the check only narrows types.
-  const [containerId] = containerIds;
-  if (!containerId) {
-    throw new Error("unreachable: containerIds has exactly one element");
-  }
-
   return containerId;
 }
 
@@ -279,6 +273,52 @@ async function resolveLockedPurgeAuthorization(input: {
   return { containerId, organizationId };
 }
 
+type InitialPurgeMaterial = Awaited<
+  ReturnType<typeof loadInitialPurgeResponseMaterial>
+>;
+type VerifiedPurgeRequest = Awaited<
+  ReturnType<typeof verifyDocumentPurgeRequest>
+>;
+
+function buildPurgeDocumentWorkflowResult(
+  containerId: string,
+  documentId: string,
+  purgedAt: Date,
+  verifiedPurge: VerifiedPurgeRequest,
+  material: InitialPurgeMaterial,
+): PurgeDocumentWorkflowResult {
+  const { documentDependencies, policyEvidence, proofMaterial } = material;
+  const documentContainerManifestHistory = [
+    ...new Map(
+      [
+        ...proofMaterial.authorizingContainerManifestHistory,
+        ...documentDependencies.documentContainerManifestHistory,
+      ].map((bundle) => [bundle.manifestHash, bundle]),
+    ).values(),
+  ];
+  return {
+    containerIds: [containerId],
+    containerPaths: {
+      [containerId]: verifiedPurge.authorizingContainerPath.map(
+        (manifest) => manifest.state.containerId,
+      ),
+    },
+    response: {
+      authorizingContainerPath: proofMaterial.authorizingContainerPath,
+      documentContainerManifestHistory,
+      documentId,
+      documentManifest: proofMaterial.documentManifest,
+      documentManifestContainerPaths:
+        documentDependencies.documentManifestContainerPaths,
+      documentManifestPredecessors: [],
+      purgeEvent: projectionVerifiedAccessEventRecord(verifiedPurge.event),
+      purgedAt: purgedAt.toISOString(),
+      policyEvidence,
+      reclaimedBlobStorageKeys: [],
+    },
+  };
+}
+
 async function purgeDocumentWithExecutor(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
@@ -325,15 +365,14 @@ async function purgeDocumentWithExecutor(input: {
       409,
     );
   }
-  const { documentDependencies, policyEvidence, proofMaterial } =
-    await loadInitialPurgeResponseMaterial({
-      documentId: input.documentId,
-      organizationId,
-      userId: input.userId,
-      authorizingContainerManifestHashes,
-      documentManifestHash: verifiedPurge.documentManifest.manifestHash,
-      executor: input.executor,
-    });
+  const material = await loadInitialPurgeResponseMaterial({
+    documentId: input.documentId,
+    organizationId,
+    userId: input.userId,
+    authorizingContainerManifestHashes,
+    documentManifestHash: verifiedPurge.documentManifest.manifestHash,
+    executor: input.executor,
+  });
 
   const orphanedBlobIds = await resolveOrphanedBlobIds({
     documentId: input.documentId,
@@ -361,29 +400,13 @@ async function purgeDocumentWithExecutor(input: {
   // Orphaned blobs are soft-deleted (bytes retained), so nothing is reclaimed
   // synchronously; the GC sweep reclaims object-store bytes after re-checking
   // reachability. Always empty until that sweep exists.
-  return {
-    containerIds: [containerId],
-    response: {
-      authorizingContainerPath: proofMaterial.authorizingContainerPath,
-      documentContainerManifestHistory: [
-        ...new Map(
-          [
-            ...proofMaterial.authorizingContainerManifestHistory,
-            ...documentDependencies.documentContainerManifestHistory,
-          ].map((bundle) => [bundle.manifestHash, bundle]),
-        ).values(),
-      ],
-      documentId: input.documentId,
-      documentManifest: proofMaterial.documentManifest,
-      documentManifestContainerPaths:
-        documentDependencies.documentManifestContainerPaths,
-      documentManifestPredecessors: [],
-      purgeEvent: projectionVerifiedAccessEventRecord(verifiedPurge.event),
-      purgedAt: purgedAt.toISOString(),
-      policyEvidence,
-      reclaimedBlobStorageKeys: [],
-    },
-  };
+  return buildPurgeDocumentWorkflowResult(
+    containerId,
+    input.documentId,
+    purgedAt,
+    verifiedPurge,
+    material,
+  );
 }
 
 // Hard-deletes the document and its per-document rows in one transaction, and

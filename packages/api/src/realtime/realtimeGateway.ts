@@ -207,11 +207,11 @@ function createInterestAuthorizers(
  * tests.
  */
 export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
-  const router = deps.router ?? new WsEventRouter();
+  const proofAge = resolveProofAgePolicy(deps.revalidation);
+  const router = deps.router ?? new WsEventRouter({ now: proofAge.now });
   const subscribe = deps.subscribe ?? addListener;
   const subscribeReconnect =
     deps.subscribeReconnect ?? addSubscriberReconnectListener;
-  const proofAge = resolveProofAgePolicy(deps.revalidation);
   const { containerInterest, organizationInterest } = createInterestAuthorizers(
     deps,
     { proofAge, router },
