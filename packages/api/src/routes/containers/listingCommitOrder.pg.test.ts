@@ -28,9 +28,10 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
           lanes: [{ laneId: "root", parentId: null, watermark }],
         },
       );
-      const page = result.results[0]?.page;
-      if (!page) throw new Error("Expected the root lane");
-      return page;
+      const first = result.results[0];
+      if (!first || !("page" in first))
+        throw new Error("Expected the root lane");
+      return first.page;
     };
     const baseline = await list(null);
     const tombstoneId = crypto.randomUUID();
@@ -141,7 +142,9 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     const page = await listContainerParentLanes(runtime, userId, {
       lanes: [{ parentId: null, laneId: "root", watermark: null }],
     });
-    const watermark = page.results[0]?.page?.nextWatermark;
+    const firstRoot = page.results[0];
+    const watermark =
+      firstRoot && "page" in firstRoot ? firstRoot.page.nextWatermark : null;
     if (!watermark) throw new Error("Expected a parent checkpoint");
     let consistent = false;
     const transaction: typeof db.transaction = (run, config) =>
@@ -218,7 +221,9 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
             { parentId: null, laneId: "first", limit: 1, watermark: null },
           ],
         });
-        const page = listing.results[0]?.page;
+        const firstListing = listing.results[0];
+        const page =
+          firstListing && "page" in firstListing ? firstListing.page : null;
         if (!page?.nextWatermark)
           throw new Error("Expected a publication cursor");
         expect(page.hasMore).toBe(true);

@@ -48,6 +48,7 @@ const ROOT_TEST_OPS_HEALTH: RootOpsHealthReportResponse = {
   },
   trialsEnding: { rows: [], truncated: false },
   purgesDue: { rows: [], truncated: false },
+  documentUpdateCounts: { triggerPresent: true, rows: [], truncated: false },
 };
 
 export const rootOpsHealthHandlers = [

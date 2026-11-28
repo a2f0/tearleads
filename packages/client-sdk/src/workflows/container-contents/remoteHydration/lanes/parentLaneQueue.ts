@@ -29,10 +29,13 @@ export function createContainerParentHydrationQueue(input: {
     }
     lanes.push({ parentId });
     // Ordinary discovery refreshes also list the top-level lane from no
-    // watermark, for its membership alone. The listing from the watermark
-    // above is the one that says which root containers moved.
+    // watermark, for its membership alone. Request ids-only first so steady
+    // reconnects avoid resolving full summaries for already-held roots; the
+    // hydration loop falls back to a full membership listing only if a root is
+    // missing locally or gained a higher direct access level.
     if (parentId === null && input.resetRootLaneWatermark) {
       lanes.push({
+        idsOnly: true,
         membershipOnly: true,
         parentId,
         skipWatermarkWrite: true,

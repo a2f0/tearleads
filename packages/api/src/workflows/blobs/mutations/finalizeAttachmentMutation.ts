@@ -8,11 +8,17 @@ export async function finalizeAttachmentMutation(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly linkedContainerIds: readonly string[];
+  readonly organizationId?: string | undefined;
+  /** True when a carried document sync already touched the document and containers. */
+  readonly skipTargetsTouch?: boolean | undefined;
 }): Promise<void> {
-  await touchDocumentAndLinkedContainers(input.executor, {
-    documentId: input.documentId,
-    linkedContainerIds: input.linkedContainerIds,
-  });
+  if (!input.skipTargetsTouch) {
+    await touchDocumentAndLinkedContainers(input.executor, {
+      documentId: input.documentId,
+      linkedContainerIds: input.linkedContainerIds,
+      organizationId: input.organizationId,
+    });
+  }
   if (input.dereferencedBlobId !== undefined) {
     await markBlobDereferencedIfInactive({
       blobId: input.dereferencedBlobId,

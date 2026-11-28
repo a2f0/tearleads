@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
+import { organizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/workflows/cachedContainerHydrationRuntime";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
@@ -134,18 +135,38 @@ async function crawl(
     state.runtime.apiClient.listContainerParentLanes = async ({ lanes }) => {
       requests.push([...lanes]);
       return {
-        results: lanes.map((lane) => ({
-          laneId: lane.laneId,
-          page: {
-            hasMore: false,
-            items: serve(lane).map((item) => ({ ...item, depth: 0 })),
-            nextWatermark: {
-              id: `next-${lane.watermark?.id ?? "from-start"}`,
-              updatedAt: LATER,
+        results: lanes.map((lane) => {
+          const served = serve(lane);
+          const nextWatermark = {
+            id: `next-${lane.watermark?.id ?? "from-start"}`,
+            updatedAt: LATER,
+          };
+          if (lane.idsOnly) {
+            return {
+              idsPage: {
+                hasMore: false,
+                items: served.map((item) => ({
+                  directAccessLevel: item.effectiveAccessLevel,
+                  id: item.id,
+                  organizationId: item.organizationId,
+                  parentId: item.parentId,
+                  ...(item.systemSlot ? { systemSlot: item.systemSlot } : {}),
+                })),
+                nextWatermark,
+              },
+              laneId: lane.laneId,
+            };
+          }
+          return {
+            laneId: lane.laneId,
+            page: {
+              hasMore: false,
+              items: served.map((item) => ({ ...item, depth: 0 })),
+              nextWatermark,
+              tombstones: [],
             },
-            tombstones: [],
-          },
-        })),
+          };
+        }),
       };
     };
     const host: RemoteContainerHydrationHost = {
@@ -210,7 +231,7 @@ test("a lane that serves nothing owes nothing", async () => {
   ]);
 });
 
-test("the root lane's membership listing owes nothing and saves no cursor", async () => {
+test("the root lane's idsOnly membership listing skips already-held roots, owes nothing, and saves no cursor", async () => {
   const { requests, rootWatermark, steps } = await crawl(
     { resetRootLaneWatermark: true },
     // From its watermark the root lane has nothing new. From no watermark it
@@ -219,22 +240,72 @@ test("the root lane's membership listing owes nothing and saves no cursor", asyn
       lane.parentId === null && lane.watermark === null ? [FOLDER] : [],
   );
 
-  // One request lists the root lane twice: from its watermark, and from none.
+  // One request lists the root lane twice: from its watermark, and idsOnly from none.
   expect(
-    requests[0]?.map((lane) => [lane.parentId, lane.watermark?.id ?? null]),
+    requests[0]?.map((lane) => [
+      lane.parentId,
+      lane.watermark?.id ?? null,
+      lane.idsOnly ?? false,
+    ]),
   ).toEqual([
-    [null, "root-saved"],
-    [null, null],
-    ["container-1", null],
+    [null, "root-saved", false],
+    [null, null, true],
+    ["container-1", null, false],
   ]);
-  // The membership listing still applies the row it was served.
-  expect(steps).toContain("apply container-1");
+  // Every returned root is already held at matching access, so no follow-up full
+  // membership listing or re-apply runs.
+  expect(requests).toHaveLength(1);
+  expect(steps).not.toContain("apply container-1");
   expect(steps.filter((step) => step.startsWith("owe "))).toEqual([
     "owe nothing",
     "owe nothing",
   ]);
   // The cursor is the one the listing from the watermark returned.
   expect(rootWatermark?.id).toBe("next-root-saved");
+});
+
+test("the root lane's idsOnly membership listing falls back to a full listing on access upgrade without owing or saving a cursor", async () => {
+  const UPGRADED: RemoteContainer = {
+    ...FOLDER,
+    effectiveAccessLevel: "admin",
+  };
+  const { requests, rootWatermark, steps } = await crawl(
+    { resetRootLaneWatermark: true },
+    (lane) =>
+      lane.parentId === null && lane.watermark === null ? [UPGRADED] : [],
+  );
+
+  expect(requests).toHaveLength(2);
+  expect(requests[1]).toEqual([
+    expect.objectContaining({
+      parentId: null,
+      watermark: null,
+    }),
+  ]);
+  expect(requests[1]?.[0]?.idsOnly).toBeUndefined();
+  expect(steps).toContain("apply container-1");
+  expect(steps.filter((step) => step.startsWith("owe "))).toEqual([
+    "owe nothing",
+    "owe nothing",
+  ]);
+  expect(rootWatermark?.id).toBe("next-root-saved");
+});
+
+test("a served roster-profile container does not owe its document lane a listing", async () => {
+  const ROSTER_CONTAINER: RemoteContainer = {
+    ...FOLDER,
+    systemSlot: organizationRosterProfileContainerSystemSlot(
+      FOLDER.organizationId,
+    ),
+  };
+  const { steps } = await crawl({}, (lane) =>
+    lane.parentId === null ? [ROSTER_CONTAINER] : [],
+  );
+
+  expect(steps.filter((step) => step.startsWith("owe "))).toEqual([
+    "owe nothing",
+    "owe nothing",
+  ]);
 });
 
 test("a root container that moved is owed by the listing from the watermark", async () => {

@@ -5,7 +5,10 @@ import {
   containerSyncTombstones,
   containers,
 } from "@tearleads/api-shared/schema";
-import type { SyncWatermark } from "@tearleads/validators/response";
+import {
+  EffectiveAccessLevelSchema,
+  type SyncWatermark,
+} from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { documentUpdateCountExpression } from "../../documents/documentUpdateCount";
@@ -332,4 +335,111 @@ export function readAccessibleContainerRows(
   }
 
   return accessibleContainers;
+}
+
+export interface AccessibleContainerIdRow {
+  readonly directAccessLevel: "read" | "write" | "admin";
+  readonly discoveryOrder: bigint;
+  readonly id: string;
+  readonly organizationId: string;
+  readonly parentId: string | null;
+  readonly systemSlot: unknown;
+  readonly updatedAt: string;
+}
+
+const accessibleContainerIdRowSchema = z.looseObject({
+  directAccessLevel: EffectiveAccessLevelSchema,
+  discoveryOrder: z
+    .string()
+    .regex(/^-?\d+$/u)
+    .transform(BigInt),
+  id: z.string(),
+  organizationId: z.string(),
+  parentId: z.string().nullable(),
+  systemSlot: z.unknown().optional(),
+  updatedAt: z.string(),
+});
+
+/**
+ * Compact root-lane membership scan for `idsOnly: true`: reads only granted
+ * container ids, placement columns, and strongest direct grant level without
+ * joining `access_manifests` JSONB, counting metadata updates, or scanning
+ * tombstones.
+ */
+export function accessibleContainerIdsQuery(input: {
+  readonly limit: number;
+  readonly userId: string;
+  readonly watermark: SyncWatermark | null;
+}): SQL {
+  const watermark = watermarkPredicate(
+    sql`c.discovery_order`,
+    textExpression(sql`c.id`),
+    input.watermark,
+  );
+  return sql`
+    with ${discoveryGrantSubjects(input.userId)}
+    select
+      ${textExpression(sql`c.id`)} as "id",
+      ${textExpression(sql`c.system_slot`)} as "systemSlot",
+      ${textExpression(sql`c.organization_id`)} as "organizationId",
+      ${textExpression(sql`c.parent_id`)} as "parentId",
+      c.discovery_order::text as "discoveryOrder",
+      ${syncTimestampExpression(sql`c.updated_at`)} as "updatedAt",
+      case max(
+        case grant_projection.access_level
+          when 'admin' then 3
+          when 'write' then 2
+          else 1
+        end
+      )
+        when 3 then 'admin'
+        when 2 then 'write'
+        else 'read'
+      end as "directAccessLevel"
+    from grant_subjects subject
+    cross join ${accessManifestContainerGrantProjection} grant_projection
+    cross join ${accessManifestHeads} h
+    cross join ${containers} c
+    where
+      grant_projection.subject_type = subject.principal_type
+      and grant_projection.subject_id = subject.principal_id
+      and h.manifest_hash = grant_projection.manifest_hash
+      and h.object_kind = ${"container"}
+      and c.id = h.object_id
+      ${watermark}
+    group by
+      c.id,
+      c.system_slot,
+      c.organization_id,
+      c.parent_id,
+      c.discovery_order,
+      c.updated_at
+    order by
+      c.discovery_order asc,
+      ${textExpression(sql`c.id`)} asc
+    limit ${input.limit + 1}
+  `;
+}
+
+export function readAccessibleContainerIdRows(
+  rows: readonly unknown[],
+): AccessibleContainerIdRow[] {
+  return rows.map((candidate) => {
+    const parsed = accessibleContainerIdRowSchema.safeParse(candidate);
+    if (!parsed.success) {
+      throw new Error(
+        "Unexpected row shape from accessible container ids query",
+      );
+    }
+    const row = parsed.data;
+    return {
+      directAccessLevel: row.directAccessLevel,
+      discoveryOrder: row.discoveryOrder,
+      id: row.id,
+      organizationId: row.organizationId,
+      parentId: row.parentId,
+      systemSlot: row.systemSlot,
+      updatedAt: readSyncTimestamp(row.updatedAt),
+    };
+  });
 }

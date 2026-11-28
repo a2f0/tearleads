@@ -712,7 +712,7 @@ export type paths = {
         put?: never;
         /**
          * List containers by parent lane
-         * @description Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to 32 requested parent lanes, each with its own watermark. Clients use it to discover and incrementally refresh the folder tree. Any signed-in user may call it; access is checked per container.
+         * @description Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to 32 requested parent lanes, each with its own watermark. A root lane may set `idsOnly: true` to return a compact membership page instead of verified summaries. A lane that hits a lane-local access or consistency error reports its own failure while the other lanes still list.
          */
         post: operations["containers.parentLanes.query"];
         delete?: never;
@@ -3481,9 +3481,11 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description Up to 32 parent lanes to list, each with its own watermark and page size. */
+        /** @description Up to 32 parent lanes to list, each with its own watermark, page size, and optional root-lane `idsOnly` mode. */
         ListContainerParentLanesRequest: {
             lanes: {
+                /** @constant */
+                idsOnly?: true;
                 laneId: string;
                 limit?: number;
                 parentId: string | null;
@@ -3493,12 +3495,35 @@ export type components = {
                 } | null;
             }[];
         };
-        /** @description One page per requested parent lane, in request order. */
+        /** @description One full page, `idsOnly` membership page, or lane-local failure per requested parent lane, in request order. */
         ListContainerParentLanesResponse: {
-            results: {
+            results: ({
                 laneId: string;
                 page: components["schemas"]["ListContainersResponse"];
-            }[];
+            } | {
+                idsPage: {
+                    hasMore: boolean;
+                    items: {
+                        /** @enum {string} */
+                        directAccessLevel: "admin" | "read" | "write";
+                        id: string;
+                        organizationId: string;
+                        parentId: string | null;
+                        systemSlot?: string | null;
+                    }[];
+                    nextWatermark: components["schemas"]["SyncWatermark"] | null;
+                };
+                laneId: string;
+            } | {
+                failure: {
+                    /** @constant */
+                    code?: "container_not_found";
+                    error: string;
+                    /** @enum {number} */
+                    status: 403 | 404 | 409;
+                };
+                laneId: string;
+            })[];
         };
         /** @description One page of a parent lane's containers. */
         ListContainersResponse: {
@@ -4910,8 +4935,22 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description Billing maintenance trouble across organizations. Each section lists at most a bounded number of rows and says when it was truncated. */
+        /** @description Billing and storage maintenance trouble across organizations. Each section lists at most a bounded number of rows and says when it was truncated. */
         RootOpsHealthReportResponse: {
+            /** @description Whether the `count_document_updates` trigger is active on `document_updates` and any document rows whose `update_count` disagrees with stored updates. */
+            documentUpdateCounts: {
+                rows: ({
+                    actualCount: number;
+                    documentId: string;
+                    storedCount: number;
+                } & {
+                    [key: string]: unknown;
+                })[];
+                triggerPresent: boolean;
+                truncated: boolean;
+            } & {
+                [key: string]: unknown;
+            };
             generatedAt: string;
             /** @description Purges past due to start, or started with a lapsed lease. */
             purges: {

@@ -12,11 +12,29 @@ export async function readDiscoveryKey(
     .key_material;
 }
 
-const sources = z.object({
+const liveSource = z.object({
   publication: z.string().regex(/^\d+$/u),
   live: z.array(z.unknown()),
+});
+
+const sources = liveSource.extend({
   removed: z.array(z.unknown()),
 });
+
+/** Reads one bounded live scan with the publication counter from one snapshot. */
+export async function readDiscoverySource(
+  runtime: ApiServiceRuntime,
+  live: SQL,
+) {
+  const result = await runtime.db.execute(sql`
+    select
+      publication::text as publication,
+      (select coalesce(jsonb_agg(rows order by rows."discoveryOrder"::bigint, rows.id), '[]'::jsonb)
+       from (${live}) rows) as live
+    from drizzle.discovery_cursor_key where singleton and backfill_complete
+  `);
+  return liveSource.parse(result.rows[0]);
+}
 
 /** Both bounded scans see the same MVCC snapshot, including on a replica. */
 export async function readDiscoverySources(

@@ -91,16 +91,57 @@ export const containerDocumentLanes = {
   },
 } as const;
 
+function parentLaneResultsMatchRequest(
+  lanes: ListContainerParentLanesRequest["lanes"],
+  results: ListContainerParentLanesResponse["results"],
+): boolean {
+  if (!resultsMatchLanes(lanes, results)) return false;
+  const requestedById = new Map(lanes.map((lane) => [lane.laneId, lane]));
+  return results.every((result) => {
+    const requested = requestedById.get(result.laneId);
+    if (!requested) return false;
+    if ("failure" in result) return true;
+    return requested.idsOnly ? "idsPage" in result : "page" in result;
+  });
+}
+
 export const containerParentLanes = {
   isResponseForRequest: (
     input: ListContainerParentLanesRequest,
     value: unknown,
-  ): value is ListContainerParentLanesResponse => {
-    return (
-      isListContainerParentLanesOperationResponse(value) &&
-      resultsMatchLanes(input.lanes, value.results)
-    );
-  },
+  ): value is ListContainerParentLanesResponse =>
+    isListContainerParentLanesOperationResponse(value) &&
+    parentLaneResultsMatchRequest(input.lanes, value.results),
   method: listContainerParentLanesOperation.method,
   path: operationRequestPath(listContainerParentLanesOperation, {}),
+  /**
+   * Identical concurrent batches share one silent fetch; each caller applies
+   * its own reporting policy. Non-absence lane failures are reported like the
+   * failed request they replace.
+   */
+  settle: (
+    result: RequestResult<ListContainerParentLanesResponse> | null,
+    reportErrors: boolean,
+    reportError: (message: string) => void,
+  ): ListContainerParentLanesResponse | null => {
+    if (result?.ok !== true) {
+      if (reportErrors) result?.report();
+      return null;
+    }
+    if (reportErrors) {
+      for (const lane of result.data.results) {
+        if (
+          "failure" in lane &&
+          !(
+            lane.failure.status === 404 &&
+            lane.failure.code === CONTAINER_NOT_FOUND_ERROR_CODE
+          )
+        )
+          reportError(
+            `${listContainerParentLanesOperation.method} ${listContainerParentLanesOperation.path}: ${lane.failure.status} ${lane.failure.error}`,
+          );
+      }
+    }
+    return result.data;
+  },
 } as const;

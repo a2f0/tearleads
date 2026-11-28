@@ -176,3 +176,82 @@ test("assertMigrationHistory accepts an applied prefix of the journal", () => {
     "API migration 0000_a is not the migration the database applied at position 1",
   );
 });
+
+test("a migration that drops or disables count_document_updates is refused", async () => {
+  const droppedFolder = await copyMigrations();
+  await appendMigration(droppedFolder, "9999_drop_update_count_trigger", [
+    "DROP TRIGGER count_document_updates ON public.document_updates",
+  ]);
+  const dropped = await openDatabase();
+  await expect(dropped.migrate(droppedFolder)).rejects.toThrow(
+    "API migration left public.document_updates without the count_document_updates trigger",
+  );
+
+  const disabledFolder = await copyMigrations();
+  await appendMigration(disabledFolder, "9999_disable_update_count_trigger", [
+    "ALTER TABLE public.document_updates DISABLE TRIGGER count_document_updates",
+  ]);
+  const disabled = await openDatabase();
+  await expect(disabled.migrate(disabledFolder)).rejects.toThrow(
+    "API migration left the count_document_updates trigger disabled on public.document_updates",
+  );
+});
+
+test("count_document_updates increments counts, advances attribution revision, and publishes discovery order", async () => {
+  const folder = await copyMigrations();
+  const { client, migrate: run } = await openDatabase();
+  await run(folder);
+
+  const documentId = crypto.randomUUID();
+  const initialUpdatedAt = "2020-01-01 00:00:00";
+  await client.query(
+    `INSERT INTO public.documents (id, created_by_fingerprint, updated_at)
+     VALUES ($1, 'trigger-check', $2::timestamp)`,
+    [documentId, initialUpdatedAt],
+  );
+  const before = await client.query<{
+    attribution_revision: number;
+    discovery_order: string;
+    update_count: number;
+    updated_at: Date;
+  }>(
+    `SELECT attribution_revision, discovery_order::text, update_count, updated_at
+     FROM public.documents WHERE id = $1`,
+    [documentId],
+  );
+  const beforeRow = before.rows[0];
+  if (!beforeRow) throw new Error("Expected inserted document row");
+  expect(beforeRow.update_count).toBe(0);
+  expect(beforeRow.attribution_revision).toBe(0);
+
+  await client.query(
+    `INSERT INTO public.document_updates (
+       id, document_id, access_epoch, author_fingerprint, encrypted_data,
+       byte_length, partial_start_version_vector, partial_end_version_vector,
+       dependency_version_vector, plaintext_hash
+     ) VALUES (
+       $1, $2, 1, 'trigger-check', 'data', 4, 'start', 'end', '', 'hash-1'
+     )`,
+    [crypto.randomUUID(), documentId],
+  );
+  const after = await client.query<{
+    attribution_revision: number;
+    discovery_order: string;
+    update_count: number;
+    updated_at: Date;
+  }>(
+    `SELECT attribution_revision, discovery_order::text, update_count, updated_at
+     FROM public.documents WHERE id = $1`,
+    [documentId],
+  );
+  const afterRow = after.rows[0];
+  if (!afterRow) throw new Error("Expected updated document row");
+  expect(afterRow.update_count).toBe(1);
+  expect(afterRow.attribution_revision).toBe(1);
+  expect(afterRow.updated_at.getTime()).toBeGreaterThan(
+    beforeRow.updated_at.getTime(),
+  );
+  expect(BigInt(afterRow.discovery_order)).toBeGreaterThan(
+    BigInt(beforeRow.discovery_order),
+  );
+});

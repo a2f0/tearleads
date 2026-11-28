@@ -100,6 +100,40 @@ export function assertMigrationHistory(
 const MIGRATION_LOCK = sql.raw("7315420190");
 
 /**
+ * Verifies that `public.document_updates` still carries an enabled
+ * `count_document_updates` trigger after all migrations apply. Clients skip
+ * document pulls on the word of `documents.update_count`, so a migration that
+ * rebuilds `document_updates` without restoring the trigger would silently
+ * freeze counts and hide updates.
+ */
+async function assertDocumentUpdateCountTrigger(
+  db: QueryableDatabase,
+): Promise<void> {
+  const trigger = await db.execute(sql`
+    SELECT t.tgenabled AS enabled
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'document_updates'
+      AND t.tgname = 'count_document_updates'
+      AND NOT t.tgisinternal
+    LIMIT 1
+  `);
+  const enabled = field(trigger.rows[0], "enabled");
+  if (typeof enabled !== "string") {
+    throw new Error(
+      "API migration left public.document_updates without the count_document_updates trigger",
+    );
+  }
+  if (enabled === "D") {
+    throw new Error(
+      "API migration left the count_document_updates trigger disabled on public.document_updates",
+    );
+  }
+}
+
+/**
  * Applies the folder's pending migrations after checking that its journal
  * extends the database's applied history. Holds the migration advisory lock
  * across both, so a concurrent migrate (another build) waits; `db` must
@@ -117,6 +151,7 @@ export async function migrateWithHistory(
       readJournalMigrations(migrationsFolder),
     );
     await migrate({ migrationsFolder });
+    await assertDocumentUpdateCountTrigger(db);
   } finally {
     await db.execute(sql`SELECT pg_advisory_unlock(${MIGRATION_LOCK})`);
   }

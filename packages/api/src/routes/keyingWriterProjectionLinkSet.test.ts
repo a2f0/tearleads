@@ -320,21 +320,23 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
     )
     .limit(1);
   invariant(documentRow, "expected touched document row");
+  invariant(tombstoneRow, "expected unlink tombstone row");
   const unlinkUpdatedAt = documentRow.updatedAt.toISOString();
   expect(unlinkUpdatedAt).not.toBe(preUnlinkUpdatedAt.toISOString());
+  expect(tombstoneRow.containerId).toBe(child.containerId);
+  expect(tombstoneRow.documentId).toBe(createdDocument.id);
+  expect(tombstoneRow.updatedAt.getTime()).toBeGreaterThanOrEqual(
+    documentRow.updatedAt.getTime(),
+  );
+  const containerTouchStamp = tombstoneRow.updatedAt.toISOString();
   expect(
     touchedContainerRows.map((row) => [row.id, row.updatedAt.toISOString()]),
   ).toEqual(
     expect.arrayContaining([
-      [root.kekState.containerId, unlinkUpdatedAt],
-      [child.containerId, unlinkUpdatedAt],
+      [root.kekState.containerId, containerTouchStamp],
+      [child.containerId, containerTouchStamp],
     ]),
   );
-  expect(tombstoneRow).toEqual({
-    containerId: child.containerId,
-    documentId: createdDocument.id,
-    updatedAt: documentRow.updatedAt,
-  });
 });
 
 test("POST /documents/:documentId/unlink accepts a baseline-less unlink for an empty committed frontier", async () => {

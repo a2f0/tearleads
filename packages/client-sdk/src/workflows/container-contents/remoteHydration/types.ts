@@ -2,6 +2,7 @@ import type { ApiClient, RequestResult } from "@tearleads/api-client";
 import type { ContainerReplacementAuthorizationsResponse } from "@tearleads/validators/operation";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
+  ContainerParentLaneIdsPage,
   ContainerSummary,
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
@@ -199,6 +200,12 @@ export interface ContainerParentHydrationLane {
   skipWatermarkWrite?: boolean;
   continuationCursors?: Set<string>;
   /**
+   * When true (root membership lane only), requests a compact ids-only page
+   * and falls back to a full unwatermarked root listing only if a visible
+   * root is missing locally or gained a higher direct access level.
+   */
+  idsOnly?: true;
+  /**
    * A listing from no watermark that runs beside the lane's own listing from
    * its watermark. It shows which containers the lane holds now, which a
    * grant made through a principal policy changes without republishing a
@@ -216,9 +223,34 @@ export interface ExpectedContainerState {
 }
 
 export interface FetchedContainerParentLanePage {
+  readonly kind: "page";
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   expectedHydrationTombstones: ReadonlyMap<string, ContainerHydrationTombstone>;
   lane: ContainerParentHydrationLane;
   response: ListContainersResponse;
   syncLane: ReturnType<typeof createContainerParentSyncLane>;
 }
+
+export interface FetchedContainerParentLaneIdsPage {
+  readonly kind: "idsPage";
+  lane: ContainerParentHydrationLane;
+  response: ContainerParentLaneIdsPage;
+  syncLane: ReturnType<typeof createContainerParentSyncLane>;
+}
+
+export type ContainerParentLaneFailure = Extract<
+  ListContainerParentLanesResponse["results"][number],
+  { failure: unknown }
+>["failure"];
+
+export interface FetchedContainerParentLaneFailure {
+  readonly kind: "failure";
+  readonly failure: ContainerParentLaneFailure;
+  lane: ContainerParentHydrationLane;
+  syncLane: ReturnType<typeof createContainerParentSyncLane>;
+}
+
+export type FetchedContainerParentLaneResult =
+  | FetchedContainerParentLanePage
+  | FetchedContainerParentLaneIdsPage
+  | FetchedContainerParentLaneFailure;

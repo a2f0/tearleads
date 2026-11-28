@@ -2,11 +2,12 @@ import { afterEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  documents,
   organizationBilling,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
 import { ROOT_OPS_HEALTH_SECTION_LIMIT } from "@tearleads/validators/response";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { loadRootOpsHealthReport } from "./opsHealth";
 
 // Far from the dates other suites write, so their rows stay out of the window.
@@ -304,4 +305,36 @@ test("each section stops at its limit and says so", async () => {
   expect(trialsEnding.rows[0]?.trialEndsAt).toBe(
     new Date(later.getTime() + MINUTE).toISOString(),
   );
+});
+
+test("documentUpdateCounts reports active trigger and surfaces update_count drift", async () => {
+  const driftedDocumentId = randomUUID();
+  const cleanDocumentId = randomUUID();
+  await db.insert(documents).values([
+    {
+      createdByFingerprint: "ops-health-drift-test",
+      id: driftedDocumentId,
+      updateCount: 4,
+    },
+    {
+      createdByFingerprint: "ops-health-clean-test",
+      id: cleanDocumentId,
+      updateCount: 0,
+    },
+  ]);
+  try {
+    const { documentUpdateCounts } = await loadRootOpsHealthReport(db, NOW);
+    expect(documentUpdateCounts.triggerPresent).toBe(true);
+    expect(documentUpdateCounts.rows).toContainEqual({
+      actualCount: 0,
+      documentId: driftedDocumentId,
+      storedCount: 4,
+    });
+    expect(
+      documentUpdateCounts.rows.map((row) => row.documentId),
+    ).not.toContain(cleanDocumentId);
+  } finally {
+    await db.delete(documents).where(eq(documents.id, driftedDocumentId));
+    await db.delete(documents).where(eq(documents.id, cleanDocumentId));
+  }
 });

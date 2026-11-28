@@ -7,7 +7,7 @@ import { createContainerParentSyncLane } from "../../containerPersistence";
 import { createContainerStateFingerprint } from "../remoteContainers/containerStateFingerprint";
 import type {
   ContainerParentHydrationLane,
-  FetchedContainerParentLanePage,
+  FetchedContainerParentLaneResult,
   RemoteContainerHydrationState,
 } from "../types";
 
@@ -41,9 +41,106 @@ async function prepareContainerParentLanePage(input: {
       : lane.watermark;
   return {
     lane: { ...lane, watermark },
-    request: { laneId, limit, parentId: lane.parentId, watermark },
+    request: {
+      ...(lane.idsOnly ? { idsOnly: true as const } : {}),
+      laneId,
+      limit,
+      parentId: lane.parentId,
+      watermark,
+    },
     syncLane,
   };
+}
+
+function mapParentLaneBatchResults(input: {
+  readonly expectedContainerStates: ReadonlyMap<
+    string,
+    {
+      container: ReturnType<typeof createContainerStateSnapshot>;
+      fingerprint: string;
+    }
+  >;
+  readonly expectedHydrationTombstones: ReadonlyMap<
+    string,
+    Awaited<
+      ReturnType<
+        RemoteContainerHydrationState["persistence"]["loadContainerHydrationTombstones"]
+      >
+    >[number]
+  >;
+  readonly preparedPages: ReadonlyArray<
+    Awaited<ReturnType<typeof prepareContainerParentLanePage>>
+  >;
+  readonly results: NonNullable<
+    Awaited<
+      ReturnType<
+        RemoteContainerHydrationState["runtime"]["apiClient"]["listContainerParentLanes"]
+      >
+    >
+  >["results"];
+}): {
+  readonly fetched: FetchedContainerParentLaneResult[];
+  readonly hasLaneFailure: boolean;
+} {
+  const resultsByLaneId = new Map(
+    input.results.map((result) => [result.laneId, result]),
+  );
+  if (
+    resultsByLaneId.size !== input.preparedPages.length ||
+    input.results.length !== input.preparedPages.length
+  ) {
+    throw new Error("Container parent lane batch response mismatch");
+  }
+
+  let hasLaneFailure = false;
+  const fetched: FetchedContainerParentLaneResult[] = input.preparedPages.map(
+    (preparedPage) => {
+      const result = resultsByLaneId.get(preparedPage.request.laneId);
+      if (!result) {
+        throw new Error("Container parent lane batch response mismatch");
+      }
+      if ("failure" in result) {
+        hasLaneFailure = true;
+        return {
+          failure: result.failure,
+          kind: "failure",
+          lane: preparedPage.lane,
+          syncLane: preparedPage.syncLane,
+        };
+      }
+      if ("idsPage" in result) {
+        if (!preparedPage.lane.idsOnly) {
+          throw new Error("Container parent lane batch response mismatch");
+        }
+        return {
+          kind: "idsPage",
+          lane: preparedPage.lane,
+          response: result.idsPage,
+          syncLane: preparedPage.syncLane,
+        };
+      }
+      if (preparedPage.lane.idsOnly) {
+        throw new Error("Container parent lane batch response mismatch");
+      }
+      return {
+        expectedContainerStates: input.expectedContainerStates,
+        expectedHydrationTombstones: input.expectedHydrationTombstones,
+        kind: "page",
+        lane: preparedPage.lane,
+        response: result.page,
+        syncLane: preparedPage.syncLane,
+      };
+    },
+  );
+  return { fetched, hasLaneFailure };
+}
+
+function createContainerStateSnapshot(
+  containerState: NonNullable<
+    ReturnType<RemoteContainerHydrationState["containersById"]["get"]>
+  >,
+) {
+  return { ...containerState.container };
 }
 
 export async function fetchContainerParentLaneBatch(input: {
@@ -51,14 +148,14 @@ export async function fetchContainerParentLaneBatch(input: {
   laneIdPrefix?: string | undefined;
   isCurrent?: (() => boolean) | undefined;
   state: RemoteContainerHydrationState;
-}): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
+}): Promise<ReadonlyArray<FetchedContainerParentLaneResult> | null> {
   const { batch, state } = input;
   const prefix = input.laneIdPrefix ?? state.parentLaneRequestPrefix ?? "lane";
   const expectedContainerStates = new Map(
     Array.from(state.containersById, ([containerId, containerState]) => [
       containerId,
       {
-        container: { ...containerState.container },
+        container: createContainerStateSnapshot(containerState),
         fingerprint: createContainerStateFingerprint(containerState),
       },
     ]),
@@ -98,27 +195,14 @@ export async function fetchContainerParentLaneBatch(input: {
     return null;
   }
 
-  const pagesByLaneId = new Map(
-    response.results.map((result) => [result.laneId, result.page]),
-  );
-  if (
-    pagesByLaneId.size !== preparedPages.length ||
-    response.results.length !== preparedPages.length
-  ) {
-    throw new Error("Container parent lane batch response mismatch");
-  }
-
-  return preparedPages.map((preparedPage) => {
-    const page = pagesByLaneId.get(preparedPage.request.laneId);
-    if (!page) {
-      throw new Error("Container parent lane batch response mismatch");
-    }
-    return {
-      expectedContainerStates,
-      expectedHydrationTombstones,
-      lane: preparedPage.lane,
-      response: page,
-      syncLane: preparedPage.syncLane,
-    };
+  const { fetched, hasLaneFailure } = mapParentLaneBatchResults({
+    expectedContainerStates,
+    expectedHydrationTombstones,
+    preparedPages,
+    results: response.results,
   });
+  if (hasLaneFailure && input.isCurrent?.() !== false) {
+    state.containerListingFailures = (state.containerListingFailures ?? 0) + 1;
+  }
+  return fetched;
 }

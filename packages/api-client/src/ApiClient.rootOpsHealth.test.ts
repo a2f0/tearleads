@@ -30,6 +30,7 @@ const report = {
   purges: empty,
   trialsEnding: empty,
   purgesDue: empty,
+  documentUpdateCounts: { triggerPresent: true, ...empty },
 };
 
 testApiClient("root ops-health transport decodes the report", async () => {

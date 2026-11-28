@@ -70,6 +70,7 @@ export {
   ContainerNotFoundErrorResponseSchema,
 } from "../containerNotFoundError";
 export {
+  type ContainerParentLaneIdsPage,
   isListContainerParentLanesResponse,
   type ListContainerParentLanesResponse,
   ListContainerParentLanesResponseSchema,

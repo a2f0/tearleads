@@ -93,12 +93,17 @@ test("fetches four parent lanes once and restores request order", async () => {
     })),
   });
   expect(
-    fetched?.map(({ expectedContainerStates, lane, response, syncLane }) => ({
-      expectedContainerStateCount: expectedContainerStates.size,
-      parentId: lane.parentId,
-      responseWatermarkId: response.nextWatermark?.id,
-      syncLane,
-    })),
+    fetched?.map((item) => {
+      if (item.kind !== "page") {
+        throw new Error(`Expected full page, got ${item.kind}`);
+      }
+      return {
+        expectedContainerStateCount: item.expectedContainerStates.size,
+        parentId: item.lane.parentId,
+        responseWatermarkId: item.response.nextWatermark?.id,
+        syncLane: item.syncLane,
+      };
+    }),
   ).toEqual(
     PARENT_IDS.map((parentId, index) => ({
       expectedContainerStateCount: 0,
@@ -168,4 +173,51 @@ test("a full batch of 32 lanes asks for a page that fits one response", async ()
   for (const request of requests) {
     expect(isListContainerParentLanesRequest(request)).toBe(true);
   }
+});
+
+test("returns per-lane idsPage and failure results and counts lane failures", async () => {
+  const state = createState(async (request) => ({
+    results: request.lanes.map((lane) => {
+      if (lane.idsOnly) {
+        return {
+          idsPage: {
+            hasMore: false,
+            items: [
+              {
+                directAccessLevel: "admin" as const,
+                id: "root-1",
+                organizationId: "org-1",
+                parentId: null,
+              },
+            ],
+            nextWatermark: null,
+          },
+          laneId: lane.laneId,
+        };
+      }
+      if (lane.parentId === PARENT_IDS[1]) {
+        return {
+          failure: { error: "Container manifest bundle missing", status: 409 },
+          laneId: lane.laneId,
+        };
+      }
+      return { laneId: lane.laneId, page: page(lane.laneId) };
+    }),
+  }));
+
+  const fetched = await fetchContainerParentLaneBatch({
+    batch: [
+      { idsOnly: true, membershipOnly: true, parentId: null, watermark: null },
+      { parentId: PARENT_IDS[1], watermark: null },
+      { parentId: PARENT_IDS[2], watermark: null },
+    ],
+    state,
+  });
+
+  expect(fetched?.map((entry) => entry.kind)).toEqual([
+    "idsPage",
+    "failure",
+    "page",
+  ]);
+  expect(state.containerListingFailures).toBe(1);
 });

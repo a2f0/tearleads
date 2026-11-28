@@ -26,6 +26,8 @@ export {
 } from "../containerReadSchemas";
 
 const ContainerParentLaneRequestSchema = z.strictObject({
+  /** When true (root lane only), returns membership ids instead of full summaries. */
+  idsOnly: z.literal(true).optional(),
   laneId: ContainerReadLaneIdSchema,
   limit: boundedPositiveIntegerSchema(500).optional(),
   parentId: uuidV4StringSchema.nullable(),

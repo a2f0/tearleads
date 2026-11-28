@@ -5,10 +5,19 @@ import {
 } from "@tearleads/validators/response";
 import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import {
+  MiniAppInfoHeading,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import {
+  MiniAppTable,
+  MiniAppTableCell,
+  MiniAppTableEmptyRow,
+  MiniAppTableFrame,
+  MiniAppTableRow,
+  MiniAppTableText,
+} from "../../../components/mini-app/MiniAppTable";
 import { formatRootTimestamp } from "../identities/rootDisplay";
 import { type OpsHealthColumn, OpsHealthTable } from "./OpsHealthTable";
 import { useRootOpsHealthReport } from "./useRootOpsHealthReport";
@@ -108,6 +117,62 @@ const PURGES_DUE_COLUMNS: ReadonlyArray<OpsHealthColumn<Rows<"purgesDue">>> = [
   { id: "after", header: "Purge after", cell: (row) => date(row.purgeAfter) },
 ];
 
+const DOCUMENT_UPDATE_COUNT_HEADERS = [
+  { id: "document", header: "Document ID" },
+  { id: "stored", header: "Stored count" },
+  { id: "actual", header: "Actual count" },
+] as const;
+
+function DocumentUpdateCountsSection({
+  section,
+}: {
+  section: RootOpsHealthReport["documentUpdateCounts"];
+}) {
+  return (
+    <>
+      <MiniAppInfoHeading>Document update counts</MiniAppInfoHeading>
+      <MiniAppStatus tone={section.triggerPresent ? undefined : "error"}>
+        {section.triggerPresent
+          ? "Trigger count_document_updates is active on document_updates."
+          : "Trigger count_document_updates is missing or disabled on document_updates."}
+      </MiniAppStatus>
+      <MiniAppTableFrame>
+        <MiniAppTable
+          aria-label="Document update counts"
+          columns={DOCUMENT_UPDATE_COUNT_HEADERS}
+        >
+          {section.rows.length === 0 ? (
+            <MiniAppTableEmptyRow
+              colSpan={DOCUMENT_UPDATE_COUNT_HEADERS.length}
+            >
+              No document update-count drift detected.
+            </MiniAppTableEmptyRow>
+          ) : (
+            section.rows.map((row) => (
+              <MiniAppTableRow key={row.documentId}>
+                <MiniAppTableCell>
+                  <MiniAppTableText>{row.documentId}</MiniAppTableText>
+                </MiniAppTableCell>
+                <MiniAppTableCell>
+                  <MiniAppTableText>{row.storedCount}</MiniAppTableText>
+                </MiniAppTableCell>
+                <MiniAppTableCell>
+                  <MiniAppTableText>{row.actualCount}</MiniAppTableText>
+                </MiniAppTableCell>
+              </MiniAppTableRow>
+            ))
+          )}
+        </MiniAppTable>
+      </MiniAppTableFrame>
+      {section.truncated && (
+        <MiniAppStatus>
+          Showing the first {section.rows.length} documents; more match.
+        </MiniAppStatus>
+      )}
+    </>
+  );
+}
+
 export function OpsHealthReportView({
   onSelectOrganization,
 }: {
@@ -173,6 +238,7 @@ export function OpsHealthReportView({
             section={report.purgesDue}
             onSelectOrganization={onSelectOrganization}
           />
+          <DocumentUpdateCountsSection section={report.documentUpdateCounts} />
         </>
       )}
     </MiniAppSection>

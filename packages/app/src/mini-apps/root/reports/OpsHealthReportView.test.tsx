@@ -33,6 +33,14 @@ test("ops health lists maintenance trouble and opens an organization's billing",
     expect(within(purges).getByText("Claim lapsed")).toBeTruthy();
     expect(view.getByText("No trials end soon.")).toBeTruthy();
     expect(view.getByText("No purges fall due soon.")).toBeTruthy();
+    expect(
+      view.getByText(
+        "Trigger count_document_updates is active on document_updates.",
+      ),
+    ).toBeTruthy();
+    expect(
+      view.getByText("No document update-count drift detected."),
+    ).toBeTruthy();
     fireEvent.click(
       within(seatSync).getByText(
         ROOT_TEST_ORGANIZATION.organization.organizationId,

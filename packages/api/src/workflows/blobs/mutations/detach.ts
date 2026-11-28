@@ -127,6 +127,7 @@ async function detachBlobAttachmentTransaction(
     documentId: verifiedDetach.value.documentId,
     executor: tx,
     linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
+    organizationId: proof.documentManifest.state.organizationId,
   });
 
   return {

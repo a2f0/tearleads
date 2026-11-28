@@ -55,25 +55,30 @@ export function requestSingleContainerParentLane(input: {
   ]);
 }
 
-export async function readContainerParentLanePage(
-  response: Response,
-  laneId?: string,
-): Promise<ListContainersResponse> {
+export async function readContainerParentLaneResults(response: Response) {
   const body: unknown = await response.json();
   if (!isListContainerParentLanesResponse(body)) {
     throw new Error("Expected a container parent-lane response");
   }
+  return body.results;
+}
+
+export async function readContainerParentLanePage(
+  response: Response,
+  laneId?: string,
+): Promise<ListContainersResponse> {
+  const results = await readContainerParentLaneResults(response);
   const result =
     laneId === undefined
-      ? body.results.length === 1
-        ? body.results[0]
+      ? results.length === 1
+        ? results[0]
         : undefined
-      : body.results.find((candidate) => candidate.laneId === laneId);
-  if (!result) {
+      : results.find((candidate) => candidate.laneId === laneId);
+  if (!result || !("page" in result)) {
     throw new Error(
       laneId === undefined
-        ? "Expected one container parent lane"
-        : `Expected container parent lane ${laneId}`,
+        ? "Expected one container parent lane page"
+        : `Expected container parent lane page ${laneId}`,
     );
   }
   return result.page;

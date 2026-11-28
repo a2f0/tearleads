@@ -1,6 +1,7 @@
 import { containerSyncTombstones } from "@tearleads/api-shared/schema";
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
+  ContainerParentLaneIdsPage,
   ContainerSummary,
   ContainerSyncTombstone,
   ListContainersResponse,
@@ -10,7 +11,10 @@ import { isUuidV4String } from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { textExpression } from "../../utils/postgresSql";
-import type { PrincipalPolicyReferenceCache } from "../../workflows/containers/writerProjection/types";
+import type {
+  ContainerWriterProjectionContext,
+  PrincipalPolicyReferenceCache,
+} from "../../workflows/containers/writerProjection/types";
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,
@@ -22,11 +26,17 @@ import {
   discoveryGrantSubjects,
 } from "./containerDiscoveryAccess";
 import { discoveryCursor } from "./discoveryCursor";
-import { readDiscoveryKey, readDiscoverySources } from "./discoverySnapshot";
+import {
+  readDiscoveryKey,
+  readDiscoverySource,
+  readDiscoverySources,
+} from "./discoverySnapshot";
 import {
   type AccessibleContainerRow,
+  accessibleContainerIdsQuery,
   accessibleContainersQuery,
   parentIdPredicate,
+  readAccessibleContainerIdRows,
   readAccessibleContainerRows,
 } from "./listContainerRows";
 import {
@@ -44,6 +54,8 @@ import {
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainersOptions {
+  /** Shared request-scoped projection context across a parent-lane batch. */
+  readonly context?: ContainerWriterProjectionContext;
   readonly principalPolicyByReference?: PrincipalPolicyReferenceCache;
   readonly discoveryKey?: string;
   readonly limit?: number | undefined;
@@ -189,25 +201,72 @@ function selectContainerPage(input: {
   };
 }
 
+type SummaryCandidateRow = AccessibleContainerRow & {
+  metadataAccessEpoch: number;
+  metadataAccessStateHash: string;
+  metadataDocumentId: string;
+};
+
+function toVisibleContainerSummary(
+  containerRow: SummaryCandidateRow,
+  accessResult: Awaited<
+    ReturnType<typeof resolveReadableContainerAccessBatch>
+  > extends Map<string, infer Entry>
+    ? Entry | undefined
+    : never,
+): ContainerSummary | null {
+  if (!accessResult || accessResult.status === "rejected") {
+    if (accessResult?.reason instanceof KeyingReadAccessError) {
+      // 403/404 reflects concurrent revocation or deletion between the
+      // candidate scan and path resolution; 409 indicates inconsistent
+      // stored state and belongs to this lane as a retryable lane failure
+      // rather than silently advancing the watermark past the row.
+      if (accessResult.reason.status === 409) {
+        throw accessResult.reason;
+      }
+      return null;
+    }
+    throw new Error("Readable container access batch omitted a candidate");
+  }
+
+  const systemSlot = isContainerSystemSlot(containerRow.systemSlot)
+    ? containerRow.systemSlot
+    : null;
+  return {
+    ...(systemSlot ? { systemSlot } : {}),
+    ...(containerRow.restorationId
+      ? { restorationId: containerRow.restorationId }
+      : {}),
+    createdAt: containerRow.createdAt,
+    depth: containerRow.depth,
+    effectiveAccessLevel: accessResult.value.accessLevel,
+    id: containerRow.id,
+    metadataAccessEpoch: containerRow.metadataAccessEpoch,
+    metadataAccessStateHash: containerRow.metadataAccessStateHash,
+    metadataDocumentId: containerRow.metadataDocumentId,
+    metadataReferencedPrincipals:
+      collectReferencedPrincipalsFromContainerAccess([accessResult.value]),
+    metadataUpdateCount: containerRow.metadataUpdateCount,
+    organizationId: containerRow.organizationId,
+    parentId: containerRow.parentId,
+    updatedAt: syncItemTimestamp(containerRow.updatedAt),
+  };
+}
+
 async function resolveVisibleContainerSummaries(input: {
+  readonly context?: ContainerWriterProjectionContext;
   readonly principalPolicyByReference?: PrincipalPolicyReferenceCache;
   readonly containerRows: readonly AccessibleContainerRow[];
   readonly runtime: ApiServiceRuntime;
   readonly userId: string;
 }): Promise<ContainerSummary[]> {
   const visibleContainers: ContainerSummary[] = [];
-  const accessContext = {
+  const accessContext = input.context ?? {
     ...createContainerWriterProjectionContext(input.runtime.db),
     principalPolicyByReference: input.principalPolicyByReference ?? new Map(),
   };
   const candidateRows = input.containerRows.filter(
-    (
-      containerRow,
-    ): containerRow is AccessibleContainerRow & {
-      metadataAccessEpoch: number;
-      metadataAccessStateHash: string;
-      metadataDocumentId: string;
-    } =>
+    (containerRow): containerRow is SummaryCandidateRow =>
       containerRow.metadataDocumentId !== null &&
       containerRow.metadataAccessEpoch !== undefined &&
       !!containerRow.metadataAccessStateHash,
@@ -220,37 +279,11 @@ async function resolveVisibleContainerSummaries(input: {
   });
 
   for (const containerRow of candidateRows) {
-    const accessResult = accessResults.get(containerRow.id);
-    if (!accessResult || accessResult.status === "rejected") {
-      if (accessResult?.reason instanceof KeyingReadAccessError) {
-        continue;
-      }
-      throw new Error("Readable container access batch omitted a candidate");
-    }
-
-    const systemSlot = isContainerSystemSlot(containerRow.systemSlot)
-      ? containerRow.systemSlot
-      : null;
-
-    visibleContainers.push({
-      ...(systemSlot ? { systemSlot } : {}),
-      ...(containerRow.restorationId
-        ? { restorationId: containerRow.restorationId }
-        : {}),
-      createdAt: containerRow.createdAt,
-      depth: containerRow.depth,
-      effectiveAccessLevel: accessResult.value.accessLevel,
-      id: containerRow.id,
-      metadataAccessEpoch: containerRow.metadataAccessEpoch,
-      metadataAccessStateHash: containerRow.metadataAccessStateHash,
-      metadataDocumentId: containerRow.metadataDocumentId,
-      metadataReferencedPrincipals:
-        collectReferencedPrincipalsFromContainerAccess([accessResult.value]),
-      metadataUpdateCount: containerRow.metadataUpdateCount,
-      organizationId: containerRow.organizationId,
-      parentId: containerRow.parentId,
-      updatedAt: syncItemTimestamp(containerRow.updatedAt),
-    });
+    const summary = toVisibleContainerSummary(
+      containerRow,
+      accessResults.get(containerRow.id),
+    );
+    if (summary) visibleContainers.push(summary);
   }
 
   return visibleContainers;
@@ -319,6 +352,7 @@ export async function listContainers(
     watermark,
   });
   const visibleContainers = await resolveVisibleContainerSummaries({
+    ...(options.context ? { context: options.context } : {}),
     ...(options.principalPolicyByReference
       ? { principalPolicyByReference: options.principalPolicyByReference }
       : {}),
@@ -337,5 +371,75 @@ export async function listContainers(
   return {
     ...response,
     nextWatermark: cursor.seal(response.nextWatermark, rows.publication),
+  };
+}
+
+/**
+ * Lists directly granted root-lane membership ids without resolving full
+ * summaries or running manifest verification. Clients compare the returned ids
+ * and direct grant levels against local state and fall back to a full root
+ * listing only when a grant is missing or upgraded.
+ */
+export async function listContainerIdsOnly(
+  runtime: ApiServiceRuntime,
+  userId: string,
+  options: Pick<
+    ListContainersOptions,
+    "discoveryKey" | "limit" | "parentId" | "watermark"
+  > = {},
+): Promise<ContainerParentLaneIdsPage> {
+  const limit = normalizeSyncPageLimit(
+    options.limit,
+    () => new ListContainersError("Invalid limit", 400),
+  );
+  const parentId = normalizeParentId(options.parentId);
+  if (parentId !== null) {
+    throw new ListContainersError("idsOnly requires parentId to be null", 400);
+  }
+  const requestedWatermark = normalizeSyncWatermark(
+    options.watermark,
+    () => new ListContainersError("Invalid watermark", 400),
+  );
+  const cursor = discoveryCursor(
+    options.discoveryKey ?? (await readDiscoveryKey(runtime)),
+    [userId, "containers", null],
+    requestedWatermark,
+  );
+  const rows = await readDiscoverySource(
+    runtime,
+    accessibleContainerIdsQuery({
+      limit,
+      userId,
+      watermark: cursor.position,
+    }),
+  );
+  const accessibleRows = readAccessibleContainerIdRows(rows.live);
+  const hasMore = accessibleRows.length > limit;
+  const pageRows = accessibleRows.slice(0, limit);
+  const lastRow = pageRows.at(-1) ?? null;
+  const nextWatermark =
+    lastRow === null
+      ? cursor.position
+      : discoveryWatermark(
+          lastRow.discoveryOrder,
+          lastRow.id,
+          lastRow.updatedAt,
+        );
+
+  return {
+    hasMore,
+    items: pageRows.map((row) => {
+      const systemSlot = isContainerSystemSlot(row.systemSlot)
+        ? row.systemSlot
+        : null;
+      return {
+        ...(systemSlot ? { systemSlot } : {}),
+        directAccessLevel: row.directAccessLevel,
+        id: row.id,
+        organizationId: row.organizationId,
+        parentId: row.parentId,
+      };
+    }),
+    nextWatermark: cursor.seal(nextWatermark, rows.publication),
   };
 }

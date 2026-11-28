@@ -177,12 +177,12 @@ describeSchema(
 
 describeSchema(
   ListContainerParentLanesRequestSchema,
-  "Up to 32 parent lanes to list, each with its own watermark and page size.",
+  "Up to 32 parent lanes to list, each with its own watermark, page size, and optional root-lane `idsOnly` mode.",
 );
 
 describeSchema(
   ListContainerParentLanesResponseSchema,
-  "One page per requested parent lane, in request order.",
+  "One full page, `idsOnly` membership page, or lane-local failure per requested parent lane, in request order.",
 );
 
 describeSchema(
