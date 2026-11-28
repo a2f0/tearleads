@@ -23,6 +23,7 @@ test("ordinary discovery lists the root lane from its watermark and, for members
   expect(lanes).toEqual([
     { parentId: null },
     {
+      idsOnly: true,
       membershipOnly: true,
       parentId: null,
       skipWatermarkWrite: true,

@@ -59,9 +59,13 @@ test("Explorer retries signed hydration after private and public policy pages re
     const listing = await base.apiClient.listContainerParentLanes({
       lanes: [{ laneId: "roots", parentId: null, watermark: null }],
     });
-    const root = listing?.results[0]?.page.items.find(
-      (item) => item.id === sdk.session.containerId,
-    );
+    const firstResult = listing?.results[0];
+    const root =
+      firstResult && "page" in firstResult
+        ? firstResult.page.items.find(
+            (item) => item.id === sdk.session.containerId,
+          )
+        : undefined;
     if (!root) throw new Error("Registered root was not listed");
     expect(root.metadataReferencedPrincipals.length).toBeGreaterThan(0);
     const runtime = createContainerContentsStoreWorkflowRuntime(

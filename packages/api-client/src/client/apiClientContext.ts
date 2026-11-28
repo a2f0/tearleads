@@ -73,7 +73,7 @@ export class ApiClientContext {
   >();
   readonly containerParentLaneRequestsByKey = new Map<
     string,
-    Promise<ListContainerParentLanesResponse | null>
+    Promise<RequestResult<ListContainerParentLanesResponse>>
   >();
   readonly containerWriterProjectionRequestsByContainerId =
     new CitingProjectionCache<ContainerWriterProjectionResponse>();

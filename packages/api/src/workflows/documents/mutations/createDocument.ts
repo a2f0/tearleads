@@ -34,7 +34,7 @@ import type { LockedContainerHeadRows } from "./shared/currentContainerPaths";
 import {
   assertCreateCanAdvanceDocumentHead,
   insertDocumentRow,
-  touchContainers,
+  touchContainersForDocument,
 } from "./shared/documentRows";
 import {
   documentMutationAcknowledgement,
@@ -151,7 +151,11 @@ export async function runCreateDocumentWorkflow(
         // Touch the linked containers just before commit; a seed that inserted
         // its update already touched them, last.
         if ((seed?.insertedUpdateIds.length ?? 0) === 0) {
-          await touchContainers(tx, linkedContainerIds);
+          await touchContainersForDocument(tx, {
+            documentId: created.id,
+            linkedContainerIds,
+            organizationId,
+          });
         }
         return { created, linkedContainerIds, seed };
       },
@@ -211,11 +215,16 @@ export async function createDocumentWithExecutor(
   const {
     created,
     linkedContainerIds,
+    organizationId,
     lockedContainerHeads,
     createdDocumentSeed,
   } = await createDocumentInTransaction(input);
   if (input.containerTouch !== "seed") {
-    await touchContainers(input.executor, linkedContainerIds);
+    await touchContainersForDocument(input.executor, {
+      documentId: created.id,
+      linkedContainerIds,
+      organizationId,
+    });
   }
   return {
     created,

@@ -3,9 +3,11 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   accessManifestDocumentLinkProjection,
+  containerMetadataDocuments,
   containers,
   documents,
 } from "@tearleads/api-shared/schema";
+import { organizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { eq } from "drizzle-orm";
 import type { Logger } from "drizzle-orm/logger";
 
@@ -48,19 +50,33 @@ export async function seedTouchCounts(
         sql.startsWith('insert into "documents" ') &&
         params.includes(documentId),
     );
-    const attributed = queries.findIndex(
+    const updateInserted = queries.findIndex(
       ({ sql, params }, index) =>
         index > inserted &&
-        sql.startsWith('update "documents" ') &&
-        sql.includes('"attribution_revision"') &&
+        sql.startsWith('insert into "document_updates" ') &&
         params.includes(documentId),
     );
     expect(inserted).toBeGreaterThanOrEqual(0);
-    expect(attributed).toBeGreaterThan(inserted);
-    const finalTouch = queries[attributed + 1];
+    expect(updateInserted).toBeGreaterThan(inserted);
+    // The `count_document_updates` trigger updates `documents` (count,
+    // attribution_revision, updated_at) on `document_updates` insert, so no
+    // separate SQL `update "documents"` should follow.
     expect(
-      finalTouch?.sql.startsWith('update "containers" set "updated_at"'),
-    ).toBe(true);
+      queries
+        .slice(inserted + 1)
+        .filter(
+          ({ sql, params }) =>
+            sql.startsWith('update "documents" ') &&
+            params.includes(documentId),
+        ),
+    ).toHaveLength(0);
+    const finalTouchIndex = queries.findIndex(
+      ({ sql }, index) =>
+        index > updateInserted &&
+        sql.startsWith('update "containers" set "updated_at"'),
+    );
+    const finalTouch = queries[finalTouchIndex];
+    expect(finalTouchIndex).toBeGreaterThan(updateInserted);
     const [document] = await db
       .select()
       .from(documents)
@@ -68,14 +84,25 @@ export async function seedTouchCounts(
     if (!document || !finalTouch)
       throw new Error("Missing committed seed touch");
     expect(document.attributionRevision).toBe(1);
+    expect(document.updateCount).toBe(1);
     expect(document.updatedAt.getTime()).toBeGreaterThanOrEqual(
       document.createdAt.getTime(),
     );
-    expect(new Date(String(finalTouch.params[0])).getTime()).toBe(
-      document.updatedAt.getTime(),
-    );
+    expect(
+      new Date(String(finalTouch.params[0])).getTime(),
+    ).toBeGreaterThanOrEqual(document.updatedAt.getTime());
+    const [metadataBinding] = await db
+      .select({ documentId: containerMetadataDocuments.documentId })
+      .from(containerMetadataDocuments)
+      .where(eq(containerMetadataDocuments.documentId, documentId))
+      .limit(1);
     const linked = await db
-      .select({ id: containers.id, updatedAt: containers.updatedAt })
+      .select({
+        id: containers.id,
+        organizationId: containers.organizationId,
+        systemSlot: containers.systemSlot,
+        updatedAt: containers.updatedAt,
+      })
       .from(accessManifestDocumentLinkProjection)
       .innerJoin(
         containers,
@@ -85,6 +112,15 @@ export async function seedTouchCounts(
     expect(linked.length).toBeGreaterThan(0);
     for (const container of linked) {
       expect(finalTouch.params).toContain(container.id);
+      const suppressedRosterProfileWrite =
+        !metadataBinding &&
+        container.systemSlot ===
+          organizationRosterProfileContainerSystemSlot(
+            container.organizationId,
+          );
+      if (suppressedRosterProfileWrite) {
+        continue;
+      }
       // A later seed or structure write may touch the same container again.
       expect(container.updatedAt.getTime()).toBeGreaterThanOrEqual(
         document.updatedAt.getTime(),
@@ -92,7 +128,7 @@ export async function seedTouchCounts(
     }
     counts.push(
       queries
-        .slice(inserted, attributed + 2)
+        .slice(inserted, finalTouchIndex + 1)
         .filter(({ sql }) =>
           sql.startsWith('update "containers" set "updated_at"'),
         ).length,

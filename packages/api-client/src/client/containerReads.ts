@@ -25,7 +25,7 @@ import {
   containerParentLanes,
 } from "../routes/containers/reads";
 import type { RequestResultOptions } from "../types";
-import { type ApiClientContext, dataOrNull } from "./apiClientContext";
+import type { ApiClientContext } from "./apiClientContext";
 import { laneListingRequest } from "./laneListingRequest";
 
 /** Container rotation logs, replacement authorizations, and lane listings. */
@@ -63,22 +63,28 @@ export class ContainerReadArea {
     );
   }
 
-  listContainerParentLanes(input: ListContainerParentLanesRequest) {
-    return dedupedRequest(
-      this.context.containerParentLaneRequestsByKey,
-      listContainerParentLanesRequestKey(input),
-      async () =>
-        dataOrNull(
-          await laneListingRequest(this.context, {
+  /** Batched parent-lane listing; see `containerParentLanes.settle`. */
+  async listContainerParentLanes(
+    input: ListContainerParentLanesRequest,
+    options: Pick<RequestResultOptions, "reportErrors"> = {},
+  ): Promise<ListContainerParentLanesResponse | null> {
+    return containerParentLanes.settle(
+      await dedupedRequest(
+        this.context.containerParentLaneRequestsByKey,
+        listContainerParentLanesRequestKey(input),
+        () =>
+          laneListingRequest(this.context, {
             body: JSON.stringify(input),
             method: containerParentLanes.method,
             operation: listContainerParentLanesOperation,
             path: containerParentLanes.path,
-            reportErrors: true,
+            reportErrors: false,
             validator: (value): value is ListContainerParentLanesResponse =>
               containerParentLanes.isResponseForRequest(input, value),
           }),
-        ),
+      ),
+      options.reportErrors ?? true,
+      (message) => this.context.runtime.reportError(message),
     );
   }
 

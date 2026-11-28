@@ -4,9 +4,11 @@ import {
   containerMetadataDocuments,
   containers,
   documents,
+  organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import { eq, inArray, sql } from "drizzle-orm";
+import { organizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentAccessManifestHead,
   type StoredAccessManifestHead,
@@ -188,7 +190,10 @@ export async function recordDocumentLinkSetChange(input: {
   readonly executor: DatabaseTransaction;
   readonly incrementAttributionRevision?: boolean;
   readonly linkedContainerIds: readonly string[];
+  readonly organizationId: string;
   readonly previousLinkedContainerIds: readonly string[];
+  /** True when the transaction inserts updates right after (trigger touches documents). */
+  readonly skipDocumentTouch?: boolean | undefined;
 }): Promise<void> {
   const previousContainerIds = uniqueSortedStrings(
     input.previousLinkedContainerIds,
@@ -218,12 +223,24 @@ export async function recordDocumentLinkSetChange(input: {
       });
   }
 
+  const affectedContainerIds = [...previousContainerIds, ...nextContainerIds];
+  if (input.skipDocumentTouch) {
+    await touchContainersForDocument(input.executor, {
+      documentId: input.documentId,
+      linkedContainerIds: affectedContainerIds,
+      organizationId: input.organizationId,
+      updatedAt,
+    });
+    return;
+  }
+
   await touchDocumentAndLinkedContainers(input.executor, {
     documentId: input.documentId,
     ...(input.incrementAttributionRevision
       ? { incrementAttributionRevision: true }
       : {}),
-    linkedContainerIds: [...previousContainerIds, ...nextContainerIds],
+    linkedContainerIds: affectedContainerIds,
+    organizationId: input.organizationId,
     updatedAt,
   });
 }
@@ -260,12 +277,61 @@ export async function touchContainers(
     .where(inArray(containers.id, uniqueContainerIds));
 }
 
+/**
+ * Republishes the containers a document write affects, skipping roster-profile
+ * document writes whose rows document listings always withhold. A container's
+ * own metadata document always republishes its container, even for the roster
+ * profile container itself.
+ */
+export async function touchContainersForDocument(
+  executor: DatabaseTransaction,
+  input: {
+    readonly documentId: string;
+    readonly linkedContainerIds: readonly string[];
+    readonly organizationId: string;
+    readonly updatedAt?: Date;
+  },
+): Promise<void> {
+  const uniqueContainerIds = [...new Set(input.linkedContainerIds)];
+  if (uniqueContainerIds.length === 0) {
+    return;
+  }
+
+  const updatedAt = input.updatedAt ?? new Date();
+  const rosterProfileSlot = organizationRosterProfileContainerSystemSlot(
+    input.organizationId,
+  );
+  const shouldRepublishContainer = sql`(
+    exists (
+      select 1
+      from ${containerMetadataDocuments} cmd
+      where cmd.document_id = ${input.documentId}
+    )
+    or (
+      ${containers.systemSlot} is distinct from ${rosterProfileSlot}
+      and not exists (
+        select 1
+        from ${organizationRosterEntries} ore
+        where ore.profile_document_id = ${input.documentId}
+      )
+    )
+  )`;
+
+  await executor
+    .update(containers)
+    .set({ updatedAt })
+    .where(
+      and(inArray(containers.id, uniqueContainerIds), shouldRepublishContainer),
+    );
+}
+
 export async function touchDocumentAndLinkedContainers(
   executor: DatabaseTransaction,
   input: {
     readonly documentId: string;
     readonly incrementAttributionRevision?: boolean;
     readonly linkedContainerIds: readonly string[];
+    readonly organizationId: string;
     readonly updatedAt?: Date;
   },
 ): Promise<void> {
@@ -281,5 +347,10 @@ export async function touchDocumentAndLinkedContainers(
       updatedAt,
     })
     .where(eq(documents.id, input.documentId));
-  await touchContainers(executor, input.linkedContainerIds, updatedAt);
+  await touchContainersForDocument(executor, {
+    documentId: input.documentId,
+    linkedContainerIds: input.linkedContainerIds,
+    organizationId: input.organizationId,
+    updatedAt,
+  });
 }

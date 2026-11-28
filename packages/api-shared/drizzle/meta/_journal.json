@@ -120,6 +120,13 @@
       "when": 1795730607442,
       "tag": "0016_baseline_stages",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795730608442,
+      "tag": "0017_document_update_count_publish",
+      "breakpoints": true
     }
   ]
 }

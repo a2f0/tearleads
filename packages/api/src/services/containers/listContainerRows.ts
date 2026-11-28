@@ -333,3 +333,82 @@ export function readAccessibleContainerRows(
 
   return accessibleContainers;
 }
+
+export interface AccessibleContainerIdRow {
+  readonly discoveryOrder: bigint;
+  readonly id: string;
+  readonly updatedAt: string;
+}
+
+const accessibleContainerIdRowSchema = z.looseObject({
+  discoveryOrder: z
+    .string()
+    .regex(/^-?\d+$/u)
+    .transform(BigInt),
+  id: z.string(),
+  updatedAt: z.string(),
+});
+
+/**
+ * Compact root-lane candidate scan for `idsOnly: true`: reads only granted
+ * container ids and discovery cursors without joining `access_manifests` JSONB,
+ * counting metadata updates, or scanning tombstones. Callers verify every
+ * returned id through `resolveReadableContainerAccessBatch` before returning
+ * verified placement and effective access level.
+ */
+export function accessibleContainerIdsQuery(input: {
+  readonly limit: number;
+  readonly userId: string;
+  readonly watermark: SyncWatermark | null;
+}): SQL {
+  const watermark = watermarkPredicate(
+    sql`c.discovery_order`,
+    textExpression(sql`c.id`),
+    input.watermark,
+  );
+  return sql`
+    with ${discoveryGrantSubjects(input.userId)}
+    select
+      ${textExpression(sql`c.id`)} as "id",
+      c.discovery_order::text as "discoveryOrder",
+      ${syncTimestampExpression(sql`c.updated_at`)} as "updatedAt"
+    from grant_subjects subject
+    cross join ${accessManifestContainerGrantProjection} grant_projection
+    cross join ${accessManifestHeads} h
+    cross join ${containers} c
+    where
+      grant_projection.subject_type = subject.principal_type
+      and grant_projection.subject_id = subject.principal_id
+      and h.manifest_hash = grant_projection.manifest_hash
+      and h.object_kind = ${"container"}
+      and c.id = h.object_id
+      ${watermark}
+    group by
+      c.id,
+      c.discovery_order,
+      c.updated_at
+    order by
+      c.discovery_order asc,
+      ${textExpression(sql`c.id`)} asc
+    limit ${input.limit + 1}
+  `;
+}
+
+export function readAccessibleContainerIdRows(
+  rows: readonly unknown[],
+): AccessibleContainerIdRow[] {
+  return rows.map((candidate) => {
+    const parsed = accessibleContainerIdRowSchema.safeParse(candidate);
+    if (!parsed.success) {
+      throw new Error(
+        "Unexpected row shape from accessible container ids query",
+      );
+    }
+    const row = parsed.data;
+    return {
+      discoveryOrder: row.discoveryOrder,
+      id: row.id,
+      updatedAt: readSyncTimestamp(row.updatedAt),
+    };
+  });
+}

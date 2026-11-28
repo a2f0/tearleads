@@ -292,37 +292,6 @@ function storeBindingKeys(
   );
 }
 
-/**
- * The document's deferred first update commits after the binding row, so no
- * reader sees content naming an attachment the server has not bound. The bind
- * writes no link-set manifest, so the update's expected manifest hash is
- * checked against the head this transaction locked.
- */
-async function appendCarriedDocumentSync(carried: {
-  readonly input: BindBlobAttachmentInput;
-  readonly lockedContainerHeads: Awaited<
-    ReturnType<typeof lockAttachmentAuthorizationForShare>
-  >;
-  readonly proof: AttachmentAuthorizationProof;
-  readonly signingPublicKey: Uint8Array;
-  readonly tx: DatabaseTransaction;
-}): Promise<readonly string[] | null> {
-  const { input } = carried;
-  if (!input.request.documentSync) return null;
-  const { documentId, organizationId } = carried.proof.documentManifest.state;
-  const committed = await appendAttachmentBindDocumentSync({
-    documentId,
-    executor: carried.tx,
-    fingerprint: input.fingerprint,
-    lockedContainerHeads: carried.lockedContainerHeads,
-    request: input.request.documentSync,
-    signingPublicKey: carried.signingPublicKey,
-    syncEligibleOrganizationId: organizationId,
-    userId: input.userId,
-  });
-  return committed.acceptedOutgoingUpdateIds;
-}
-
 interface BindTransactionResult {
   /** The carried document sync's accepted ids; null when none was carried. */
   readonly acceptedOutgoingUpdateIds: readonly string[] | null;
@@ -334,6 +303,51 @@ interface BindTransactionResult {
 export interface BindBlobAttachmentWorkflowResult {
   readonly linkedContainerIds: readonly string[];
   readonly response: BlobAttachmentBindResponse;
+}
+
+/**
+ * Commits any carried document sync after the binding row (so no reader sees
+ * content naming an unbound attachment), then runs `finalizeAttachmentMutation`
+ * after all projection locks while skipping duplicate document/container
+ * touches when the carried sync inserted updates.
+ */
+async function appendCarriedSyncAndFinalizeBind(input: {
+  readonly activeBinding: Awaited<
+    ReturnType<typeof requireSingleActiveAttachmentBindingForSlot>
+  >;
+  readonly bindInput: BindBlobAttachmentInput;
+  readonly documentId: string;
+  readonly lockedContainerHeads: Awaited<
+    ReturnType<typeof lockAttachmentAuthorizationForShare>
+  >;
+  readonly proof: AttachmentAuthorizationProof;
+  readonly signingPublicKey: Uint8Array;
+  readonly tx: DatabaseTransaction;
+}): Promise<readonly string[] | null> {
+  const { documentId, organizationId } = input.proof.documentManifest.state;
+  const carriedSync = input.bindInput.request.documentSync
+    ? await appendAttachmentBindDocumentSync({
+        documentId,
+        executor: input.tx,
+        fingerprint: input.bindInput.fingerprint,
+        lockedContainerHeads: input.lockedContainerHeads,
+        request: input.bindInput.request.documentSync,
+        signingPublicKey: input.signingPublicKey,
+        syncEligibleOrganizationId: organizationId,
+        userId: input.bindInput.userId,
+      })
+    : null;
+  await finalizeAttachmentMutation({
+    ...(input.activeBinding
+      ? { dereferencedBlobId: input.activeBinding.blobId }
+      : {}),
+    documentId: input.documentId,
+    executor: input.tx,
+    linkedContainerIds: input.proof.documentManifest.state.linkedContainerIds,
+    organizationId,
+    skipTargetsTouch: (carriedSync?.insertedUpdateIds.length ?? 0) > 0,
+  });
+  return carriedSync?.acceptedOutgoingUpdateIds ?? null;
 }
 
 async function bindBlobAttachmentTransaction(
@@ -416,20 +430,17 @@ async function bindBlobAttachmentTransaction(
     executor: tx,
     organizationId: proof.documentManifest.state.organizationId,
   });
-  await finalizeAttachmentMutation({
-    ...(activeBinding ? { dereferencedBlobId: activeBinding.blobId } : {}),
+  const acceptedOutgoingUpdateIds = await appendCarriedSyncAndFinalizeBind({
+    activeBinding,
+    bindInput: input,
     documentId: verifiedBinding.documentId,
-    executor: tx,
-    linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
+    lockedContainerHeads,
+    proof,
+    signingPublicKey,
+    tx,
   });
   return {
-    acceptedOutgoingUpdateIds: await appendCarriedDocumentSync({
-      input,
-      lockedContainerHeads,
-      proof,
-      signingPublicKey,
-      tx,
-    }),
+    acceptedOutgoingUpdateIds,
     linkedContainerIds: currentTargets.targets.map(
       (target) => target.containerId,
     ),

@@ -1,18 +1,16 @@
+import { organizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { MAX_CONTAINER_PARENT_LANES } from "@tearleads/validators/request";
 import {
   createPrincipalPolicyOperation,
   type PrincipalPolicyOperation,
 } from "../../../principals/principalPolicyService";
 import { changesDiscoveryOrder } from "../../documentDiscovery/publicationWatermark";
-import { prefetchDestinationProjections } from "../destination/destinationPrefetch";
-import { cachedDestinationRole } from "../destination/destinationRoleCache";
 import { markContainerParentLaneFetched } from "../lanes/laneFetchMarkers";
 import { fetchContainerParentLaneBatch } from "../lanes/parentLaneFetch";
 import {
   hasUnusableContinuation,
   queueNextPage,
 } from "../lanes/parentLanePaging";
-import { warmListedContainerPolicies } from "../principalPolicyCache";
 import {
   applyContainerTombstones,
   getApplicableRemoteContainerItems,
@@ -20,8 +18,8 @@ import {
 import type {
   ContainerChildIndex,
   ContainerParentHydrationLane,
-  ExpectedContainerState,
   FetchedContainerParentLanePage,
+  FetchedContainerParentLaneResult,
   HydrationOutcome,
   ListedRemoteContainerPageItem,
   QueueContainerParentLane,
@@ -29,13 +27,12 @@ import type {
   RemoteContainerHydrationHost,
   RemoteContainerHydrationState,
 } from "../types";
-import { containerStateMatchesFingerprint } from "./containerStateFingerprint";
-import { loadPausedContainerFilter } from "./organizationSyncPauseFilter";
+import { applyIdsOnlyParentLanePage } from "./applyIdsOnlyParentLanePage";
 import {
-  listRemoteContainerIdsWithPendingMetadataUpdates,
-  listRemoteContainerIdsWithPendingStructuralIntents,
-  upsertIsolatedRemoteContainerState,
-} from "./remoteContainerState";
+  applyRemoteContainerPage,
+  combineHydrationOutcomes as combineOutcomes,
+} from "./applyRemoteContainerPage";
+import { loadPausedContainerFilter } from "./organizationSyncPauseFilter";
 
 /** Parent lanes one crawl request lists: as many as the server accepts. */
 const CONTAINER_PARENT_LANES_PER_REQUEST = MAX_CONTAINER_PARENT_LANES;
@@ -44,147 +41,6 @@ interface HydrationProgress {
   changedCount: number;
   outcome: HydrationOutcome;
   shouldStop: boolean;
-}
-/** A retryable lane takes precedence over a refused proof elsewhere in the crawl. */
-function combineOutcomes(
-  a: HydrationOutcome,
-  b: HydrationOutcome,
-): HydrationOutcome {
-  if (a === "retry" || b === "retry") return "retry";
-  if (a === "refused" || b === "refused") return "refused";
-  return "complete";
-}
-
-// Re-checked inside the commit: a pause from another device can land after
-// the page was filtered, and its cleanup may already have run.
-function currentUnlessPaused(
-  input: {
-    isCurrent?: (() => boolean) | undefined;
-    isPaused: (container: ListedRemoteContainerPageItem) => boolean;
-  },
-  container: ListedRemoteContainerPageItem,
-): () => boolean {
-  return () => input.isCurrent?.() !== false && !input.isPaused(container);
-}
-
-/** The local state still matches the fingerprint the listing was read at. */
-function matchesListedState(
-  state: RemoteContainerHydrationState,
-  expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>,
-  containerId: string,
-): boolean {
-  return containerStateMatchesFingerprint({
-    currentState: state.containersById.get(containerId),
-    expectedFingerprint: expectedContainerStates.get(containerId)?.fingerprint,
-  });
-}
-
-async function applyRemoteContainerPage(input: {
-  reconnect?: ReconnectPages | undefined;
-  childIdsByParentId: ContainerChildIndex;
-  expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
-  expectedHydrationTombstones: FetchedContainerParentLanePage["expectedHydrationTombstones"];
-  host: RemoteContainerHydrationHost;
-  isCurrent?: (() => boolean) | undefined;
-  isPaused: (container: ListedRemoteContainerPageItem) => boolean;
-  items: ReadonlyArray<ListedRemoteContainerPageItem>;
-  /** The hydration pass's token: its pages share one directory discovery. */
-  policyOperation: PrincipalPolicyOperation;
-  queueParentLane: QueueContainerParentLane;
-  seenContainerObservations: Map<string, string>;
-  state: RemoteContainerHydrationState;
-}): Promise<{ changedCount: number; outcome: HydrationOutcome }> {
-  const { seenContainerObservations, state } = input;
-  let hydratedCount = 0;
-  const { items, outcome: policyOutcome } = await warmListedContainerPolicies(
-    input.items,
-    state.runtime.principalPolicies.createWarmer({
-      operation: input.policyOperation,
-    }),
-    input.reconnect?.recordManualError,
-    input.isCurrent,
-  );
-  let outcome: HydrationOutcome = policyOutcome;
-  if (input.isCurrent?.() === false) {
-    return { changedCount: 0, outcome: "retry" };
-  }
-  const [
-    containerIdsWithPendingMetadataUpdates,
-    containerIdsWithPendingStructuralIntents,
-  ] = await Promise.all([
-    listRemoteContainerIdsWithPendingMetadataUpdates({
-      remoteContainers: items,
-      state,
-    }),
-    listRemoteContainerIdsWithPendingStructuralIntents({
-      remoteContainers: items,
-      state,
-    }),
-  ]);
-  if (input.isCurrent?.() === false) {
-    return { changedCount: 0, outcome: "retry" };
-  }
-  const prefetchedProjections = await prefetchDestinationProjections({
-    containers: items.filter(
-      (item) =>
-        !seenContainerObservations.has(item.id) &&
-        !state.containersById.has(item.id) &&
-        !input.expectedHydrationTombstones.get(item.id) &&
-        !cachedDestinationRole(state.runtime.infra.execSql, item),
-    ),
-    isCurrent: input.isCurrent,
-    runtime: state.runtime,
-  });
-  for (const container of items) {
-    if (input.isCurrent?.() === false) {
-      return { changedCount: hydratedCount, outcome: "retry" };
-    }
-    const observation = JSON.stringify(container);
-    if (
-      seenContainerObservations.get(container.id) === observation &&
-      state.containersById.has(container.id)
-    ) {
-      input.queueParentLane(container.id);
-      continue;
-    }
-    if (
-      !matchesListedState(state, input.expectedContainerStates, container.id)
-    ) {
-      outcome = "retry";
-      continue;
-    }
-    let failure: HydrationOutcome = "retry";
-    const upserted = await upsertIsolatedRemoteContainerState(
-      {
-        childIdsByParentId: input.childIdsByParentId,
-        containerIdsWithPendingMetadataUpdates,
-        containerIdsWithPendingStructuralIntents,
-        host: input.host,
-        isCurrent: currentUnlessPaused(input, container),
-        expectedHydrationTombstone:
-          input.expectedHydrationTombstones.get(container.id) ?? null,
-        prefetchedProjection: prefetchedProjections.get(container.id),
-        remoteContainer: container,
-        state,
-      },
-      (outcome) => {
-        failure = outcome;
-      },
-      input.reconnect?.recordManualError,
-    );
-    if (!upserted) {
-      outcome = combineOutcomes(outcome, failure);
-      continue;
-    }
-    seenContainerObservations.set(container.id, observation);
-    hydratedCount += 1;
-    if (input.isCurrent?.() === false) {
-      return { changedCount: hydratedCount, outcome: "retry" };
-    }
-    input.queueParentLane(container.id);
-  }
-
-  return { changedCount: hydratedCount, outcome };
 }
 
 export function canHydrateRemoteContainers(
@@ -233,10 +89,23 @@ async function oweServedDocumentLanes(
     host: RemoteContainerHydrationHost;
     isCurrent?: (() => boolean) | undefined;
   },
-  served: ReadonlyArray<{ readonly id: string }>,
+  served: ReadonlyArray<
+    Pick<ListedRemoteContainerPageItem, "id" | "organizationId" | "systemSlot">
+  >,
 ): Promise<boolean> {
   if (input.fetchedPage.lane.membershipOnly) return true;
-  await input.host.requestDocumentLaneListings?.(served.map((item) => item.id));
+  // Roster profile containers never return rows from document listings, so
+  // owing their document lane on tree hydration only causes wasted queries.
+  const listable = served.filter(
+    (item) =>
+      !item.systemSlot ||
+      !item.organizationId ||
+      item.systemSlot !==
+        organizationRosterProfileContainerSystemSlot(item.organizationId),
+  );
+  await input.host.requestDocumentLaneListings?.(
+    listable.map((item) => item.id),
+  );
   return input.isCurrent?.() !== false;
 }
 
@@ -359,10 +228,11 @@ function takeContainerParentLaneBatch(input: {
   return batch;
 }
 
-async function applyContainerParentLaneBatch(input: {
+async function applyFetchedParentLaneResult(input: {
   reconnect?: ReconnectPages | undefined;
   childIdsByParentId: ContainerChildIndex;
-  fetchedPages: ReadonlyArray<FetchedContainerParentLanePage>;
+  fetchedPage: FetchedContainerParentLaneResult;
+  fullRootFallbackQueued: { queued: boolean };
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
   lanes: ContainerParentHydrationLane[];
@@ -371,40 +241,68 @@ async function applyContainerParentLaneBatch(input: {
   seenContainerObservations: Map<string, string>;
   state: RemoteContainerHydrationState;
 }): Promise<HydrationProgress> {
-  const {
-    childIdsByParentId,
-    fetchedPages,
-    host,
-    lanes,
-    queueParentLane,
-    seenContainerObservations,
-    state,
-  } = input;
+  const { fetchedPage, lanes } = input;
+  if (fetchedPage.kind === "failure") {
+    // One failing lane leaves only that lane retryable; siblings still apply.
+    return { changedCount: 0, outcome: "retry", shouldStop: false };
+  }
+  if (fetchedPage.kind === "idsPage") {
+    const idsResult = await applyIdsOnlyParentLanePage({
+      fetchedPage,
+      fullRootFallbackQueued: input.fullRootFallbackQueued,
+      isCurrent: input.isCurrent,
+      queueContinuationLane: (lane) => lanes.push(lane),
+      state: input.state,
+    });
+    return { changedCount: 0, ...idsResult };
+  }
+  return applyContainerParentLanePage({
+    reconnect: input.reconnect,
+    childIdsByParentId: input.childIdsByParentId,
+    fetchedPage,
+    host: input.host,
+    isCurrent: input.isCurrent,
+    policyOperation: input.policyOperation,
+    queueContinuationLane: (lane) => lanes.push(lane),
+    queueParentLane: input.queueParentLane,
+    seenContainerObservations: input.seenContainerObservations,
+    state: input.state,
+  });
+}
+
+async function applyContainerParentLaneBatch(input: {
+  reconnect?: ReconnectPages | undefined;
+  childIdsByParentId: ContainerChildIndex;
+  fetchedPages: ReadonlyArray<FetchedContainerParentLaneResult>;
+  fullRootFallbackQueued: { queued: boolean };
+  host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
+  lanes: ContainerParentHydrationLane[];
+  policyOperation: PrincipalPolicyOperation;
+  queueParentLane: QueueContainerParentLane;
+  seenContainerObservations: Map<string, string>;
+  state: RemoteContainerHydrationState;
+}): Promise<HydrationProgress> {
   let changedCount = 0;
   let outcome: HydrationOutcome = "complete";
 
-  for (const fetchedPage of fetchedPages) {
-    if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
+  for (const fetchedPage of input.fetchedPages) {
+    if (
+      !canHydrateRemoteContainers(input.state) ||
+      input.isCurrent?.() === false
+    ) {
       return { changedCount, outcome: "retry", shouldStop: true };
     }
     if (
       fetchedPage.lane.parentId !== null &&
-      !state.containersById.has(fetchedPage.lane.parentId)
+      !input.state.containersById.has(fetchedPage.lane.parentId)
     ) {
       continue;
     }
 
-    const result = await applyContainerParentLanePage({
-      reconnect: input.reconnect,
-      childIdsByParentId,
+    const result = await applyFetchedParentLaneResult({
+      ...input,
       fetchedPage,
-      host,
-      isCurrent: input.isCurrent,
-      policyOperation: input.policyOperation,
-      queueContinuationLane: (lane) => lanes.push(lane),
-      queueParentLane,
-      seenContainerObservations,
-      state,
     });
     changedCount += result.changedCount;
     outcome = combineOutcomes(outcome, result.outcome);
@@ -439,6 +337,7 @@ export async function hydrateContainerParentLanes(input: {
   let outcome: HydrationOutcome = "complete";
   // One hydration pass is one policy operation: its pages share a discovery.
   const policyOperation = createPrincipalPolicyOperation();
+  const fullRootFallbackQueued = { queued: false };
 
   while (lanes.length > 0) {
     if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
@@ -467,6 +366,7 @@ export async function hydrateContainerParentLanes(input: {
       reconnect: input.reconnect,
       childIdsByParentId,
       fetchedPages,
+      fullRootFallbackQueued,
       host,
       isCurrent: input.isCurrent,
       lanes,

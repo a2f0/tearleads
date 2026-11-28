@@ -1,7 +1,12 @@
-import type {
-  ContainerParentHydrationLane,
-  FetchedContainerParentLanePage,
-} from "../types";
+import type { ContainerParentHydrationLane } from "../types";
+
+interface PaginatedParentLanePage {
+  readonly lane: ContainerParentHydrationLane;
+  readonly response: {
+    readonly hasMore: boolean;
+    readonly nextWatermark: ContainerParentHydrationLane["watermark"] | null;
+  };
+}
 
 function cursorKey(
   watermark: NonNullable<ContainerParentHydrationLane["watermark"]>,
@@ -12,7 +17,7 @@ function cursorKey(
 export function hasUnusableContinuation({
   lane,
   response,
-}: FetchedContainerParentLanePage): boolean {
+}: PaginatedParentLanePage): boolean {
   const next = response.nextWatermark;
   if (!next) return response.hasMore;
   // Opaque positions can advance with an older business timestamp.
@@ -26,7 +31,7 @@ export function hasUnusableContinuation({
 }
 
 export function queueNextPage(
-  { lane, response }: FetchedContainerParentLanePage,
+  { lane, response }: PaginatedParentLanePage,
   skipWatermarkWrite: boolean,
   queueContinuationLane: (lane: ContainerParentHydrationLane) => void,
 ): void {
@@ -35,7 +40,8 @@ export function queueNextPage(
     if (lane.watermark) continuationCursors.add(cursorKey(lane.watermark));
     continuationCursors.add(cursorKey(response.nextWatermark));
     queueContinuationLane({
-      ...(lane.membershipOnly ? { membershipOnly: true } : {}),
+      ...(lane.idsOnly ? { idsOnly: true as const } : {}),
+      ...(lane.membershipOnly ? { membershipOnly: true as const } : {}),
       parentId: lane.parentId,
       watermark: response.nextWatermark,
       skipWatermarkWrite,

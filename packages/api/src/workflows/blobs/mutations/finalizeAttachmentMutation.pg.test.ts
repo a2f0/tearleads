@@ -61,6 +61,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
             documentId,
             executor: tx,
             linkedContainerIds: [],
+            organizationId: crypto.randomUUID(),
           }),
         );
         await Promise.race([

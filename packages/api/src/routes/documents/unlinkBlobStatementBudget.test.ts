@@ -59,17 +59,18 @@ async function expectUnlinkState(
       ]),
     );
   expect(touched).toHaveLength(2);
-  for (const row of touched) expect(row.updatedAt).toEqual(document?.updatedAt);
   const tombstones = await db
     .select()
     .from(containerDocumentSyncTombstones)
     .where(eq(containerDocumentSyncTombstones.documentId, input.document.id));
-  expect(tombstones).toEqual([
-    expect.objectContaining({
-      containerId: owner.child.containerId,
-      updatedAt: document?.updatedAt,
-    }),
-  ]);
+  expect(tombstones).toHaveLength(1);
+  const tombstone = tombstones[0];
+  if (!tombstone) throw new Error("Expected unlink tombstone");
+  expect(tombstone.containerId).toBe(owner.child.containerId);
+  expect(tombstone.updatedAt.getTime()).toBeGreaterThanOrEqual(
+    document.updatedAt.getTime(),
+  );
+  for (const row of touched) expect(row.updatedAt).toEqual(tombstone.updatedAt);
   const updates = await db
     .select()
     .from(documentUpdates)

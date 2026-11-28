@@ -5148,6 +5148,10 @@
             "items": {
               "type": "object",
               "properties": {
+                "idsOnly": {
+                  "type": "boolean",
+                  "const": true
+                },
                 "laneId": {
                   "maxLength": 64,
                   "minLength": 1,
@@ -5210,7 +5214,7 @@
           "lanes"
         ],
         "additionalProperties": false,
-        "description": "Up to 32 parent lanes to list, each with its own watermark and page size."
+        "description": "Up to 32 parent lanes to list, each with its own watermark, page size, and optional root-lane `idsOnly` mode."
       },
       "ListContainerParentLanesResponse": {
         "type": "object",
@@ -5218,22 +5222,156 @@
           "results": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "laneId": {
-                  "maxLength": 64,
-                  "minLength": 1,
-                  "type": "string"
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "laneId": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "page": {
+                      "$ref": "#/components/schemas/ListContainersResponse"
+                    }
+                  },
+                  "required": [
+                    "laneId",
+                    "page"
+                  ],
+                  "additionalProperties": false
                 },
-                "page": {
-                  "$ref": "#/components/schemas/ListContainersResponse"
+                {
+                  "type": "object",
+                  "properties": {
+                    "idsPage": {
+                      "type": "object",
+                      "properties": {
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "effectiveAccessLevel": {
+                                "type": "string",
+                                "enum": [
+                                  "admin",
+                                  "read",
+                                  "write"
+                                ]
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "organizationId": {
+                                "type": "string"
+                              },
+                              "parentId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "systemSlot": {
+                                "anyOf": [
+                                  {
+                                    "pattern": "^sys_v1_[A-Za-z0-9_-]{43}$",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "effectiveAccessLevel",
+                              "id",
+                              "organizationId",
+                              "parentId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "nextWatermark": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/SyncWatermark"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "hasMore",
+                        "items",
+                        "nextWatermark"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "laneId": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "idsPage",
+                    "laneId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "failure": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_not_found"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "status": {
+                          "type": "number",
+                          "enum": [
+                            403,
+                            404,
+                            409
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "laneId": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "failure",
+                    "laneId"
+                  ],
+                  "additionalProperties": false
                 }
-              },
-              "required": [
-                "laneId",
-                "page"
-              ],
-              "additionalProperties": false
+              ]
             },
             "maxItems": 32,
             "minItems": 1
@@ -5243,7 +5381,7 @@
           "results"
         ],
         "additionalProperties": false,
-        "description": "One page per requested parent lane, in request order."
+        "description": "One full page, `idsOnly` membership page, or lane-local failure per requested parent lane, in request order."
       },
       "ListContainersResponse": {
         "type": "object",
@@ -11322,6 +11460,53 @@
             ],
             "additionalProperties": {},
             "description": "Disabled organizations whose purge falls due soon."
+          },
+          "documentUpdateCounts": {
+            "type": "object",
+            "properties": {
+              "triggerPresent": {
+                "type": "boolean"
+              },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "documentId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "storedCount": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "actualCount": {
+                      "maximum": 1.7976931348623157e+308,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "documentId",
+                    "storedCount",
+                    "actualCount"
+                  ],
+                  "additionalProperties": {}
+                },
+                "maxItems": 50
+              },
+              "truncated": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "triggerPresent",
+              "rows",
+              "truncated"
+            ],
+            "additionalProperties": {},
+            "description": "Whether the `count_document_updates` trigger is active on `document_updates` and any recently updated document rows (latest 1,000) whose `update_count` disagrees with stored updates."
           }
         },
         "required": [
@@ -11330,10 +11515,11 @@
           "trialExpiry",
           "purges",
           "trialsEnding",
-          "purgesDue"
+          "purgesDue",
+          "documentUpdateCounts"
         ],
         "additionalProperties": {},
-        "description": "Billing maintenance trouble across organizations. Each section lists at most a bounded number of rows and says when it was truncated."
+        "description": "Billing and storage maintenance trouble across organizations. Each section lists at most a bounded number of rows and says when it was truncated."
       },
       "RootOrganizationDetailResponse": {
         "type": "object",
@@ -15946,7 +16132,7 @@
       "post": {
         "operationId": "containers.parentLanes.query",
         "summary": "List containers by parent lane",
-        "description": "Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to 32 requested parent lanes, each with its own watermark. Clients use it to discover and incrementally refresh the folder tree. Any signed-in user may call it; access is checked per container.",
+        "description": "Lists the containers the caller can reach through direct grants or managed-principal membership, one bounded page for each of up to 32 requested parent lanes, each with its own watermark. A root lane may set `idsOnly: true` to return a compact membership page instead of verified summaries. A lane that hits a lane-local access or consistency error reports its own failure while the other lanes still list.",
         "tags": [
           "Containers"
         ],

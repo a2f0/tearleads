@@ -121,8 +121,11 @@ test("POST /documents/:documentId/sync records a baseline once across a retried 
   expect(syncedDocumentRow.updatedAt.toISOString()).not.toBe(
     preSyncUpdatedAt.toISOString(),
   );
-  expect(syncedContainerRow.updatedAt.toISOString()).toBe(
-    syncedDocumentRow.updatedAt.toISOString(),
+  expect(syncedContainerRow.updatedAt.getTime()).toBeGreaterThanOrEqual(
+    syncedDocumentRow.updatedAt.getTime(),
+  );
+  expect(syncedContainerRow.updatedAt.toISOString()).not.toBe(
+    preSyncUpdatedAt.toISOString(),
   );
 
   const retryResponse = await routeApp.request(

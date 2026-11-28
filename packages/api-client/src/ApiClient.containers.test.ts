@@ -286,7 +286,10 @@ testApiClient(
   },
 );
 
-function emptyContainerPage(): ListContainerParentLanesResponse["results"][number]["page"] {
+function emptyContainerPage(): Extract<
+  ListContainerParentLanesResponse["results"][number],
+  { page: unknown }
+>["page"] {
   return {
     hasMore: false,
     items: [],

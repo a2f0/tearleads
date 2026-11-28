@@ -3,6 +3,8 @@ import type {
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
 import {
+  documents,
+  documentUpdates,
   organizationBilling,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
@@ -12,7 +14,8 @@ import {
   ROOT_OPS_HEALTH_UPCOMING_DAYS,
   type RootOpsHealthReportResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, gt, isNotNull, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, gt, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import { z } from "zod";
 import { ORGANIZATION_PURGE_CLAIM_LEASE_MS } from "../billing/organizationPurgeCandidates";
 import { TRIAL_EXPIRY_ATTENTION_ATTEMPTS } from "../billing/organizationTrialLifecycle";
 import { STRIPE_SEAT_SYNC_MAX_RETRY_MS } from "../billing/stripeSeatSyncClaim";
@@ -273,10 +276,77 @@ async function listPurgesDue(executor: DatabaseSession, now: Date) {
   );
 }
 
+const triggerEnabledRowSchema = z.object({
+  enabled: z.string(),
+});
+
 /**
- * Cross-organization billing maintenance health. PostgreSQL reads every
- * section from one repeatable-read snapshot, so an organization moving between
- * states mid-report appears in at most one.
+ * Bounds synchronous drift verification to the most recently updated documents
+ * via `documents_updated_at_id_idx` + per-document indexed counts on
+ * `document_updates_document_sequence_idx`, keeping `ops-health` fast at scale.
+ */
+const DOCUMENT_UPDATE_COUNT_SCAN_LIMIT = 1_000;
+
+const documentUpdateCountDriftRowSchema = z.object({
+  actualCount: z.number().int().nonnegative(),
+  documentId: z.string().min(1),
+  storedCount: z.number().int(),
+});
+
+async function listDocumentUpdateCountHealth(executor: DatabaseSession) {
+  const triggerResult = await executor.execute(sql`
+    SELECT t.tgenabled AS enabled
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'document_updates'
+      AND t.tgname = 'count_document_updates'
+      AND NOT t.tgisinternal
+    LIMIT 1
+  `);
+  const parsedTrigger = triggerEnabledRowSchema.safeParse(
+    triggerResult.rows[0],
+  );
+  const triggerPresent =
+    parsedTrigger.success &&
+    (parsedTrigger.data.enabled === "O" || parsedTrigger.data.enabled === "A");
+
+  const driftResult = await executor.execute(sql`
+    WITH recent_documents AS (
+      SELECT d.id, d.update_count
+      FROM ${documents} d
+      ORDER BY d.updated_at DESC, d.id DESC
+      LIMIT ${DOCUMENT_UPDATE_COUNT_SCAN_LIMIT}
+    )
+    SELECT
+      d.id::text AS "documentId",
+      d.update_count::int AS "storedCount",
+      actual.actual_count AS "actualCount"
+    FROM recent_documents d
+    CROSS JOIN LATERAL (
+      SELECT count(*)::int AS actual_count
+      FROM ${documentUpdates} u
+      WHERE u.document_id = d.id
+    ) actual
+    WHERE d.update_count <> actual.actual_count
+    ORDER BY d.id ASC
+    LIMIT ${ROOT_OPS_HEALTH_SECTION_LIMIT + 1}
+  `);
+  const rows = driftResult.rows.map((row) =>
+    documentUpdateCountDriftRowSchema.parse(row),
+  );
+  return {
+    triggerPresent,
+    ...section(rows),
+  };
+}
+
+/**
+ * Cross-organization billing and storage maintenance health. PostgreSQL reads
+ * every section from one repeatable-read snapshot, so an organization moving
+ * between states mid-report appears in at most one and document update counts
+ * match stored updates from the same snapshot.
  */
 export async function loadRootOpsHealthReport(
   db: ApiDatabase,
@@ -290,6 +360,7 @@ export async function loadRootOpsHealthReport(
       purges: await listPurgeIssues(tx, now),
       trialsEnding: await listTrialsEnding(tx, now),
       purgesDue: await listPurgesDue(tx, now),
+      documentUpdateCounts: await listDocumentUpdateCountHealth(tx),
     }),
     { accessMode: "read only", isolationLevel: "repeatable read" },
   );

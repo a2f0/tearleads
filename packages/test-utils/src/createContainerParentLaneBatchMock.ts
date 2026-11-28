@@ -22,7 +22,24 @@ export function createContainerParentLaneBatchMock(
       if (!page) {
         return null;
       }
-      results.push({ laneId: lane.laneId, page });
+      if (lane.idsOnly) {
+        results.push({
+          idsPage: {
+            hasMore: page.hasMore,
+            items: page.items.map((item) => ({
+              effectiveAccessLevel: item.effectiveAccessLevel,
+              id: item.id,
+              organizationId: item.organizationId,
+              parentId: item.parentId,
+              ...(item.systemSlot ? { systemSlot: item.systemSlot } : {}),
+            })),
+            nextWatermark: page.nextWatermark,
+          },
+          laneId: lane.laneId,
+        });
+      } else {
+        results.push({ laneId: lane.laneId, page });
+      }
     }
 
     return { results };

@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
+import {
+  deriveOrganizationMetadataContainerSystemSlot,
+  organizationRosterProfileContainerSystemSlot,
+} from "@tearleads/validators/containerSystemSlot";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/workflows/cachedContainerHydrationRuntime";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
@@ -10,12 +14,14 @@ import {
 } from "../../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { createClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../../../data/sqlite/sqlSchema";
+import { getOrCreateOrganizationSyncPauses } from "../../../../data/sync/organizationSyncPauses";
 import { testContainerMetadataWriter } from "../../metadata/metadata.testFixtures";
 import {
   installContainerMetadataRecord,
   persistContainerMetadataStateFromRuntime,
 } from "../../metadata/metadataPersistence";
 import { hydrateStoredContainerState } from "../../storedContainerState";
+import { rememberDestinationRole } from "../destination/destinationRoleCache";
 import { hydrateRemoteContainers } from "../index";
 import type {
   ContainerState,
@@ -55,7 +61,13 @@ type Lane = ListContainerParentLanesRequest["lanes"][number];
  * requested watermark. Returns the order of the durable steps.
  */
 async function crawl(
-  options: { readonly resetRootLaneWatermark?: boolean },
+  options: {
+    readonly cachedContainers?: readonly RemoteContainer[];
+    readonly hasMore?: (lane: Lane) => boolean;
+    readonly localOnlyHeld?: boolean;
+    readonly pausedOrganizationIds?: readonly string[];
+    readonly resetRootLaneWatermark?: boolean;
+  },
   serve: (lane: Lane) => ReadonlyArray<RemoteContainer>,
 ) {
   const steps: string[] = [];
@@ -125,27 +137,67 @@ async function crawl(
       storedContainer: stored,
       writer: testContainerMetadataWriter,
     });
+    if (options.localOnlyHeld) {
+      held.container = { ...held.container, serverCreatedAt: null };
+    }
     const state = {
       containersById: new Map<string, ContainerState>([[FOLDER.id, held]]),
       persistence: sqlContainerContentsPersistence,
       runtime: cachedContainerHydrationRuntime([FOLDER], execSql),
     } as RemoteContainerHydrationState;
+    for (const container of options.cachedContainers ?? []) {
+      rememberDestinationRole(execSql, container, {
+        createSignerUserId: "fixture-user",
+        metadataDocumentId: container.metadataDocumentId,
+        ...(container.systemSlot ? { parentId: container.parentId } : {}),
+        rootContainerId: "fixture-root",
+        rootCreateManifestHash: "fixture-root-genesis",
+        rootMetadataDocumentId: "fixture-root-metadata",
+        systemSlot: container.systemSlot ?? null,
+      });
+    }
+    if (options.pausedOrganizationIds) {
+      await getOrCreateOrganizationSyncPauses(
+        state.runtime.state.domainScope,
+      ).replace(execSql, options.pausedOrganizationIds);
+    }
     const requests: Lane[][] = [];
     state.runtime.apiClient.listContainerParentLanes = async ({ lanes }) => {
       requests.push([...lanes]);
       return {
-        results: lanes.map((lane) => ({
-          laneId: lane.laneId,
-          page: {
-            hasMore: false,
-            items: serve(lane).map((item) => ({ ...item, depth: 0 })),
-            nextWatermark: {
-              id: `next-${lane.watermark?.id ?? "from-start"}`,
-              updatedAt: LATER,
+        results: lanes.map((lane) => {
+          const served = serve(lane);
+          const hasMore = options.hasMore?.(lane) ?? false;
+          const nextWatermark = {
+            id: `next-${lane.watermark?.id ?? "from-start"}`,
+            updatedAt: LATER,
+          };
+          if (lane.idsOnly) {
+            return {
+              idsPage: {
+                hasMore,
+                items: served.map((item) => ({
+                  effectiveAccessLevel: item.effectiveAccessLevel,
+                  id: item.id,
+                  organizationId: item.organizationId,
+                  parentId: item.parentId,
+                  ...(item.systemSlot ? { systemSlot: item.systemSlot } : {}),
+                })),
+                nextWatermark,
+              },
+              laneId: lane.laneId,
+            };
+          }
+          return {
+            laneId: lane.laneId,
+            page: {
+              hasMore,
+              items: served.map((item) => ({ ...item, depth: 0 })),
+              nextWatermark,
+              tombstones: [],
             },
-            tombstones: [],
-          },
-        })),
+          };
+        }),
       };
     };
     const host: RemoteContainerHydrationHost = {
@@ -210,7 +262,7 @@ test("a lane that serves nothing owes nothing", async () => {
   ]);
 });
 
-test("the root lane's membership listing owes nothing and saves no cursor", async () => {
+test("the root lane's idsOnly membership listing skips already-held roots, owes nothing, and saves no cursor", async () => {
   const { requests, rootWatermark, steps } = await crawl(
     { resetRootLaneWatermark: true },
     // From its watermark the root lane has nothing new. From no watermark it
@@ -219,22 +271,93 @@ test("the root lane's membership listing owes nothing and saves no cursor", asyn
       lane.parentId === null && lane.watermark === null ? [FOLDER] : [],
   );
 
-  // One request lists the root lane twice: from its watermark, and from none.
+  // One request lists the root lane twice: from its watermark, and idsOnly from none.
   expect(
-    requests[0]?.map((lane) => [lane.parentId, lane.watermark?.id ?? null]),
+    requests[0]?.map((lane) => [
+      lane.parentId,
+      lane.watermark?.id ?? null,
+      lane.idsOnly ?? false,
+    ]),
   ).toEqual([
-    [null, "root-saved"],
-    [null, null],
-    ["container-1", null],
+    [null, "root-saved", false],
+    [null, null, true],
+    ["container-1", null, false],
   ]);
-  // The membership listing still applies the row it was served.
-  expect(steps).toContain("apply container-1");
+  // Every returned root is already held at matching access, so no follow-up full
+  // membership listing or re-apply runs.
+  expect(requests).toHaveLength(1);
+  expect(steps).not.toContain("apply container-1");
   expect(steps.filter((step) => step.startsWith("owe "))).toEqual([
     "owe nothing",
     "owe nothing",
   ]);
   // The cursor is the one the listing from the watermark returned.
   expect(rootWatermark?.id).toBe("next-root-saved");
+});
+
+test("the root lane's idsOnly membership listing falls back to a full listing on access upgrade without owing or saving a cursor", async () => {
+  const UPGRADED: RemoteContainer = {
+    ...FOLDER,
+    effectiveAccessLevel: "admin",
+  };
+  const { requests, rootWatermark, steps } = await crawl(
+    { resetRootLaneWatermark: true },
+    (lane) =>
+      lane.parentId === null && lane.watermark === null ? [UPGRADED] : [],
+  );
+
+  expect(requests).toHaveLength(2);
+  expect(requests[1]).toEqual([
+    expect.objectContaining({
+      parentId: null,
+      watermark: null,
+    }),
+  ]);
+  expect(requests[1]?.[0]?.idsOnly).toBeUndefined();
+  expect(steps).toContain("apply container-1");
+  expect(steps.filter((step) => step.startsWith("owe "))).toEqual([
+    "owe nothing",
+    "owe nothing",
+  ]);
+  expect(rootWatermark?.id).toBe("next-root-saved");
+});
+
+test("the root lane's idsOnly membership listing falls back to a full listing on access downgrade without owing or saving a cursor", async () => {
+  const DOWNGRADED: RemoteContainer = {
+    ...FOLDER,
+    effectiveAccessLevel: "read",
+  };
+  const { requests, rootWatermark, steps } = await crawl(
+    { resetRootLaneWatermark: true },
+    (lane) =>
+      lane.parentId === null && lane.watermark === null ? [DOWNGRADED] : [],
+  );
+
+  expect(requests).toHaveLength(2);
+  expect(requests[1]?.[0]?.idsOnly).toBeUndefined();
+  expect(steps).toContain("apply container-1");
+  expect(steps.filter((step) => step.startsWith("owe "))).toEqual([
+    "owe nothing",
+    "owe nothing",
+  ]);
+  expect(rootWatermark?.id).toBe("next-root-saved");
+});
+
+test("a served roster-profile container does not owe its document lane a listing", async () => {
+  const ROSTER_CONTAINER: RemoteContainer = {
+    ...FOLDER,
+    systemSlot: organizationRosterProfileContainerSystemSlot(
+      FOLDER.organizationId,
+    ),
+  };
+  const { steps } = await crawl({}, (lane) =>
+    lane.parentId === null ? [ROSTER_CONTAINER] : [],
+  );
+
+  expect(steps.filter((step) => step.startsWith("owe "))).toEqual([
+    "owe nothing",
+    "owe nothing",
+  ]);
 });
 
 test("a root container that moved is owed by the listing from the watermark", async () => {
@@ -249,4 +372,85 @@ test("a root container that moved is owed by the listing from the watermark", as
   expect(steps.indexOf("owe container-1")).toBeLessThan(
     steps.indexOf("apply container-1"),
   );
+});
+
+test("multi-page idsOnly continues pagination and falls back once an unseen root appears", async () => {
+  const UNSEEN: RemoteContainer = { ...FOLDER, id: "container-2" };
+  const { requests, rootWatermark } = await crawl(
+    {
+      hasMore: (lane) => lane.idsOnly === true && lane.watermark === null,
+      resetRootLaneWatermark: true,
+    },
+    (lane) => {
+      if (lane.parentId !== null) return [];
+      if (lane.idsOnly && lane.watermark === null) return [FOLDER];
+      if (lane.idsOnly && lane.watermark?.id === "next-from-start") {
+        return [UNSEEN];
+      }
+      return lane.watermark === null ? [FOLDER] : [];
+    },
+  );
+
+  expect(requests).toHaveLength(3);
+  expect(requests[1]?.[0]).toMatchObject({
+    idsOnly: true,
+    parentId: null,
+    watermark: { id: "next-from-start" },
+  });
+  expect(requests[2]?.[0]?.idsOnly).toBeUndefined();
+  expect(requests[2]?.[0]?.watermark).toBeNull();
+  expect(rootWatermark?.id).toBe("next-root-saved");
+});
+
+test("idsOnly skips missing regular roots in paused organizations but falls back for parentless systemSlot roots and local-only roots", async () => {
+  const pausedRegular: RemoteContainer = {
+    ...FOLDER,
+    id: "paused-regular",
+    organizationId: "paused-org",
+    parentId: null,
+  };
+  const pausedMetadata: RemoteContainer = {
+    ...pausedRegular,
+    id: "paused-metadata",
+    metadataDocumentId: "paused-metadata-doc",
+    systemSlot: await deriveOrganizationMetadataContainerSystemSlot({
+      organizationId: "paused-org",
+    }),
+  };
+
+  const skipped = await crawl(
+    {
+      pausedOrganizationIds: ["paused-org"],
+      resetRootLaneWatermark: true,
+    },
+    (lane) =>
+      lane.parentId === null && lane.watermark === null
+        ? [FOLDER, pausedRegular]
+        : [],
+  );
+  expect(skipped.requests).toHaveLength(1);
+
+  const systemRoot = await crawl(
+    {
+      cachedContainers: [pausedMetadata],
+      pausedOrganizationIds: ["paused-org"],
+      resetRootLaneWatermark: true,
+    },
+    (lane) =>
+      lane.parentId === null && lane.watermark === null
+        ? [FOLDER, pausedMetadata]
+        : [],
+  );
+  expect(systemRoot.requests).toHaveLength(3);
+  expect(systemRoot.requests[1]?.[0]?.idsOnly).toBeUndefined();
+  expect(systemRoot.requests[1]?.[0]?.parentId).toBeNull();
+  expect(systemRoot.requests[2]?.[0]?.parentId).toBe("paused-metadata");
+
+  const localOnly = await crawl(
+    { localOnlyHeld: true, resetRootLaneWatermark: true },
+    (lane) =>
+      lane.parentId === null && lane.watermark === null ? [FOLDER] : [],
+  );
+  expect(localOnly.requests).toHaveLength(2);
+  expect(localOnly.requests[1]?.[0]?.idsOnly).toBeUndefined();
 });

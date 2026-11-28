@@ -16,6 +16,18 @@
       "issues": [3263, 3289, 3291, 3342, 3353, 3396],
       "snapshotFile": "snapshots/000-baseline.json",
       "notes": "Epoch 2 baseline at 53819b364 before greenfield optimization PRs. All runtime probes ran on clean 53819b364; static perf:inventory ran with the Epoch 2 false-positive filter applied (dirty: true reflects only that performance harness edit)."
+    },
+    {
+      "id": "001-server-counts-parent-lanes",
+      "seq": 1,
+      "label": "Server update counts & parent-lane batch (#3342)",
+      "kind": "checkpoint",
+      "recordedAt": "2026-11-28T03:36:32.928Z",
+      "revision": "d7e01be588a4fe8f3121aab9b88166de11d0c560",
+      "dirty": false,
+      "issues": [3342],
+      "snapshotFile": "snapshots/001-server-counts-parent-lanes.json",
+      "notes": "Trigger-maintained documents.update_count + attribution_revision/updated_at; roster-profile container suppression; verified idsOnly root-membership parent-lane batch inside repeatable-read snapshot."
     }
   ]
 }

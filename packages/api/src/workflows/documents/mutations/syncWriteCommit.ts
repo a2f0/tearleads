@@ -15,7 +15,7 @@ import {
   takeCreatedDocumentSeed,
 } from "./shared/createdDocumentSeed";
 import type { LockedContainerHeadRows } from "./shared/currentContainerPaths";
-import { touchDocumentAndLinkedContainers } from "./shared/documentRows";
+import { touchContainersForDocument } from "./shared/documentRows";
 import { verifySyncWriteAuthorizationProof } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
 import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
@@ -53,12 +53,15 @@ export async function touchAcceptedSyncTargets(input: {
     return;
   }
 
-  await touchDocumentAndLinkedContainers(input.executor, {
+  // `count_document_updates` already incremented `update_count` and
+  // `attribution_revision`, stamped `updated_at`, and enqueued deferred
+  // discovery publication on `documents`; only linked containers remain.
+  await touchContainersForDocument(input.executor, {
     documentId: input.documentId,
-    incrementAttributionRevision: true,
     linkedContainerIds: input.currentTargets.targets.map(
       (target) => target.containerId,
     ),
+    organizationId: input.currentTargets.organizationId,
   });
 }
 

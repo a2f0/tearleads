@@ -1,0 +1,10 @@
+# Issue #3342 (per-lane failure results and idsOnly root membership pages on
+# POST /containers/parent-lanes/query; greenfield flag day, no compatibility
+# shim): each result entry is now a 3-way union of { laneId, page },
+# { laneId, idsPage }, or { laneId, failure }, matching
+# POST /containers/documents/query. Delete these exact diagnostics, and this
+# file, once main contains this contract.
+POST /containers/parent-lanes/query added `subschema #1, subschema #2, subschema #3` to the `results/items/` response property `anyOf` list for the response status `200`
+POST /containers/parent-lanes/query the `results/items/` response's property `type` changed from `object` to `any` for status `200`
+POST /containers/parent-lanes/query removed the required property `results/items/laneId` from the response with the `200` status
+POST /containers/parent-lanes/query removed the required property `results/items/page` from the response with the `200` status

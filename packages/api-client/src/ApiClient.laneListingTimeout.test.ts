@@ -140,11 +140,8 @@ for (const listing of ["parent", "document"] as const) {
           ]);
           expect(requests).toBe(CONTAINER_LANE_LISTING_ATTEMPTS);
           const timeout = `POST ${listingPaths[listing]}: no response within ${CONTAINER_LANE_LISTING_TIMEOUT_MS} ms`;
-          // The parent listing reports its one shared failure; each document
-          // caller settles the shared result under its own reporting policy.
-          expect(errors).toEqual(
-            listing === "parent" ? [timeout] : [timeout, timeout],
-          );
+          // Each joined caller settles the shared result under its own reporting policy.
+          expect(errors).toEqual([timeout, timeout]);
           // One shared listing timed out: one reachability hint, in either
           // phase, not one per attempt or for the body read the deadline
           // aborted.

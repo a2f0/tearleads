@@ -4,6 +4,7 @@ import {
   loosePlainObject,
   nonEmptyStringSchema,
   nonNegativeIntegerSchema,
+  safeIntegerSchema,
 } from "../schema";
 
 /** Rows each ops-health section returns at most; `truncated` marks more. */
@@ -82,7 +83,24 @@ const RootPurgeDueSchema = loosePlainObject({
   purgeAfter: z.string(),
 });
 
-/** Cross-organization billing maintenance health, from `GET /root/reports/ops-health`. */
+const RootDocumentUpdateCountDriftSchema = loosePlainObject({
+  documentId: nonEmptyStringSchema,
+  storedCount: safeIntegerSchema,
+  actualCount: nonNegativeIntegerSchema,
+});
+
+const RootDocumentUpdateCountsHealthSchema = loosePlainObject({
+  /** Whether the `count_document_updates` trigger is present and enabled. */
+  triggerPresent: z.boolean(),
+  rows: arraySchema(
+    RootDocumentUpdateCountDriftSchema,
+    ROOT_OPS_HEALTH_SECTION_LIMIT,
+  ),
+  /** More drifted document rows matched than the section returns. */
+  truncated: z.boolean(),
+});
+
+/** Cross-organization billing and storage maintenance health, from `GET /root/reports/ops-health`. */
 export const RootOpsHealthReportResponseSchema = loosePlainObject({
   generatedAt: z.string(),
   /** Stripe seat-sync rows the worker would claim, in retry order. */
@@ -95,6 +113,8 @@ export const RootOpsHealthReportResponseSchema = loosePlainObject({
   trialsEnding: sectionSchema(RootTrialEndingSchema),
   /** Disabled organizations whose purge falls due within the window. */
   purgesDue: sectionSchema(RootPurgeDueSchema),
+  /** Documents whose `update_count` disagrees with `document_updates`, plus trigger status. */
+  documentUpdateCounts: RootDocumentUpdateCountsHealthSchema,
 });
 
 export type RootOpsHealthReportResponse = z.infer<

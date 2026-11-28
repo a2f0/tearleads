@@ -239,6 +239,7 @@ export function listContainerParentLanesRequestKey(
 ): string {
   return JSON.stringify(
     input.lanes.map((lane) => ({
+      idsOnly: lane.idsOnly ?? false,
       laneId: lane.laneId,
       limit: lane.limit ?? null,
       parentId: lane.parentId,

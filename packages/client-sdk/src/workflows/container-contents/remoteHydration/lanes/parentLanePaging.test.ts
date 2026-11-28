@@ -15,6 +15,7 @@ function page(
   return {
     expectedContainerStates: new Map(),
     expectedHydrationTombstones: new Map(),
+    kind: "page",
     lane,
     response: {
       hasMore: false,
@@ -38,10 +39,11 @@ function continuationOf(
   return queued;
 }
 
-test("a membership-only listing stays membership-only on its next page", () => {
+test("a membership-only listing stays membership-only (and idsOnly when set) on its next page", () => {
   const queued = continuationOf(
     page(
       {
+        idsOnly: true,
         membershipOnly: true,
         parentId: null,
         skipWatermarkWrite: true,
@@ -54,6 +56,7 @@ test("a membership-only listing stays membership-only on its next page", () => {
 
   // A continuation that lost the mark would owe a listing to every root
   // container it serves and save a cursor for a listing that has none.
+  expect(queued?.idsOnly).toBe(true);
   expect(queued?.membershipOnly).toBe(true);
   expect(queued?.skipWatermarkWrite).toBe(true);
   expect(queued?.watermark).toEqual(FIRST);

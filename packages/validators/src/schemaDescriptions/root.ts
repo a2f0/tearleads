@@ -114,7 +114,7 @@ describeSchema(
 
 describeSchema(
   RootOpsHealthReportResponseSchema,
-  "Billing maintenance trouble across organizations. Each section lists at most a bounded number of rows and says when it was truncated.",
+  "Billing and storage maintenance trouble across organizations. Each section lists at most a bounded number of rows and says when it was truncated.",
   {
     seatSync:
       "Stripe seat syncs that are failing, overdue, or hold a lapsed lease, in retry order.",
@@ -123,6 +123,8 @@ describeSchema(
     purges: "Purges past due to start, or started with a lapsed lease.",
     trialsEnding: "Trials ending soon, soonest first.",
     purgesDue: "Disabled organizations whose purge falls due soon.",
+    documentUpdateCounts:
+      "Whether the `count_document_updates` trigger is active on `document_updates` and any recently updated document rows (latest 1,000) whose `update_count` disagrees with stored updates.",
   },
 );
 

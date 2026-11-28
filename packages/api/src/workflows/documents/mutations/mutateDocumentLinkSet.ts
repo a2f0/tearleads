@@ -170,13 +170,6 @@ async function advanceDocumentLinkSet(input: {
       executor: input.executor,
     });
   }
-  await recordDocumentLinkSetChange({
-    documentId: input.documentId,
-    executor: input.executor,
-    incrementAttributionRevision: input.eventType === "document.unlink",
-    linkedContainerIds: input.manifest.state.linkedContainerIds,
-    previousLinkedContainerIds: input.previousManifest.state.linkedContainerIds,
-  });
   const contentKeyBundle = await storeDocumentContentKeyBundleInTransaction(
     toStoredContentKeyBundleInput(
       input.documentId,
@@ -289,6 +282,60 @@ async function assertProfileBindingsPreserved(
   return assertRosterProfileBindingPreserved(input);
 }
 
+async function commitLinkSetSideEffects(input: {
+  readonly advanced: Awaited<ReturnType<typeof advanceDocumentLinkSet>>;
+  readonly authorization: Awaited<
+    ReturnType<typeof verifyDocumentLinkSetMutationAuthorizationFromRequest>
+  >;
+  readonly blobRewraps: Awaited<ReturnType<typeof prepareDocumentBlobRewraps>>;
+  readonly mutation: MutateDocumentLinkSetWithExecutorInput;
+  readonly previousManifest: Parameters<
+    typeof documentMutationAcknowledgement
+  >[0];
+  readonly repairedRosterProfileBindings: readonly RepairedRosterProfileBinding[];
+  readonly rotationBaseline: NonNullable<
+    DocumentLinkSetMutationRequest["rotationBaseline"]
+  > | null;
+}): Promise<readonly string[]> {
+  const { manifest } = input.authorization;
+  await recordDocumentManifestObservationInTransaction(
+    input.mutation.executor,
+    {
+      documentId: input.mutation.documentId,
+      manifestHash: manifest.manifestHash,
+      userId: input.mutation.userId,
+    },
+  );
+  const insertedUpdateIds = await appendMutationRotationBaseline(
+    input.mutation,
+    input.authorization,
+    input.advanced,
+    input.rotationBaseline,
+  );
+  // Touch containers after baseline insertion so container row locks stay
+  // short and `skipDocumentTouch` reflects actual inserted updates (whose
+  // `count_document_updates` trigger already stamped `documents`).
+  await recordDocumentLinkSetChange({
+    documentId: input.mutation.documentId,
+    executor: input.mutation.executor,
+    incrementAttributionRevision:
+      input.mutation.eventType === "document.unlink",
+    linkedContainerIds: manifest.state.linkedContainerIds,
+    organizationId: manifest.state.organizationId,
+    previousLinkedContainerIds: input.previousManifest.state.linkedContainerIds,
+    ...(insertedUpdateIds.length > 0 ? { skipDocumentTouch: true } : {}),
+  });
+  await applyDocumentLinkBlobRewraps({
+    ...input.mutation,
+    rewraps: input.blobRewraps,
+  });
+  await appendRepairedRosterProfileChanges(
+    input.mutation.executor,
+    input.repairedRosterProfileBindings,
+  );
+  return insertedUpdateIds;
+}
+
 /**
  * The organization comes from the content-key store's post-store target read:
  * the document head is held FOR UPDATE and its manifest's organization was
@@ -361,23 +408,15 @@ async function mutateDocumentLinkSetWithExecutor(
       previousManifest,
     });
     const { contentKeyBundle } = advanced;
-    await recordDocumentManifestObservationInTransaction(input.executor, {
-      documentId: input.documentId,
-      manifestHash: manifest.manifestHash,
-      userId: input.userId,
-    });
-
-    const insertedUpdateIds = await appendMutationRotationBaseline(
-      input,
-      authorization,
+    const insertedUpdateIds = await commitLinkSetSideEffects({
       advanced,
-      rotationBaseline,
-    );
-    await applyDocumentLinkBlobRewraps({ ...input, rewraps: blobRewraps });
-    await appendRepairedRosterProfileChanges(
-      input.executor,
+      authorization,
+      blobRewraps,
+      mutation: input,
+      previousManifest,
       repairedRosterProfileBindings,
-    );
+      rotationBaseline,
+    });
 
     return {
       organizationId: contentKeyBundle.currentTargets.organizationId,
