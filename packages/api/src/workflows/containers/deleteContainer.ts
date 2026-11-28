@@ -216,12 +216,19 @@ async function resolveDeleteAccess(input: {
   }
 }
 
+export interface DeleteContainerOutcome {
+  /** Root to deleted container's parent (non-empty because roots cannot delete). */
+  readonly ancestorIds: readonly string[];
+  readonly parentId: string;
+  readonly response: ContainerDeleteResponse;
+}
+
 async function deleteContainerWithExecutor(input: {
   readonly containerId: string;
   readonly requiredAncestorId?: string | undefined;
   readonly executor: DatabaseTransaction;
   readonly userId: string;
-}): Promise<ContainerDeleteResponse> {
+}): Promise<DeleteContainerOutcome> {
   const initialAccess = await resolveDeleteAccess(input);
   const initialTargetManifest = initialAccess.verifiedPath.at(-1);
   if (!initialTargetManifest) {
@@ -317,9 +324,34 @@ async function deleteContainerWithExecutor(input: {
     });
   }
 
-  return {
+  return buildDeleteContainerOutcome({
     containerId: input.containerId,
-    deletedAt: updatedAt.toISOString(),
+    parentId: container.parentId,
+    updatedAt,
+    verifiedPath: access.verifiedPath,
+  });
+}
+
+function buildDeleteContainerOutcome(input: {
+  readonly containerId: string;
+  readonly parentId: string | null;
+  readonly updatedAt: Date;
+  readonly verifiedPath: readonly {
+    readonly state: { readonly containerId: string };
+  }[];
+}): DeleteContainerOutcome {
+  if (input.parentId === null) {
+    throw new DeleteContainerError("Root container cannot be deleted", 400);
+  }
+  return {
+    ancestorIds: input.verifiedPath
+      .slice(0, -1)
+      .map((manifest) => manifest.state.containerId),
+    parentId: input.parentId,
+    response: {
+      containerId: input.containerId,
+      deletedAt: input.updatedAt.toISOString(),
+    },
   };
 }
 
@@ -330,7 +362,7 @@ export async function deleteContainer(
     readonly requiredAncestorId?: string | undefined;
     readonly userId: string;
   },
-): Promise<ContainerDeleteResponse> {
+): Promise<DeleteContainerOutcome> {
   return db.transaction((tx) =>
     deleteContainerWithExecutor({
       ...input,

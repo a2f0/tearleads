@@ -9,9 +9,15 @@ import {
 } from "./containerInterestTypes";
 import {
   hintContainerIds,
+  hintCoverageKey,
   type PublishedHintEvent,
+  resolveHintPaths,
   scopeHintToInterest,
 } from "./hintScoping";
+import {
+  MOVED_CONTAINER_TTL_MS,
+  MovedContainerMemory,
+} from "./movedContainerMemory";
 import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import {
   closeSafely,
@@ -109,6 +115,11 @@ function removeFromIndex<K>(
  * published events fail closed and route nowhere. Socket handles never leave
  * the process.
  */
+export interface WsEventRouterOptions {
+  readonly movedContainerTtlMs?: number | undefined;
+  readonly now?: (() => number) | undefined;
+}
+
 export class WsEventRouter {
   private readonly socketsBySessionKey = new Map<string, Set<WsConnection>>();
   private readonly socketsByUserId = new Map<string, Set<WsConnection>>();
@@ -116,6 +127,15 @@ export class WsEventRouter {
   private readonly interestBySocket = new Map<WsConnection, Set<string>>();
   private readonly dependencies = new ContainerInterestDependencies();
   private readonly organizationRouter = new WsOrganizationRouter();
+  private readonly movedContainers: MovedContainerMemory;
+  private readonly now: () => number;
+
+  constructor(options: WsEventRouterOptions = {}) {
+    this.movedContainers = new MovedContainerMemory(
+      options.movedContainerTtlMs ?? MOVED_CONTAINER_TTL_MS,
+    );
+    this.now = options.now ?? (() => Date.now());
+  }
 
   open(ws: WsConnection): void {
     addToIndex(this.socketsBySessionKey, socketSessionKey(ws), ws);
@@ -247,6 +267,18 @@ export class WsEventRouter {
         this.organizationRouter.routeReadModelChanged(event);
         return;
       default:
+        if (
+          event.type === "container_mutation_created" &&
+          event.eventType === "container.move" &&
+          event.ancestorIds !== undefined
+        ) {
+          this.movedContainers.remember(
+            event.containerId,
+            event.ancestorIds,
+            event.updatedAt,
+            this.now(),
+          );
+        }
         this.routeHint(event);
         if (event.type === "container_mutation_created")
           this.routePathChanged(event.containerId);
@@ -282,10 +314,14 @@ export class WsEventRouter {
   }
 
   private routeHint(event: PublishedHintEvent): void {
+    const resolved = resolveHintPaths(event, this.movedContainers, this.now());
+    if (!resolved) {
+      return;
+    }
     // Resolve recipients before serializing. Most events have no interested
     // socket; returning early there skips the reconstruction entirely on the
     // common no-recipient path.
-    const recipients = this.recipientsForHint(event);
+    const recipients = this.recipientsForHint(resolved);
     if (recipients.size === 0) {
       return;
     }
@@ -296,32 +332,40 @@ export class WsEventRouter {
     // the event was published by an HTTP request that never held the socket.
     // Per-SESSION, never per-user: the author's other devices/tabs are distinct
     // sessions and must still receive the event so they sync. Absent `origin`
-    // (e.g. attachment-bind events) means "exclude nobody" — every interested
-    // socket gets it.
+    // means "exclude nobody" — every interested socket gets it.
     //
-    // Each frame is scoped to the ids its recipient holds interest in, so a
-    // watcher of only the destination never learns the source of a move and a
-    // single-container document subscriber never learns the other links.
-    // Recipients holding the same subset share one serialization.
-    const origin = event.origin ?? null;
-    const scopeIds = hintContainerIds(event);
-    const frames = new Map<string, string>();
+    // Each frame is scoped to the targets its recipient covers (directly held
+    // or under a held subtree root on the published path), so a watcher of only
+    // the destination never learns the source of a move and a single-container
+    // document subscriber never learns other links. Recipients with the same
+    // effective coverage share one serialization.
+    const origin = resolved.origin ?? null;
+    const frames = new Map<string, string | null>();
     for (const ws of recipients) {
       if (origin && isSameSession(ws, origin)) {
         continue;
       }
       const interest = this.interestBySocket.get(ws);
-      const held = scopeIds.filter((id) => interest?.has(id));
-      const key = held.join(",");
-      let frame = frames.get(key);
-      if (frame === undefined) {
-        const hint = scopeHintToInterest(event, new Set(held));
-        if (hint === null) continue;
-        frame = serializeWsServerMessage(hint);
-        frames.set(key, frame);
+      if (!interest) continue;
+      const frame = this.cachedScopedFrame(resolved, interest, frames);
+      if (frame !== null) {
+        sendSafely(ws, frame);
       }
-      sendSafely(ws, frame);
     }
+  }
+
+  private cachedScopedFrame(
+    resolved: PublishedHintEvent,
+    interest: ReadonlySet<string>,
+    frames: Map<string, string | null>,
+  ): string | null {
+    const key = hintCoverageKey(resolved, interest);
+    const cached = frames.get(key);
+    if (cached !== undefined) return cached;
+    const hint = scopeHintToInterest(resolved, interest);
+    const frame = hint === null ? null : serializeWsServerMessage(hint);
+    frames.set(key, frame);
+    return frame;
   }
 
   /** Evict only subscriptions whose verified read path depends on this head. */

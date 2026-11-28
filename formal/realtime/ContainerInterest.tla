@@ -4,7 +4,9 @@ EXTENDS Naturals, FiniteSets, TLC
 CONSTANTS AuthorizeInterest, InvalidateOnAccessChange, CheckSocketOpen,
           ScopeInvalidation, ScopeQueryChanges, NotifyPrincipalChanges,
           CheckQueryOwner, CheckSessionLiveness,
-          EnforceSessionDeadline, ConfirmOnlyLiveReads
+          EnforceSessionDeadline, ConfirmOnlyLiveReads,
+          RouteByPublishedPath, RequireProofForCoverage,
+          RememberMovedContainers
 Containers == {"child", "other"}
 \* Time units a session may go unconfirmed by the session store.
 MaxUnconfirmed == 2
@@ -21,11 +23,16 @@ Dependencies(container) == IF container = "child"
 VARIABLES access, revision, open, indexed, pending, queryAccess,
           queryChanged, unrelatedRetry, declared, queryOwned,
           sessionLive, servedEndedSession, observed, readAfterEnd,
-          sinceConfirmed, deadlineAge, servedUnconfirmed
+          sinceConfirmed, deadlineAge, servedUnconfirmed,
+          descendantUnderChild, movedRemembered,
+          deliveredWithoutCoverage, deliveredStaleAfterMove
 sessionVars == <<sessionLive, servedEndedSession, observed, readAfterEnd,
                  sinceConfirmed, deadlineAge, servedUnconfirmed>>
+coverageVars == <<descendantUnderChild, movedRemembered,
+                  deliveredWithoutCoverage, deliveredStaleAfterMove>>
 vars == <<access, revision, open, indexed, pending, queryAccess,
-          queryChanged, unrelatedRetry, declared, queryOwned, sessionVars>>
+          queryChanged, unrelatedRetry, declared, queryOwned,
+          sessionVars, coverageVars>>
 interestVars == <<access, revision, pending, queryAccess, queryChanged,
                   unrelatedRetry, declared, queryOwned>>
 Readable(container) == \A dependency \in Dependencies(container): access[dependency]
@@ -34,6 +41,13 @@ RelevantQueryChange == queryChanged \cap QueryDependencies # {}
 NeedsRetry == IF ScopeQueryChanges THEN RelevantQueryChange ELSE queryChanged # {}
 \* Production checks the query's own socket object, not merely its session.
 QuerySocketOpen == open /\ (~CheckQueryOwner \/ queryOwned)
+DeclarationTimeDescendantPath == {"root", "child", "descendant"}
+CurrentDescendantPath == IF descendantUnderChild
+                         THEN DeclarationTimeDescendantPath
+                         ELSE {"outside", "descendant"}
+SocketCoversPath(path) == IF RequireProofForCoverage
+                          THEN "child" \in indexed /\ "child" \in path
+                          ELSE open /\ "child" \in path
 
 Init == /\ access = [dependency \in {"root", "child", "group", "other"} |-> dependency # "root"]
         /\ revision = 0 /\ open = TRUE /\ indexed = {"other"}
@@ -43,6 +57,8 @@ Init == /\ access = [dependency \in {"root", "child", "group", "other"} |-> depe
         /\ sessionLive = TRUE /\ servedEndedSession = FALSE
         /\ observed = "none" /\ readAfterEnd = FALSE
         /\ sinceConfirmed = 0 /\ deadlineAge = 0 /\ servedUnconfirmed = FALSE
+        /\ descendantUnderChild = TRUE /\ movedRemembered = FALSE
+        /\ deliveredWithoutCoverage = FALSE /\ deliveredStaleAfterMove = FALSE
 
 \* The socket's own client declares "child". A declaration is the only way a
 \* query starts: no server-side cache restores interest for a socket.
@@ -51,7 +67,7 @@ BeginAuthorization ==
     /\ pending' = TRUE /\ queryAccess' = Readable("child")
     /\ queryChanged' = {} /\ declared' = TRUE /\ queryOwned' = TRUE
     /\ UNCHANGED <<access, revision, open, indexed, unrelatedRetry>>
-    /\ UNCHANGED sessionVars
+    /\ UNCHANGED <<sessionVars, coverageVars>>
 
 ApplyAuthorization ==
     /\ pending /\ (~CheckSocketOpen \/ QuerySocketOpen)
@@ -61,7 +77,7 @@ ApplyAuthorization ==
     /\ pending' = FALSE
     /\ UNCHANGED <<access, revision, open, queryAccess, queryChanged,
                     unrelatedRetry, declared, queryOwned>>
-    /\ UNCHANGED sessionVars
+    /\ UNCHANGED <<sessionVars, coverageVars>>
 
 \* A closed socket's query settles inert: its result indexes no socket.
 SettleOrphanedAuthorization ==
@@ -69,7 +85,7 @@ SettleOrphanedAuthorization ==
     /\ pending' = FALSE
     /\ UNCHANGED <<access, revision, open, indexed, queryAccess, queryChanged,
                     unrelatedRetry, declared, queryOwned>>
-    /\ UNCHANGED sessionVars
+    /\ UNCHANGED <<sessionVars, coverageVars>>
 
 RetryAuthorization ==
     /\ QuerySocketOpen /\ pending /\ NeedsRetry
@@ -77,7 +93,7 @@ RetryAuthorization ==
     /\ queryAccess' = Readable("child") /\ queryChanged' = {}
     /\ UNCHANGED <<access, revision, open, indexed, pending, declared,
                     queryOwned>>
-    /\ UNCHANGED sessionVars
+    /\ UNCHANGED <<sessionVars, coverageVars>>
 
 ObserveChange(dependency) == InvalidateOnAccessChange /\ (dependency # "group" \/ NotifyPrincipalChanges)
 
@@ -94,13 +110,13 @@ ChangeAccess(dependency) ==
                         THEN queryChanged \cup {dependency} ELSE queryChanged
     /\ UNCHANGED <<open, pending, queryAccess, unrelatedRetry, declared,
                     queryOwned>>
-    /\ UNCHANGED sessionVars
+    /\ UNCHANGED <<sessionVars, coverageVars>>
 
 CloseSocket ==
     /\ open /\ open' = FALSE /\ indexed' = indexed \ {"child"}
     /\ UNCHANGED <<access, revision, pending, queryAccess, queryChanged,
                     unrelatedRetry, declared, queryOwned>>
-    /\ UNCHANGED sessionVars
+    /\ UNCHANGED <<sessionVars, coverageVars>>
 
 \* The client reconnects on a fresh ticket for the same live session. The new
 \* socket opens with no container interest: nothing restores the closed
@@ -113,7 +129,7 @@ ReopenSocket ==
     /\ UNCHANGED <<access, revision, indexed, pending, queryAccess,
                     queryChanged, unrelatedRetry>>
     /\ UNCHANGED <<sessionLive, servedEndedSession, observed, readAfterEnd,
-                    servedUnconfirmed>>
+                    servedUnconfirmed, coverageVars>>
 
 \* A socket's session is checked once at upgrade. Revocation publishes
 \* session_revoked at most once and expiry publishes nothing, so ending a
@@ -125,7 +141,7 @@ EndSession(delivered) ==
        ELSE UNCHANGED <<open, indexed>>
     /\ UNCHANGED <<servedEndedSession, observed, readAfterEnd, sinceConfirmed,
                    deadlineAge, servedUnconfirmed>>
-    /\ UNCHANGED interestVars
+    /\ UNCHANGED <<interestVars, coverageVars>>
 
 \* A session tick or subscriber reconnect reads the session store. The read
 \* may fail or time out; only a live answer confirms the session and re-arms
@@ -143,7 +159,7 @@ ReadSession(answered) ==
             /\ UNCHANGED sinceConfirmed
     /\ UNCHANGED <<open, indexed, sessionLive, servedEndedSession,
                    servedUnconfirmed>>
-    /\ UNCHANGED interestVars
+    /\ UNCHANGED <<interestVars, coverageVars>>
 
 \* The pass acts on its read. The session may end between the read and this
 \* step; only a later read can see that.
@@ -155,7 +171,7 @@ CompletePass ==
     /\ servedEndedSession' = (servedEndedSession \/ (readAfterEnd /\ open'))
     /\ observed' = "none" /\ readAfterEnd' = FALSE
     /\ UNCHANGED <<sessionLive, sinceConfirmed, deadlineAge, servedUnconfirmed>>
-    /\ UNCHANGED interestVars
+    /\ UNCHANGED <<interestVars, coverageVars>>
 
 \* Time passes while the socket is open. The deadline timer fires exactly when
 \* due, so time cannot pass it while it would close the socket.
@@ -167,13 +183,51 @@ Elapse ==
     /\ servedUnconfirmed' = (servedUnconfirmed \/ sinceConfirmed' > MaxUnconfirmed)
     /\ UNCHANGED <<open, indexed, sessionLive, servedEndedSession, observed,
                    readAfterEnd>>
-    /\ UNCHANGED interestVars
+    /\ UNCHANGED <<interestVars, coverageVars>>
 
 \* A session left unconfirmed until its deadline closes its sockets.
 SessionDeadline ==
     /\ open /\ EnforceSessionDeadline /\ deadlineAge >= MaxUnconfirmed
     /\ open' = FALSE /\ indexed' = indexed \ {"child"}
-    /\ UNCHANGED sessionVars /\ UNCHANGED interestVars
+    /\ UNCHANGED <<sessionVars, interestVars, coverageVars>>
+
+\* A descendant under "child" moves out of the subtree. The hub remembers its
+\* new ancestor path for a short window so stale post-move hints do not route
+\* back to sockets covering only the old location.
+Move ==
+    /\ descendantUnderChild
+    /\ descendantUnderChild' = FALSE
+    /\ movedRemembered' = RememberMovedContainers
+    /\ UNCHANGED <<deliveredWithoutCoverage, deliveredStaleAfterMove>>
+    /\ UNCHANGED <<open, indexed, sessionVars, interestVars>>
+
+\* A hint for "descendant" carries the path recorded at commit. Coverage
+\* requires both a live installed proof for "child" and "child" on that path.
+Publish ==
+    LET publishedPath == CurrentDescendantPath
+        routedPath == IF RouteByPublishedPath
+                      THEN publishedPath
+                      ELSE DeclarationTimeDescendantPath
+        delivered == SocketCoversPath(routedPath)
+        legitimate == "child" \in indexed /\ "child" \in publishedPath
+    IN /\ deliveredWithoutCoverage' =
+            (deliveredWithoutCoverage \/ (delivered /\ ~legitimate))
+       /\ UNCHANGED <<descendantUnderChild, movedRemembered,
+                      deliveredStaleAfterMove>>
+       /\ UNCHANGED <<open, indexed, sessionVars, interestVars>>
+
+\* A stale hint read before Move arrives at the hub after Move was processed.
+\* Remembered moved-container paths rewrite the stale prefix to the new location.
+PublishStale ==
+    /\ ~descendantUnderChild
+    /\ LET effectivePath == IF movedRemembered
+                            THEN {"outside", "descendant"}
+                            ELSE DeclarationTimeDescendantPath
+       IN deliveredStaleAfterMove' =
+            (deliveredStaleAfterMove \/ SocketCoversPath(effectivePath))
+    /\ UNCHANGED <<descendantUnderChild, movedRemembered,
+                   deliveredWithoutCoverage>>
+    /\ UNCHANGED <<open, indexed, sessionVars, interestVars>>
 
 Next == BeginAuthorization \/ ApplyAuthorization \/ RetryAuthorization
         \/ SettleOrphanedAuthorization
@@ -181,7 +235,8 @@ Next == BeginAuthorization \/ ApplyAuthorization \/ RetryAuthorization
         \/ CloseSocket \/ ReopenSocket
         \/ (\E delivered \in BOOLEAN: EndSession(delivered))
         \/ (\E answered \in BOOLEAN: ReadSession(answered)) \/ CompletePass
-        \/ Elapse \/ SessionDeadline \/ UNCHANGED vars
+        \/ Elapse \/ SessionDeadline
+        \/ Move \/ Publish \/ PublishStale \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
 TypeOK == /\ access \in [{"root", "child", "group", "other"} -> BOOLEAN]
           /\ open \in BOOLEAN /\ pending \in BOOLEAN /\ queryAccess \in BOOLEAN
@@ -194,6 +249,9 @@ TypeOK == /\ access \in [{"root", "child", "group", "other"} -> BOOLEAN]
           /\ readAfterEnd \in BOOLEAN /\ servedUnconfirmed \in BOOLEAN
           /\ sinceConfirmed \in 0..(MaxUnconfirmed + 1)
           /\ deadlineAge \in 0..(MaxUnconfirmed + 1)
+          /\ descendantUnderChild \in BOOLEAN /\ movedRemembered \in BOOLEAN
+          /\ deliveredWithoutCoverage \in BOOLEAN
+          /\ deliveredStaleAfterMove \in BOOLEAN
 OnlyReadableInterests == "child" \in indexed => Readable("child")
 ClosedSocketsNeverIndexed == "child" \in indexed => open
 \* Container hints route only through indexed interest, so a socket whose own
@@ -209,4 +267,10 @@ EndedSessionsCloseByNextPass == ~servedEndedSession
 \* A socket is never served once the store has left its session unconfirmed
 \* for longer than the deadline, however many reads fail meanwhile.
 UnconfirmedSessionsLapse == ~servedUnconfirmed
+\* A hint for a descendant under a declared root reaches the socket only while
+\* that root is indexed with a current proof and appears on the published path.
+DescendantHintRequiresCoverage == ~deliveredWithoutCoverage
+\* A stale hint carrying a pre-move path that reaches the hub after the move is
+\* never delivered to a socket covering only the old subtree.
+StaleHintBlockedAfterMove == ~deliveredStaleAfterMove
 =============================================================================

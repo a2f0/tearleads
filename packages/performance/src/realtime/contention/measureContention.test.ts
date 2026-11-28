@@ -121,3 +121,37 @@ test("sizes beyond the seeded tree are refused", async () => {
   });
   await expect(run).rejects.toThrow(/holds only 6 folders/);
 });
+
+test("roots mode declares only rootContainerIds even for a larger tree size", async () => {
+  const requested: number[] = [];
+  const measured: ContentionMeasurement[] = [];
+  await measureContention({
+    api: fakeApi(async (_userId, ids) => {
+      requested.push(ids.length);
+      return proofs(ids);
+    }),
+    options: options([
+      "--sizes",
+      "5",
+      "--sockets",
+      "2",
+      "--mode",
+      "roots",
+      "--hint-interval-ms",
+      "2",
+    ]),
+    seed: { ...seed, rootContainerIds: containerIds.slice(0, 1) },
+    traffic: emptyTraffic,
+    idleMs: 10,
+    measured: async (measurement) => {
+      measured.push(measurement);
+    },
+  });
+  expect(
+    measured.map(({ pass, size, sockets }) => `${pass} ${sockets}×${size}`),
+  ).toEqual(["idle 0×0", "declaration 2×5", "revalidation 2×5"]);
+  expect(measured[1]?.authorizationMs).toHaveLength(2);
+  expect(measured[2]?.authorizationMs).toHaveLength(2);
+  // Every authorization call was for 1 root, never all 5 folders.
+  expect(requested.every((count) => count === 1)).toBe(true);
+});

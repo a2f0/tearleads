@@ -8,6 +8,7 @@ test("defaults compare one, two and four sockets at 1,000 and 10,000", () => {
     fanout: 10,
     samples: 1,
     hintIntervalMs: 10,
+    mode: "all",
     reuse: false,
   });
   expect(parseContentionOptions(["--help"])).toBeNull();
@@ -42,7 +43,7 @@ test("sizes, sockets and the interval are bounded", () => {
   rejects(["--sizes", "3"], /--sizes must be an integer from 4 to 10000/);
   rejects(["--sizes", "10001"], /--sizes/);
   rejects(["--sizes", "100,100"], /--sizes must be strictly ascending/);
-  rejects(["--sockets", "9"], /--sockets must be an integer from 1 to 8/);
+  rejects(["--sockets", "1001"], /--sockets must be an integer from 1 to 1000/);
   rejects(["--sockets", "4,2"], /--sockets must be strictly ascending/);
   rejects(["--hint-interval-ms", "0"], /--hint-interval-ms/);
   rejects(["--samples", "11"], /--samples/);

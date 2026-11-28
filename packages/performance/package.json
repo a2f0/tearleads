@@ -11,6 +11,7 @@
     "test": "bun test src",
     "realtime": "bun src/realtime/index.ts",
     "realtime:contention": "bun src/realtime/contention/index.ts",
+    "realtime:routing": "bun src/realtime/routingBurst.ts",
     "reload": "bun src/reload/index.ts",
     "rotations": "bun src/rotations/index.ts",
     "baselines": "bun src/baselines/index.ts",

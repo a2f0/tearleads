@@ -159,6 +159,9 @@ interface VerifiedDocumentLinkSetMutationAuthorization {
   readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
   readonly manifest: VerifiedDocumentLinkSetManifest;
   readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
+  readonly targetContainerPath?:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
 }
 
 export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(input: {
@@ -212,6 +215,7 @@ export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(inpu
     authorizingContainerPaths: authorizingContainerPaths ?? [],
     manifest: result.value,
     principalPolicies,
+    ...(targetContainerPath === undefined ? {} : { targetContainerPath }),
   };
 }
 

@@ -56,6 +56,7 @@ async function syncDocumentTransaction(
   });
   return {
     ...result,
+    containerPaths: committed.currentTargets.containerPaths,
     containerRekeys: committed.containerRekeys,
     linkedContainerIds: committed.currentTargets.targets.map(
       (target) => target.containerId,
@@ -154,6 +155,7 @@ async function buildSyncDocumentTransactionResult(input: {
 }
 
 export interface DocumentSyncWorkflowResult {
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly containerRekeys: readonly AppliedContainerRekey[];
   /**
    * Update ids newly inserted by this sync, excluding idempotent duplicates the
@@ -357,6 +359,7 @@ export async function runDocumentSyncWorkflow(
       ...(await readCommitCheckpoint(db)),
     };
     return {
+      containerPaths: transactionResult.containerPaths,
       containerRekeys: transactionResult.containerRekeys,
       insertedUpdateIds: transactionResult.insertedUpdateIds,
       linkedContainerIds: transactionResult.linkedContainerIds,

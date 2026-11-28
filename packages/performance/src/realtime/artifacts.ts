@@ -10,6 +10,8 @@ export interface SeededTree {
   readonly fanout: number;
   /** System folders first, then created folders in breadth-first order. */
   readonly containerIds: readonly string[];
+  /** Root-lane container ids (direct grants / roots) declared in roots mode. */
+  readonly rootContainerIds?: readonly string[] | undefined;
   readonly seededAt: string;
   readonly seedMs: number;
 }
@@ -21,6 +23,7 @@ export function seedFileName(database: string): string {
 function isSeededTree(value: unknown): value is SeededTree {
   if (typeof value !== "object" || value === null) return false;
   const ids: unknown = Reflect.get(value, "containerIds");
+  const rootIds: unknown = Reflect.get(value, "rootContainerIds");
   return (
     Reflect.get(value, "schemaVersion") === 1 &&
     typeof Reflect.get(value, "database") === "string" &&
@@ -28,7 +31,9 @@ function isSeededTree(value: unknown): value is SeededTree {
     typeof Reflect.get(value, "fanout") === "number" &&
     typeof Reflect.get(value, "seedMs") === "number" &&
     Array.isArray(ids) &&
-    ids.every((id) => typeof id === "string")
+    ids.every((id) => typeof id === "string") &&
+    (rootIds === undefined ||
+      (Array.isArray(rootIds) && rootIds.every((id) => typeof id === "string")))
   );
 }
 

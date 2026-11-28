@@ -8,7 +8,7 @@ import {
   type DocumentSyncErrorCode,
 } from "@tearleads/validators/response";
 import { getCurrentDocumentHeadWithLinks } from "./accessManifestHeadReads";
-import { resolveCurrentContainerKekTargetsMapped } from "./containerKekTargets";
+import { resolveCurrentContainerKekTargetsWithPathsMapped } from "./containerKekTargets";
 import { assertExpectedTargetHashCurrent } from "./contentKeyTargetPolicy";
 
 export class DocumentKekTargetError extends Error {
@@ -23,6 +23,8 @@ export class DocumentKekTargetError extends Error {
 }
 
 interface ResolvedDocumentKekTargets {
+  /** `[root, ..., containerId]` for each linked container id. */
+  readonly containerPaths: Readonly<Record<string, readonly string[]>>;
   readonly documentId: string;
   readonly organizationId: string;
   readonly linkSetEpoch: number;
@@ -114,20 +116,21 @@ export async function resolveCurrentDocumentKekTargets(
   const { head: linkSetHead, linkedContainerIds } =
     await readDocumentLinkSetHead(documentId, executor);
 
-  const containerTargetById = await resolveCurrentContainerKekTargetsMapped(
-    linkedContainerIds,
-    executor,
-    // A stale epoch or parent edge clears once the writer refetches its
-    // projection and repairs the chain inline, so it must reach the client as
-    // the coded stale state; an uncoded 409 reads as terminal (#2648).
-    (message, status, stale) =>
-      new DocumentKekTargetError(
-        message,
-        status,
-        stale ? DOCUMENT_SYNC_ERROR_CODES.stateStale : undefined,
-      ),
-    allowHistoricalParentEpochs,
-  );
+  const { containerPaths, targetsById: containerTargetById } =
+    await resolveCurrentContainerKekTargetsWithPathsMapped(
+      linkedContainerIds,
+      executor,
+      // A stale epoch or parent edge clears once the writer refetches its
+      // projection and repairs the chain inline, so it must reach the client as
+      // the coded stale state; an uncoded 409 reads as terminal (#2648).
+      (message, status, stale) =>
+        new DocumentKekTargetError(
+          message,
+          status,
+          stale ? DOCUMENT_SYNC_ERROR_CODES.stateStale : undefined,
+        ),
+      allowHistoricalParentEpochs,
+    );
   const targets: DocumentContentKeyTarget[] = [];
 
   for (const containerId of linkedContainerIds) {
@@ -147,6 +150,7 @@ export async function resolveCurrentDocumentKekTargets(
     await computeDocumentContentKeyTargetHash(targets);
 
   return {
+    containerPaths,
     documentId,
     organizationId: linkSetHead.organizationId,
     linkSetEpoch: linkSetHead.epoch,

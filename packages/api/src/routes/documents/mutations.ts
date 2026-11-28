@@ -134,7 +134,7 @@ async function respondWithDocumentCreate(
   const session = c.get("session");
 
   try {
-    const { insertedUpdateIds, linkedContainerIds, response } =
+    const { containerPaths, insertedUpdateIds, linkedContainerIds, response } =
       await createDocument(input.runtime, {
         fingerprint: session.fingerprint,
         request: input.request,
@@ -145,6 +145,7 @@ async function respondWithDocumentCreate(
     if (insertedUpdateIds.length > 0) {
       await publishDocumentUpdateCreatedEvent({
         containerIds: linkedContainerIds,
+        containerPaths,
         documentId: response.id,
         origin: { sessionId: session.id, userId: session.userId },
         publish: input.publish,
@@ -175,7 +176,7 @@ async function respondWithDocumentLinkSetMutation(
   const session = c.get("session");
 
   try {
-    const { insertedUpdateIds, linkedContainerIds, response } =
+    const { containerPaths, insertedUpdateIds, linkedContainerIds, response } =
       await mutateDocumentLinkSet(input.runtime, {
         documentId,
         eventType: input.eventType,
@@ -185,6 +186,7 @@ async function respondWithDocumentLinkSetMutation(
       });
     const origin = { sessionId: session.id, userId: session.userId };
     await publishDocumentMutationCreatedEvent({
+      containerPaths,
       documentId,
       eventType: input.eventType,
       linkedContainerIds,
@@ -195,6 +197,7 @@ async function respondWithDocumentLinkSetMutation(
     if (insertedUpdateIds.length > 0) {
       await publishDocumentUpdateCreatedEvent({
         containerIds: linkedContainerIds,
+        containerPaths,
         documentId,
         origin,
         publish: input.publish,
@@ -224,13 +227,18 @@ async function respondWithDocumentSync(
   const session = c.get("session");
 
   try {
-    const { containerRekeys, insertedUpdateIds, linkedContainerIds, response } =
-      await syncDocument(input.runtime, {
-        documentId,
-        fingerprint: session.fingerprint,
-        request: input.request,
-        userId: session.userId,
-      });
+    const {
+      containerPaths,
+      containerRekeys,
+      insertedUpdateIds,
+      linkedContainerIds,
+      response,
+    } = await syncDocument(input.runtime, {
+      documentId,
+      fingerprint: session.fingerprint,
+      request: input.request,
+      userId: session.userId,
+    });
     const origin = { sessionId: session.id, userId: session.userId };
     await publishDocumentSyncContainerRekeyEvents({
       containerRekeys,
@@ -247,6 +255,7 @@ async function respondWithDocumentSync(
     if (insertedUpdateIds.length > 0) {
       await publishDocumentUpdateCreatedEvent({
         containerIds: linkedContainerIds,
+        containerPaths,
         documentId,
         origin,
         publish: input.publish,
@@ -292,14 +301,18 @@ async function respondWithDocumentPurge(
   const session = c.get("session");
 
   try {
-    const { containerIds, response } = await purgeDocument(input.runtime, {
-      documentId,
-      fingerprint: session.fingerprint,
-      request: input.request,
-      userId: session.userId,
-    });
+    const { containerIds, containerPaths, response } = await purgeDocument(
+      input.runtime,
+      {
+        documentId,
+        fingerprint: session.fingerprint,
+        request: input.request,
+        userId: session.userId,
+      },
+    );
     await publishDocumentPurgeEvent({
       containerIds,
+      containerPaths,
       documentId,
       origin: { sessionId: session.id, userId: session.userId },
       publish: input.publish,

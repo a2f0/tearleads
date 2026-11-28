@@ -24,6 +24,7 @@ export async function seedTree(input: {
       userId: account.userId,
       fanout: input.fanout,
       containerIds: account.declarationOrder(),
+      rootContainerIds: account.rootContainerIds(),
       seededAt: new Date().toISOString(),
       seedMs: Math.round(performance.now() - started),
     };
@@ -33,8 +34,9 @@ export async function seedTree(input: {
 }
 
 /**
- * For each size and sample, a fresh hub socket declares the first `size`
- * folders of the seeded tree, then runs one revalidation pass over them.
+ * For each size and sample, a fresh hub socket declares either the first
+ * `size` folders (`mode === "all"`) or only the root-lane entries
+ * (`mode === "roots"`), then runs one revalidation pass over them.
  */
 export async function measureSizes(input: {
   readonly api: InProcessApi;
@@ -43,14 +45,26 @@ export async function measureSizes(input: {
   readonly traffic: () => PostgresTraffic;
   readonly measured: (measurement: PassMeasurement) => Promise<void>;
 }): Promise<void> {
+  const rootIds =
+    input.seed.rootContainerIds ?? input.seed.containerIds.slice(0, 4);
   for (const size of input.options.sizes) {
-    const ids = input.seed.containerIds.slice(0, size);
-    if (ids.length < size)
-      throw new Error(`The seeded tree holds only ${ids.length} folders.`);
+    if (input.seed.containerIds.length < size)
+      throw new Error(
+        `The seeded tree holds only ${input.seed.containerIds.length} folders.`,
+      );
+    const ids =
+      input.options.mode === "roots"
+        ? rootIds.slice(0, size)
+        : input.seed.containerIds.slice(0, size);
     for (let sample = 1; sample <= input.options.samples; sample++) {
       const socket = openHubSocket(input.api, input.seed.userId);
       try {
-        const common = { size, sample, traffic: input.traffic };
+        const common = {
+          expectedAuthorized: ids.length,
+          size,
+          sample,
+          traffic: input.traffic,
+        };
         await input.measured(
           await measurePass({
             ...common,

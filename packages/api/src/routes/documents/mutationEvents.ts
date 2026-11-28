@@ -15,7 +15,19 @@ type DocumentMutationOrigin = {
 };
 type Publish = (event: PublishedRealtimeEvent) => Promise<void>;
 
+function toMutableContainerPaths(
+  containerPaths: Readonly<Record<string, readonly string[]>> | undefined,
+): Record<string, string[]> | undefined {
+  if (!containerPaths) return undefined;
+  return Object.fromEntries(
+    Object.entries(containerPaths).map(([id, path]) => [id, [...path]]),
+  );
+}
+
 export function createDocumentMutationCreatedEvent(input: {
+  readonly containerPaths?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
   readonly documentId: string;
   readonly eventType: DocumentLinkSetEventType;
   /** The document's KEK target containers after the mutation. */
@@ -29,9 +41,11 @@ export function createDocumentMutationCreatedEvent(input: {
     ...input.linkedContainerIds,
     ...(mutationTargetContainerId ? [mutationTargetContainerId] : []),
   ];
+  const containerPaths = toMutableContainerPaths(input.containerPaths);
   return {
     type: "document_mutation_created",
     containerIds: uniqueSortedStrings(containerIds),
+    ...(containerPaths === undefined ? {} : { containerPaths }),
     documentId: input.documentId,
     eventType: input.eventType,
     origin: input.origin,
@@ -39,6 +53,9 @@ export function createDocumentMutationCreatedEvent(input: {
 }
 
 export async function publishDocumentMutationCreatedEvent(input: {
+  readonly containerPaths?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
   readonly documentId: string;
   readonly eventType: DocumentLinkSetEventType;
   readonly linkedContainerIds: readonly string[];
@@ -55,13 +72,18 @@ export async function publishDocumentMutationCreatedEvent(input: {
 
 export function createDocumentUpdateCreatedEvent(input: {
   readonly containerIds: readonly string[];
+  readonly containerPaths?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
   readonly documentId: string;
   readonly origin: DocumentMutationOrigin;
   readonly updateIds: readonly string[];
 }): PublishedRealtimeEvent {
+  const containerPaths = toMutableContainerPaths(input.containerPaths);
   return {
     type: "document_update_created",
     containerIds: [...input.containerIds],
+    ...(containerPaths === undefined ? {} : { containerPaths }),
     documentId: input.documentId,
     updateIds: [...input.updateIds],
     origin: input.origin,
@@ -70,6 +92,9 @@ export function createDocumentUpdateCreatedEvent(input: {
 
 export async function publishDocumentUpdateCreatedEvent(input: {
   readonly containerIds: readonly string[];
+  readonly containerPaths?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
   readonly documentId: string;
   readonly origin: DocumentMutationOrigin;
   readonly publish: Publish;
@@ -84,14 +109,16 @@ export async function publishDocumentUpdateCreatedEvent(input: {
 
 export async function publishDocumentSyncContainerRekeyEvents(input: {
   readonly containerRekeys: readonly {
+    readonly ancestorIds?: readonly string[] | undefined;
     readonly request: ContainerMutationRequest;
     readonly response: ContainerMutationResponse;
   }[];
   readonly origin: DocumentMutationOrigin;
   readonly publish: Publish;
 }): Promise<void> {
-  for (const { request, response } of input.containerRekeys) {
+  for (const { ancestorIds, request, response } of input.containerRekeys) {
     await publishContainerMutationCreated({
+      ancestorIds,
       expectedEventType: "container.rekey",
       origin: input.origin,
       publish: input.publish,
@@ -103,12 +130,17 @@ export async function publishDocumentSyncContainerRekeyEvents(input: {
 
 export function createDocumentPurgeEvent(input: {
   readonly containerIds: readonly string[];
+  readonly containerPaths?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
   readonly documentId: string;
   readonly origin: DocumentMutationOrigin;
 }): PublishedRealtimeEvent {
+  const containerPaths = toMutableContainerPaths(input.containerPaths);
   return {
     type: "document_mutation_created",
     containerIds: uniqueSortedStrings(input.containerIds),
+    ...(containerPaths === undefined ? {} : { containerPaths }),
     documentId: input.documentId,
     eventType: "document.purge",
     origin: input.origin,
@@ -117,6 +149,9 @@ export function createDocumentPurgeEvent(input: {
 
 export async function publishDocumentPurgeEvent(input: {
   readonly containerIds: readonly string[];
+  readonly containerPaths?:
+    | Readonly<Record<string, readonly string[]>>
+    | undefined;
   readonly documentId: string;
   readonly origin: DocumentMutationOrigin;
   readonly publish: Publish;

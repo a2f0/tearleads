@@ -325,6 +325,7 @@ const productionConfig = {
         "src/database/worker.ts!",
         "src/realtime/index.ts!",
         "src/realtime/contention/index.ts!",
+        "src/realtime/routingBurst.ts!",
         "src/reload/index.ts!",
         "src/rotations/index.ts!",
         "src/baselines/index.ts!",

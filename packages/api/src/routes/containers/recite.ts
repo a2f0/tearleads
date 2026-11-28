@@ -33,13 +33,14 @@ export function createContainerReciteRoute(input: {
       const session = c.get("session");
       try {
         const request = c.req.valid("json");
-        const response = await reciteContainer(input.runtime, {
+        const { ancestorIds, response } = await reciteContainer(input.runtime, {
           expectedContainerId: c.req.valid("param").containerId,
           fingerprint: session.fingerprint,
           request,
           userId: session.userId,
         });
         await publishContainerMutationCreated({
+          ancestorIds,
           expectedEventType: "container.recite",
           origin: { sessionId: session.id, userId: session.userId },
           publish: input.publish,

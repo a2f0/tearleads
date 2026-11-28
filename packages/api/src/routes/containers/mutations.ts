@@ -97,20 +97,26 @@ async function commitContainerMutation(
   input: ContainerMutationRequestInput,
 ): Promise<ContainerShareResponse> {
   const { expectedContainerId, expectedEventType, request, session } = input;
-  const { previousParentId, readModel, response } = await mutateContainer(
-    deps.runtime,
-    {
-      expectedEventType,
-      fingerprint: session.fingerprint,
-      readModelCursor: input.readModelCursor,
-      request,
-      userId: session.userId,
-      ...(expectedContainerId === undefined ? {} : { expectedContainerId }),
-    },
-  );
+  const {
+    ancestorIds,
+    carriedAncestorIdsByContainerId,
+    previousAncestorIds,
+    previousParentId,
+    readModel,
+    response,
+  } = await mutateContainer(deps.runtime, {
+    expectedEventType,
+    fingerprint: session.fingerprint,
+    readModelCursor: input.readModelCursor,
+    request,
+    userId: session.userId,
+    ...(expectedContainerId === undefined ? {} : { expectedContainerId }),
+  });
   await publishContainerMutationCreated({
+    ancestorIds,
     expectedEventType,
     origin: { sessionId: session.id, userId: session.userId },
+    previousAncestorIds,
     previousParentId,
     publish: deps.publish,
     request,
@@ -119,6 +125,7 @@ async function commitContainerMutation(
     response,
   });
   await publishCarriedContainerRekeys({
+    ancestorIdsByContainerId: carriedAncestorIdsByContainerId,
     carried: response.containerRekeys ?? [],
     origin: { sessionId: session.id, userId: session.userId },
     publish: deps.publish,
@@ -213,14 +220,20 @@ async function createContainerWithMetadataDocumentResponse(input: {
   readonly sessionId: string;
   readonly userId: string;
 }): Promise<ContainerCreateWithMetadataDocumentResponse> {
-  const { insertedMetadataUpdateIds, metadataLinkedContainerIds, response } =
-    await createContainerWithMetadataDocument(input.runtime, {
-      fingerprint: input.fingerprint,
-      request: input.request,
-      userId: input.userId,
-    });
+  const {
+    containerAncestorIds,
+    insertedMetadataUpdateIds,
+    metadataContainerPaths,
+    metadataLinkedContainerIds,
+    response,
+  } = await createContainerWithMetadataDocument(input.runtime, {
+    fingerprint: input.fingerprint,
+    request: input.request,
+    userId: input.userId,
+  });
   const origin = { sessionId: input.sessionId, userId: input.userId };
   await publishContainerMutationCreated({
+    ancestorIds: containerAncestorIds,
     expectedEventType: "container.create",
     origin,
     publish: input.publish,
@@ -232,6 +245,7 @@ async function createContainerWithMetadataDocumentResponse(input: {
   if (insertedMetadataUpdateIds.length > 0) {
     await publishDocumentUpdateCreatedEvent({
       containerIds: metadataLinkedContainerIds,
+      containerPaths: metadataContainerPaths,
       documentId: response.metadataDocument.id,
       origin,
       publish: input.publish,
@@ -240,6 +254,61 @@ async function createContainerWithMetadataDocumentResponse(input: {
   }
 
   return response;
+}
+
+function addDeleteContainerRoute({
+  publish,
+  requireAuth,
+  route,
+  runtime,
+}: ContainerMutationsRouteDeps & { readonly route: Hono<SessionEnv> }): void {
+  route.on(
+    deleteContainerOperation.method,
+    operationRoutePath(deleteContainerOperation),
+    requireAuth,
+    pathParamsValidator(deleteContainerOperation.params),
+    queryParamsValidator(deleteContainerOperation.query),
+    async (c) => {
+      const session = c.get("session");
+      const { containerId } = c.req.valid("param");
+
+      try {
+        const { ancestorIds, parentId, response } = await deleteContainer(
+          runtime,
+          {
+            containerId,
+            requiredAncestorId: c.req.valid("query").requiredAncestorId,
+            userId: session.userId,
+          },
+        );
+        // The container is gone; evict any socket holding it directly, then
+        // notify sockets covering its parent via an ancestor root so they
+        // refresh the parent's child listing. Best-effort: the delete is
+        // already committed, so a publish failure must not turn it into a 500.
+        try {
+          await publish({ type: "access_changed", containerId });
+          await publish({
+            type: "container_deleted",
+            ancestorIds: [...ancestorIds],
+            containerId,
+            origin: { sessionId: session.id, userId: session.userId },
+            parentId,
+          });
+        } catch (publishError) {
+          console.error(
+            "Failed to publish container delete notification:",
+            publishError,
+          );
+        }
+        return c.json<ContainerDeleteResponse>(response);
+      } catch (error) {
+        return respondToStatusError(c, error, DeleteContainerError, {
+          code: CONTAINER_NOT_FOUND_ERROR_CODE,
+          status: 404,
+        });
+      }
+    },
+  );
 }
 
 export function createContainerMutationsRoute({
@@ -302,43 +371,7 @@ export function createContainerMutationsRoute({
     expectedEventType: "container.move",
     operation: moveContainerOperation,
   });
-  route.on(
-    deleteContainerOperation.method,
-    operationRoutePath(deleteContainerOperation),
-    requireAuth,
-    pathParamsValidator(deleteContainerOperation.params),
-    queryParamsValidator(deleteContainerOperation.query),
-    async (c) => {
-      const session = c.get("session");
-      const { containerId } = c.req.valid("param");
-
-      try {
-        const response = await deleteContainer(runtime, {
-          containerId,
-          requiredAncestorId: c.req.valid("query").requiredAncestorId,
-          userId: session.userId,
-        });
-        // The container is gone; interested sockets must resync (and drop it).
-        // Best-effort: the delete is already committed, so a publish failure
-        // must not turn it into a 500 (the missed resync is recovered by HTTP
-        // sync).
-        try {
-          await publish({ type: "access_changed", containerId });
-        } catch (publishError) {
-          console.error(
-            "Failed to publish container delete access_changed:",
-            publishError,
-          );
-        }
-        return c.json<ContainerDeleteResponse>(response);
-      } catch (error) {
-        return respondToStatusError(c, error, DeleteContainerError, {
-          code: CONTAINER_NOT_FOUND_ERROR_CODE,
-          status: 404,
-        });
-      }
-    },
-  );
+  addDeleteContainerRoute(routeDeps);
 
   return route;
 }

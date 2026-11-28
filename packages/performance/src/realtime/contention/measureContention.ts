@@ -101,13 +101,23 @@ async function observeWork(input: {
   return { durationMs, hints, database, resources };
 }
 
-/** The sockets' own authorization calls, checked complete. */
+/** The measured sockets' own authorization calls, checked complete. */
 function socketCalls(
   calls: readonly AuthorizationCall[],
-  { size, sockets }: { readonly size: number; readonly sockets: number },
+  {
+    observerId,
+    size,
+    sockets,
+  }: {
+    readonly observerId: string;
+    readonly size: number;
+    readonly sockets: number;
+  },
   pass: ContentionPass,
 ): number[] {
-  const own = calls.filter((call) => call.ids === size);
+  const own = calls.filter(
+    (call) => call.socketId !== observerId && call.ids === size,
+  );
   if (
     own.length !== sockets ||
     calls.some((call) => call.failed) ||
@@ -178,9 +188,17 @@ async function measureSockets(
   passes: readonly SocketPass[],
 ): Promise<ContentionMeasurement[]> {
   const { size, sockets } = shape;
-  const ids = input.seed.containerIds.slice(0, size);
-  if (ids.length < size)
-    throw new Error(`The seeded tree holds only ${ids.length} folders.`);
+  if (input.seed.containerIds.length < size)
+    throw new Error(
+      `The seeded tree holds only ${input.seed.containerIds.length} folders.`,
+    );
+  const rootIds =
+    input.seed.rootContainerIds ?? input.seed.containerIds.slice(0, 4);
+  const ids =
+    input.options.mode === "roots"
+      ? rootIds.slice(0, size)
+      : input.seed.containerIds.slice(0, size);
+  const declaredCount = ids.length;
   const { hub, observer, containerId } = await openObservedHub(
     input.api,
     input.seed,
@@ -209,7 +227,11 @@ async function measureSockets(
         size,
         sockets,
         sample,
-        authorizationMs: socketCalls(hub.calls.slice(firstCall), shape, kind),
+        authorizationMs: socketCalls(
+          hub.calls.slice(firstCall),
+          { observerId: observer.id, size: declaredCount, sockets },
+          kind,
+        ),
         ...observed,
       });
     }

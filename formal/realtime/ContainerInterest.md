@@ -25,6 +25,11 @@ cache restores it, so the socket's own client must declare again.
 | `SessionDeadline` | `WsSessionLiveness.confirm` arms one deadline per session at the last confirmation plus `maxProofAgeMs`; when it fires, `WsEventRouter.closeSession` closes the session's sockets with `SESSION_UNVERIFIED_CLOSE` |
 | `EndedSessionsCloseByNextPass` | `WsEventRouter.closeSession` closes an ended session's sockets with `SESSION_ENDED_CLOSE` once a read the store answers after the end completes |
 | `UnconfirmedSessionsLapse` | A failed or timed-out read neither reaches `WsSessionLiveness.confirm` nor moves the session deadline |
+| `Move` | `WsEventRouter.routeServerEvent` records the moved container's new `ancestorIds` in `MovedContainerMemory.remember` |
+| `Publish` | Publishers attach verified `ancestorIds` / `containerPaths`; `WsEventRouter.routeHint` and `scopeHintToInterest` route only to sockets holding an installed proof covering the published path |
+| `PublishStale` | `resolveHintPaths` rewrites stale prefixes against `MovedContainerMemory.resolvePath` / `MovedContainerMemory.resolveAncestors` before recipient lookup and scoping |
+| `DescendantHintRequiresCoverage` | `scopeHintToInterest` covers a container only when the socket holds a live proof for the container itself or an ancestor on its published path (failing closed when no path is attached) |
+| `StaleHintBlockedAfterMove` | `MovedContainerMemory` replaces stale pre-move prefixes on post-move hints (60 s TTL) so sockets covering only the old subtree receive no frame |
 | (boundary assumption) lost pub/sub delivery | `ContainerInterestAuthorizer.revalidate` re-verifies installed proofs on each socket's jittered `RevalidationSchedule` interval and on every subscriber reconnect via `addSubscriberReconnectListener` |
 
 The bounded model has a child subscription that depends on its root and a group
@@ -188,7 +193,10 @@ session is checked only on reconnect and has no deadline.
 Negative controls remove authorization, dependency invalidation, the live-socket
 guard, the per-socket ownership of a query result, scoped eviction, query
 relevance, principal-change notification, the session recheck, the session
-deadline, and the rule that only a live answer confirms a session. Each exposes
-the corresponding unreadable interest, closed socket, undeclared reconnected
-socket, unrelated eviction, unnecessary retry, ended session served past a pass,
-or unconfirmed session served past its deadline.
+deadline, the rule that only a live answer confirms a session, published-path
+coverage routing, the installed-proof requirement for coverage, and the hub's
+memory of moved containers. Each exposes the corresponding unreadable interest,
+closed socket, undeclared reconnected socket, unrelated eviction, unnecessary
+retry, ended session served past a pass, unconfirmed session served past its
+deadline, descendant hint delivered without live coverage, or stale hint
+delivered after a move out.

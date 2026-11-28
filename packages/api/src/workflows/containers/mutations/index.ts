@@ -14,7 +14,7 @@ import {
   mutationShapeError,
   toMutationError,
 } from "./errors";
-import { rekeyContainer } from "./rekeyContainer";
+import { rekeyContainerOutcome } from "./rekeyContainer";
 import { assertCarriedRekeysBelowRotations } from "./shared/carriedRekeyAncestry";
 import { assertGrantedPathsCurrentBelowRotations } from "./shared/grantedPathCurrency";
 import {
@@ -38,12 +38,18 @@ export { ContainerMutationError };
  * caller's read-model delta when its held cursor earned one.
  */
 export interface ContainerRotationOutcome {
+  readonly ancestorIds: readonly string[];
+  readonly carriedAncestorIdsByContainerId?: Readonly<
+    Record<string, readonly string[]>
+  >;
+  readonly previousAncestorIds?: readonly string[] | undefined;
   readonly previousParentId: string | null | undefined;
   readonly readModel?: OrganizationReadModelDeltaResponse | undefined;
   readonly response: ContainerRotationResponse;
 }
 
 export interface AppliedContainerRekey {
+  readonly ancestorIds: readonly string[];
   readonly request: ContainerMutationRequest;
   readonly response: ContainerMutationResponse;
 }
@@ -88,7 +94,7 @@ export async function applyContainerRekeys(input: {
 
   const applied: AppliedContainerRekey[] = [];
   for (const request of input.requests ?? []) {
-    const response = await rekeyContainer({
+    const outcome = await rekeyContainerOutcome({
       context,
       executor: input.executor,
       fingerprint: input.fingerprint,
@@ -97,10 +103,14 @@ export async function applyContainerRekeys(input: {
     });
     await assertOrganizationCanSync(
       input.executor,
-      response.organizationId,
+      outcome.response.organizationId,
       input.userId,
     );
-    applied.push({ request, response });
+    applied.push({
+      ancestorIds: outcome.ancestorIds,
+      request,
+      response: outcome.response,
+    });
   }
   // An inline repair is a rotation like any other, held to the same carried-
   // rekey cap. The write's flat list carries the descendants it strands; one
@@ -192,7 +202,7 @@ async function mutateContainerRotationInTransaction(
     writerProjectionContext: createContainerWriterProjectionContext(tx),
   };
   await prelockContainerMutationBatch(context, [target, ...carried]);
-  const { previousParentId, response } =
+  const { ancestorIds, previousAncestorIds, previousParentId, response } =
     await mutateContainerWithExecutorOutcome({
       ...target,
       context,
@@ -207,18 +217,8 @@ async function mutateContainerRotationInTransaction(
     executor: tx,
     rotatedContainerIds: [response.containerId],
   });
-  const carriedResponses: ContainerMutationResponse[] = [];
-  for (const carriedInput of carried) {
-    carriedResponses.push(
-      await rekeyContainer({
-        context,
-        executor: tx,
-        fingerprint: carriedInput.fingerprint,
-        request: carriedInput.request,
-        userId: carriedInput.userId,
-      }),
-    );
-  }
+  const { carriedAncestorIdsByContainerId, carriedResponses } =
+    await applyCarriedContainerRekeys({ carried, context, executor: tx });
   await assertGrantedPathsCurrentBelowRotations({
     executor: tx,
     revokerUserId:
@@ -226,9 +226,34 @@ async function mutateContainerRotationInTransaction(
     rotated: [response, ...carriedResponses],
   });
   return {
+    ancestorIds,
+    carriedAncestorIdsByContainerId,
+    ...(previousAncestorIds === undefined ? {} : { previousAncestorIds }),
     previousParentId,
     response: { ...response, containerRekeys: carriedResponses },
   };
+}
+
+async function applyCarriedContainerRekeys(input: {
+  readonly carried: readonly MutateContainerInput[];
+  readonly context: ContainerMutationContext;
+  readonly executor: MutateContainerWithExecutorInput["executor"];
+}) {
+  const carriedResponses: ContainerMutationResponse[] = [];
+  const carriedAncestorIdsByContainerId: Record<string, readonly string[]> = {};
+  for (const carriedInput of input.carried) {
+    const carriedOutcome = await rekeyContainerOutcome({
+      context: input.context,
+      executor: input.executor,
+      fingerprint: carriedInput.fingerprint,
+      request: carriedInput.request,
+      userId: carriedInput.userId,
+    });
+    carriedResponses.push(carriedOutcome.response);
+    carriedAncestorIdsByContainerId[carriedOutcome.response.containerId] =
+      carriedOutcome.ancestorIds;
+  }
+  return { carriedAncestorIdsByContainerId, carriedResponses };
 }
 
 export async function runContainerMutationWorkflow(

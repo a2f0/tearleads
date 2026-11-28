@@ -36,10 +36,12 @@ const round = (value: number) => Math.round(value * 10) / 10;
 export async function measurePass(input: {
   readonly pass: HubPass;
   readonly size: number;
+  readonly expectedAuthorized?: number | undefined;
   readonly sample: number;
   readonly traffic: () => PostgresTraffic;
   readonly run: () => Promise<PassOutcome>;
 }): Promise<PassMeasurement> {
+  const expectedAuthorized = input.expectedAuthorized ?? input.size;
   const sampler = startResourceSampler();
   const before = input.traffic();
   const started = performance.now();
@@ -53,9 +55,9 @@ export async function measurePass(input: {
   const durationMs = round(performance.now() - started);
   const database = trafficSince(input.traffic(), before);
   const resources = sampler.stop();
-  if (outcome.authorized !== input.size)
+  if (outcome.authorized !== expectedAuthorized)
     throw new Error(
-      `The ${input.pass} authorized ${outcome.authorized} of ${input.size} folders.`,
+      `The ${input.pass} authorized ${outcome.authorized} of ${expectedAuthorized} folders.`,
     );
   return {
     pass: input.pass,
@@ -68,7 +70,7 @@ export async function measurePass(input: {
       outcome.calls.reduce((total, call) => total + call.durationMs, 0),
     ),
     authorizationCalls: outcome.calls.length,
-    productionBudgetMs: productionBudgetMs(input.size),
+    productionBudgetMs: productionBudgetMs(expectedAuthorized),
     database,
     resources,
   };

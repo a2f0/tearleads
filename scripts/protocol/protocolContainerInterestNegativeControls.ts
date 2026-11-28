@@ -82,4 +82,28 @@ export const CONTAINER_INTEREST_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       expect: { kind: "invariant", name: "ClosedSocketsNeverIndexed" },
       why: "Removing the live-socket guard lets a late result violate ClosedSocketsNeverIndexed (#2266).",
     },
+    {
+      id: "declaration-time-path-coverage-after-move",
+      module: "formal/realtime/ContainerInterest.tla",
+      config: "formal/realtime/ContainerInterest.cfg",
+      constants: { RouteByPublishedPath: "FALSE" },
+      expect: { kind: "invariant", name: "DescendantHintRequiresCoverage" },
+      why: "Routing descendant hints by declaration-time paths instead of published paths delivers hints after a move out (#3353).",
+    },
+    {
+      id: "unverified-subtree-coverage",
+      module: "formal/realtime/ContainerInterest.tla",
+      config: "formal/realtime/ContainerInterest.cfg",
+      constants: { RequireProofForCoverage: "FALSE" },
+      expect: { kind: "invariant", name: "DescendantHintRequiresCoverage" },
+      why: "Covering a published path without an installed proof delivers descendant hints to an unauthorized socket (#3353).",
+    },
+    {
+      id: "stale-path-hint-after-move",
+      module: "formal/realtime/ContainerInterest.tla",
+      config: "formal/realtime/ContainerInterest.cfg",
+      constants: { RememberMovedContainers: "FALSE" },
+      expect: { kind: "invariant", name: "StaleHintBlockedAfterMove" },
+      why: "Removing the hub's moved-container memory lets a pre-move hint arriving after the move reach a socket covering only the old location (#3353).",
+    },
   ];

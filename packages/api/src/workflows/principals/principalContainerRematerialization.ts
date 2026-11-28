@@ -17,7 +17,7 @@ import { ContainerMutationError } from "../containers/mutations/errors";
 import { assertCarriedRekeysBelowRotations } from "../containers/mutations/shared/carriedRekeyAncestry";
 import { assertGrantedPathsCurrentBelowRotations } from "../containers/mutations/shared/grantedPathCurrency";
 import {
-  mutateContainerWithExecutor,
+  mutateContainerWithExecutorOutcome,
   prelockContainerMutationBatch,
 } from "../containers/mutations/shared/mutationRunner";
 import type {
@@ -361,11 +361,13 @@ export async function applyPrincipalContainerRematerializations(input: {
   const responses: ContainerMutationResponse[] = [];
   for (const mutation of mutationInputs) {
     responses.push(
-      await mutateContainerWithExecutor({
-        ...mutation,
-        context,
-        executor: input.executor,
-      }),
+      (
+        await mutateContainerWithExecutorOutcome({
+          ...mutation,
+          context,
+          executor: input.executor,
+        })
+      ).response,
     );
   }
 

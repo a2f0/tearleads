@@ -151,6 +151,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/realtime/containerInterestRevalidation.ts`,
       `${api}/realtime/containerInterestTypes.ts`,
       `${api}/realtime/hintScoping.ts`,
+      `${api}/realtime/movedContainerMemory.ts`,
       `${api}/realtime/wsConnection.ts`,
       `${api}/realtime/wsOrganizationRouting.ts`,
       `${api}/realtime/wsRouting.ts`,

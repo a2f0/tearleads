@@ -7,11 +7,27 @@ import {
   WsSharedWithYouHintSchema,
   WsUserRegisteredHintSchema,
 } from "@tearleads/validators/realtime";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { z } from "zod";
 
 // The exact uuid-v4 constraint the public organization frames use.
 const uuidV4Schema =
   WsOrganizationReadModelChangedFrameSchema.shape.organizationId;
+
+/**
+ * Server-only container ancestor chain (`[root, ..., parent]` for container
+ * events, or `[root, ..., containerId]` per linked container for document
+ * events). Never crosses the websocket boundary; `scopeHintToInterest` strips
+ * it when rebuilding outgoing frames.
+ */
+const containerPathIdsSchema = z
+  .array(z.string().min(1))
+  .max(MAX_CONTAINER_PATH_LENGTH);
+
+const containerPathsSchema = z.record(
+  z.string().min(1),
+  containerPathIdsSchema,
+);
 
 /**
  * The internal pub/sub event contract, derived from the shared public
@@ -28,13 +44,28 @@ const wsOriginSchema = z.object({
 
 const PublishedRealtimeEventSchema = z.discriminatedUnion("type", [
   WsDocumentUpdateCreatedHintSchema.extend({
+    containerPaths: containerPathsSchema.optional(),
     origin: wsOriginSchema.optional(),
   }),
   WsDocumentMutationCreatedHintSchema.extend({
+    containerPaths: containerPathsSchema.optional(),
     origin: wsOriginSchema.optional(),
   }),
   WsContainerMutationCreatedHintSchema.extend({
+    ancestorIds: containerPathIdsSchema.optional(),
     origin: wsOriginSchema.optional(),
+    previousAncestorIds: containerPathIdsSchema.optional(),
+  }),
+  // Server-only event emitted alongside `access_changed` when a container is
+  // deleted so sockets covering the deleted container's parent via an ancestor
+  // root receive `container_children_changed([parentId])` without revealing
+  // `parentId` to sockets that only held the deleted container itself.
+  z.object({
+    ancestorIds: containerPathIdsSchema,
+    containerId: z.string().min(1),
+    origin: wsOriginSchema.optional(),
+    parentId: z.string().min(1),
+    type: z.literal("container_deleted"),
   }),
   WsSharedWithYouHintSchema.extend({ origin: wsOriginSchema.optional() }),
   WsOrganizationMembershipsChangedHintSchema.extend({
