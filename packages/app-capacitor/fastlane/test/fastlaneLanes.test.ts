@@ -91,13 +91,24 @@ puts JSON.generate(latest: latest, next: next_build[:build_number], calls: calls
 test("the signing keychain's cleanup restores the caller's default keychain", async () => {
   const result = await runLanes(`
 commands = []
-# Every fastlane shell helper (Actions.sh and the Action.sh that
-# create_keychain uses to list keychains) runs through sh_control_output.
-login = "    \\"/Users/me/Library/Keychains/login.keychain-db\\"\\n"
-Fastlane::Actions.define_singleton_method(:sh_control_output) do |*command, **|
-  command = command.join(" ")
+# Fastlane's create_keychain and delete_keychain actions and the missing-file
+# fallback all route through Security::Command.run instead of a shell.
+login_path = "/Users/me/Library/Keychains/My Login.keychain-db"
+login = "    \\"#{login_path}\\"\\n"
+fail_restore = false
+ok = Struct.new(:success?, :exitstatus).new(true, 0)
+failed = Struct.new(:success?, :exitstatus).new(false, 1)
+Security::Command.define_singleton_method(:run) do |*command, stdin: nil|
   commands << command
-  ["security default-keychain", "security list-keychains -d user"].include?(command) ? login : ""
+  stdout = [["security", "default-keychain"], ["security", "list-keychains", "-d", "user"]].include?(command) ? login : ""
+  result_status = fail_restore && command[0..1] == %w[security default-keychain] && command.include?("-s") ? failed : ok
+  Security::Command::Result.new(stdout, "", result_status)
+end
+Fastlane::Actions.define_singleton_method(:sh_control_output) do |*command, **|
+  raise "unexpected shell command: #{command.join(' ')}"
+end
+Open3.define_singleton_method(:capture3) do |*command, **|
+  raise "unexpected process spawn: #{command.inspect}"
 end
 FastlaneCore::Helper.define_singleton_method(:keychain_path) { |name| "/tmp/#{name}-db" }
 restored = [true, false].map do |exists|
@@ -105,16 +116,33 @@ restored = [true, false].map do |exists|
   fastfile.define_singleton_method(:ios_signing_keychain_exists?) { |_name| exists }
   fastfile.send(:create_ios_signing_keychain, "tearleads-test", "secret")
   fastfile.send(:cleanup_ios_signing_keychain, "tearleads-test")
-  commands.select { |command| command.start_with?("security default-keychain -s") }
+  commands.select { |command| command[0..1] == %w[security default-keychain] && command.include?("-s") }
 end
-puts JSON.generate(restored)
+fastfile.define_singleton_method(:ios_signing_keychain_exists?) { |_name| false }
+fail_restore = true
+restore_error = begin
+  fastfile.send(:cleanup_ios_signing_keychain, "tearleads-test")
+  nil
+rescue FastlaneCore::Interface::FastlaneError => e
+  e.message
+end
+puts JSON.generate(restored: restored, restoreError: restore_error)
 `);
-  const login =
-    'security default-keychain -s "/Users/me/Library/Keychains/login.keychain-db"';
-  for (const commands of result) {
-    expect(commands.at(0)).toContain("tearleads-test");
-    expect(commands.at(-1)).toBe(login);
+  const login = [
+    "security",
+    "default-keychain",
+    "-d",
+    "user",
+    "-s",
+    "/Users/me/Library/Keychains/My Login.keychain-db",
+  ];
+  for (const commands of result.restored) {
+    expect(commands.at(0)?.at(-1)).toContain("tearleads-test");
+    expect(commands.at(-1)).toEqual(login);
   }
+  expect(result.restoreError).toBe(
+    "Could not restore '/Users/me/Library/Keychains/My Login.keychain-db' as the default keychain",
+  );
 });
 
 test("external TestFlight distribution waits for build processing", async () => {
