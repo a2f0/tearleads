@@ -66,18 +66,13 @@ export async function listRemoteContainerIdsWithPendingStructuralIntents(input: 
     input.state.persistence.listPendingCreateIntents(execSql),
     input.state.persistence.listUnsyncedMoveIntents(execSql),
   ]);
-  const containerIdsWithPendingStructuralIntents = new Set<string>();
-  for (const intent of pendingCreateIntents) {
+  const pendingIds = new Set<string>();
+  for (const intent of [...pendingCreateIntents, ...unsyncedMoveIntents]) {
     if (remoteContainerIds.has(intent.containerId)) {
-      containerIdsWithPendingStructuralIntents.add(intent.containerId);
+      pendingIds.add(intent.containerId);
     }
   }
-  for (const intent of unsyncedMoveIntents) {
-    if (remoteContainerIds.has(intent.containerId)) {
-      containerIdsWithPendingStructuralIntents.add(intent.containerId);
-    }
-  }
-  return containerIdsWithPendingStructuralIntents;
+  return pendingIds;
 }
 
 export async function listRemoteContainerIdsWithPendingMetadataUpdates(input: {
@@ -199,12 +194,31 @@ async function oweMetadataReadIfBehind(input: {
   }
 }
 
+function buildRemoteContainerUpdatePatch(
+  remoteContainer: RemoteContainer,
+  nextParentId: string | null | undefined,
+  rootLaneMember: true | undefined,
+) {
+  return {
+    accessEpoch: remoteContainer.metadataAccessEpoch,
+    accessStateHash: remoteContainer.metadataAccessStateHash,
+    documentId: remoteContainer.metadataDocumentId,
+    effectiveAccessLevel: remoteContainer.effectiveAccessLevel,
+    metadataDocumentId: remoteContainer.metadataDocumentId,
+    ...(rootLaneMember ? { rootLaneMember: true } : {}),
+    systemSlot: remoteContainer.systemSlot ?? null,
+    organizationId: remoteContainer.organizationId,
+    ...(nextParentId !== undefined ? { parentId: nextParentId } : {}),
+  };
+}
+
 async function updateExistingRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
+  isRootLane?: boolean | undefined;
   verifiedPlacement?: AccessManifestCheckpoint | undefined;
   existingState: ContainerState;
   remoteContainer: RemoteContainer;
@@ -235,18 +249,15 @@ async function updateExistingRemoteContainerState(input: {
     existingState,
     remoteContainer,
   );
+  const rootLaneMember =
+    input.isRootLane === true || nextParentId === null ? true : undefined;
   const persistenceResult = await host.persistContainerState(
     nextState,
-    {
-      accessEpoch: remoteContainer.metadataAccessEpoch,
-      accessStateHash: remoteContainer.metadataAccessStateHash,
-      documentId: remoteContainer.metadataDocumentId,
-      effectiveAccessLevel: remoteContainer.effectiveAccessLevel,
-      metadataDocumentId: remoteContainer.metadataDocumentId,
-      systemSlot: remoteContainer.systemSlot ?? null,
-      organizationId: remoteContainer.organizationId,
-      ...(nextParentId !== undefined ? { parentId: nextParentId } : {}),
-    },
+    buildRemoteContainerUpdatePatch(
+      remoteContainer,
+      nextParentId,
+      rootLaneMember,
+    ),
     false,
     {
       ...remoteContainerHydrationSaveOptions({
@@ -285,6 +296,9 @@ async function updateExistingRemoteContainerState(input: {
     metadataDocumentId: remoteContainer.metadataDocumentId,
     organizationId: remoteContainer.organizationId,
     parentId: nextState.container.parentId,
+    ...(rootLaneMember || existingState.container.rootLaneMember
+      ? { rootLaneMember: true }
+      : {}),
   };
 
   installUpdatedRemoteContainerState(existingState, nextState, host);
@@ -311,6 +325,7 @@ interface UpsertRemoteContainerStateInput {
   host: RemoteContainerHydrationHost;
   expectedHydrationTombstone?: ContainerHydrationTombstone | null | undefined;
   isCurrent?: (() => boolean) | undefined;
+  isRootLane?: boolean | undefined;
   prefetchedProjection?: PrefetchedDestinationProjection | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -468,12 +483,14 @@ function persistVerifiedRemoteContainer(
         existingState,
         host: input.host,
         isCurrent: input.isCurrent,
+        isRootLane: input.isRootLane,
         remoteContainer: input.remoteContainer,
         state: input.state,
       })
     : insertRemoteContainerState({
         childIdsByParentId: input.childIdsByParentId,
         host: input.host,
+        isRootLane: input.isRootLane,
         expectedHydrationTombstone: input.expectedHydrationTombstone ?? null,
         expectedPlacementCheckpoint,
         isCurrent: input.isCurrent,

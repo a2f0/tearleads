@@ -213,6 +213,12 @@ export interface ContainerParentHydrationLane {
    * a listing and saves no cursor: the listing from the watermark does both.
    */
   membershipOnly?: true;
+  /**
+   * Identifies an unwatermarked root-lane membership sweep across continuation
+   * pages so multi-page root sweeps reconcile `root_lane_member` accurately
+   * without colliding with sibling root lanes.
+   */
+  rootMembershipSweepId?: number | undefined;
   parentId: string | null;
   watermark?: ListContainersResponse["nextWatermark"];
 }

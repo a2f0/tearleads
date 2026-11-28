@@ -9,7 +9,7 @@ test("restoration crawls reset every parent-lane watermark", () => {
   });
 
   expect(lanes).toEqual([
-    { parentId: null, watermark: null },
+    { parentId: null, rootMembershipSweepId: 1, watermark: null },
     { parentId: "known-parent", watermark: null },
   ]);
 });
@@ -26,6 +26,7 @@ test("ordinary discovery lists the root lane from its watermark and, for members
       idsOnly: true,
       membershipOnly: true,
       parentId: null,
+      rootMembershipSweepId: 1,
       skipWatermarkWrite: true,
       watermark: null,
     },
@@ -43,4 +44,22 @@ test("a crawl that keeps the root watermark lists the root lane once", () => {
   });
 
   expect(lanes).toEqual([{ parentId: null }, { parentId: "known-parent" }]);
+});
+
+test("unmarking a skipped unlisted child lane allows parent discovery to re-queue it", () => {
+  const { lanes, queueParentLane, unmarkSkippedParentLane } =
+    createContainerParentHydrationQueue({
+      containerIds: ["known-parent"],
+      parentIds: ["known-parent", "unlisted-child"],
+    });
+
+  // Simulate batch taker skipping `unlisted-child` before `known-parent` hydrates it.
+  expect(lanes.splice(0, 2)).toEqual([
+    { parentId: "known-parent" },
+    { parentId: "unlisted-child" },
+  ]);
+  unmarkSkippedParentLane("unlisted-child");
+
+  queueParentLane("unlisted-child");
+  expect(lanes).toEqual([{ parentId: "unlisted-child" }]);
 });

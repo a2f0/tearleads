@@ -42,6 +42,9 @@ export function queueNextPage(
     queueContinuationLane({
       ...(lane.idsOnly ? { idsOnly: true as const } : {}),
       ...(lane.membershipOnly ? { membershipOnly: true as const } : {}),
+      ...(lane.rootMembershipSweepId !== undefined
+        ? { rootMembershipSweepId: lane.rootMembershipSweepId }
+        : {}),
       parentId: lane.parentId,
       watermark: response.nextWatermark,
       skipWatermarkWrite,

@@ -249,7 +249,10 @@ the Worker. The Worker carries an `aws:us-east-1` placement hint.
 | Pending frames per socket | 32 frames or 4,000,000 bytes (`DEFAULT_SOCKET_QUEUE_LIMITS`, [`packages/api/src/worker/socketQueue.ts`](../packages/api/src/worker/socketQueue.ts)) | The realtime hub queues each socket's frames behind its authorization. | The socket closes with 1013 and its queue is discarded. |
 | Pending bytes per hub | 32 MiB across every socket (`HUB_QUEUE_BUDGET_BYTES`, [`packages/api/src/worker/hubConnections.ts`](../packages/api/src/worker/hubConnections.ts)) | The hub's shared queue budget, so many flooding sockets cannot exhaust its isolate. | The socket that would overrun the budget closes with 1013; the others continue. |
 | Sockets per session | 8 (`MAX_SOCKETS_PER_SESSION`) | The hub counts open sockets per session at upgrade. | Refusal with 429 until one closes. |
-| Interest container ids per declaration | 10,000 (`MAX_WS_INTEREST_CONTAINER_IDS`) | Validators. | Refusal. Interest is an invalidation subscription, not an authorization grant. |
+| Interest container ids per declaration | 256 (`MAX_WS_INTEREST_CONTAINER_IDS`) | Validators. | Refusal. Clients declare subtree roots only; interest is an invalidation subscription, not an authorization grant. |
+| Installed interest roots per socket | 256 (`MAX_INSTALLED_CONTAINER_IDS`, [`packages/api/src/realtime/containerInterestAuthorization.ts`](../packages/api/src/realtime/containerInterestAuthorization.ts)) | Gateway authorizer across `replace` and `add` frames. | Excess roots are refused and omitted from `known_containers_ack`. |
+| Pending container ids per socket | 512 (`MAX_PENDING_CONTAINER_IDS`, [`packages/api/src/realtime/containerInterestAuthorization.ts`](../packages/api/src/realtime/containerInterestAuthorization.ts)) | Gateway authorizer queue. | The socket closes with 1013 and pending work is discarded. |
+| Path containers per authorization pass | 1,024 (`MAX_PATH_CONTAINERS_PER_AUTHORIZATION`, [`packages/api/src/realtime/containerInterestAccess.ts`](../packages/api/src/realtime/containerInterestAccess.ts)) | Gateway access pre-check on `SUM(depth + 1)` in declaration order, within a flat 10 s authorization deadline. | Excess roots are refused without loading their manifests. |
 
 ## Principals
 

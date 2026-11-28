@@ -25,12 +25,10 @@ function fakeApi(
   };
 }
 
-test("production gives 10 s per 100 ids, from one to six budgets", () => {
+test("production gives a flat 10 s authorization budget", () => {
   expect(productionBudgetMs(1)).toBe(10_000);
   expect(productionBudgetMs(100)).toBe(10_000);
-  expect(productionBudgetMs(101)).toBe(20_000);
-  expect(productionBudgetMs(1_000)).toBe(60_000);
-  expect(productionBudgetMs(10_000)).toBe(60_000);
+  expect(productionBudgetMs(256)).toBe(10_000);
 });
 
 test("a declaration and the tick re-verify through the gateway", async () => {
@@ -39,7 +37,7 @@ test("a declaration and the tick re-verify through the gateway", async () => {
   const socket = openHubSocket(
     fakeApi(async (userId, requested) => {
       expect(userId).toBe("user");
-      seen.push(requested);
+      seen.push([...requested]);
       return requested.filter((id) => readable.has(id)).map(proof);
     }),
     "user",

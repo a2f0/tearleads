@@ -113,6 +113,15 @@ export interface ContainerContentsPersistence
   extends DormantMetadataSweepPersistence,
     ContainerMetadataRevalidationPersistence {
   containerExists: (execSql: ExecSql, containerId: string) => Promise<boolean>;
+  /** Updates `root_lane_member` on nested containers after a root-lane membership sweep. */
+  setRootLaneMembers?: (
+    execSql: ExecSql,
+    input: {
+      readonly addIds: ReadonlyArray<string>;
+      readonly removeIds: ReadonlyArray<string>;
+      readonly stillCurrent?: (() => boolean) | undefined;
+    },
+  ) => Promise<boolean>;
   /**
    * Create an absent remotely hydrated container only when no newer durable
    * tombstone or concurrent container/dormant-metadata mutation won first.

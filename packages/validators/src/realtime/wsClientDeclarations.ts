@@ -13,7 +13,7 @@ import { parseWsJson, wsDeclarationIdSchema } from "./wsShared";
 // length check, so a hostile client cannot make the server parse an unbounded
 // JSON document.
 export const MAX_WS_CLIENT_MESSAGE_BYTES = 1_000_000;
-export const MAX_WS_INTEREST_CONTAINER_IDS = 10_000;
+export const MAX_WS_INTEREST_CONTAINER_IDS = 256;
 
 const interestContainerIdsSchema = z
   .array(uuidV4StringSchema)

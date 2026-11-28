@@ -22,6 +22,7 @@ export interface ContainerRecord {
   organizationId: string;
   parentId: string | null;
   metadataDocumentId: string | null;
+  rootLaneMember?: boolean | undefined;
   systemSlot?: ContainerSystemSlot | null;
   name: string;
   icon: string | null;
@@ -58,6 +59,7 @@ interface SelectedContainerRecord {
   organizationId: string;
   parentId: string | null;
   metadataDocumentId: string | null;
+  rootLaneMember?: boolean | number | null | undefined;
   systemSlot: string | null;
   name: string;
   icon: string | null;
@@ -107,6 +109,8 @@ export function mapSelectedContainerRecord(
     ? row.systemSlot
     : null;
 
+  const rootLaneMember = row.parentId === null || Boolean(row.rootLaneMember);
+
   return toDisplayContainerRecord({
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
       row.effectiveAccessLevel,
@@ -115,6 +119,7 @@ export function mapSelectedContainerRecord(
     organizationId: row.organizationId,
     parentId: row.parentId,
     metadataDocumentId: row.metadataDocumentId,
+    ...(rootLaneMember ? { rootLaneMember: true } : {}),
     systemSlot,
     name: row.name,
     icon: row.icon && row.icon.length > 0 ? row.icon : null,
@@ -132,6 +137,8 @@ export async function saveContainerRows(input: {
 }): Promise<ContainerRecord> {
   const { record, tx, localUpdatedAt } = input;
   const nextRecord = applyContainerTimestampDefaults(record, localUpdatedAt);
+  const rootLaneMemberValue =
+    nextRecord.parentId === null ? true : Boolean(nextRecord.rootLaneMember);
   const containerRow = {
     effectiveAccessLevel:
       nextRecord.effectiveAccessLevel ?? DEFAULT_EFFECTIVE_ACCESS_LEVEL,
@@ -139,6 +146,7 @@ export async function saveContainerRows(input: {
     organizationId: nextRecord.organizationId,
     parentId: nextRecord.parentId,
     metadataDocumentId: nextRecord.metadataDocumentId,
+    rootLaneMember: rootLaneMemberValue,
     systemSlot: nextRecord.systemSlot ?? null,
     displayName: nextRecord.name,
     icon: nextRecord.icon,
@@ -156,6 +164,12 @@ export async function saveContainerRows(input: {
         organizationId: containerRow.organizationId,
         parentId: containerRow.parentId,
         metadataDocumentId: containerRow.metadataDocumentId,
+        rootLaneMember:
+          record.rootLaneMember === undefined
+            ? containerRow.parentId === null
+              ? true
+              : sql`${containers.rootLaneMember}`
+            : containerRow.rootLaneMember,
         systemSlot: containerRow.systemSlot,
         displayName: containerRow.displayName,
         icon: containerRow.icon,
@@ -183,6 +197,7 @@ export const containerRecordSelection = {
   organizationId: containers.organizationId,
   parentId: containers.parentId,
   metadataDocumentId: containers.metadataDocumentId,
+  rootLaneMember: containers.rootLaneMember,
   systemSlot: containers.systemSlot,
   name: containerDisplayName,
   icon: containers.icon,
@@ -215,20 +230,7 @@ export async function loadContainerById(
 ): Promise<ContainerRecord | null> {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
-    .select({
-      effectiveAccessLevel: containers.effectiveAccessLevel,
-      id: containers.id,
-      organizationId: containers.organizationId,
-      parentId: containers.parentId,
-      metadataDocumentId: containers.metadataDocumentId,
-      systemSlot: containers.systemSlot,
-      name: containerDisplayName,
-      icon: containers.icon,
-      localCreatedAt: containers.localCreatedAt,
-      localUpdatedAt: containers.localUpdatedAt,
-      serverCreatedAt: containers.serverCreatedAt,
-      serverUpdatedAt: containers.serverUpdatedAt,
-    })
+    .select(containerRecordSelection)
     .from(containers)
     .where(eq(containers.id, containerId))
     .limit(1);

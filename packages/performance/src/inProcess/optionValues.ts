@@ -1,5 +1,10 @@
-/** The hub refuses a declaration of more ids than this. */
-export const MAX_DECLARED_IDS = 10_000;
+/** Maximum seeded tree size accepted by realtime benchmarks (`--mode roots`). */
+export const MAX_TREE_SIZE = 10_000;
+/**
+ * Maximum container ids accepted in a single `--mode all` hub declaration
+ * (matches `MAX_WS_INTEREST_CONTAINER_IDS` in `@tearleads/validators/realtime`).
+ */
+export const MAX_DECLARED_IDS = 256;
 
 /** A decimal integer flag value from `min` to `max`. */
 export function integer(

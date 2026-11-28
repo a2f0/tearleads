@@ -1,4 +1,7 @@
-import { serializeWsServerMessage } from "@tearleads/validators/realtime";
+import {
+  MAX_WS_INTEREST_CONTAINER_IDS,
+  serializeWsServerMessage,
+} from "@tearleads/validators/realtime";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { ContainerInterestQueries } from "./containerInterestQueries";
 import type { ProofAgePolicy } from "./containerInterestRevalidation";
@@ -11,7 +14,35 @@ import type { AppliedInterest, WsEventRouter } from "./wsRouting";
 
 type Interest = Exclude<AppliedInterest, null>;
 const MAX_PENDING_DECLARATIONS = 32;
-const MAX_PENDING_CONTAINER_IDS = 20_000;
+const MAX_PENDING_CONTAINER_IDS = 512;
+const MAX_INSTALLED_CONTAINER_IDS = MAX_WS_INTEREST_CONTAINER_IDS;
+
+/**
+ * Admit declared subtree roots in order up to the per-socket installed cap.
+ * Existing holds keep their slots when re-added so refreshes succeed while
+ * excess new roots are refused (omitted from authorization and ack).
+ */
+function admitDeclarationIds(
+  kind: Interest["kind"],
+  ids: readonly string[],
+  currentlyHeld: readonly string[],
+): string[] {
+  if (kind === "remove") return [...ids];
+  if (kind === "replace") return ids.slice(0, MAX_INSTALLED_CONTAINER_IDS);
+  const held = new Set(currentlyHeld);
+  let remainingNewSlots = Math.max(0, MAX_INSTALLED_CONTAINER_IDS - held.size);
+  const admitted: string[] = [];
+  for (const id of ids) {
+    if (held.has(id)) {
+      admitted.push(id);
+      continue;
+    }
+    if (remainingNewSlots <= 0) continue;
+    remainingNewSlots--;
+    admitted.push(id);
+  }
+  return admitted;
+}
 
 interface SocketState {
   pending: Promise<void>;
@@ -283,8 +314,21 @@ export class ContainerInterestAuthorizer {
       ws,
       async () => {
         const ids = [...new Set(declaration.containerIds)];
+        const admittedIds = admitDeclarationIds(
+          declaration.kind,
+          ids,
+          this.router.interestOf(ws),
+        );
+        const appliedDeclaration: Interest =
+          admittedIds.length === declaration.containerIds.length
+            ? declaration
+            : { ...declaration, containerIds: admittedIds };
         const install = (proofs: VerifiedContainerInterest[]): void => {
-          this.router.applyAuthorizedContainerInterest(ws, declaration, proofs);
+          this.router.applyAuthorizedContainerInterest(
+            ws,
+            appliedDeclaration,
+            proofs,
+          );
           // A replace leaves only proofs verified just now installed.
           const state = this.states.get(ws);
           if (state && declaration.kind === "replace") this.confirm(ws, state);
@@ -304,7 +348,13 @@ export class ContainerInterestAuthorizer {
             );
         };
         if (declaration.kind === "remove") install([]);
-        else await this.queries.run(ws, ids, () => this.isOpen(ws), install);
+        else
+          await this.queries.run(
+            ws,
+            admittedIds,
+            () => this.isOpen(ws),
+            install,
+          );
       },
       declaration.containerIds.length,
     );

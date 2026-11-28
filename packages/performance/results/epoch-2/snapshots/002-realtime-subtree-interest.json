@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 1,
+  "epoch": 2,
+  "id": "002-realtime-subtree-interest",
+  "label": "Subtree-root realtime interest & hub caps (#3353)",
+  "kind": "checkpoint",
+  "recordedAt": "2026-11-28T06:55:46.860Z",
+  "revision": "0aa3ec975adc8c4121163f1074ddd56de258f80f",
+  "dirty": false,
+  "issues": [3353],
+  "runtime": {
+    "bun": "1.4.3",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M2 Pro"
+  },
+  "notes": "Declares only subtree roots (top-level roots + directly granted nested folders persisted via root_lane_member v18 migration) with hub subtree-coverage routing, 256-root declaration/installed cap, 512 pending id cap, flat 10s deadline, repeatable-read 1,024 path-container depth budget scoped via discoveryGrantSubjects/containerHasDiscoveryAccess, and marker write-back. 100x1000-folder simultaneous reconnect contention: 318-323ms total, p99 hint lag 1.7-2.6ms, 18-21 MiB peak heap.",
+  "inventory": {
+    "postgres": {
+      "tables": 57,
+      "columns": 572,
+      "indexes": 183,
+      "migrations": 18,
+      "duplicateIndexes": 0,
+      "unreadTables": 0,
+      "unreadColumns": 0
+    },
+    "sqlite": {
+      "totalTables": 63,
+      "sdkTables": 58,
+      "appProjectionTables": 5,
+      "columns": 480,
+      "indexes": 98,
+      "duplicateIndexes": 0,
+      "unreadTables": 4,
+      "unreadColumns": 0
+    },
+    "openapi": {
+      "paths": 94,
+      "operations": 99,
+      "distinctResponseFields": 410,
+      "unreadResponseFieldLeads": 3,
+      "unreadFields": ["leaseExpiresAt", "portalUrl", "stagedBytes"]
+    },
+    "canaries": {
+      "budgetAssertions": 5,
+      "driftedPhases": 19,
+      "maxHeadroom": 14,
+      "totalHeadroom": 56
+    }
+  },
+  "canaries": {
+    "canaryCount": 9,
+    "wallMs": 133073,
+    "requests": 306,
+    "requestBytes": 1607684,
+    "responseBytes": 1398775,
+    "redundantBytes": 188401,
+    "echoBytes": 16756,
+    "redeliveredBytes": 150539,
+    "reDownloadedUploadBytes": 21106,
+    "exactHeadRereads": 37,
+    "manifestCitations": 682,
+    "wsHints": 18,
+    "apiStatements": 36065,
+    "apiTxStatements": 31134,
+    "apiLockHoldStatements": 21966,
+    "apiSameKeyRepeats": 5744,
+    "apiPureReadRepeats": 4694,
+    "clientSqlStatements": 124712,
+    "clientSqlInLock": 78243,
+    "clientSqlDurationMs": 12725.4,
+    "clientSqlMutations": 17074,
+    "clientSqlTxControls": 30516,
+    "clientSqlMaxHoldMs": 45,
+    "clientSqlMaxWaitMs": 36.4,
+    "topApiRoutes": [
+      {
+        "route": "POST /auth/register",
+        "requests": 25,
+        "statements": 10025,
+        "txStatements": 9975,
+        "lockHoldStatements": 9925,
+        "pureReadRepeats": 2050
+      },
+      {
+        "route": "POST /documents/{documentId}/sync",
+        "requests": 207,
+        "statements": 5705,
+        "txStatements": 5498,
+        "lockHoldStatements": 3792,
+        "pureReadRepeats": 1060
+      },
+      {
+        "route": "POST /containers/with-metadata-document",
+        "requests": 53,
+        "statements": 3869,
+        "txStatements": 3816,
+        "lockHoldStatements": 3392,
+        "pureReadRepeats": 848
+      },
+      {
+        "route": "POST /documents",
+        "requests": 62,
+        "statements": 2159,
+        "txStatements": 2133,
+        "lockHoldStatements": 2009,
+        "pureReadRepeats": 234
+      },
+      {
+        "route": "POST /containers/documents/query",
+        "requests": 141,
+        "statements": 1664,
+        "txStatements": 0,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 0
+      },
+      {
+        "route": "GET /principals/{principalType}/{principalId}/policy",
+        "requests": 279,
+        "statements": 1505,
+        "txStatements": 1505,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 22
+      },
+      {
+        "route": "PUT /organizations/{organizationId}/groups/{groupId}/policy-commit",
+        "requests": 7,
+        "statements": 1418,
+        "txStatements": 1383,
+        "lockHoldStatements": 1376,
+        "pureReadRepeats": 197
+      },
+      {
+        "route": "GET /documents/{documentId}/writer-projection",
+        "requests": 52,
+        "statements": 1333,
+        "txStatements": 1333,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 2
+      },
+      {
+        "route": "GET /containers/{containerId}/writer-projection",
+        "requests": 89,
+        "statements": 1307,
+        "txStatements": 1307,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 0
+      },
+      {
+        "route": "POST /containers/parent-lanes/query",
+        "requests": 72,
+        "statements": 1063,
+        "txStatements": 1035,
+        "lockHoldStatements": 0,
+        "pureReadRepeats": 0
+      }
+    ],
+    "topClientQueries": [
+      {
+        "sql": "select \"version\", \"state_hash\" from \"principal_policy_checkpoints\" where (\"principal_policy_checkpoints\".\"principal_type\" = ? and \"principal_policy_checkpoints\"…",
+        "count": 8438,
+        "durationMs": 429.3
+      },
+      {
+        "sql": "select \"identity_trust_domain\", \"user_id\", \"format_version\", \"signing_suite\", \"signing_public_key\", \"signing_key_fingerprint\", \"encapsulation_suite\", \"encapsula…",
+        "count": 8137,
+        "durationMs": 690.7
+      },
+      {
+        "sql": "select \"leaf_hash\", \"entry_json\" from \"principal_history_entries\" where (\"principal_history_entries\".\"scope_id\" = ? and \"principal_history_entries\".\"leaf_hash\" …",
+        "count": 8054,
+        "durationMs": 388.1
+      },
+      {
+        "sql": "select \"id\", \"generation\", \"invalidated_through\" from \"document_discovery_sequence\" limit ?",
+        "count": 2784,
+        "durationMs": 138.2
+      },
+      {
+        "sql": "select \"hash\", \"left_hash\", \"right_hash\" from \"principal_history_nodes\" where (\"principal_history_nodes\".\"scope_id\" = ? and \"principal_history_nodes\".\"hash\" in …",
+        "count": 1506,
+        "durationMs": 68.5
+      },
+      {
+        "sql": "select \"documents\".\"local_id\", \"documents\".\"document_id\", \"documents\".\"recovery_generation\", \"documents\".\"recovery_document_id\", \"documents\".\"snapshot_end_versi…",
+        "count": 1494,
+        "durationMs": 182.8
+      },
+      {
+        "sql": "select \"identity_trust_domain\", \"user_id\", \"format_version\", \"signing_suite\", \"signing_public_key\", \"signing_key_fingerprint\", \"encapsulation_suite\", \"encapsula…",
+        "count": 952,
+        "durationMs": 53.8
+      },
+      {
+        "sql": "select \"update_id\", \"origin\", \"update_data\", \"partial_start_version_vector\", \"partial_end_version_vector\", \"rekey_count\" from \"document_history_updates\" where (…",
+        "count": 780,
+        "durationMs": 59.6
+      },
+      {
+        "sql": "select \"scope_id\", \"organization_id\", \"hash\", \"reference_count\", \"managed\", \"left_hash\", \"right_hash\" from \"principal_history_nodes\" where (\"principal_history_n…",
+        "count": 525,
+        "durationMs": 22.4
+      },
+      {
+        "sql": "select \"principal_id\", \"version\", \"state_hash\" from \"principal_policy_checkpoints\" where (\"principal_policy_checkpoints\".\"principal_type\" = ? and \"principal_pol…",
+        "count": 504,
+        "durationMs": 11.7
+      }
+    ],
+    "byCanary": [
+      {
+        "canary": "DeviceFirstOfflineRequestVolume",
+        "wallMs": 6376,
+        "requests": 0,
+        "requestBytes": 0,
+        "responseBytes": 0,
+        "redundantBytes": 0,
+        "exactHeadRereads": 0,
+        "apiStatements": 1543,
+        "apiTxStatements": 1180,
+        "apiPureReadRepeats": 177,
+        "clientSqlStatements": 5215,
+        "clientSqlMaxHoldMs": 28.2
+      },
+      {
+        "canary": "DualPaneProvider.groupsRequestVolume",
+        "wallMs": 8430,
+        "requests": 90,
+        "requestBytes": 681592,
+        "responseBytes": 544052,
+        "redundantBytes": 63666,
+        "exactHeadRereads": 12,
+        "apiStatements": 2830,
+        "apiTxStatements": 2406,
+        "apiPureReadRepeats": 334,
+        "clientSqlStatements": 9009,
+        "clientSqlMaxHoldMs": 45
+      },
+      {
+        "canary": "DualPaneProvider.sharing",
+        "wallMs": 28890,
+        "requests": 46,
+        "requestBytes": 104424,
+        "responseBytes": 337321,
+        "redundantBytes": 42247,
+        "exactHeadRereads": 5,
+        "apiStatements": 11086,
+        "apiTxStatements": 10107,
+        "apiPureReadRepeats": 1365,
+        "clientSqlStatements": 37531,
+        "clientSqlMaxHoldMs": 42.4
+      },
+      {
+        "canary": "ExplorerUploadRequestVolume",
+        "wallMs": 4601,
+        "requests": 5,
+        "requestBytes": 34558,
+        "responseBytes": 2176,
+        "redundantBytes": 384,
+        "exactHeadRereads": 0,
+        "apiStatements": 1153,
+        "apiTxStatements": 803,
+        "apiPureReadRepeats": 150,
+        "clientSqlStatements": 2519,
+        "clientSqlMaxHoldMs": 28.1
+      },
+      {
+        "canary": "FolderMutationRequestVolume",
+        "wallMs": 7677,
+        "requests": 26,
+        "requestBytes": 114602,
+        "responseBytes": 62707,
+        "redundantBytes": 16942,
+        "exactHeadRereads": 8,
+        "apiStatements": 1771,
+        "apiTxStatements": 1402,
+        "apiPureReadRepeats": 198,
+        "clientSqlStatements": 7498,
+        "clientSqlMaxHoldMs": 33.4
+      },
+      {
+        "canary": "GroupMutationRequestVolume",
+        "wallMs": 9079,
+        "requests": 42,
+        "requestBytes": 165104,
+        "responseBytes": 275866,
+        "redundantBytes": 53672,
+        "exactHeadRereads": 4,
+        "apiStatements": 2839,
+        "apiTxStatements": 2418,
+        "apiPureReadRepeats": 340,
+        "clientSqlStatements": 9479,
+        "clientSqlMaxHoldMs": 43.4
+      },
+      {
+        "canary": "OrganizationBootstrapRequestVolume",
+        "wallMs": 7427,
+        "requests": 27,
+        "requestBytes": 486205,
+        "responseBytes": 40168,
+        "redundantBytes": 5651,
+        "exactHeadRereads": 3,
+        "apiStatements": 2244,
+        "apiTxStatements": 1841,
+        "apiPureReadRepeats": 326,
+        "clientSqlStatements": 4574,
+        "clientSqlMaxHoldMs": 28.6
+      },
+      {
+        "canary": "PaneReconnectRequestVolume",
+        "wallMs": 14797,
+        "requests": 24,
+        "requestBytes": 5127,
+        "responseBytes": 71816,
+        "redundantBytes": 3290,
+        "exactHeadRereads": 3,
+        "apiStatements": 3513,
+        "apiTxStatements": 2984,
+        "apiPureReadRepeats": 439,
+        "clientSqlStatements": 14140,
+        "clientSqlMaxHoldMs": 30.1
+      },
+      {
+        "canary": "PaneRestartRequestVolume",
+        "wallMs": 45796,
+        "requests": 46,
+        "requestBytes": 16072,
+        "responseBytes": 64669,
+        "redundantBytes": 2549,
+        "exactHeadRereads": 2,
+        "apiStatements": 9086,
+        "apiTxStatements": 7993,
+        "apiPureReadRepeats": 1365,
+        "clientSqlStatements": 34747,
+        "clientSqlMaxHoldMs": 33
+      }
+    ]
+  },
+  "plans": {
+    "inspected": 25,
+    "planned": 23,
+    "skipped": 2,
+    "seqScanQueries": 0,
+    "sortQueries": 3,
+    "materializeQueries": 1,
+    "flagged": [
+      {
+        "count": 651,
+        "warnings": ["Sort"],
+        "sqlPrefix": "with recursive ancestor_path as ( select h.object_id, h.manifest_hash, m.object_kind, m.object_id as manifest_object_id,…"
+      },
+      {
+        "count": 542,
+        "warnings": ["Sort"],
+        "sqlPrefix": "select \"access_manifest_heads\".\"id\", \"access_manifest_heads\".\"object_kind\", \"access_manifest_heads\".\"object_id\", \"access…"
+      },
+      {
+        "count": 367,
+        "warnings": ["Sort", "Materialize"],
+        "sqlPrefix": "select publication::text as publication, (select coalesce(jsonb_agg(rows order by rows.\"discoveryOrder\"::bigint, rows.id…"
+      }
+    ]
+  },
+  "reload": [
+    {
+      "documents": 10,
+      "folders": 1,
+      "reload": "first",
+      "medianRequests": 4,
+      "medianSettledMs": 177,
+      "medianApiStatements": 40,
+      "medianClientStatements": 455
+    },
+    {
+      "documents": 10,
+      "folders": 1,
+      "reload": "settled",
+      "medianRequests": 1,
+      "medianSettledMs": 131,
+      "medianApiStatements": 17,
+      "medianClientStatements": 91
+    },
+    {
+      "documents": 13,
+      "folders": 1,
+      "reload": "peer-edited",
+      "medianRequests": 11,
+      "medianSettledMs": 554,
+      "medianApiStatements": 200,
+      "medianClientStatements": 1366
+    },
+    {
+      "documents": 100,
+      "folders": 10,
+      "reload": "first",
+      "medianRequests": 4,
+      "medianSettledMs": 530,
+      "medianApiStatements": 65,
+      "medianClientStatements": 2648
+    },
+    {
+      "documents": 100,
+      "folders": 10,
+      "reload": "settled",
+      "medianRequests": 1,
+      "medianSettledMs": 188,
+      "medianApiStatements": 26,
+      "medianClientStatements": 145
+    },
+    {
+      "documents": 103,
+      "folders": 10,
+      "reload": "peer-edited",
+      "medianRequests": 11,
+      "medianSettledMs": 540,
+      "medianApiStatements": 209,
+      "medianClientStatements": 1464
+    }
+  ],
+  "realtime": [
+    {
+      "size": 100,
+      "pass": "declaration",
+      "medianDurationMs": 17.4,
+      "medianCpuMs": 14.5,
+      "statements": 10,
+      "roundTrips": 10,
+      "rows": 17,
+      "bytesReturned": 115391
+    },
+    {
+      "size": 100,
+      "pass": "revalidation",
+      "medianDurationMs": 16.9,
+      "medianCpuMs": 6.3,
+      "statements": 10,
+      "roundTrips": 10,
+      "rows": 17,
+      "bytesReturned": 115391
+    },
+    {
+      "size": 1000,
+      "pass": "declaration",
+      "medianDurationMs": 16.8,
+      "medianCpuMs": 5.9,
+      "statements": 10,
+      "roundTrips": 10,
+      "rows": 17,
+      "bytesReturned": 115391
+    },
+    {
+      "size": 1000,
+      "pass": "revalidation",
+      "medianDurationMs": 16.7,
+      "medianCpuMs": 5.7,
+      "statements": 10,
+      "roundTrips": 10,
+      "rows": 17,
+      "bytesReturned": 115391
+    }
+  ]
+}

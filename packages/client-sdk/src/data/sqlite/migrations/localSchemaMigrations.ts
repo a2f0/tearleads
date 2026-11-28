@@ -390,6 +390,29 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 17,
   },
+  {
+    // Persist root-lane membership so realtime interest declarations send only
+    // subtree roots (top-level roots plus directly granted nested folders)
+    // without extra HTTP requests (#3353).
+    name: "add_container_root_lane_member",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("containers"))) return;
+      const columns = new Set(
+        (await execSql("SELECT name FROM pragma_table_info('containers')"))
+          .map(({ name }) => name)
+          .filter((name): name is string => typeof name === "string"),
+      );
+      if (!columns.has("root_lane_member")) {
+        await execSql(
+          'ALTER TABLE "containers" ADD COLUMN "root_lane_member" INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      await execSql(
+        'UPDATE "containers" SET "root_lane_member" = 1 WHERE "parent_id" IS NULL',
+      );
+    },
+    version: 18,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

@@ -119,6 +119,32 @@ async function settleSupersededMetadataMutation(input: {
       : {}),
   };
 }
+function buildNextPersistedContainerRecord(
+  prepared: ApplicableContainerMetadataMutation,
+  metadata: ReturnType<typeof readContainerMetadataValue>,
+): ContainerRecord {
+  const { mutationContainer, mutationPatch } = prepared;
+  return {
+    ...mutationContainer,
+    ...(mutationPatch.effectiveAccessLevel !== undefined
+      ? { effectiveAccessLevel: mutationPatch.effectiveAccessLevel }
+      : {}),
+    ...(mutationPatch.rootLaneMember !== undefined
+      ? { rootLaneMember: mutationPatch.rootLaneMember }
+      : {}),
+    organizationId:
+      mutationPatch.organizationId ?? mutationContainer.organizationId,
+    parentId: mutationPatch.parentId ?? mutationContainer.parentId,
+    metadataDocumentId: resolveMetadataDocumentId(
+      mutationPatch,
+      mutationContainer,
+    ),
+    systemSlot: resolveContainerSystemSlot(mutationPatch, mutationContainer),
+    name: mutationPatch.name ?? metadata.name,
+    icon: mutationPatch.icon !== undefined ? mutationPatch.icon : metadata.icon,
+  };
+}
+
 async function persistPreparedMetadataMutation(input: {
   clearSyncFailure?: boolean | undefined;
   commitSideEffect?: PersistContainerMetadataStateInput["commitSideEffect"];
@@ -153,32 +179,7 @@ async function persistPreparedMetadataMutation(input: {
     metadataState.doc,
     getDefaultContainerName(prepared.mutationContainer.parentId),
   );
-  const nextContainer: ContainerRecord = {
-    ...prepared.mutationContainer,
-    ...(prepared.mutationPatch.effectiveAccessLevel !== undefined
-      ? {
-          effectiveAccessLevel: prepared.mutationPatch.effectiveAccessLevel,
-        }
-      : {}),
-    organizationId:
-      prepared.mutationPatch.organizationId ??
-      prepared.mutationContainer.organizationId,
-    parentId:
-      prepared.mutationPatch.parentId ?? prepared.mutationContainer.parentId,
-    metadataDocumentId: resolveMetadataDocumentId(
-      prepared.mutationPatch,
-      prepared.mutationContainer,
-    ),
-    systemSlot: resolveContainerSystemSlot(
-      prepared.mutationPatch,
-      prepared.mutationContainer,
-    ),
-    name: prepared.mutationPatch.name ?? metadata.name,
-    icon:
-      prepared.mutationPatch.icon !== undefined
-        ? prepared.mutationPatch.icon
-        : metadata.icon,
-  };
+  const nextContainer = buildNextPersistedContainerRecord(prepared, metadata);
   const nextRecord = buildContainerMetadataRecord({
     metadataState: prepared.mutationMetadataState,
     patch: prepared.mutationPatch,

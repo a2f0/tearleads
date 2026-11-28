@@ -51,6 +51,10 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
     }),
   };
 
+  if (container.rootLaneMember || container.parentId === null) {
+    node.rootLaneMember = true;
+  }
+
   if (systemSlot) {
     node.systemSlot = systemSlot;
   }

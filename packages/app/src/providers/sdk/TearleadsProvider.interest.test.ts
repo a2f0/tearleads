@@ -38,69 +38,80 @@ for (const initialPending of [false, true]) {
       handle.acknowledge(pending.declarationId, pending.containerIds),
     ).toBe(initialPending);
     const deltas = sent.slice(sentBefore).map((value) => JSON.parse(value));
-    expect(deltas[0]).toMatchObject({
-      type: "known_containers.add",
-      containerIds: Array.from({ length: 100 }, (_, index) => `child-${index}`),
-    });
     expect(deltas).toHaveLength(initialPending ? 1 : 2);
-    if (!initialPending)
-      expect(deltas[1]).toMatchObject({
+    if (!initialPending) {
+      // Removals precede additions so server slots free before replacements land.
+      expect(deltas[0]).toMatchObject({
         type: "known_containers.remove",
         containerIds: ["first"],
       });
+      expect(deltas[1]).toMatchObject({
+        type: "known_containers.add",
+        containerIds: Array.from(
+          { length: 100 },
+          (_, index) => `child-${index}`,
+        ),
+      });
+    } else {
+      expect(deltas[0]).toMatchObject({
+        type: "known_containers.add",
+        containerIds: Array.from(
+          { length: 100 },
+          (_, index) => `child-${index}`,
+        ),
+      });
+    }
     handle.stop();
   });
 }
 
-test("splits an oversized declaration at the server cap and clears the barrier on the last ack", () => {
-  const ids = Array.from(
-    { length: MAX_WS_INTEREST_CONTAINER_IDS + 1 },
-    (_, index) => `container-${index}`,
-  );
-  const fakeStore = createFakeStore(ids);
+test("declares only subtree roots and directly granted nested roots, capped at MAX_WS_INTEREST_CONTAINER_IDS", () => {
+  const nodes = [
+    { id: "root", parentId: null, rootLaneMember: true },
+    { id: "child-1", parentId: "root" },
+    { id: "grandchild-1", parentId: "child-1" },
+    { id: "direct-nested", parentId: "child-1", rootLaneMember: true },
+    { id: "orphan-shared", parentId: "unheld-parent" },
+  ];
+  const listeners = new Set<() => void>();
+  const store = {
+    getSnapshot: () => ({ nodes, ready: true }),
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
   const handle = startContainerInterestDeclaration(
-    tearleadsWithStore(() => fakeStore.store),
+    tearleadsWithStore(() => store),
     ws,
   );
-  // The remainder waits for the first chunk's acknowledgment.
   expect(sent).toHaveLength(1);
-  const first = JSON.parse(sent[0] ?? "null");
+  expect(JSON.parse(sent[0] ?? "null")).toMatchObject({
+    type: "known_containers",
+    containerIds: ["root", "direct-nested", "orphan-shared"],
+  });
+  handle.stop();
+
+  // More than MAX_WS_INTEREST_CONTAINER_IDS roots is bounded cleanly to one frame.
+  const manyRoots = Array.from(
+    { length: MAX_WS_INTEREST_CONTAINER_IDS + 5 },
+    (_, index) => `root-${index}`,
+  );
+  const bigStore = createFakeStore(manyRoots);
+  const bigSocket = fakeSocket(WebSocket.OPEN);
+  const bigHandle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => bigStore.store),
+    bigSocket.ws,
+  );
+  expect(bigSocket.sent).toHaveLength(1);
+  const first = JSON.parse(bigSocket.sent[0] ?? "null");
   expect(first).toMatchObject({ type: "known_containers" });
   expect(first.containerIds).toHaveLength(MAX_WS_INTEREST_CONTAINER_IDS);
-  // Neither chunk alone completes the authoritative declaration.
-  expect(handle.acknowledge(first.declarationId, first.containerIds)).toBe(
-    false,
-  );
-  expect(sent).toHaveLength(2);
-  const second = JSON.parse(sent[1] ?? "null");
-  expect(second).toMatchObject({
-    type: "known_containers.add",
-    containerIds: [ids.at(-1)],
-  });
-  expect(first.declarationId).not.toBe(second.declarationId);
-  expect(handle.acknowledge(second.declarationId, second.containerIds)).toBe(
+  expect(bigHandle.acknowledge(first.declarationId, first.containerIds)).toBe(
     true,
   );
-
-  fakeStore.setNodes([
-    ...ids,
-    ...Array.from(
-      { length: MAX_WS_INTEREST_CONTAINER_IDS + 1 },
-      (_, index) => `later-${index}`,
-    ),
-  ]);
-  expect(sent).toHaveLength(3);
-  const bulk = JSON.parse(sent[2] ?? "null");
-  expect(bulk).toMatchObject({ type: "known_containers.add" });
-  expect(bulk.containerIds).toHaveLength(MAX_WS_INTEREST_CONTAINER_IDS);
-  expect(handle.acknowledge(bulk.declarationId, bulk.containerIds)).toBe(false);
-  expect(JSON.parse(sent[3] ?? "null")).toMatchObject({
-    type: "known_containers.add",
-    containerIds: [`later-${MAX_WS_INTEREST_CONTAINER_IDS}`],
-  });
-  expect(sent).toHaveLength(4);
-  handle.stop();
+  bigHandle.stop();
 });
 
 test("declares the authoritative ready set, waits for its ack, then sends deltas", () => {

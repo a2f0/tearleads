@@ -14,10 +14,9 @@ interface ArmedTimer {
   readonly delayMs: number;
 }
 
-// The hub's base authorization budget and its cap (`containerInterestQueries.ts`).
+// The hub's flat authorization budget (`containerInterestQueries.ts`).
 const PRODUCTION_BUDGET_MS = 10_000;
-const IDS_PER_BUDGET = 100;
-const MAX_BUDGETS = 6;
+const MAX_BUDGETS = 1;
 // Far past any run, so only the probe fires the jittered tick. With
 // `random` fixed at 0 every tick is armed at half the interval.
 const REVALIDATION_INTERVAL_MS = 2 * 60 * 60_000;
@@ -33,13 +32,9 @@ const PROBE_BUDGET_MS = 10 * 60_000;
 // characters (`worker/hubSocketStore.ts`).
 const SNAPSHOT_CHUNK_CHARS = 16 * 1024;
 
-/** The authorization deadline a declaration of `ids` gets in production. */
-export function productionBudgetMs(ids: number): number {
-  const budgets = Math.min(
-    MAX_BUDGETS,
-    Math.max(1, Math.ceil(ids / IDS_PER_BUDGET)),
-  );
-  return PRODUCTION_BUDGET_MS * budgets;
+/** The authorization deadline a declaration gets in production. */
+export function productionBudgetMs(_ids: number): number {
+  return PRODUCTION_BUDGET_MS * MAX_BUDGETS;
 }
 
 export interface AuthorizationCall {

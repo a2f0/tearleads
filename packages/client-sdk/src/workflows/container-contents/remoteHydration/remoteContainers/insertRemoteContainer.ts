@@ -27,6 +27,7 @@ import {
 interface InsertRemoteContainerStateInput {
   childIdsByParentId?: ContainerChildIndex | undefined;
   host: RemoteContainerHydrationHost;
+  isRootLane?: boolean | undefined;
   expectedHydrationTombstone: ContainerHydrationTombstone | null;
   expectedPlacementCheckpoint?: AccessManifestCheckpoint | undefined;
   isCurrent?: (() => boolean) | undefined;
@@ -41,6 +42,7 @@ function createInsertedRemoteContainerState(input: {
       RemoteContainerHydrationState["persistence"]["loadContainerMetadataRecord"]
     >
   >;
+  isRootLane?: boolean | undefined;
   remoteContainer: RemoteContainer;
 }): ContainerState {
   const { doc, dormantRecord, remoteContainer } = input;
@@ -50,6 +52,8 @@ function createInsertedRemoteContainerState(input: {
     dormantRecord,
     remoteMetadataDocumentId: remoteContainer.metadataDocumentId,
   });
+  const rootLaneMember =
+    input.isRootLane === true || remoteContainer.parentId === null;
   return {
     container: applyRemoteContainerTimestamps(
       {
@@ -58,6 +62,7 @@ function createInsertedRemoteContainerState(input: {
         organizationId: remoteContainer.organizationId,
         parentId: remoteContainer.parentId,
         metadataDocumentId: remoteContainer.metadataDocumentId,
+        ...(rootLaneMember ? { rootLaneMember: true } : {}),
         systemSlot: remoteContainer.systemSlot ?? null,
         name: reattached.name,
         icon: reattached.icon,
@@ -132,6 +137,7 @@ export async function insertRemoteContainerState(
   const containerState = createInsertedRemoteContainerState({
     doc,
     dormantRecord,
+    isRootLane: input.isRootLane,
     remoteContainer,
   });
 

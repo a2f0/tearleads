@@ -273,4 +273,60 @@ describe("MSW organization event routing", () => {
     ]);
     router.clear();
   });
+
+  test("routes descendant document and container hints by subtree root and strips path metadata", async () => {
+    const router = createMswEventRouter();
+    const rootClient = connect(router, "anonymous");
+    const childId = "44444444-4444-4444-8444-444444444444";
+    const otherRoot = "55555555-5555-4555-8555-555555555555";
+    rootClient.message({
+      type: "known_containers",
+      containerIds: [CONTAINER_A],
+    });
+
+    await router.publish({
+      type: "document_update_created",
+      containerIds: [childId, otherRoot],
+      containerPaths: {
+        [childId]: [CONTAINER_A, childId],
+        [otherRoot]: [otherRoot],
+      },
+      documentId: "doc-1",
+      updateIds: ["u-1"],
+    });
+    await router.publish({
+      type: "container_mutation_created",
+      containerId: childId,
+      parentId: otherRoot,
+      previousParentId: CONTAINER_A,
+      ancestorIds: [otherRoot],
+      previousAncestorIds: [CONTAINER_A],
+      eventType: "container.move",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    await router.publish({
+      type: "container_deleted",
+      containerId: childId,
+      parentId: CONTAINER_A,
+      ancestorIds: [CONTAINER_A],
+    });
+
+    expect(parsedMessages(rootClient)).toEqual([
+      {
+        type: "document_update_created",
+        containerIds: [childId],
+        documentId: "doc-1",
+        updateIds: ["u-1"],
+      },
+      {
+        type: "container_children_changed",
+        containerIds: [CONTAINER_A],
+      },
+      {
+        type: "container_children_changed",
+        containerIds: [CONTAINER_A],
+      },
+    ]);
+    router.clear();
+  });
 });

@@ -6,7 +6,7 @@ import {
   containerContentsSyncLane,
   containerParentSyncLane,
 } from "../../persistence/container-contents/containerSyncWatermarkPersistence";
-import { organizationReadModelTables } from "../schema";
+import { containerTables, organizationReadModelTables } from "../schema";
 import { documentLoroWindowTables } from "../schema/documentLoroWindowSchema";
 import { documentProjectionTables } from "../schema/documentProjectionSchema";
 import { documentTables } from "../schema/documentRecordSchema";
@@ -163,7 +163,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {
@@ -452,6 +452,45 @@ test("step 8 adds an empty peer salt to a version-7 database's documents", async
       { local_id: "note", peer_salt: null },
     ]);
     await ensureSqlTables(execSql, documentTables);
+  } finally {
+    close();
+  }
+});
+
+test("step 18 adds root_lane_member to containers and backfills top-level roots", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-container-root-lane-member",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 16),
+    });
+    const [containersTable] = containerTables;
+    if (!containersTable) throw new Error("Containers table schema is missing");
+    const previous = containersTable.createSql.replace(
+      /\s*"root_lane_member"[^,\n]+,\n/u,
+      "\n",
+    );
+    expect(previous).not.toContain('"root_lane_member"');
+    await execSql(previous);
+    await execSql(
+      `INSERT INTO containers (id, organization_id, parent_id, local_created_at, local_updated_at)
+       VALUES ('root-1', 'org-1', NULL, ?, ?),
+              ('child-1', 'org-1', 'root-1', ?, ?)`,
+      [CREATED_AT, CREATED_AT, CREATED_AT, CREATED_AT],
+    );
+
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+
+    expect(
+      await execSql(
+        "SELECT id, root_lane_member FROM containers ORDER BY id ASC",
+      ),
+    ).toEqual([
+      { id: "child-1", root_lane_member: 0 },
+      { id: "root-1", root_lane_member: 1 },
+    ]);
+    await ensureSqlTables(execSql, containerTables);
   } finally {
     close();
   }

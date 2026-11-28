@@ -11,11 +11,17 @@ export function createContainerParentHydrationQueue(input: {
 }): {
   lanes: ContainerParentHydrationLane[];
   queueParentLane: QueueContainerParentLane;
+  unmarkSkippedParentLane: (parentId: string | null) => void;
 } {
   const queuedParentIds = new Set<string>();
   const lanes: ContainerParentHydrationLane[] = [];
+  const laneKeyFor = (parentId: string | null) =>
+    parentId === null ? "root" : `container:${parentId}`;
+  const unmarkSkippedParentLane = (parentId: string | null) => {
+    queuedParentIds.delete(laneKeyFor(parentId));
+  };
   const queueParentLane = (parentId: string | null) => {
-    const laneKey = parentId === null ? "root" : `container:${parentId}`;
+    const laneKey = laneKeyFor(parentId);
     if (queuedParentIds.has(laneKey)) {
       return;
     }
@@ -24,7 +30,11 @@ export function createContainerParentHydrationQueue(input: {
     // A restoration crawl resets every lane: a newly re-granted descendant
     // does not advance its parent's persisted watermark.
     if (input.resetAllLaneWatermarks) {
-      lanes.push({ parentId, watermark: null });
+      lanes.push({
+        parentId,
+        ...(parentId === null ? { rootMembershipSweepId: 1 } : {}),
+        watermark: null,
+      });
       return;
     }
     lanes.push({ parentId });
@@ -38,6 +48,7 @@ export function createContainerParentHydrationQueue(input: {
         idsOnly: true,
         membershipOnly: true,
         parentId,
+        rootMembershipSweepId: 1,
         skipWatermarkWrite: true,
         watermark: null,
       });
@@ -55,5 +66,5 @@ export function createContainerParentHydrationQueue(input: {
     }
   }
 
-  return { lanes, queueParentLane };
+  return { lanes, queueParentLane, unmarkSkippedParentLane };
 }

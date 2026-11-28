@@ -58,6 +58,7 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
           name: "/",
           organizationId: "org-1",
           parentId: null,
+          rootLaneMember: true,
           syncState: createContainerDocumentObjectSyncState({
             localOnly: true,
             pendingUpdateCount: 1,

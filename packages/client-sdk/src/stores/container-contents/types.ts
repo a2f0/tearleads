@@ -47,6 +47,8 @@ export interface ContainerNode {
   organizationId: string;
   name: string;
   parentId: string | null;
+  /** True for top-level roots and directly granted nested folders listed on the root lane. */
+  rootLaneMember?: boolean | undefined;
   syncState: ContainerDocumentObjectSyncState;
   kind: "container";
   updatedAt?: string | null;

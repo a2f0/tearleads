@@ -1,6 +1,13 @@
 import { OrganizationReadModelEncodedCursorSchema } from "@tearleads/validators/organizationReadModelCursor";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { evictMswContainerInterests } from "./containerInterest";
+import {
+  isMswSubtreeHintEvent,
+  readFallbackEventContainerIds,
+  readMswEventOrigin,
+  scopeMswSubtreeHint,
+  stripMswEventOrigin,
+} from "./subtreeHintRouting";
 
 export interface MswSocketClient {
   addEventListener?: (
@@ -118,54 +125,6 @@ function readOrganizationReadModelAudience(event: Record<string, unknown>): {
 
 function readStringField(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function readEventContainerIds(event: Record<string, unknown>): string[] {
-  const containerIds = new Set<string>();
-  const scopedContainerIds = Reflect.get(event, "containerIds");
-  if (Array.isArray(scopedContainerIds)) {
-    for (const containerId of scopedContainerIds) {
-      if (typeof containerId === "string" && containerId.length > 0) {
-        containerIds.add(containerId);
-      }
-    }
-  }
-  for (const field of ["containerId", "parentId", "previousParentId"]) {
-    const containerId = readStringField(Reflect.get(event, field));
-    if (containerId) {
-      containerIds.add(containerId);
-    }
-  }
-  return [...containerIds];
-}
-
-/**
- * The authoring session an event came from, if the publisher tagged it. Mirrors
- * production `wsRouting.readOrigin`: a malformed or partial `origin` yields
- * null, which the router treats as "exclude nobody".
- */
-function readEventOrigin(
-  event: Record<string, unknown>,
-): MswSocketIdentity | null {
-  const origin = Reflect.get(event, "origin");
-  if (!isRecord(origin)) {
-    return null;
-  }
-  const userId = readStringField(Reflect.get(origin, "userId"));
-  const sessionId = readStringField(Reflect.get(origin, "sessionId"));
-  return userId && sessionId ? { sessionId, userId } : null;
-}
-
-/**
- * Re-serialize the event without its `origin` field, mirroring production
- * `wsRouting.stripOrigin`: `origin` is server-internal routing data carrying a
- * per-session identifier that must not reach clients. Stripped on PRESENCE of
- * the key (not on whether it parsed into a valid identity) so a malformed
- * origin cannot leak its sessionId either.
- */
-function stripEventOrigin(event: Record<string, unknown>): string {
-  const { origin: _origin, ...rest } = event;
-  return JSON.stringify(rest);
 }
 
 function readTicketFromClientUrl(client: MswSocketClient): string | null {
@@ -395,6 +354,62 @@ export function createMswEventRouter(
     }
   };
 
+  const isAuthorSession = async (
+    client: MswSocketClient,
+    origin: MswSocketIdentity | null,
+  ): Promise<boolean> => {
+    if (!origin) return false;
+    const identity = await resolveClientIdentity(client);
+    return (
+      identity !== null &&
+      identity.userId === origin.userId &&
+      identity.sessionId === origin.sessionId
+    );
+  };
+
+  const deliverSubtreeHint = async (
+    event: Record<string, unknown>,
+    origin: MswSocketIdentity | null,
+  ): Promise<void> => {
+    for (const [client, interest] of socketInterestByClient) {
+      const scoped = scopeMswSubtreeHint(event, interest);
+      if (!scoped || (await isAuthorSession(client, origin))) continue;
+      sendRawSocketEvent(client, JSON.stringify(scoped));
+    }
+  };
+
+  const deliverFallbackEvent = async (
+    event: Record<string, unknown>,
+    origin: MswSocketIdentity | null,
+  ): Promise<void> => {
+    const containerIds = readFallbackEventContainerIds(event);
+    const recipients: MswSocketClient[] = [];
+    if (containerIds.length > 0) {
+      for (const [client, interest] of socketInterestByClient) {
+        if (containerIds.some((containerId) => interest.has(containerId))) {
+          recipients.push(client);
+        }
+      }
+    } else {
+      const userId = readStringField(Reflect.get(event, "userId"));
+      if (userId) {
+        for (const client of socketInterestByClient.keys()) {
+          if ((await resolveClientIdentity(client))?.userId === userId) {
+            recipients.push(client);
+          }
+        }
+      }
+    }
+    if (recipients.length === 0) return;
+    const clientMessage = Reflect.has(event, "origin")
+      ? stripMswEventOrigin(event)
+      : JSON.stringify(event);
+    for (const client of recipients) {
+      if (await isAuthorSession(client, origin)) continue;
+      sendRawSocketEvent(client, clientMessage);
+    }
+  };
+
   return {
     clear: () => {
       eventDropRules.length = 0;
@@ -444,53 +459,17 @@ export function createMswEventRouter(
         return;
       }
 
-      if (Reflect.get(event, "type") === "organization_read_model_changed") {
+      if (type === "organization_read_model_changed") {
         await handleOrganizationReadModelChanged(event);
         return;
       }
 
-      const containerIds = readEventContainerIds(event);
-      const recipients: MswSocketClient[] = [];
-      if (containerIds.length > 0) {
-        for (const [client, interest] of socketInterestByClient) {
-          if (containerIds.some((containerId) => interest.has(containerId))) {
-            recipients.push(client);
-          }
-        }
-      } else {
-        // No container scope (e.g. shared_with_you): route by user scope, like
-        // production recipientsForEvent — the event reaches only that user's
-        // own sockets, or nobody when it carries no userId either.
-        const userId = readStringField(Reflect.get(event, "userId"));
-        if (userId) {
-          for (const client of socketInterestByClient.keys()) {
-            if ((await resolveClientIdentity(client))?.userId === userId) {
-              recipients.push(client);
-            }
-          }
-        }
-      }
-      if (recipients.length === 0) {
+      const origin = readMswEventOrigin(event);
+      if (isMswSubtreeHintEvent(event)) {
+        await deliverSubtreeHint(event, origin);
         return;
       }
-
-      const origin = readEventOrigin(event);
-      const clientMessage = Reflect.has(event, "origin")
-        ? stripEventOrigin(event)
-        : JSON.stringify(event);
-      for (const client of recipients) {
-        if (origin) {
-          const identity = await resolveClientIdentity(client);
-          if (
-            identity &&
-            identity.userId === origin.userId &&
-            identity.sessionId === origin.sessionId
-          ) {
-            continue;
-          }
-        }
-        sendRawSocketEvent(client, clientMessage);
-      }
+      await deliverFallbackEvent(event, origin);
     },
   };
 }

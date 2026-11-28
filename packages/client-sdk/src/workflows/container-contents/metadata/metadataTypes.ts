@@ -38,6 +38,7 @@ export interface ContainerMetadataPatch {
   name: string;
   organizationId: string;
   parentId: string | null;
+  rootLaneMember?: boolean | undefined;
   pullContinuation: DocumentSyncPullContinuation | null;
   contentKeyBundle: string | null;
   documentKekTargets: string | null;

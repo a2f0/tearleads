@@ -3,6 +3,7 @@ import {
   ascendingIntegers,
   integer,
   MAX_DECLARED_IDS,
+  MAX_TREE_SIZE,
 } from "../../inProcess/optionValues";
 import type { RealtimeDeclarationMode } from "../options";
 
@@ -63,7 +64,7 @@ export function parseContentionOptions(
       fanout: { type: "string", default: "10" },
       samples: { type: "string", default: "1" },
       "hint-interval-ms": { type: "string", default: "10" },
-      mode: { type: "string", default: "all" },
+      mode: { type: "string", default: "roots" },
       reuse: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
@@ -71,15 +72,17 @@ export function parseContentionOptions(
     allowPositionals: false,
   });
   if (values.help) return null;
+  const mode = declarationMode(values.mode);
+  const maxSize = mode === "all" ? MAX_DECLARED_IDS : MAX_TREE_SIZE;
   return {
     sizes: ascendingIntegers(
       values.sizes,
       "--sizes",
       MIN_DECLARED_IDS,
-      MAX_DECLARED_IDS,
+      maxSize,
     ),
     sockets: ascendingIntegers(values.sockets, "--sockets", 1, MAX_SOCKETS),
-    fanout: integer(values.fanout, "--fanout", 1, MAX_DECLARED_IDS),
+    fanout: integer(values.fanout, "--fanout", 1, MAX_TREE_SIZE),
     samples: integer(values.samples, "--samples", 1, 10),
     hintIntervalMs: integer(
       values["hint-interval-ms"],
@@ -87,7 +90,7 @@ export function parseContentionOptions(
       1,
       1_000,
     ),
-    mode: declarationMode(values.mode),
+    mode,
     reuse: values.reuse,
   };
 }

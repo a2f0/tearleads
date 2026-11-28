@@ -71,12 +71,13 @@ export async function hydrateRemoteContainers(input: {
   const seenContainerObservations = new Map<string, string>();
   const containerIdsBeforeHydration = new Set(state.containersById.keys());
   const childIdsByParentId = createContainerChildIndex(state.containersById);
-  const { lanes, queueParentLane } = createContainerParentHydrationQueue({
-    containerIds: state.containersById.keys(),
-    parentIds: input.parentIds,
-    resetAllLaneWatermarks: input.resetAllLaneWatermarks,
-    resetRootLaneWatermark: input.resetRootLaneWatermark,
-  });
+  const { lanes, queueParentLane, unmarkSkippedParentLane } =
+    createContainerParentHydrationQueue({
+      containerIds: state.containersById.keys(),
+      parentIds: input.parentIds,
+      resetAllLaneWatermarks: input.resetAllLaneWatermarks,
+      resetRootLaneWatermark: input.resetRootLaneWatermark,
+    });
   // Follow child lanes during an explicit recursive crawl or for containers first
   // discovered in this pass. The latter lets a newly authorized root populate its
   // descendants immediately, while routine ticks keep known subtrees cache-first.
@@ -103,6 +104,7 @@ export async function hydrateRemoteContainers(input: {
     queueParentLane: queueDiscoveredParentLane,
     seenContainerObservations,
     state,
+    unmarkSkippedParentLane,
   });
   const { changedCount } = result;
   await finishRemoteHydration({
