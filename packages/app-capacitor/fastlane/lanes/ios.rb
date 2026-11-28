@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'security'
 require 'shellwords'
 require_relative '../lib/ios_signing_keychain'
 require_relative '../lib/lane_options'
@@ -51,13 +52,16 @@ def create_ios_signing_keychain(name, password)
 end
 
 # create_keychain records the default keychain it replaces, and delete_keychain
-# restores it. When the temporary keychain is already gone, restore it the same
-# way: `security default-keychain` prints the path already quoted.
+# restores it through Security::Keychain. When the temporary keychain is already
+# gone, restore it the same way without going through a shell.
 def cleanup_ios_signing_keychain(name)
   return delete_keychain(name: name) if ios_signing_keychain_exists?(name)
 
   original = lane_context[SharedValues::ORIGINAL_DEFAULT_KEYCHAIN]
-  Actions.sh("security default-keychain -s #{original}", log: false) unless original.to_s.empty?
+  return if original.to_s.empty?
+  return if Security::Keychain.set_default_keychain(original)
+
+  UI.user_error!("Could not restore '#{original}' as the default keychain")
 end
 
 def with_ios_signing_keychain(&)
