@@ -157,11 +157,11 @@ test("closes awaiting-tree socket on sign-in boundary and closes declared socket
   })) as unknown as typeof openSpy;
 
   const first = fakeSocket(WebSocket.OPEN);
-  const firstHandle = startContainerInterestDeclaration(sdk, first.ws, {
-    canRebind: () => false,
-  });
+  sdk.session.setContext({ authToken: "session-1", isAuthenticated: true });
+  const firstHandle = startContainerInterestDeclaration(sdk, first.ws);
   try {
-    sdk.database.configure({ execSql: (async () => []) as never, id: "db-1" });
+    // Real session.logout() fails closed even when caller omits options.canRebind.
+    sdk.session.logout();
     expect(first.close).toHaveBeenCalledTimes(1);
     expect(firstHandle.awaitingInitialAcknowledgement()).toBe(false);
 

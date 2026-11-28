@@ -10,6 +10,7 @@ describe("transitionContainerInterestBinding", () => {
       { status: "awaiting-tree", scope: scope1 },
       {
         type: "scope-retired",
+        scope: scope1,
         nextScope: scope2,
         canRebind: true,
         socketOpen: true,
@@ -19,6 +20,13 @@ describe("transitionContainerInterestBinding", () => {
       state: { status: "awaiting-tree", scope: scope2 },
       effect: "rebind",
     });
+    // Stale-scope events are ignored by the machine itself.
+    expect(
+      transitionContainerInterestBinding(next.state, {
+        type: "declaration-sent",
+        scope: scope1,
+      }),
+    ).toEqual({ state: next.state, effect: "none" });
   });
 
   test("closes socket on same-scope retirement, sign-in boundary, closed socket, or post-declaration retirement", () => {
@@ -29,6 +37,7 @@ describe("transitionContainerInterestBinding", () => {
         { status: "awaiting-tree", scope: scope1 },
         {
           type: "scope-retired",
+          scope: scope1,
           nextScope: scope1,
           canRebind: true,
           socketOpen: true,
@@ -41,6 +50,7 @@ describe("transitionContainerInterestBinding", () => {
         { status: "awaiting-tree", scope: scope1 },
         {
           type: "scope-retired",
+          scope: scope1,
           nextScope: scope2,
           canRebind: false,
           socketOpen: true,
@@ -53,6 +63,7 @@ describe("transitionContainerInterestBinding", () => {
         { status: "awaiting-tree", scope: scope1 },
         {
           type: "scope-retired",
+          scope: scope1,
           nextScope: scope2,
           canRebind: true,
           socketOpen: false,
@@ -62,7 +73,7 @@ describe("transitionContainerInterestBinding", () => {
 
     const declared = transitionContainerInterestBinding(
       { status: "awaiting-tree", scope: scope1 },
-      { type: "declaration-sent" },
+      { type: "declaration-sent", scope: scope1 },
     );
     expect(declared).toEqual({
       state: { status: "declared", scope: scope1 },
@@ -71,6 +82,7 @@ describe("transitionContainerInterestBinding", () => {
     expect(
       transitionContainerInterestBinding(declared.state, {
         type: "scope-retired",
+        scope: scope1,
         nextScope: scope2,
         canRebind: true,
         socketOpen: true,
@@ -82,7 +94,7 @@ describe("transitionContainerInterestBinding", () => {
     const scope = createDomainScope();
     const failed = transitionContainerInterestBinding(
       { status: "awaiting-tree", scope },
-      { type: "bind-failed" },
+      { type: "bind-failed", scope },
     );
     expect(failed).toEqual({
       state: { status: "unavailable" },

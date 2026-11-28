@@ -22,10 +22,11 @@ export type ContainerInterestBindingState =
   | { readonly status: "stopped" };
 
 export type ContainerInterestBindingEvent =
-  | { readonly type: "declaration-sent" }
-  | { readonly type: "bind-failed" }
+  | { readonly type: "declaration-sent"; readonly scope: DomainScope }
+  | { readonly type: "bind-failed"; readonly scope: DomainScope }
   | {
       readonly type: "scope-retired";
+      readonly scope: DomainScope;
       readonly nextScope: DomainScope;
       readonly canRebind: boolean;
       readonly socketOpen: boolean;
@@ -47,6 +48,7 @@ function transitionAwaitingTree(
   state: Extract<ContainerInterestBindingState, { status: "awaiting-tree" }>,
   event: Exclude<ContainerInterestBindingEvent, { type: "stop" }>,
 ): ContainerInterestBindingTransition {
+  if (event.scope !== state.scope) return { state, effect: "none" };
   switch (event.type) {
     case "declaration-sent":
       return {
@@ -87,7 +89,7 @@ export function transitionContainerInterestBinding(
     case "awaiting-tree":
       return transitionAwaitingTree(state, event);
     case "declared":
-      if (event.type === "scope-retired") {
+      if (event.type === "scope-retired" && event.scope === state.scope) {
         return { state: { status: "stopped" }, effect: "close-socket" };
       }
       return { state, effect: "none" };

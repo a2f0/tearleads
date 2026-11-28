@@ -46,10 +46,19 @@ test("dispose() tears down reconcilers/coordinators across all scopes", async ()
   sdk.deviceFirst.open();
   const scopeA = sdk.domainScope;
   const coordinatorA = getOrCreateDomainSyncCoordinator(scopeA);
+  let ranA = 0;
+  const laneA = coordinatorA.registerLane("probe-a", {
+    run: async () => {
+      ranA += 1;
+    },
+  });
 
-  // Rotate the domain scope (anonymous -> authenticated) and create a second
-  // reconciler so dispose() must tear down more than the current scope.
+  // Rotating the domain scope (anonymous -> authenticated) eagerly retires the
+  // prior scope's coordinator and device-first reconciler/subscriptions.
   await setGeneratedIdentity(sdk.identity);
+  expect(coordinatorA.isDisposed()).toBe(true);
+  expect(getOrCreateDomainSyncCoordinator(scopeA)).not.toBe(coordinatorA);
+
   sdk.deviceFirst.open();
   const scopeB = sdk.domainScope;
   expect(scopeB).not.toBe(scopeA);
@@ -57,17 +66,11 @@ test("dispose() tears down reconcilers/coordinators across all scopes", async ()
 
   const previous = sdk.deviceFirst.open();
   let reopened = previous;
-  coordinatorA.subscribe(() => {
-    if (coordinatorA.isDisposed()) reopened = sdk.deviceFirst.open();
+  coordinatorB.subscribe(() => {
+    if (coordinatorB.isDisposed()) reopened = sdk.deviceFirst.open();
   });
 
-  let ranA = 0;
   let ranB = 0;
-  const laneA = coordinatorA.registerLane("probe-a", {
-    run: async () => {
-      ranA += 1;
-    },
-  });
   const laneB = coordinatorB.registerLane("probe-b", {
     run: async () => {
       ranB += 1;
@@ -81,11 +84,32 @@ test("dispose() tears down reconcilers/coordinators across all scopes", async ()
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(ranA).toBe(0);
   expect(ranB).toBe(0);
-  expect(getOrCreateDomainSyncCoordinator(scopeA)).not.toBe(coordinatorA);
   expect(getOrCreateDomainSyncCoordinator(scopeB)).not.toBe(coordinatorB);
   try {
     expect(reopened).not.toBe(previous);
     expect(sdk.deviceFirst.open()).toBe(reopened);
+  } finally {
+    sdk.dispose();
+  }
+});
+
+test("scope rotation stops the prior scope's device-first reconciler immediately", async () => {
+  const sdk = new Tearleads({
+    blobStoreFactory: () => createMemoryBlobStore(),
+    logger: quietLogger,
+    online: false,
+  });
+  const first = sdk.deviceFirst.open();
+  let stopped = 0;
+  const originalStop = first.reconciler.stop.bind(first.reconciler);
+  first.reconciler.stop = () => {
+    stopped += 1;
+    originalStop();
+  };
+
+  try {
+    await setGeneratedIdentity(sdk.identity);
+    expect(stopped).toBe(1);
   } finally {
     sdk.dispose();
   }

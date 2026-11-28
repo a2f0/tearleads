@@ -56,6 +56,10 @@ export function startContainerInterestDeclaration(
   ws: WebSocket,
   options?: StartContainerInterestBindingOptions,
 ): ContainerInterestDeclaration {
+  const capturedSignIn = tearleads.session?.captureSignIn?.();
+  const isRebindAllowed = (): boolean =>
+    (capturedSignIn ? capturedSignIn() : true) &&
+    (options?.canRebind?.() ?? true);
   let state: ContainerInterestBindingState = {
     status: "awaiting-tree",
     scope: tearleads.domainScope,
@@ -73,8 +77,9 @@ export function startContainerInterestDeclaration(
   const handleScopeRetired = (scope: DomainScope): void => {
     const transition = transitionContainerInterestBinding(state, {
       type: "scope-retired",
+      scope,
       nextScope: tearleads.domainScope,
-      canRebind: options?.canRebind?.() ?? true,
+      canRebind: isRebindAllowed(),
       socketOpen: ws.readyState === WebSocket.OPEN,
     });
     state = transition.state;
@@ -91,17 +96,17 @@ export function startContainerInterestDeclaration(
   const bindScope = (scope: DomainScope, isRebind: boolean): void => {
     detachActive();
     const coordinator = getOrCreateDomainSyncCoordinator(scope);
-    let unavailable = false;
     activeHandle = declareInterest(tearleads, ws, {
       onDeclared: () => {
         state = transitionContainerInterestBinding(state, {
           type: "declaration-sent",
+          scope,
         }).state;
       },
       onUnavailable: () => {
-        unavailable = true;
         const next = transitionContainerInterestBinding(state, {
           type: "bind-failed",
+          scope,
         });
         state = next.state;
         if (isRebind && next.effect === "mark-unavailable") {
@@ -109,7 +114,10 @@ export function startContainerInterestDeclaration(
         }
       },
     });
-    if (unavailable) return;
+    if (state.status !== "awaiting-tree" && state.status !== "declared") {
+      detachActive();
+      return;
+    }
     // A socket owns its declaration queue and its acknowledged tree. When the
     // bound scope retires before anything was declared on the socket (e.g.
     // SQLite finished booting after recovery-key restore), rebind in place to
